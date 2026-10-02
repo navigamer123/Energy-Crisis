@@ -142,11 +142,18 @@ private:
 
     void executeP1Action();
     void executeP2Action();
+    void executeP1Upgrade();
+    void executeP2Upgrade();
 
     void updateWeatherParticles(float dt);
     void drawWeatherParticles(sf::RenderWindow& window);
     void drawEnergyConduits(sf::RenderWindow& window, float animTime);
     void drawHelpOverlay(sf::RenderWindow& window);
+    void drawVictoryScreen(sf::RenderWindow& window);
+    void restartMatch();
+
+    sf::FloatRect victoryRestartBtn;
+    sf::FloatRect victoryMenuBtn;
 
 public:
     UI_map();

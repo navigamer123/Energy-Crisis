@@ -103,6 +103,7 @@ struct PlayerEconomy {
     float cityInfluence = 0.50f;// Percentage of city supplied / captured (0.0 to 1.0)
     int selectedBuilding = 0;   // 0 = None, 1 = Solar, 2 = Wind, 3 = Hydro, 4 = Battery, 5 = Lamp, 6 = Demolish
     int lastPlacedBuilding = 1; // Remembers lastly placed building for instant reuse
+    int mineLevels[8] = { 1, 1, 1, 1, 1, 1, 1, 1 }; // Upgrade level for each resource mine (1..5)
     PlayerData data;            // Teammate's detailed inventory from weatherF
 };
 
@@ -168,8 +169,13 @@ public:
     // Player Actions
     bool mineResource(int player, ResourceType type, std::string& outMsg);
     bool mineResource(int player, ResourceType type, MineResult& result, std::string& outMsg);
+    int getMineLevel(int player, ResourceType type) const;
+    int getMineUpgradeCost(int player, ResourceType type) const;
+    bool upgradeMine(int player, ResourceType type, std::string& outMsg);
+
     bool buyLandPlot(int player, int plotId, std::string& outMsg);
     bool buyNextLandTier(int player, std::string& outMsg);
+    void restartGame() { init(1600.0f, 900.0f); }
 
     void cycleBuildingSelection(int player);
     void cycleBuildingSelectionPrev(int player);

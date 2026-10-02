@@ -8,88 +8,95 @@ UI_resourceNodes::UI_resourceNodes() {
     stations.clear();
 
     // -------------------------------------------------------------------------
-    // Player 1 Stations (West: 4 cols x 2 rows, under Land Plots)
-    // Land plots end around Y = 445.
+    // Player 1 Stations (West: 4 in Row 0, 3 in Row 1 under Land Plots)
     // -------------------------------------------------------------------------
     float p1StartX = 244.0f;
     float row0Y = 582.0f;
-    float row1Y = 666.0f;
-    float cardW = 86.0f;
-    float cardH = 76.0f;
-    float gapX = 6.0f;
+    float row1Y = 668.0f;
+    float cardW0 = 86.0f;
+    float cardH = 80.0f;
+    float gapX0 = 6.0f;
 
-    // Row 0: Wood, Iron, Copper, Coal
+    // Row 0: Wood, Iron, Copper, Coal (86px cards)
     stations.push_back({ ResourceType::WOOD, 1,
-        sf::FloatRect({ p1StartX + 0 * (cardW + gapX), row0Y }, { cardW, cardH }),
-        "ГОРА", "+12 Дърво", sf::Color(75, 210, 110) });
+        sf::FloatRect({ p1StartX + 0 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
+        "ГОРА", "+12 Дърво", sf::Color(75, 210, 110),
+        sf::FloatRect({ p1StartX + 0 * (cardW0 + gapX0) + 4.0f, row0Y + cardH - 18.0f }, { cardW0 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::IRON, 1,
-        sf::FloatRect({ p1StartX + 1 * (cardW + gapX), row0Y }, { cardW, cardH }),
-        "ЖЕЛЯЗО", "+8 Жел", sf::Color(170, 195, 220) });
+        sf::FloatRect({ p1StartX + 1 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
+        "ЖЕЛЯЗО", "+8 Жел", sf::Color(170, 195, 220),
+        sf::FloatRect({ p1StartX + 1 * (cardW0 + gapX0) + 4.0f, row0Y + cardH - 18.0f }, { cardW0 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::COPPER, 1,
-        sf::FloatRect({ p1StartX + 2 * (cardW + gapX), row0Y }, { cardW, cardH }),
-        "МЕД", "+6 Мед", sf::Color(230, 140, 70) });
+        sf::FloatRect({ p1StartX + 2 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
+        "МЕД", "+6 Мед", sf::Color(230, 140, 70),
+        sf::FloatRect({ p1StartX + 2 * (cardW0 + gapX0) + 4.0f, row0Y + cardH - 18.0f }, { cardW0 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::COAL, 1,
-        sf::FloatRect({ p1StartX + 3 * (cardW + gapX), row0Y }, { cardW, cardH }),
-        "ВЪГЛИЩА", "+6 Въгл", sf::Color(115, 125, 140) });
+        sf::FloatRect({ p1StartX + 3 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
+        "ВЪГЛИЩА", "+6 Въгл", sf::Color(115, 125, 140),
+        sf::FloatRect({ p1StartX + 3 * (cardW0 + gapX0) + 4.0f, row0Y + cardH - 18.0f }, { cardW0 - 8.0f, 15.0f }) });
 
-    // Row 1: Silicon, Silver, Gold, Money
+    // Row 1: Silicon, Silver, Gold (116px cards, perfectly centered)
+    float cardW1 = 116.0f;
+    float gapX1 = 8.0f;
     stations.push_back({ ResourceType::SILICON, 1,
-        sf::FloatRect({ p1StartX + 0 * (cardW + gapX), row1Y }, { cardW, cardH }),
-        "СИЛИЦИЙ", "+6 Сил", sf::Color(0, 220, 255) });
+        sf::FloatRect({ p1StartX + 0 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
+        "СИЛИЦИЙ", "+6 Сил", sf::Color(0, 220, 255),
+        sf::FloatRect({ p1StartX + 0 * (cardW1 + gapX1) + 4.0f, row1Y + cardH - 18.0f }, { cardW1 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::SILVER, 1,
-        sf::FloatRect({ p1StartX + 1 * (cardW + gapX), row1Y }, { cardW, cardH }),
-        "СРЕБРО", "+4 Среб", sf::Color(225, 235, 245) });
+        sf::FloatRect({ p1StartX + 1 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
+        "СРЕБРО", "+4 Среб", sf::Color(225, 235, 245),
+        sf::FloatRect({ p1StartX + 1 * (cardW1 + gapX1) + 4.0f, row1Y + cardH - 18.0f }, { cardW1 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::GOLD, 1,
-        sf::FloatRect({ p1StartX + 2 * (cardW + gapX), row1Y }, { cardW, cardH }),
-        "ЗЛАТО", "+3 Злато", sf::Color(255, 215, 0) });
-
-    stations.push_back({ ResourceType::MONEY, 1,
-        sf::FloatRect({ p1StartX + 3 * (cardW + gapX), row1Y }, { cardW, cardH }),
-        "ХАЗНА", "+$ Договор", sf::Color(80, 235, 160) });
+        sf::FloatRect({ p1StartX + 2 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
+        "ЗЛАТО", "+3 Злато", sf::Color(255, 215, 0),
+        sf::FloatRect({ p1StartX + 2 * (cardW1 + gapX1) + 4.0f, row1Y + cardH - 18.0f }, { cardW1 - 8.0f, 15.0f }) });
 
     // -------------------------------------------------------------------------
-    // Player 2 Stations (East: 4 cols x 2 rows, mirrored)
+    // Player 2 Stations (East: 4 in Row 0, 3 in Row 1, mirrored)
     // -------------------------------------------------------------------------
     float p2StartX = 998.0f;
 
     // Row 0: Coal, Copper, Iron, Wood
     stations.push_back({ ResourceType::COAL, 2,
-        sf::FloatRect({ p2StartX + 0 * (cardW + gapX), row0Y }, { cardW, cardH }),
-        "ВЪГЛИЩА", "+6 Въгл", sf::Color(115, 125, 140) });
+        sf::FloatRect({ p2StartX + 0 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
+        "ВЪГЛИЩА", "+6 Въгл", sf::Color(115, 125, 140),
+        sf::FloatRect({ p2StartX + 0 * (cardW0 + gapX0) + 4.0f, row0Y + cardH - 18.0f }, { cardW0 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::COPPER, 2,
-        sf::FloatRect({ p2StartX + 1 * (cardW + gapX), row0Y }, { cardW, cardH }),
-        "МЕД", "+6 Мед", sf::Color(230, 140, 70) });
+        sf::FloatRect({ p2StartX + 1 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
+        "МЕД", "+6 Мед", sf::Color(230, 140, 70),
+        sf::FloatRect({ p2StartX + 1 * (cardW0 + gapX0) + 4.0f, row0Y + cardH - 18.0f }, { cardW0 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::IRON, 2,
-        sf::FloatRect({ p2StartX + 2 * (cardW + gapX), row0Y }, { cardW, cardH }),
-        "ЖЕЛЯЗО", "+8 Жел", sf::Color(170, 195, 220) });
+        sf::FloatRect({ p2StartX + 2 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
+        "ЖЕЛЯЗО", "+8 Жел", sf::Color(170, 195, 220),
+        sf::FloatRect({ p2StartX + 2 * (cardW0 + gapX0) + 4.0f, row0Y + cardH - 18.0f }, { cardW0 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::WOOD, 2,
-        sf::FloatRect({ p2StartX + 3 * (cardW + gapX), row0Y }, { cardW, cardH }),
-        "ГОРА", "+12 Дърво", sf::Color(75, 210, 110) });
+        sf::FloatRect({ p2StartX + 3 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
+        "ГОРА", "+12 Дърво", sf::Color(75, 210, 110),
+        sf::FloatRect({ p2StartX + 3 * (cardW0 + gapX0) + 4.0f, row0Y + cardH - 18.0f }, { cardW0 - 8.0f, 15.0f }) });
 
-    // Row 1: Money, Gold, Silver, Silicon
-    stations.push_back({ ResourceType::MONEY, 2,
-        sf::FloatRect({ p2StartX + 0 * (cardW + gapX), row1Y }, { cardW, cardH }),
-        "ХАЗНА", "+$ Договор", sf::Color(80, 235, 160) });
-
+    // Row 1: Gold, Silver, Silicon
     stations.push_back({ ResourceType::GOLD, 2,
-        sf::FloatRect({ p2StartX + 1 * (cardW + gapX), row1Y }, { cardW, cardH }),
-        "ЗЛАТО", "+3 Злато", sf::Color(255, 215, 0) });
+        sf::FloatRect({ p2StartX + 0 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
+        "ЗЛАТО", "+3 Злато", sf::Color(255, 215, 0),
+        sf::FloatRect({ p2StartX + 0 * (cardW1 + gapX1) + 4.0f, row1Y + cardH - 18.0f }, { cardW1 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::SILVER, 2,
-        sf::FloatRect({ p2StartX + 2 * (cardW + gapX), row1Y }, { cardW, cardH }),
-        "СРЕБРО", "+4 Среб", sf::Color(225, 235, 245) });
+        sf::FloatRect({ p2StartX + 1 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
+        "СРЕБРО", "+4 Среб", sf::Color(225, 235, 245),
+        sf::FloatRect({ p2StartX + 1 * (cardW1 + gapX1) + 4.0f, row1Y + cardH - 18.0f }, { cardW1 - 8.0f, 15.0f }) });
 
     stations.push_back({ ResourceType::SILICON, 2,
-        sf::FloatRect({ p2StartX + 3 * (cardW + gapX), row1Y }, { cardW, cardH }),
-        "СИЛИЦИЙ", "+6 Сил", sf::Color(0, 220, 255) });
+        sf::FloatRect({ p2StartX + 2 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
+        "СИЛИЦИЙ", "+6 Сил", sf::Color(0, 220, 255),
+        sf::FloatRect({ p2StartX + 2 * (cardW1 + gapX1) + 4.0f, row1Y + cardH - 18.0f }, { cardW1 - 8.0f, 15.0f }) });
 }
 
 ResourceType UI_resourceNodes::getP1ResourceAt(sf::Vector2f pt) const {
@@ -104,6 +111,24 @@ ResourceType UI_resourceNodes::getP1ResourceAt(sf::Vector2f pt) const {
 ResourceType UI_resourceNodes::getP2ResourceAt(sf::Vector2f pt) const {
     for (const auto& s : stations) {
         if (s.playerOwner == 2 && s.bounds.contains(pt)) {
+            return s.type;
+        }
+    }
+    return ResourceType::NONE;
+}
+
+ResourceType UI_resourceNodes::getP1UpgradeAt(sf::Vector2f pt) const {
+    for (const auto& s : stations) {
+        if (s.playerOwner == 1 && s.upgradeBtnBounds.contains(pt)) {
+            return s.type;
+        }
+    }
+    return ResourceType::NONE;
+}
+
+ResourceType UI_resourceNodes::getP2UpgradeAt(sf::Vector2f pt) const {
+    for (const auto& s : stations) {
+        if (s.playerOwner == 2 && s.upgradeBtnBounds.contains(pt)) {
             return s.type;
         }
     }
@@ -436,7 +461,8 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
 }
 
 void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                                float p1Cooldown, float p2Cooldown) {
+                                 const GameEngine* engine,
+                                 float p1Cooldown, float p2Cooldown) {
     sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
 
     for (const auto& s : stations) {
@@ -444,23 +470,27 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         float cd = (s.playerOwner == 1) ? p1Cooldown : p2Cooldown;
         bool onCooldown = (cd > 0.0f);
 
+        int lvl = engine ? engine->getMineLevel(s.playerOwner, s.type) : 1;
+        int upCost = engine ? engine->getMineUpgradeCost(s.playerOwner, s.type) : 15;
+        float mult = 1.0f + (lvl - 1) * 0.75f;
+
         // Station background card
         sf::RectangleShape card(s.bounds.size);
         card.setPosition(s.bounds.position);
-        card.setFillColor(hover ? sf::Color(32, 42, 58, 245) : sf::Color(20, 26, 38, 230));
-        card.setOutlineThickness(hover ? 2.0f : 1.2f);
-        card.setOutlineColor(hover ? sf::Color(255, 230, 100) : s.themeColor);
+        card.setFillColor(hover ? sf::Color(32, 44, 62, 245) : sf::Color(20, 26, 38, 230));
+        card.setOutlineThickness(hover ? 2.0f : (lvl > 1 ? 1.5f : 1.2f));
+        card.setOutlineColor(hover ? sf::Color(255, 230, 100) : (lvl > 1 ? sf::Color(255, 215, 0, 200) : s.themeColor));
         window.draw(card);
 
         // Top accent line
         sf::RectangleShape topBar({ s.bounds.size.x, 3.0f });
         topBar.setPosition(s.bounds.position);
-        topBar.setFillColor(s.themeColor);
+        topBar.setFillColor(lvl > 1 ? sf::Color(255, 215, 0) : s.themeColor);
         window.draw(topBar);
 
         // Vector Icon depending on resource type
         float icX = s.bounds.position.x + 8.0f;
-        float icY = s.bounds.position.y + 16.0f;
+        float icY = s.bounds.position.y + 14.0f;
 
         if (s.type == ResourceType::WOOD) {
             sf::RectangleShape trunk({ 3.0f, 8.0f });
@@ -522,48 +552,87 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             coin.setOutlineThickness(1.2f);
             coin.setOutlineColor(sf::Color(180, 140, 20));
             window.draw(coin);
-        } else if (s.type == ResourceType::MONEY) {
-            sf::RectangleShape note({ 15.0f, 9.0f });
-            note.setPosition({ icX, icY + 4.0f });
-            note.setFillColor(sf::Color(60, 195, 120));
-            note.setOutlineThickness(1.0f);
-            note.setOutlineColor(sf::Color(180, 255, 210));
-            window.draw(note);
         }
 
-        // Labels
+        // Labels & Upgrade Button
         if (fontLoaded) {
+            // Station Name
             sf::Text nameText(font, toUtf8(s.nameBg), 11);
             nameText.setFillColor(s.themeColor);
-            nameText.setPosition({ s.bounds.position.x + 28.0f, s.bounds.position.y + 7.0f });
+            nameText.setPosition({ s.bounds.position.x + 28.0f, s.bounds.position.y + 6.0f });
             window.draw(nameText);
 
-            sf::Text yieldText(font, toUtf8(s.yieldStr), 11);
+            // Level Badge in Top-Right
+            std::string lvlStr = "L" + std::to_string(lvl);
+            sf::Text tLvl(font, toUtf8(lvlStr), 10);
+            tLvl.setFillColor(lvl > 1 ? sf::Color(255, 215, 0) : sf::Color(160, 180, 205));
+            sf::FloatRect lb = tLvl.getLocalBounds();
+            tLvl.setPosition({ s.bounds.position.x + s.bounds.size.x - lb.size.x - 6.0f, s.bounds.position.y + 6.0f });
+            window.draw(tLvl);
+
+            // Dynamic Yield Text
+            int curYield = 12;
+            std::string unit = "Дърво";
+            switch (s.type) {
+                case ResourceType::WOOD: curYield = static_cast<int>(std::round(12 * mult)); unit = "Дърво"; break;
+                case ResourceType::IRON: curYield = static_cast<int>(std::round(8 * mult)); unit = "Жел"; break;
+                case ResourceType::COPPER: curYield = static_cast<int>(std::round(6 * mult)); unit = "Мед"; break;
+                case ResourceType::COAL: curYield = static_cast<int>(std::round(6 * mult)); unit = "Въгл"; break;
+                case ResourceType::SILICON: curYield = static_cast<int>(std::round(6 * mult)); unit = "Сил"; break;
+                case ResourceType::SILVER: curYield = static_cast<int>(std::round(4 * mult)); unit = "Среб"; break;
+                case ResourceType::GOLD: curYield = static_cast<int>(std::round(3 * mult)); unit = "Злато"; break;
+                default: break;
+            }
+            std::string curYieldStr = "+" + std::to_string(curYield) + " " + unit;
+            sf::Text yieldText(font, toUtf8(curYieldStr), 11);
             yieldText.setFillColor(sf::Color::White);
-            yieldText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 36.0f });
+            yieldText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 34.0f });
             window.draw(yieldText);
 
+            // Status or Cooldown Bar
             if (onCooldown) {
-                // Cooldown overlay
                 char cdbuf[16];
                 std::snprintf(cdbuf, sizeof(cdbuf), "%.1fs", cd);
-                sf::Text cdText(font, toUtf8(cdbuf), 10);
+                sf::Text cdText(font, toUtf8(cdbuf), 9);
                 cdText.setFillColor(sf::Color(255, 170, 70));
-                cdText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 54.0f });
+                cdText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 48.0f });
                 window.draw(cdText);
 
-                // Progress bar
                 float cdRatio = std::min(1.0f, std::max(0.0f, cd / 1.0f));
                 sf::RectangleShape cdBar({ (s.bounds.size.x - 16.0f) * (1.0f - cdRatio), 2.0f });
-                cdBar.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 68.0f });
+                cdBar.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 58.0f });
                 cdBar.setFillColor(sf::Color(255, 180, 50));
                 window.draw(cdBar);
             } else {
-                sf::Text actText(font, toUtf8(hover ? "[КЛИК / ДОБИВ]" : "[ГОТОВО]"), 9);
+                std::string actHint = (s.playerOwner == 1) ? "[SPACE: Добив]" : "[ENTER: Добив]";
+                sf::Text actText(font, toUtf8(hover ? actHint : "[ГОТОВО]"), 9);
                 actText.setFillColor(hover ? sf::Color(255, 235, 120) : sf::Color(140, 240, 180));
-                actText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 54.0f });
+                actText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 48.0f });
                 window.draw(actText);
             }
+
+            // Upgrade Button at bottom of card
+            bool upHover = s.upgradeBtnBounds.contains(mousePos);
+            sf::RectangleShape upBtn(s.upgradeBtnBounds.size);
+            upBtn.setPosition(s.upgradeBtnBounds.position);
+            if (lvl >= 5) {
+                upBtn.setFillColor(sf::Color(40, 45, 55, 200));
+                upBtn.setOutlineThickness(1.0f);
+                upBtn.setOutlineColor(sf::Color(100, 110, 130));
+            } else {
+                upBtn.setFillColor(upHover ? sf::Color(75, 60, 20, 250) : sf::Color(35, 30, 15, 220));
+                upBtn.setOutlineThickness(1.0f);
+                upBtn.setOutlineColor(upHover ? sf::Color(255, 240, 120) : sf::Color(255, 215, 0, 180));
+            }
+            window.draw(upBtn);
+
+            std::string upLabel = (lvl >= 5) ? "MAX" : ("+1 НИВО: " + std::to_string(upCost) + "G");
+            sf::Text tUp(font, toUtf8(upLabel), 9);
+            tUp.setFillColor(lvl >= 5 ? sf::Color(160, 170, 185) : (upHover ? sf::Color(255, 245, 160) : sf::Color(255, 215, 0)));
+            sf::FloatRect upb = tUp.getLocalBounds();
+            tUp.setPosition({ s.upgradeBtnBounds.position.x + (s.upgradeBtnBounds.size.x - upb.size.x) / 2.0f,
+                              s.upgradeBtnBounds.position.y + (s.upgradeBtnBounds.size.y - upb.size.y) / 2.0f - 1.0f });
+            window.draw(tUp);
         }
     }
 }

@@ -81,12 +81,11 @@ void testEachResourceMinedSeparately() {
     assert(okGold && res.gold == 3);
     assert(engine.getPlayerEconomy(1).gold == 3);
 
-    // 8. Mine Money (City contract subsidy)
+    // 8. Money mine was removed ("махни мината за пари")
     bool okMoney = engine.mineResource(1, ResourceType::MONEY, res, msg);
-    assert(okMoney && res.money >= 12);
-    assert(engine.getPlayerEconomy(1).money >= 12);
+    assert(!okMoney); // Money cannot be mined from a station; earned from clean power delivery!
 
-    std::cout << "  -> PASS: All 8 resources gathered separately with dedicated yields.\n";
+    std::cout << "  -> PASS: All 7 mining resources gathered separately with dedicated yields, money mine removed.\n";
 }
 
 void testPrecisionGridMovement() {
@@ -174,8 +173,8 @@ void testLastPlacedBuildingMemory() {
     std::cout << "  -> PASS: Lastly placed item remembered, bidirectional cycling works flawlessly.\n";
 }
 
-void testPercentageBasedEnergyRewards() {
-    std::cout << "[TEST 5] Testing percentage-based energy rewards & city influence...\n";
+void testPercentageBasedEnergyRewardsAndGradualProgression() {
+    std::cout << "[TEST 5] Testing percentage-based energy rewards & gradual city influence...\n";
     GameEngine engine;
     engine.init(1600.0f, 900.0f);
 
@@ -206,14 +205,12 @@ void testPercentageBasedEnergyRewards() {
 
     // P1 generates more energy -> P1 must have greater share and higher money payout!
     assert(p1After.energyMW > p2After.energyMW);
+    assert(p1After.cityInfluence > 0.50f);
+    assert(p1After.cityInfluence < 0.90f); // Gradual progression: does NOT instantly jump to 100%!
     assert(p1After.cityInfluence > p2After.cityInfluence);
     assert(p1After.money > p2After.money);
 
-    float totalEnergy = static_cast<float>(p1After.energyMW + p2After.energyMW);
-    float expectedP1Share = static_cast<float>(p1After.energyMW) / totalEnergy;
-    assert(std::abs(p1After.cityInfluence - expectedP1Share) < 0.05f);
-
-    std::cout << "  -> PASS: Energy payout and city influence are strictly percentage-based.\n";
+    std::cout << "  -> PASS: Energy payout is percentage-based and city influence moves gradually.\n";
 }
 
 void testDemolitionRefundBalance() {
@@ -252,6 +249,45 @@ void testDemolitionRefundBalance() {
     std::cout << "  -> PASS: Deductions and 50% demolition refunds are balanced and accurate.\n";
 }
 
+void testMineUpgradesWithGold() {
+    std::cout << "[TEST 7] Testing resource mine upgrades with Gold...\n";
+    GameEngine engine;
+    engine.init(1600.0f, 900.0f);
+
+    // Initial state: Level 1
+    assert(engine.getMineLevel(1, ResourceType::IRON) == 1);
+    assert(engine.getMineUpgradeCost(1, ResourceType::IRON) == 15);
+
+    // Give gold to Player 1
+    engine.getPlayerEconomyMut(1).gold = 50;
+
+    std::string msg;
+    bool upgraded = engine.upgradeMine(1, ResourceType::IRON, msg);
+    assert(upgraded);
+    assert(engine.getMineLevel(1, ResourceType::IRON) == 2);
+    assert(engine.getPlayerEconomy(1).gold == 35); // 50 - 15 = 35 Gold
+
+    // Upgrade to Level 3 costs 30 Gold
+    assert(engine.getMineUpgradeCost(1, ResourceType::IRON) == 30);
+    upgraded = engine.upgradeMine(1, ResourceType::IRON, msg);
+    assert(upgraded);
+    assert(engine.getMineLevel(1, ResourceType::IRON) == 3);
+    assert(engine.getPlayerEconomy(1).gold == 5); // 35 - 30 = 5 Gold
+
+    // Cannot upgrade to Level 4 without enough gold (costs 45 Gold, has 5)
+    upgraded = engine.upgradeMine(1, ResourceType::IRON, msg);
+    assert(!upgraded);
+    assert(engine.getMineLevel(1, ResourceType::IRON) == 3);
+
+    // Verify upgraded yield (Level 3 Iron gives base 8 * 2.5 = 20 Iron!)
+    GameEngine::MineResult res;
+    engine.mineResource(1, ResourceType::IRON, res, msg);
+    assert(res.iron == 20);
+    assert(engine.getPlayerEconomy(1).iron == 20);
+
+    std::cout << "  -> PASS: Mine upgrade with gold works, level increases, and yields scale by +75%/lvl.\n";
+}
+
 int main() {
     std::cout << "========================================================\n";
     std::cout << " RUNNING ENERGY CRISIS ECONOMY & BALANCE TEST SUITE\n";
@@ -261,11 +297,12 @@ int main() {
     testEachResourceMinedSeparately();
     testPrecisionGridMovement();
     testLastPlacedBuildingMemory();
-    testPercentageBasedEnergyRewards();
+    testPercentageBasedEnergyRewardsAndGradualProgression();
     testDemolitionRefundBalance();
+    testMineUpgradesWithGold();
 
     std::cout << "========================================================\n";
-    std::cout << " ALL 6 ECONOMY & BALANCE TESTS PASSED SUCCESSFULLY! 100%\n";
+    std::cout << " ALL 7 ECONOMY & BALANCE TESTS PASSED SUCCESSFULLY! 100%\n";
     std::cout << "========================================================\n";
     return 0;
 }

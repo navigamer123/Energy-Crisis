@@ -13,6 +13,7 @@ struct ResourceStation {
     std::string nameBg;
     std::string yieldStr;
     sf::Color themeColor;
+    sf::FloatRect upgradeBtnBounds;
 };
 
 class UI_resourceNodes {
@@ -23,6 +24,7 @@ public:
     UI_resourceNodes();
 
     void drawNodes(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+                   const GameEngine* engine = nullptr,
                    float p1Cooldown = 0.0f, float p2Cooldown = 0.0f);
     void drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                        const std::vector<LandPlot>& plots, sf::Vector2f mousePos);
@@ -34,6 +36,8 @@ public:
 
     ResourceType getP1ResourceAt(sf::Vector2f pt) const;
     ResourceType getP2ResourceAt(sf::Vector2f pt) const;
+    ResourceType getP1UpgradeAt(sf::Vector2f pt) const;
+    ResourceType getP2UpgradeAt(sf::Vector2f pt) const;
     const ResourceStation* getStation(int player, ResourceType type) const;
 
     // Backward compatibility helpers

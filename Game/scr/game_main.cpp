@@ -110,7 +110,7 @@ void GameEngine::update(float dt) {
     // Update building energy outputs based on real-time continuous weather & sun
     updateBuildingsEnergy(effectiveDt);
 
-    // Percentage-based city energy revenue and dynamic market influence
+    // Percentage-based city energy revenue and gradual dynamic market influence
     static float revenueTimer = 0.0f;
     revenueTimer += effectiveDt;
     if (revenueTimer >= 1.0f) {
@@ -120,11 +120,6 @@ void GameEngine::update(float dt) {
         if (totalGrid > 0.0f) {
             float p1Share = static_cast<float>(p1.energyMW) / totalGrid;
             float p2Share = static_cast<float>(p2.energyMW) / totalGrid;
-
-            // City influence dynamically tracks current energy share percentage
-            p1.cityInfluence = p1Share;
-            p2.cityInfluence = p2Share;
-            city.p1CityShare = p1Share;
 
             // City energy contract pool (scales with total clean power provided)
             int contractPool = 25 + static_cast<int>(totalGrid * 0.25f);
@@ -146,10 +141,32 @@ void GameEngine::update(float dt) {
                 p2.gold += std::max(1, static_cast<int>(p2.energyMW * 0.03f));
                 p2.data.gold = p2.gold;
             }
-        } else {
-            p1.cityInfluence = 0.50f;
-            p2.cityInfluence = 0.50f;
-            city.p1CityShare = 0.50f;
+
+            // Gradual tug-of-war city influence progression (moves smoothly instead of jumping instantly)
+            if (city.winner == 0) {
+                float powerDiff = static_cast<float>(p1.energyMW - p2.energyMW);
+                float driftStep = (powerDiff / std::max(50.0f, static_cast<float>(city.cityEnergyDemand))) * 0.015f;
+                driftStep = std::clamp(driftStep, -0.03f, 0.03f);
+                city.p1CityShare = std::clamp(city.p1CityShare + driftStep, 0.0f, 1.0f);
+            }
+        }
+
+        p1.cityInfluence = city.p1CityShare;
+        p2.cityInfluence = 1.0f - city.p1CityShare;
+
+        // Victory condition when someone reaches 100% (1.0)
+        if (city.p1CityShare >= 0.999f) {
+            city.p1CityShare = 1.0f;
+            p1.cityInfluence = 1.0f;
+            p2.cityInfluence = 0.0f;
+            city.winner = 1;
+            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
+        } else if (city.p1CityShare <= 0.001f) {
+            city.p1CityShare = 0.0f;
+            p1.cityInfluence = 0.0f;
+            p2.cityInfluence = 1.0f;
+            city.winner = 2;
+            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
         }
     }
 }
@@ -354,84 +371,82 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
     result = MineResult();
     result.type = type;
 
+    int lvl = getMineLevel(player, type);
+    float mult = 1.0f + (lvl - 1) * 0.75f;
+    std::string lvlTag = (lvl > 1 ? " [НИВО " + std::to_string(lvl) + "]" : "");
+
     switch (type) {
         case ResourceType::WOOD: {
-            int amount = 12;
+            int amount = static_cast<int>(std::round(12 * mult));
             econ.wood += amount;
             econ.data.wood = econ.wood;
             result.wood = amount;
             result.amount = amount;
-            outMsg = "+12 Дървесина (Гора)";
+            outMsg = "+" + std::to_string(amount) + " Дървесина (Гора)" + lvlTag;
             return true;
         }
         case ResourceType::IRON: {
-            int amount = 8;
+            int amount = static_cast<int>(std::round(8 * mult));
             econ.iron += amount;
             econ.ore += amount;
             econ.data.iron = econ.iron;
             result.iron = amount;
             result.amount = amount;
-            outMsg = "+8 Желязо (Желязна мина)";
+            outMsg = "+" + std::to_string(amount) + " Желязо (Желязна мина)" + lvlTag;
             return true;
         }
         case ResourceType::COPPER: {
-            int amount = 6;
+            int amount = static_cast<int>(std::round(6 * mult));
             econ.copper += amount;
             econ.ore += amount;
             econ.data.copper = econ.copper;
             result.copper = amount;
             result.amount = amount;
-            outMsg = "+6 Мед (Медна жила)";
+            outMsg = "+" + std::to_string(amount) + " Мед (Медна жила)" + lvlTag;
             return true;
         }
         case ResourceType::COAL: {
-            int amount = 6;
+            int amount = static_cast<int>(std::round(6 * mult));
             econ.coal += amount;
             econ.ore += amount;
             econ.data.coal = econ.coal;
             result.coal = amount;
             result.amount = amount;
-            outMsg = "+6 Въглища (Въглищен пласт)";
+            outMsg = "+" + std::to_string(amount) + " Въглища (Въглищен пласт)" + lvlTag;
             return true;
         }
         case ResourceType::SILICON: {
-            int amount = 6;
+            int amount = static_cast<int>(std::round(6 * mult));
             econ.silicon += amount;
             econ.ore += amount;
             econ.data.silicon = econ.silicon;
             result.silicon = amount;
             result.amount = amount;
-            outMsg = "+6 Силиций (Силициева кариера)";
+            outMsg = "+" + std::to_string(amount) + " Силиций (Силициева кариера)" + lvlTag;
             return true;
         }
         case ResourceType::SILVER: {
-            int amount = 4;
+            int amount = static_cast<int>(std::round(4 * mult));
             econ.silver += amount;
             econ.ore += amount;
             econ.data.silver = econ.silver;
             result.silver = amount;
             result.amount = amount;
-            outMsg = "+4 Сребро (Сребърна жила)";
+            outMsg = "+" + std::to_string(amount) + " Сребро (Сребърна жила)" + lvlTag;
             return true;
         }
         case ResourceType::GOLD: {
-            int amount = 3;
+            int amount = static_cast<int>(std::round(3 * mult));
             econ.gold += amount;
             econ.data.gold = econ.gold;
             result.gold = amount;
             result.amount = amount;
-            outMsg = "+3 Злато (Златна жила)";
+            outMsg = "+" + std::to_string(amount) + " Злато (Златна жила)" + lvlTag;
             return true;
         }
         case ResourceType::MONEY: {
-            // City energy contract subsidy / bank dividend
-            int amount = std::max(12, static_cast<int>(econ.energyMW * 0.25f));
-            econ.money += amount;
-            econ.data.money = econ.money;
-            result.money = amount;
-            result.amount = amount;
-            outMsg = "+" + std::to_string(amount) + " Пари (Градска субсидия)";
-            return true;
+            outMsg = "Мината за пари е премахната! Печелете пари от доставка на ток към града.";
+            return false;
         }
         case ResourceType::ORE: {
             // Legacy cave expedition support
@@ -448,6 +463,67 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         default:
             return false;
     }
+}
+
+int GameEngine::getMineLevel(int player, ResourceType type) const {
+    const auto& econ = (player == 1) ? p1 : p2;
+    int idx = static_cast<int>(type);
+    if (idx >= 0 && idx < 8) {
+        return std::max(1, econ.mineLevels[idx]);
+    }
+    return 1;
+}
+
+int GameEngine::getMineUpgradeCost(int player, ResourceType type) const {
+    int lvl = getMineLevel(player, type);
+    if (lvl >= 5) return -1; // Max Level reached
+    if (type == ResourceType::GOLD) {
+        return 20 * lvl; // Gold mine: 20, 40, 60, 80 G
+    }
+    return 15 * lvl; // Other mines: 15, 30, 45, 60 G
+}
+
+bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg) {
+    if (type == ResourceType::NONE || type == ResourceType::MONEY) {
+        outMsg = "ТОВА НЕ Е МИНА ЗА НАДГРАЖДАНЕ!";
+        return false;
+    }
+    auto& econ = (player == 1) ? p1 : p2;
+    int idx = static_cast<int>(type);
+    if (idx < 0 || idx >= 8) {
+        outMsg = "НЕВАЛИДЕН РЕСУРС!";
+        return false;
+    }
+    int lvl = econ.mineLevels[idx];
+    if (lvl >= 5) {
+        outMsg = "МАКСИМАЛНО НИВО НА МИНАТА (НИВО 5)!";
+        return false;
+    }
+    int cost = getMineUpgradeCost(player, type);
+    if (econ.gold < cost) {
+        outMsg = "НЕДОСТИГ НА ЗЛАТО! НУЖНО: " + std::to_string(cost) + " G (ИМАТЕ " + std::to_string(econ.gold) + " G)";
+        return false;
+    }
+
+    econ.gold -= cost;
+    econ.data.gold = econ.gold;
+    econ.mineLevels[idx]++;
+    int newLvl = econ.mineLevels[idx];
+
+    std::string resName;
+    switch (type) {
+        case ResourceType::WOOD: resName = "ДЪРВОДОБИВ"; break;
+        case ResourceType::IRON: resName = "ЖЕЛЯЗНА МИНА"; break;
+        case ResourceType::COPPER: resName = "МЕДНА МИНА"; break;
+        case ResourceType::COAL: resName = "ВЪГЛИЩНА МИНА"; break;
+        case ResourceType::SILICON: resName = "СИЛИЦИЕВА КАРИЕРА"; break;
+        case ResourceType::SILVER: resName = "СРЕБЪРНА МИНА"; break;
+        case ResourceType::GOLD: resName = "ЗЛАТНА ЖИЛА"; break;
+        default: resName = "МИНА"; break;
+    }
+
+    outMsg = "НАДГРАДЕНО: " + resName + " (НИВО " + std::to_string(newLvl) + ")! (+75% ДОБИВ)";
+    return true;
 }
 
 bool GameEngine::buyLandPlot(int player, int plotId, std::string& outMsg) {

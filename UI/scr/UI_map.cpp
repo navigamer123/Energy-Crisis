@@ -953,7 +953,197 @@ void UI_map::executeP2Action() {
     }
 }
 
+void UI_map::executeP1Upgrade() {
+    p1Pulse = 1.0f;
+    ResourceType resType = nodes.getP1ResourceAt(p1Pos);
+    if (resType == ResourceType::NONE || resType == ResourceType::MONEY) {
+        spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+        return;
+    }
+    std::string msg;
+    if (engine.upgradeMine(1, resType, msg)) {
+        spawnMiningParticles(p1Pos, sf::Color(255, 215, 0), 28);
+        triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", sf::Color(255, 215, 0));
+        spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+    } else {
+        triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
+        spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+    }
+}
+
+void UI_map::executeP2Upgrade() {
+    p2Pulse = 1.0f;
+    ResourceType resType = nodes.getP2ResourceAt(p2Pos);
+    if (resType == ResourceType::NONE || resType == ResourceType::MONEY) {
+        spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+        return;
+    }
+    std::string msg;
+    if (engine.upgradeMine(2, resType, msg)) {
+        spawnMiningParticles(p2Pos, sf::Color(255, 215, 0), 28);
+        triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", sf::Color(255, 215, 0));
+        spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+    } else {
+        triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
+        spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+    }
+}
+
+void UI_map::restartMatch() {
+    engine.restartGame();
+    p1Pos = { 420.0f, 320.0f };
+    p2Pos = { 1180.0f, 320.0f };
+    p1ResourceCooldown = 0.0f;
+    p2ResourceCooldown = 0.0f;
+    p1ActionCooldown = 0.0f;
+    p2ActionCooldown = 0.0f;
+    p1SelectCooldown = 0.0f;
+    p2SelectCooldown = 0.0f;
+    p1Modal.active = false;
+    p2Modal.active = false;
+    p1Popup.active = false;
+    p2Popup.active = false;
+    notices.clear();
+    miningParticles.clear();
+    spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
+}
+
+void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
+    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    // 1. Dark frosted backdrop
+    sf::RectangleShape backdrop({ 1600.0f, 900.0f });
+    backdrop.setFillColor(sf::Color(10, 14, 24, 235));
+    window.draw(backdrop);
+
+    int winner = engine.getCityState().winner;
+    sf::Color winColor = (winner == 1) ? sf::Color(0, 229, 255) : sf::Color(255, 120, 200);
+    std::string winPlayerStr = (winner == 1) ? "ИГРАЧ 1 (ЗАПАД) СПЕЧЕЛИ!" : "ИГРАЧ 2 (ИЗТОК) СПЕЧЕЛИ!";
+
+    // 2. Victory Modal Box
+    float boxW = 740.0f;
+    float boxH = 480.0f;
+    float boxX = (1600.0f - boxW) / 2.0f;
+    float boxY = (900.0f - boxH) / 2.0f;
+
+    sf::RectangleShape box({ boxW, boxH });
+    box.setPosition({ boxX, boxY });
+    box.setFillColor(sf::Color(18, 24, 38, 252));
+    box.setOutlineThickness(3.0f);
+    box.setOutlineColor(winColor);
+    window.draw(box);
+
+    // Top Header Banner
+    sf::RectangleShape header({ boxW, 52.0f });
+    header.setPosition({ boxX, boxY });
+    header.setFillColor(sf::Color(26, 36, 56));
+    window.draw(header);
+
+    // Glowing accent line
+    sf::RectangleShape topGlow({ boxW, 3.0f });
+    topGlow.setPosition({ boxX, boxY + 52.0f });
+    topGlow.setFillColor(winColor);
+    window.draw(topGlow);
+
+    if (resourcesLoaded) {
+        // Header Text
+        sf::Text tHeader(font, toUtf8("⚡ ЕНЕРГИЙНА КРИЗА: ПОБЕДА 100% ⚡"), 16);
+        tHeader.setFillColor(sf::Color(255, 215, 0));
+        sf::FloatRect hb = tHeader.getLocalBounds();
+        tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 14.0f });
+        window.draw(tHeader);
+
+        // Huge Winner Title
+        sf::Text tWinner(font, toUtf8(winPlayerStr), 26);
+        tWinner.setFillColor(winColor);
+        sf::FloatRect wb = tWinner.getLocalBounds();
+        tWinner.setPosition({ boxX + (boxW - wb.size.x) / 2.0f, boxY + 80.0f });
+        window.draw(tWinner);
+
+        // Subtitle
+        sf::Text tSub(font, toUtf8("Играчът постигна 100% контрол и захрани целия град с чиста енергия!"), 13);
+        tSub.setFillColor(sf::Color(200, 220, 245));
+        sf::FloatRect sb = tSub.getLocalBounds();
+        tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f, boxY + 125.0f });
+        window.draw(tSub);
+
+        // Stats Box
+        sf::RectangleShape statsBox({ boxW - 60.0f, 180.0f });
+        statsBox.setPosition({ boxX + 30.0f, boxY + 165.0f });
+        statsBox.setFillColor(sf::Color(24, 32, 48, 230));
+        statsBox.setOutlineThickness(1.0f);
+        statsBox.setOutlineColor(sf::Color(60, 80, 115));
+        window.draw(statsBox);
+
+        const auto& winEcon = engine.getPlayerEconomy(winner);
+        int ownedPlots = 0;
+        for (const auto& p : engine.getLandPlots()) {
+            if (p.playerOwner == winner && p.isPurchased) ownedPlots++;
+        }
+        int totalBuildings = 0;
+        for (const auto& b : engine.getBuildings()) {
+            if (b.playerOwner == winner) totalBuildings++;
+        }
+
+        std::vector<std::string> statLines = {
+            "Ден на победата: Ден " + std::to_string(engine.getCurrentDay()),
+            "Произведена мощност: " + std::to_string(winEcon.energyMW) + " MW",
+            "Закупени парцели земя: " + std::to_string(ownedPlots) + " / 12 парцела",
+            "Построени съоръжения: " + std::to_string(totalBuildings) + " сгради",
+            "Налично злато: " + std::to_string(winEcon.gold) + " G | Градска хазна: " + std::to_string(winEcon.money) + " $"
+        };
+
+        for (size_t i = 0; i < statLines.size(); i++) {
+            sf::Text tStat(font, toUtf8(statLines[i]), 13);
+            tStat.setFillColor(sf::Color(220, 235, 255));
+            tStat.setPosition({ boxX + 50.0f, boxY + 180.0f + i * 28.0f });
+            window.draw(tStat);
+        }
+
+        // Action Buttons
+        victoryRestartBtn = sf::FloatRect({ boxX + 60.0f, boxY + boxH - 65.0f }, { 280.0f, 44.0f });
+        victoryMenuBtn = sf::FloatRect({ boxX + boxW - 340.0f, boxY + boxH - 65.0f }, { 280.0f, 44.0f });
+
+        bool hoverRestart = victoryRestartBtn.contains(mousePos);
+        sf::RectangleShape btnR(victoryRestartBtn.size);
+        btnR.setPosition(victoryRestartBtn.position);
+        btnR.setFillColor(hoverRestart ? sf::Color(0, 200, 130) : sf::Color(0, 150, 95));
+        btnR.setOutlineThickness(1.5f);
+        btnR.setOutlineColor(sf::Color(100, 255, 180));
+        window.draw(btnR);
+
+        sf::Text tR(font, toUtf8("[ R ]  НОВА ИГРА"), 13);
+        tR.setFillColor(sf::Color::White);
+        sf::FloatRect rb = tR.getLocalBounds();
+        tR.setPosition({ victoryRestartBtn.position.x + (victoryRestartBtn.size.x - rb.size.x) / 2.0f,
+                         victoryRestartBtn.position.y + (victoryRestartBtn.size.y - rb.size.y) / 2.0f - 2.0f });
+        window.draw(tR);
+
+        bool hoverMenu = victoryMenuBtn.contains(mousePos);
+        sf::RectangleShape btnM(victoryMenuBtn.size);
+        btnM.setPosition(victoryMenuBtn.position);
+        btnM.setFillColor(hoverMenu ? sf::Color(70, 90, 120) : sf::Color(45, 60, 85));
+        btnM.setOutlineThickness(1.5f);
+        btnM.setOutlineColor(sf::Color(130, 160, 205));
+        window.draw(btnM);
+
+        sf::Text tM(font, toUtf8("[ ESC / M ]  ГЛАВНО МЕНЮ"), 13);
+        tM.setFillColor(sf::Color::White);
+        sf::FloatRect mb = tM.getLocalBounds();
+        tM.setPosition({ victoryMenuBtn.position.x + (victoryMenuBtn.size.x - mb.size.x) / 2.0f,
+                         victoryMenuBtn.position.y + (victoryMenuBtn.size.y - mb.size.y) / 2.0f - 2.0f });
+        window.draw(tM);
+    }
+}
+
 void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
+    if (engine.getCityState().winner != 0) {
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
+            restartMatch();
+        }
+        return;
+    }
+
     float speed = 360.0f;
     sf::Vector2f mPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
 
@@ -1089,7 +1279,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     if (p2SelectCooldown > 0.0f) p2SelectCooldown -= dt;
 
     // 6. Player 1 Action Input (Single Press only, NO continuous hold-to-mine!)
-    bool p1PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
+    bool p1PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
     bool p1JustPressed = p1PressingAction && !p1PrevAction;
     p1PrevAction = p1PressingAction;
 
@@ -1097,6 +1287,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         executeP1Action();
         p1ActionCooldown = 0.20f;
     }
+
+    // P1 Upgrade Mine with Gold: [F]
+    bool p1PressingUpgrade = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
+    static bool p1PrevUpgrade = false;
+    if (p1PressingUpgrade && !p1PrevUpgrade && !p1Modal.active && !showHelpOverlay) {
+        executeP1Upgrade();
+    }
+    p1PrevUpgrade = p1PressingUpgrade;
 
     // P1: [E] Cycle Forward
     bool curE = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
@@ -1169,7 +1367,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     }
 
     // 7. Player 2 Action Input (Single Press only, NO continuous hold-to-mine!)
-    bool p2PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Numpad0) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RControl);
+    bool p2PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
     bool p2JustPressed = p2PressingAction && !p2PrevAction;
     p2PrevAction = p2PressingAction;
 
@@ -1177,6 +1375,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         executeP2Action();
         p2ActionCooldown = 0.20f;
     }
+
+    // P2 Upgrade Mine with Gold: [RShift] or [End]
+    bool p2PressingUpgrade = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
+    static bool p2PrevUpgrade = false;
+    if (p2PressingUpgrade && !p2PrevUpgrade && !p2Modal.active && !showHelpOverlay) {
+        executeP2Upgrade();
+    }
+    p2PrevUpgrade = p2PressingUpgrade;
 
     // P2: [PgDn] Cycle Forward (Solar -> Wind -> Hydro -> Battery -> Lamp -> Demolish)
     bool curPgDn = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown);
@@ -1253,6 +1459,34 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 }
 
 void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
+    // -------------------------------------------------------------------------
+    // -1. If Victory Screen is active, handle Restart [R], Menu [ESC/M], or button clicks
+    // -------------------------------------------------------------------------
+    if (engine.getCityState().winner != 0) {
+        if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (key->code == sf::Keyboard::Key::R) {
+                restartMatch();
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::M) {
+                requestMenu = true;
+                return;
+            }
+        }
+        if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            if (victoryRestartBtn.contains(clickPos)) {
+                restartMatch();
+                return;
+            }
+            if (victoryMenuBtn.contains(clickPos)) {
+                requestMenu = true;
+                return;
+            }
+        }
+        return;
+    }
+
     // -------------------------------------------------------------------------
     // 0. If Help overlay is active, any dismiss key or click closes it
     // -------------------------------------------------------------------------
@@ -1427,7 +1661,36 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             }
         }
 
-        // 4. Click on Resource Stations
+        // 4. Click on Upgrade Button of Resource Stations
+        ResourceType p1Up = nodes.getP1UpgradeAt(clickPos);
+        if (p1Up != ResourceType::NONE) {
+            std::string msg;
+            if (engine.upgradeMine(1, p1Up, msg)) {
+                spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 25);
+                triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", sf::Color(255, 215, 0));
+                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+            } else {
+                triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
+                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+            }
+            return;
+        }
+
+        ResourceType p2Up = nodes.getP2UpgradeAt(clickPos);
+        if (p2Up != ResourceType::NONE) {
+            std::string msg;
+            if (engine.upgradeMine(2, p2Up, msg)) {
+                spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 25);
+                triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", sf::Color(255, 215, 0));
+                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+            } else {
+                triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
+                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+            }
+            return;
+        }
+
+        // 5. Click on Resource Stations
         ResourceType p1Res = nodes.getP1ResourceAt(clickPos);
         if (p1Res != ResourceType::NONE) {
             if (p1ResourceCooldown > 0.0f) {
@@ -1538,7 +1801,7 @@ void UI_map::render(sf::RenderWindow& window) {
                           engine.getCityState().p1CityShare);
 
     // 10. Resource Mines & Timber Forests
-    nodes.drawNodes(window, font, resourcesLoaded, p1ResourceCooldown, p2ResourceCooldown);
+    nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
 
     // Interactive mining extraction prompts & 6x speed badges
     drawMiningZonesAndBadges(window);
@@ -1578,4 +1841,9 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 20. Interactive Help & Rules Manual Overlay (if opened)
     drawHelpOverlay(window);
+
+    // 21. Game Over / Victory Screen (When a player reaches 100% influence)
+    if (engine.getCityState().winner != 0) {
+        drawVictoryScreen(window);
+    }
 }

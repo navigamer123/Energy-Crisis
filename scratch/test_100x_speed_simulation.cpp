@@ -40,6 +40,8 @@ int main() {
     int p2BuildingsPlaced = 0;
     int p1PlotsBought = 0;
     int p2PlotsBought = 0;
+    int p1Upgrades = 0;
+    int p2Upgrades = 0;
 
     float totalSimTime = 0.0f;
     const float dt = 0.02f;
@@ -49,7 +51,7 @@ int main() {
     auto playerMineStrategy = [&](int player, float& cd, int step) {
         if (cd > 0.0f) return;
 
-        // Balanced strategy: alternate between Gold (for buying lands) and Construction resources
+        // Balanced strategy: alternate between Gold (for buying lands & upgrading mines) and Construction resources
         ResourceType targetRes;
         if (step % 2 == 0) {
             targetRes = ResourceType::GOLD;
@@ -90,6 +92,32 @@ int main() {
         std::string buyMsg2;
         if (engine.buyNextLandTier(2, buyMsg2)) {
             p2PlotsBought++;
+        }
+
+        // Upgrade mines with gold
+        static const ResourceType upgradableMines[] = {
+            ResourceType::WOOD, ResourceType::IRON, ResourceType::COPPER,
+            ResourceType::SILICON, ResourceType::COAL, ResourceType::SILVER, ResourceType::GOLD
+        };
+        for (ResourceType t : upgradableMines) {
+            int cost = engine.getMineUpgradeCost(1, t);
+            if (cost > 0 && engine.getPlayerEconomy(1).gold >= cost && p1PlotsBought >= 1) {
+                std::string upMsg;
+                if (engine.upgradeMine(1, t, upMsg)) {
+                    p1Upgrades++;
+                    break;
+                }
+            }
+        }
+        for (ResourceType t : upgradableMines) {
+            int cost = engine.getMineUpgradeCost(2, t);
+            if (cost > 0 && engine.getPlayerEconomy(2).gold >= cost && p2PlotsBought >= 1) {
+                std::string upMsg;
+                if (engine.upgradeMine(2, t, upMsg)) {
+                    p2Upgrades++;
+                    break;
+                }
+            }
         }
 
         // Place buildings across the 9x12 grid (108 slots per player)
@@ -215,11 +243,57 @@ int main() {
     std::cout << "  Final P1 Gold:  " << finalP1.gold  << " | P2 Gold:  " << finalP2.gold << "\n";
     std::cout << "  Final P1 Power: " << finalP1.energyMW << " MW | P2 Power: " << finalP2.energyMW << " MW\n";
 
+    std::cout << "  -> Player 1 mine upgrades purchased with gold: " << p1Upgrades << "\n";
+    std::cout << "  -> Player 2 mine upgrades purchased with gold: " << p2Upgrades << "\n";
+    assert(p1Upgrades > 0);
+    assert(p2Upgrades > 0);
+
     assert(finalP1.money > 0);
     assert(finalP2.money > 0);
-    assert(finalP1.gold > 0);
-    assert(finalP2.gold > 0);
+    assert(finalP1.gold >= 0);
+    assert(finalP2.gold >= 0);
     assert(stepCount >= 8000);
+
+    std::cout << "\n[PHASE 6] Validating Gradual Victory Condition & Screen Trigger at 100%...\n";
+    // Starting from baseline, verify that dominance moves influence gradually and triggers winner at 100%
+    GameEngine victoryEngine;
+    victoryEngine.init(1600.0f, 900.0f);
+    assert(victoryEngine.getCityState().winner == 0);
+    assert(victoryEngine.getPlayerEconomy(1).cityInfluence == 0.50f);
+
+    // Give P1 dominant energy production
+    victoryEngine.getPlayerEconomyMut(1).wood = 500;
+    victoryEngine.getPlayerEconomyMut(1).iron = 500;
+    victoryEngine.getPlayerEconomyMut(1).copper = 500;
+    victoryEngine.getPlayerEconomyMut(1).coal = 500;
+    victoryEngine.getPlayerEconomyMut(1).silicon = 500;
+    for (int i = 0; i < 6; i++) {
+        std::string m;
+        sf::Vector2f pos = victoryEngine.getGridSlot(1, i % 3, i / 3);
+        bool ok = victoryEngine.placeBuilding(1, BuildingType::WIND_TURBINE, pos, m);
+        if (!ok) {
+            std::cerr << "Placement " << i << " failed: " << m << "\n";
+        }
+        assert(ok);
+    }
+    // Over 1-second update, energy outputs are computed and influence increases gradually, NOT jumping instantly to 1.0!
+    victoryEngine.update(1.0f);
+    assert(victoryEngine.getPlayerEconomy(1).energyMW > 0);
+    assert(victoryEngine.getPlayerEconomy(2).energyMW == 0);
+
+    float infDay1 = victoryEngine.getPlayerEconomy(1).cityInfluence;
+    assert(infDay1 > 0.50f && infDay1 < 0.90f); // Gradual progression confirmed!
+    assert(victoryEngine.getCityState().winner == 0);
+
+    // Run until 100% is reached
+    for (int t = 0; t < 150; t++) {
+        victoryEngine.update(1.0f);
+        if (victoryEngine.getCityState().winner != 0) break;
+    }
+    assert(victoryEngine.getCityState().winner == 1);
+    assert(victoryEngine.getPlayerEconomy(1).cityInfluence >= 0.999f);
+    assert(victoryEngine.getPlayerEconomy(2).cityInfluence <= 0.001f);
+    std::cout << "  -> PASS: 100% City influence triggers Player 1 victory screen and locks winner state.\n";
 
     std::cout << "========================================================\n";
     std::cout << " 100X SPEED SIMULATION COMPLETED SUCCESSFULLY! ALL PASS!\n";
