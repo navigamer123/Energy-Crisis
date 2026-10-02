@@ -34,7 +34,7 @@ void UI_playControls::drawButton(sf::RenderWindow& window, const sf::Font& font,
 }
 
 void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded) {
-    float screenWidth = static_cast<float>(window.getSize().x);
+    float screenWidth = VIRTUAL_WIDTH;
     float cardWidth = 950.0f;
     float cardHeight = 510.0f;
     float cardX = (screenWidth - cardWidth) / 2.0f;
@@ -249,7 +249,7 @@ void UI_playControls::handleEvent(const sf::Event& event, const sf::RenderWindow
     if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
         if (mb->button == sf::Mouse::Button::Left) {
             sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
-            float screenWidth = static_cast<float>(window.getSize().x);
+            float screenWidth = VIRTUAL_WIDTH;
             float cardWidth = 950.0f;
             float cardHeight = 510.0f;
             float cardX = (screenWidth - cardWidth) / 2.0f;

@@ -14,7 +14,10 @@ UI_map::UI_map()
       p1Pos(450.0f, 450.0f),
       p2Pos(1150.0f, 450.0f),
       p1Pulse(0.0f),
-      p2Pulse(0.0f) {
+      p2Pulse(0.0f),
+      requestFullscreenToggle(false),
+      showHelpOverlay(false),
+      lightningFlashTimer(0.0f) {
     if (grassTexture.loadFromFile("assets/grass.png")) {
         grassTexture.setRepeated(true);
     } else {
@@ -25,6 +28,16 @@ UI_map::UI_map()
         resourcesLoaded = true;
     } else {
         std::cerr << "[UI_map] Warning: Failed to load assets/font.ttf\n";
+    }
+
+    // Initialize weather particles
+    particles.resize(130);
+    for (size_t i = 0; i < particles.size(); ++i) {
+        particles[i].pos = sf::Vector2f(static_cast<float>(rand() % 1600), static_cast<float>(rand() % 900));
+        particles[i].vel = sf::Vector2f(-60.0f, 520.0f);
+        particles[i].alpha = 140.0f + (rand() % 100);
+        particles[i].size = 2.0f + (rand() % 3);
+        particles[i].type = 0;
     }
 
     // Initialize backend game engine at 1600x900
@@ -57,8 +70,8 @@ void UI_map::spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color co
 }
 
 void UI_map::drawGrassBackground(sf::RenderWindow& window) {
-    float screenWidth = static_cast<float>(window.getSize().x);
-    float screenHeight = static_cast<float>(window.getSize().y);
+    float screenWidth = VIRTUAL_WIDTH;
+    float screenHeight = VIRTUAL_HEIGHT;
 
     if (grassTexture.getSize().x > 0) {
         sf::Sprite sprite(grassTexture);
@@ -371,27 +384,302 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
     drawOneModal(p2Modal, 2);
 }
 
-void UI_map::drawHUD(sf::RenderWindow& window) {
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-    sf::FloatRect menuBtn({ 1600.0f - 130.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
-    bool hover = menuBtn.contains(mousePos);
+void UI_map::updateWeatherParticles(float dt) {
+    WeatherType w1 = engine.getPlayerWeather(1);
+    WeatherType w2 = engine.getPlayerWeather(2);
+    SeasonType season = engine.getSeason();
+    bool isNight = !engine.isDaylight();
 
-    sf::RectangleShape mBox(menuBtn.size);
-    mBox.setPosition(menuBtn.position);
-    mBox.setFillColor(hover ? sf::Color(55, 75, 105) : sf::Color(32, 42, 58));
-    mBox.setOutlineThickness(hover ? 1.5f : 1.0f);
-    mBox.setOutlineColor(hover ? sf::Color(255, 204, 0) : sf::Color(80, 110, 150));
-    window.draw(mBox);
+    // Lightning strike timer for stormy conditions
+    if ((w1 == WeatherType::STORMY || w2 == WeatherType::STORMY) && (rand() % 350 == 0) && lightningFlashTimer <= 0.0f) {
+        lightningFlashTimer = 0.28f;
+    }
+    if (lightningFlashTimer > 0.0f) {
+        lightningFlashTimer -= dt;
+        if (lightningFlashTimer < 0.0f) lightningFlashTimer = 0.0f;
+    }
+
+    for (size_t i = 0; i < particles.size(); ++i) {
+        auto& p = particles[i];
+        WeatherType w = (p.pos.x < 800.0f) ? w1 : w2;
+
+        if (w == WeatherType::RAINY || w == WeatherType::STORMY) {
+            p.type = 0; // Rain
+            p.vel = sf::Vector2f((w == WeatherType::STORMY ? -140.0f : -60.0f), (w == WeatherType::STORMY ? 750.0f : 550.0f));
+        } else if (season == SeasonType::WINTER) {
+            p.type = 1; // Snow
+            float drift = std::sin(p.pos.y * 0.02f + static_cast<float>(i)) * 40.0f;
+            p.vel = sf::Vector2f(drift, 65.0f);
+        } else if (w == WeatherType::WINDY) {
+            p.type = 2; // Wind streak / leaf
+            p.vel = sf::Vector2f(320.0f, std::sin(p.pos.x * 0.015f) * 35.0f);
+        } else if (isNight) {
+            p.type = 3; // Night star / firefly
+            p.vel = sf::Vector2f(std::cos(p.pos.y * 0.03f) * 12.0f, std::sin(p.pos.x * 0.03f) * 12.0f);
+        } else {
+            // Calm daylight atmospheric dust
+            p.type = 3;
+            p.vel = sf::Vector2f(std::cos(p.pos.y * 0.01f) * 8.0f, -15.0f);
+        }
+
+        p.pos += p.vel * dt;
+
+        // Wrap around virtual screen bounds
+        if (p.pos.y > VIRTUAL_HEIGHT + 10.0f) {
+            p.pos.y = -10.0f;
+            p.pos.x = static_cast<float>(rand() % static_cast<int>(VIRTUAL_WIDTH));
+        } else if (p.pos.y < -15.0f) {
+            p.pos.y = VIRTUAL_HEIGHT + 5.0f;
+            p.pos.x = static_cast<float>(rand() % static_cast<int>(VIRTUAL_WIDTH));
+        }
+        if (p.pos.x > VIRTUAL_WIDTH + 15.0f) {
+            p.pos.x = -10.0f;
+        } else if (p.pos.x < -15.0f) {
+            p.pos.x = VIRTUAL_WIDTH + 10.0f;
+        }
+    }
+}
+
+void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
+    // 1. Lightning flash during storms
+    if (lightningFlashTimer > 0.0f) {
+        sf::RectangleShape flash({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
+        flash.setPosition({ 0.0f, 0.0f });
+        std::uint8_t a = static_cast<std::uint8_t>(std::min(240.0f, lightningFlashTimer * 850.0f));
+        flash.setFillColor(sf::Color(220, 240, 255, a));
+        window.draw(flash);
+    }
+
+    // 2. Particles
+    for (const auto& p : particles) {
+        if (p.type == 0) {
+            // Rain streak
+            sf::Vertex line[2];
+            line[0].position = p.pos;
+            line[0].color = sf::Color(160, 210, 255, 160);
+            line[1].position = p.pos + sf::Vector2f(p.vel.x * 0.025f, p.vel.y * 0.025f);
+            line[1].color = sf::Color(200, 235, 255, 220);
+            window.draw(line, 2, sf::PrimitiveType::Lines);
+        } else if (p.type == 1) {
+            // Snow flake
+            sf::CircleShape flake(p.size);
+            flake.setPosition(p.pos);
+            flake.setFillColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(p.alpha * 0.85f)));
+            window.draw(flake);
+        } else if (p.type == 2) {
+            // Wind leaf / amber petal
+            sf::RectangleShape leaf({ 5.0f, 2.5f });
+            leaf.setPosition(p.pos);
+            leaf.setRotation(sf::degrees(p.pos.x * 0.5f));
+            leaf.setFillColor(sf::Color(210, 170, 70, 180));
+            window.draw(leaf);
+        } else if (p.type == 3) {
+            // Night star or firefly
+            sf::CircleShape glow(p.size);
+            glow.setPosition(p.pos);
+            glow.setFillColor(sf::Color(180, 255, 120, static_cast<std::uint8_t>(120 + 80 * std::sin(p.pos.x * 0.05f))));
+            window.draw(glow);
+        }
+    }
+}
+
+void UI_map::drawEnergyConduits(sf::RenderWindow& window, float animTime) {
+    const auto& bList = engine.getBuildings();
+    if (bList.empty()) return;
+
+    sf::Vector2f cityEntranceP1(730.0f, 410.0f);
+    sf::Vector2f cityEntranceP2(870.0f, 410.0f);
+
+    for (size_t i = 0; i < bList.size(); ++i) {
+        const auto& b = bList[i];
+        if (b.type == BuildingType::LAMP) continue;
+
+        sf::Vector2f dest = (b.playerOwner == 1) ? cityEntranceP1 : cityEntranceP2;
+        sf::Color conduitColor = (b.playerOwner == 1) ? sf::Color(0, 229, 255, 90) : sf::Color(255, 120, 200, 90);
+        sf::Color packetColor = (b.playerOwner == 1) ? sf::Color(160, 250, 255, 230) : sf::Color(255, 190, 240, 230);
+
+        // Draw base conduit line
+        sf::Vertex conduitLine[2];
+        conduitLine[0].position = b.position;
+        conduitLine[0].color = conduitColor;
+        conduitLine[1].position = dest;
+        conduitLine[1].color = conduitColor;
+        window.draw(conduitLine, 2, sf::PrimitiveType::Lines);
+
+        // Draw animated energy pulse packets traveling along the conduit
+        sf::Vector2f delta = dest - b.position;
+        float dist = std::sqrt(delta.x * delta.x + delta.y * delta.y);
+        if (dist > 10.0f) {
+            int numPackets = std::max(1, static_cast<int>(dist / 140.0f));
+            for (int k = 0; k < numPackets; ++k) {
+                float offset = static_cast<float>(k) / static_cast<float>(numPackets);
+                float progress = std::fmod(animTime * 0.8f + offset + (static_cast<float>(i) * 0.17f), 1.0f);
+                sf::Vector2f packetPos = b.position + delta * progress;
+
+                sf::CircleShape packet(3.5f);
+                packet.setOrigin({ 3.5f, 3.5f });
+                packet.setPosition(packetPos);
+                packet.setFillColor(packetColor);
+                window.draw(packet);
+
+                // Subtle energy packet aura
+                sf::CircleShape aura(7.0f);
+                aura.setOrigin({ 7.0f, 7.0f });
+                aura.setPosition(packetPos);
+                aura.setFillColor(sf::Color(packetColor.r, packetColor.g, packetColor.b, 65));
+                window.draw(aura);
+            }
+        }
+    }
+}
+
+void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
+    if (!showHelpOverlay) return;
+
+    // Dim backdrop
+    sf::RectangleShape backdrop({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
+    backdrop.setPosition({ 0.0f, 0.0f });
+    backdrop.setFillColor(sf::Color(5, 10, 18, 205));
+    window.draw(backdrop);
+
+    // Dialog card
+    sf::FloatRect card({ 220.0f, 80.0f }, { 1160.0f, 740.0f });
+    sf::RectangleShape cardBox(card.size);
+    cardBox.setPosition(card.position);
+    cardBox.setFillColor(sf::Color(14, 22, 36, 250));
+    cardBox.setOutlineThickness(2.5f);
+    cardBox.setOutlineColor(sf::Color(0, 229, 255, 200));
+    window.draw(cardBox);
+
+    // Header strip
+    sf::RectangleShape headerStrip({ card.size.x, 52.0f });
+    headerStrip.setPosition(card.position);
+    headerStrip.setFillColor(sf::Color(22, 35, 58));
+    window.draw(headerStrip);
 
     if (resourcesLoaded) {
-        sf::Text mt(font, toUtf8("ESC / МЕНЮ"), 13);
-        mt.setFillColor(hover ? sf::Color(255, 240, 150) : sf::Color::White);
+        // Title
+        sf::Text title(font, toUtf8("⚡ НАСТОЛЕН НАРЪЧНИК: ENERGY CRISIS"), 20);
+        title.setStyle(sf::Text::Bold);
+        title.setFillColor(sf::Color(0, 229, 255));
+        title.setPosition({ card.position.x + 25.0f, card.position.y + 12.0f });
+        window.draw(title);
+
+        // Close button at top right
+        sf::FloatRect closeBtn({ card.position.x + card.size.x - 170.0f, card.position.y + 11.0f }, { 150.0f, 30.0f });
+        sf::Vector2f mPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+        bool hClose = closeBtn.contains(mPos);
+
+        sf::RectangleShape cb(closeBtn.size);
+        cb.setPosition(closeBtn.position);
+        cb.setFillColor(hClose ? sf::Color(255, 75, 75) : sf::Color(180, 50, 50));
+        cb.setOutlineThickness(1.0f);
+        cb.setOutlineColor(sf::Color::White);
+        window.draw(cb);
+
+        sf::Text cbText(font, toUtf8("[X] ЗАТВОРИ (H)"), 12);
+        cbText.setFillColor(sf::Color::White);
+        sf::FloatRect cbb = cbText.getLocalBounds();
+        cbText.setPosition({ closeBtn.position.x + (closeBtn.size.x - cbb.size.x) / 2.0f, closeBtn.position.y + 6.0f });
+        window.draw(cbText);
+
+        // Content Sections
+        float y = card.position.y + 70.0f;
+        auto drawSection = [&](const std::string& h, const std::string& body, sf::Color accent) {
+            sf::Text st(font, toUtf8(h), 15);
+            st.setStyle(sf::Text::Bold);
+            st.setFillColor(accent);
+            st.setPosition({ card.position.x + 35.0f, y });
+            window.draw(st);
+            y += 24.0f;
+
+            sf::Text bt(font, toUtf8(body), 12);
+            bt.setFillColor(sf::Color(220, 235, 255));
+            bt.setLineSpacing(1.25f);
+            bt.setPosition({ card.position.x + 45.0f, y });
+            window.draw(bt);
+            y += bt.getLocalBounds().size.y + 24.0f;
+        };
+
+        drawSection("1. ЦЕЛ НА ИГРАТА И ДОМИНИРАНЕ НА ГРАДА",
+                    "• Централният Метрополис изисква постоянно нарастваща мощност (MW) всеки изминал ден.\n"
+                    "• Ако в края на денонощието не покриете своята квота, опонентът завзема част от вашия град!\n"
+                    "• Победител е играчът, който постигне 100% териториален контрол над Метрополиса.",
+                    sf::Color(255, 215, 0));
+
+        drawSection("2. СТРОЕЖ, ЗЕМЯ И ДОБИВ НА РЕСУРСИ",
+                    "• За да строите, първо трябва да закупите свободен парцел (ЗЕМЯ) в своята територия.\n"
+                    "• Добивайте Дървесина (Wood) от горите и Руда (Ore) от мините чрез курсора или клик.\n"
+                    "• Всеки тип централа има предимства: Солар (денем), Вятър (бури), ВЕЦ (дъжд), Батерия (буфер).",
+                    sf::Color(0, 229, 255));
+
+        drawSection("3. НОЩНИ ПРАВИЛА И ОСВЕТЛИТЕЛНИ ЛАМПИ",
+                    "• През нощта (21:00 - 05:00) работниците не строят на тъмно, освен ако няма поставена ЛАМПА!\n"
+                    "• Батериите се зареждат през деня от излишната енергия и я отдават нощем, за да спасят града ви от срив.",
+                    sf::Color(255, 140, 220));
+
+        drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
+                    "• ИГРАЧ 1 (Син): [W/A/S/D] - Движение  |  [E] - Избор сграда  |  [X] - Разруши  |  [Q] - Отказ  |  [SPACE/Клик] - Действие\n"
+                    "• ИГРАЧ 2 (Розов): [Стрелки] - Движение | [PgDn] - Избор сграда | [Del] - Разруши | [PgUp] - Отказ | [ENTER] - Действие\n"
+                    "• СИСТЕМНИ: [F11] - Цял екран (Fullscreen)  |  [H] или [F1] - Този наръчник  |  [ESC/M] - Главно меню",
+                    sf::Color(100, 255, 150));
+    }
+}
+
+void UI_map::drawHUD(sf::RenderWindow& window) {
+    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    // 1. Menu Button
+    sf::FloatRect menuBtn({ 1600.0f - 130.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
+    bool hoverMenu = menuBtn.contains(mousePos);
+    sf::RectangleShape mBox(menuBtn.size);
+    mBox.setPosition(menuBtn.position);
+    mBox.setFillColor(hoverMenu ? sf::Color(55, 75, 105) : sf::Color(32, 42, 58));
+    mBox.setOutlineThickness(hoverMenu ? 1.5f : 1.0f);
+    mBox.setOutlineColor(hoverMenu ? sf::Color(255, 204, 0) : sf::Color(80, 110, 150));
+    window.draw(mBox);
+
+    // 2. Fullscreen Button [ ⛶ ЦЯЛ ЕКРАН (F11) ]
+    sf::FloatRect fsBtn({ 1600.0f - 275.0f, 900.0f - 34.0f }, { 135.0f, 28.0f });
+    bool hoverFs = fsBtn.contains(mousePos);
+    sf::RectangleShape fsBox(fsBtn.size);
+    fsBox.setPosition(fsBtn.position);
+    fsBox.setFillColor(hoverFs ? sf::Color(0, 120, 180) : sf::Color(22, 48, 75));
+    fsBox.setOutlineThickness(hoverFs ? 1.5f : 1.0f);
+    fsBox.setOutlineColor(hoverFs ? sf::Color(0, 229, 255) : sf::Color(60, 100, 145));
+    window.draw(fsBox);
+
+    // 3. Help Button [ ? ПОМОЩ (H) ]
+    sf::FloatRect helpBtn({ 1600.0f - 405.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
+    bool hoverHelp = helpBtn.contains(mousePos);
+    sf::RectangleShape hBox(helpBtn.size);
+    hBox.setPosition(helpBtn.position);
+    hBox.setFillColor(hoverHelp ? sf::Color(100, 70, 150) : sf::Color(40, 32, 65));
+    hBox.setOutlineThickness(hoverHelp ? 1.5f : 1.0f);
+    hBox.setOutlineColor(hoverHelp ? sf::Color(220, 150, 255) : sf::Color(90, 75, 130));
+    window.draw(hBox);
+
+    if (resourcesLoaded) {
+        sf::Text mt(font, toUtf8("ESC / МЕНЮ"), 12);
+        mt.setFillColor(hoverMenu ? sf::Color(255, 240, 150) : sf::Color::White);
         sf::FloatRect mb = mt.getLocalBounds();
-        mt.setPosition({ menuBtn.position.x + (menuBtn.size.x - mb.size.x) / 2.0f, menuBtn.position.y + 4.0f });
+        mt.setPosition({ menuBtn.position.x + (menuBtn.size.x - mb.size.x) / 2.0f, menuBtn.position.y + 5.0f });
         window.draw(mt);
 
+        sf::Text fst(font, toUtf8("⛶ ЦЯЛ ЕКРАН (F11)"), 11);
+        fst.setFillColor(hoverFs ? sf::Color::White : sf::Color(180, 235, 255));
+        sf::FloatRect fsb = fst.getLocalBounds();
+        fst.setPosition({ fsBtn.position.x + (fsBtn.size.x - fsb.size.x) / 2.0f, fsBtn.position.y + 6.0f });
+        window.draw(fst);
+
+        sf::Text htBtn(font, toUtf8("? ПОМОЩ (H)"), 12);
+        htBtn.setFillColor(hoverHelp ? sf::Color::White : sf::Color(230, 200, 255));
+        sf::FloatRect htbBtn = htBtn.getLocalBounds();
+        htBtn.setPosition({ helpBtn.position.x + (helpBtn.size.x - htbBtn.size.x) / 2.0f, helpBtn.position.y + 5.0f });
+        window.draw(htBtn);
+
         // Persistent Controls Reminder Bar
-        sf::RectangleShape helpBar({ 1100.0f, 26.0f });
+        sf::RectangleShape helpBar({ 930.0f, 26.0f });
         helpBar.setPosition({ 250.0f, 900.0f - 30.0f });
         helpBar.setFillColor(sf::Color(15, 20, 30, 220));
         helpBar.setOutlineThickness(1.0f);
@@ -402,7 +690,7 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
         sf::Text ht(font, toUtf8(helpText), 11);
         ht.setFillColor(sf::Color(210, 230, 255));
         sf::FloatRect htb = ht.getLocalBounds();
-        ht.setPosition({ 250.0f + (1100.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
+        ht.setPosition({ 250.0f + (930.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
         window.draw(ht);
     }
 }
@@ -466,6 +754,24 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
 void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
     // -------------------------------------------------------------------------
+    // 0. If Help overlay is active, any dismiss key or click closes it
+    // -------------------------------------------------------------------------
+    if (showHelpOverlay) {
+        if (event.is<sf::Event::MouseButtonPressed>()) {
+            showHelpOverlay = false;
+            return;
+        }
+        if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1 ||
+                key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::Enter ||
+                key->code == sf::Keyboard::Key::Space) {
+                showHelpOverlay = false;
+                return;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // 1. Check if interactive player modal dialog is active
     // -------------------------------------------------------------------------
     if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
@@ -485,6 +791,15 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     }
 
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+        if (key->code == sf::Keyboard::Key::F11) {
+            requestFullscreenToggle = true;
+            return;
+        }
+        if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1) {
+            showHelpOverlay = !showHelpOverlay;
+            return;
+        }
+
         if (p1Modal.active) {
             if (key->code == sf::Keyboard::Key::Space || key->code == sf::Keyboard::Key::Enter ||
                 key->code == sf::Keyboard::Key::E || key->code == sf::Keyboard::Key::Q) {
@@ -753,6 +1068,18 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
+        // Click on Fullscreen button
+        if (sf::FloatRect({ 1600.0f - 275.0f, 900.0f - 34.0f }, { 135.0f, 28.0f }).contains(clickPos)) {
+            requestFullscreenToggle = true;
+            return;
+        }
+
+        // Click on Help button
+        if (sf::FloatRect({ 1600.0f - 405.0f, 900.0f - 34.0f }, { 120.0f, 28.0f }).contains(clickPos)) {
+            showHelpOverlay = !showHelpOverlay;
+            return;
+        }
+
         // 1. Building Menu Clicks
         BuildingType clickedP1 = p1Buildings.handleClick(clickPos);
         if (clickedP1 != BuildingType::NONE) {
@@ -855,6 +1182,7 @@ void UI_map::render(sf::RenderWindow& window) {
     // 1. Advance continuous backend simulation
     engine.update(dt);
     updateControls(window, dt);
+    updateWeatherParticles(dt);
 
     // 2. Synchronize clock displays with continuous time and dynamic weather
     p1Clock.setHour(engine.getHour24());
@@ -878,6 +1206,9 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 5. Purchasable Land Plots Grid
     nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos);
+
+    // Dynamic glowing energy conduit lines connecting generators to metropolis
+    drawEnergyConduits(window, animTime);
 
     // 6. Placed Buildings on the Map
     nodes.drawPlacedBuildings(window, font, resourcesLoaded, engine.getBuildings());
@@ -925,12 +1256,18 @@ void UI_map::render(sf::RenderWindow& window) {
     // 15. Menu button & persistent HUD
     drawHUD(window);
 
-    // 16. Interactive Modal Dialogs (Requires player to click OK or confirm)
+    // 16. Dynamic Weather Particles (rain, snow, wind leaves, night stars/fireflies) & Lightning
+    drawWeatherParticles(window);
+
+    // 17. Interactive Modal Dialogs (Requires player to click OK or confirm)
     drawPlayerModals(window);
 
-    // 17. Player targeting cursors (RENDERED ON TOP OF EVERYTHING!)
+    // 18. Player targeting cursors (RENDERED ON TOP OF EVERYTHING!)
     drawPlayerCursors(window);
 
-    // 18. Floating Notices
+    // 19. Floating Notices
     drawFloatingNotices(window);
+
+    // 20. Interactive Help & Rules Manual Overlay (if opened)
+    drawHelpOverlay(window);
 }

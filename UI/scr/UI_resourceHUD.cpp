@@ -9,8 +9,8 @@ UI_resourceHUD::UI_resourceHUD()
 
 void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                                        const PlayerEconomy& econ, bool isWest) {
-    float screenWidth = static_cast<float>(window.getSize().x);
-    float screenHeight = static_cast<float>(window.getSize().y);
+    float screenWidth = VIRTUAL_WIDTH;
+    float screenHeight = VIRTUAL_HEIGHT;
     float R = 235.0f; // Radius of the quarter circle
 
     // -------------------------------------------------------------------------

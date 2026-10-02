@@ -7,8 +7,8 @@ UI_city::UI_city() {
 }
 
 void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime) {
-    float screenHeight = static_cast<float>(window.getSize().y);
-    float midX = 800.0f;
+    float screenHeight = VIRTUAL_HEIGHT;
+    float midX = VIRTUAL_WIDTH / 2.0f; // 800.0f
 
     // Full Central Dividing Line from Y=0 to Y=900
     sf::RectangleShape centerLine({ 3.0f, screenHeight });
@@ -35,17 +35,30 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
 
     // Road bridges connecting West and East across river
     for (float bridgeY : { 170.0f, 290.0f }) {
-        sf::RectangleShape bridge({ 36.0f, 18.0f });
-        bridge.setPosition({ midX - 18.0f, bridgeY });
+        sf::RectangleShape bridge({ 40.0f, 20.0f });
+        bridge.setPosition({ midX - 20.0f, bridgeY });
         bridge.setFillColor(sf::Color(45, 52, 65, 245));
         bridge.setOutlineThickness(1.0f);
         bridge.setOutlineColor(sf::Color(255, 215, 0, 180));
         window.draw(bridge);
 
-        sf::RectangleShape lane({ 12.0f, 2.0f });
-        lane.setPosition({ midX - 6.0f, bridgeY + 8.0f });
+        sf::RectangleShape lane({ 16.0f, 2.0f });
+        lane.setPosition({ midX - 8.0f, bridgeY + 9.0f });
         lane.setFillColor(sf::Color(255, 240, 100));
         window.draw(lane);
+
+        // Animated Traffic / Electric Cars crossing the bridges!
+        float carOffset1 = std::fmod(animTime * 40.0f + bridgeY, 50.0f) - 25.0f;
+        sf::RectangleShape car1({ 8.0f, 4.5f });
+        car1.setPosition({ midX + carOffset1, bridgeY + 3.0f });
+        car1.setFillColor(sf::Color(0, 229, 255));
+        window.draw(car1);
+
+        float carOffset2 = 25.0f - std::fmod(animTime * 32.0f + bridgeY * 1.5f, 50.0f);
+        sf::RectangleShape car2({ 8.0f, 4.5f });
+        car2.setPosition({ midX + carOffset2, bridgeY + 12.0f });
+        car2.setFillColor(sf::Color(255, 120, 200));
+        window.draw(car2);
     }
 
     // Border marker tag below city
@@ -218,7 +231,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 
 void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                               int demand, int p1Energy, int p2Energy, float p1Share) {
-    float screenWidth = static_cast<float>(window.getSize().x);
+    float screenWidth = VIRTUAL_WIDTH;
 
     float panelW = 560.0f;
     float panelH = 42.0f;

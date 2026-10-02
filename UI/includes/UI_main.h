@@ -14,9 +14,14 @@ enum class UIState {
 class UI_main {
 private:
     sf::RenderWindow window;
+    sf::View gameView;
     UI_mainMenu mainMenu;
     UI_map map;
     UIState currentState;
+    bool isFullscreen;
+
+    void updateViewport();
+    void toggleFullscreen();
 
 public:
     UI_main();

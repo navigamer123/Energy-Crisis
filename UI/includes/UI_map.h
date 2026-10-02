@@ -88,6 +88,24 @@ private:
                             const std::string& detail, const std::string& tip, sf::Color accent = sf::Color(255, 75, 75));
     void closePlayerModal(int player);
 
+    bool requestFullscreenToggle = false;
+    bool showHelpOverlay = false;
+    float lightningFlashTimer = 0.0f;
+
+    struct WeatherParticle {
+        sf::Vector2f pos;
+        sf::Vector2f vel;
+        float alpha;
+        float size;
+        int type; // 0 = Rain, 1 = Snow, 2 = Wind leaf, 3 = Star/Firefly
+    };
+    std::vector<WeatherParticle> particles;
+
+    void updateWeatherParticles(float dt);
+    void drawWeatherParticles(sf::RenderWindow& window);
+    void drawEnergyConduits(sf::RenderWindow& window, float animTime);
+    void drawHelpOverlay(sf::RenderWindow& window);
+
 public:
     UI_map();
     ~UI_map();
@@ -95,6 +113,9 @@ public:
     void setControlScheme(ControlScheme scheme);
     bool isMenuRequested() const { return requestMenu; }
     void resetMenuRequest() { requestMenu = false; }
+
+    bool isFullscreenRequested() const { return requestFullscreenToggle; }
+    void resetFullscreenRequest() { requestFullscreenToggle = false; }
 
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
     void render(sf::RenderWindow& window);

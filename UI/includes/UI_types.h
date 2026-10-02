@@ -4,6 +4,10 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 
+// Virtual Canvas Resolution (16:9)
+constexpr float VIRTUAL_WIDTH = 1600.0f;
+constexpr float VIRTUAL_HEIGHT = 900.0f;
+
 // -----------------------------------------------------------------------------
 // UTF-8 Helper to ensure Cyrillic / Bulgarian text renders properly in SFML
 // -----------------------------------------------------------------------------

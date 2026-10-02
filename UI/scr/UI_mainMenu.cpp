@@ -52,7 +52,8 @@ void UI_mainMenu::drawButton(sf::RenderWindow& window, sf::FloatRect bounds, con
 }
 
 void UI_mainMenu::drawHeader(sf::RenderWindow& window) {
-    float screenWidth = static_cast<float>(window.getSize().x);
+    (void)window;
+    float screenWidth = VIRTUAL_WIDTH;
 
     if (fontLoaded) {
         // Drop shadow
@@ -103,7 +104,7 @@ void UI_mainMenu::onQuit() {
 void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     drawHeader(window);
 
-    float screenWidth = static_cast<float>(window.getSize().x);
+    float screenWidth = VIRTUAL_WIDTH;
     float btnWidth = 320.0f;
     float btnHeight = 54.0f;
     float btnX = (screenWidth - btnWidth) / 2.0f;
@@ -139,7 +140,7 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
 void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     drawHeader(window);
 
-    float screenWidth = static_cast<float>(window.getSize().x);
+    float screenWidth = VIRTUAL_WIDTH;
     float panelWidth = 560.0f;
     float panelHeight = 370.0f;
     float panelX = (screenWidth - panelWidth) / 2.0f;
@@ -318,7 +319,7 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
     if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
         if (mb->button == sf::Mouse::Button::Left) {
             sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
-            float screenWidth = static_cast<float>(window.getSize().x);
+            float screenWidth = VIRTUAL_WIDTH;
 
             if (state == MenuState::MAIN) {
                 float btnWidth = 320.0f;
