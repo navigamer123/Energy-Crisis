@@ -43,7 +43,9 @@ enum class BuildingType {
     SOLAR_PANEL,
     WIND_TURBINE,
     HYDRO_PLANT,
-    BATTERY
+    BATTERY,
+    LAMP,
+    DEMOLISH
 };
 
 struct BuildingCost {
@@ -61,6 +63,9 @@ struct PlacedBuilding {
     int playerOwner; // 1 or 2
     float currentOutputMW;
     float animTimer;
+    float energyStored = 0.0f;  // Current stored charge in MWh
+    float maxCapacity = 200.0f; // Max capacity in MWh
+    float lightRadius = 150.0f; // For Lamp light cone
 };
 
 struct LandPlot {
@@ -132,6 +137,8 @@ public:
 
     bool canPlaceBuilding(int player, BuildingType type, sf::Vector2f pos, std::string& reason) const;
     bool placeBuilding(int player, BuildingType type, sf::Vector2f pos, std::string& outMsg);
+    bool removeBuilding(int player, sf::Vector2f pos, std::string& outMsg);
+    bool isAreaIlluminated(int player, sf::Vector2f pos) const;
 
     // Building Data helper
     BuildingCost getBuildingCost(BuildingType type) const;

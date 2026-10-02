@@ -9,8 +9,8 @@ UI_map::UI_map()
       requestMenu(false),
       p1Clock(1),
       p2Clock(2),
-      p1Buildings(1, { 20.0f, 120.0f }, { 220.0f, 360.0f }, sf::Color(0, 229, 255)),
-      p2Buildings(2, { 1600.0f - 240.0f, 120.0f }, { 220.0f, 360.0f }, sf::Color(255, 120, 200)),
+      p1Buildings(1, { 18.0f, 115.0f }, { 230.0f, 395.0f }, sf::Color(0, 229, 255)),
+      p2Buildings(2, { 1600.0f - 248.0f, 115.0f }, { 230.0f, 395.0f }, sf::Color(255, 120, 200)),
       p1Pos(450.0f, 450.0f),
       p2Pos(1150.0f, 450.0f),
       p1Pulse(0.0f),
@@ -269,8 +269,106 @@ void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
         window.draw(prog);
     };
 
-    drawOnePopup(p1Popup, 20.0f, 482.0f);
-    drawOnePopup(p2Popup, 1600.0f - 245.0f, 482.0f);
+    drawOnePopup(p1Popup, 20.0f, 520.0f);
+    drawOnePopup(p2Popup, 1600.0f - 245.0f, 520.0f);
+}
+
+void UI_map::triggerPlayerModal(int player, const std::string& badge, const std::string& title,
+                                const std::string& detail, const std::string& tip, sf::Color accent) {
+    PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
+    m.active = true;
+    m.badge = badge;
+    m.title = title;
+    m.detail = detail;
+    m.tip = tip;
+    m.accentColor = accent;
+
+    float w = 340.0f;
+    float h = 210.0f;
+    float x = (player == 1) ? (800.0f - w) / 2.0f : 800.0f + (800.0f - w) / 2.0f;
+    float y = 250.0f;
+
+    m.box = sf::FloatRect({ x, y }, { w, h });
+    m.okBtn = sf::FloatRect({ x + (w - 160.0f) / 2.0f, y + h - 42.0f }, { 160.0f, 32.0f });
+}
+
+void UI_map::closePlayerModal(int player) {
+    PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
+    m.active = false;
+}
+
+void UI_map::drawPlayerModals(sf::RenderWindow& window) {
+    if (!resourcesLoaded) return;
+    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    auto drawOneModal = [&](const PlayerModalDialog& m, int pIdx) {
+        if (!m.active) return;
+
+        // Dim background overlay over that player's half of the screen
+        float overlayX = (pIdx == 1) ? 0.0f : 800.0f;
+        sf::RectangleShape overlay({ 800.0f, 900.0f });
+        overlay.setPosition({ overlayX, 0.0f });
+        overlay.setFillColor(sf::Color(0, 0, 0, 140));
+        window.draw(overlay);
+
+        // Modal main box
+        sf::RectangleShape card(m.box.size);
+        card.setPosition(m.box.position);
+        card.setFillColor(sf::Color(16, 22, 34, 252));
+        card.setOutlineThickness(2.5f);
+        card.setOutlineColor(m.accentColor);
+        window.draw(card);
+
+        // Header bar
+        sf::RectangleShape hBar({ m.box.size.x, 30.0f });
+        hBar.setPosition(m.box.position);
+        hBar.setFillColor(sf::Color(28, 38, 54, 250));
+        window.draw(hBar);
+
+        // Badge / Alert Icon
+        sf::Text tBadge(font, toUtf8("! " + m.badge), 12);
+        tBadge.setFillColor(m.accentColor);
+        tBadge.setPosition({ m.box.position.x + 10.0f, m.box.position.y + 6.0f });
+        window.draw(tBadge);
+
+        // Title
+        sf::Text tTitle(font, toUtf8(m.title), 13);
+        tTitle.setFillColor(sf::Color::White);
+        tTitle.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 38.0f });
+        window.draw(tTitle);
+
+        // Detail explanation
+        sf::Text tDetail(font, toUtf8(m.detail), 11);
+        tDetail.setFillColor(sf::Color(200, 225, 250));
+        tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 64.0f });
+        window.draw(tDetail);
+
+        // Tip text
+        if (!m.tip.empty()) {
+            sf::Text tTip(font, toUtf8("СЪВЕТ: " + m.tip), 10);
+            tTip.setFillColor(sf::Color(255, 225, 110));
+            tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 115.0f });
+            window.draw(tTip);
+        }
+
+        // [ OK - РАЗБРАХ ] Button
+        bool btnHover = m.okBtn.contains(mousePos);
+        sf::RectangleShape btn(m.okBtn.size);
+        btn.setPosition(m.okBtn.position);
+        btn.setFillColor(btnHover ? sf::Color(55, 160, 95) : sf::Color(35, 110, 65));
+        btn.setOutlineThickness(1.5f);
+        btn.setOutlineColor(btnHover ? sf::Color(100, 255, 180) : sf::Color(70, 210, 110));
+        window.draw(btn);
+
+        sf::Text tOk(font, toUtf8("OK  (РАЗБРАХ)"), 12);
+        tOk.setFillColor(sf::Color::White);
+        sf::FloatRect ob = tOk.getLocalBounds();
+        tOk.setPosition({ m.okBtn.position.x + (m.okBtn.size.x - ob.size.x) / 2.0f, m.okBtn.position.y + 6.0f });
+        window.draw(tOk);
+    };
+
+    drawOneModal(p1Modal, 1);
+    drawOneModal(p2Modal, 2);
 }
 
 void UI_map::drawHUD(sf::RenderWindow& window) {
@@ -300,7 +398,7 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
         helpBar.setOutlineColor(sf::Color(60, 85, 120));
         window.draw(helpBar);
 
-        std::string helpText = "P1: [E] Избери какво да правиш  |  [Q] Кенселирай / Отказ  |  [SPACE/КЛИК] Действие/Строеж  ///  P2: [PgDn] Избери  |  [PgUp] Кенселирай  |  [ENTER] Действие";
+        std::string helpText = "P1: [E] Сграда | [X] Разруши | [Q] Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn] Сграда | [Del] Разруши | [PgUp] Отказ | [ENTER] Действие";
         sf::Text ht(font, toUtf8(helpText), 11);
         ht.setFillColor(sf::Color(210, 230, 255));
         sf::FloatRect htb = ht.getLocalBounds();
@@ -367,7 +465,41 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 }
 
 void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
+    // -------------------------------------------------------------------------
+    // 1. Check if interactive player modal dialog is active
+    // -------------------------------------------------------------------------
+    if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+        sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+        if (p1Modal.active) {
+            if (p1Modal.okBtn.contains(clickPos) || p1Modal.box.contains(clickPos) || clickPos.x <= 800.0f) {
+                closePlayerModal(1);
+                return;
+            }
+        }
+        if (p2Modal.active) {
+            if (p2Modal.okBtn.contains(clickPos) || p2Modal.box.contains(clickPos) || clickPos.x > 800.0f) {
+                closePlayerModal(2);
+                return;
+            }
+        }
+    }
+
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+        if (p1Modal.active) {
+            if (key->code == sf::Keyboard::Key::Space || key->code == sf::Keyboard::Key::Enter ||
+                key->code == sf::Keyboard::Key::E || key->code == sf::Keyboard::Key::Q) {
+                closePlayerModal(1);
+                return;
+            }
+        }
+        if (p2Modal.active) {
+            if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::PageDown ||
+                key->code == sf::Keyboard::Key::PageUp) {
+                closePlayerModal(2);
+                return;
+            }
+        }
+
         if (key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::M) {
             requestMenu = true;
         }
@@ -376,14 +508,31 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         // PLAYER 1 ACTIONS (WEST)
         // =====================================================================
 
-        // [E]: Choose what to do (Cycle buildings: Solar -> Wind -> Hydro -> Battery)
+        // [X]: Quick Demolish mode toggle
+        if (key->code == sf::Keyboard::Key::X) {
+            if (engine.getSelectedBuilding(1) == BuildingType::DEMOLISH) {
+                engine.clearBuildingSelection(1);
+                triggerPlayerPopup(1, "ОТКАЗ", "Премахването е отменено", "Свободен режим.", "[E]: Избери сграда", sf::Color(180, 180, 180));
+            } else {
+                engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
+                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Кликнете сградата, която искате да махнете.", "[КЛИК/SPACE]: Премахни | [Q/X]: Отказ", sf::Color(255, 80, 80));
+            }
+        }
+
+        // [E]: Choose what to do (Cycle buildings: Solar -> Wind -> Hydro -> Battery -> Lamp -> Demolish)
         if (key->code == sf::Keyboard::Key::E) {
             engine.cycleBuildingSelection(1);
             BuildingType newSel = engine.getSelectedBuilding(1);
             BuildingCost c = engine.getBuildingCost(newSel);
-            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
-                               "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               "[SPACE/КЛИК]: Постави | [E]: Смени | [Q]: Отказ", sf::Color(0, 229, 255));
+            if (newSel == BuildingType::DEMOLISH) {
+                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от дърво и руда.", "[SPACE/КЛИК]: Премахни | [E]: Смени | [Q]: Отказ", sf::Color(255, 80, 80));
+            } else if (newSel == BuildingType::LAMP) {
+                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, "Нужно: 15 Дърво, 10 Руда.\nОсветява нощем за строителство.", "[SPACE/КЛИК]: Постави | [E]: Смени | [Q]: Отказ", sf::Color(255, 220, 100));
+            } else {
+                triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
+                                   "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
+                                   "[SPACE/КЛИК]: Постави | [E]: Смени | [Q]: Отказ", sf::Color(0, 229, 255));
+            }
         }
 
         // [Q]: CANCEL / КЕНСЕЛИРАЙ
@@ -396,7 +545,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             }
         }
 
-        // Direct Hotkeys 1, 2, 3, 4 for P1
+        // Direct Hotkeys 1..6 for P1
         if (key->code == sf::Keyboard::Key::Num1) {
             engine.getPlayerEconomyMut(1).selectedBuilding = 1;
             BuildingCost c = engine.getBuildingCost(BuildingType::SOLAR_PANEL);
@@ -412,7 +561,14 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         } else if (key->code == sf::Keyboard::Key::Num4) {
             engine.getPlayerEconomyMut(1).selectedBuilding = 4;
             BuildingCost c = engine.getBuildingCost(BuildingType::BATTERY);
-            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Нужно: 30 Дърво, 60 Руда.\nРезерв: +40 MW през нощта.", "[SPACE/КЛИК]: Постави | [Q]: Отказ", sf::Color(0, 229, 255));
+            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Нужно: 30 Дърво, 60 Руда.\nЗарежда се денем, отдава нощем.", "[SPACE/КЛИК]: Постави | [Q]: Отказ", sf::Color(0, 229, 255));
+        } else if (key->code == sf::Keyboard::Key::Num5) {
+            engine.getPlayerEconomyMut(1).selectedBuilding = 5;
+            BuildingCost c = engine.getBuildingCost(BuildingType::LAMP);
+            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, "Нужно: 15 Дърво, 10 Руда.\nОсветява нощем за строителство.", "[SPACE/КЛИК]: Постави | [Q]: Отказ", sf::Color(255, 220, 100));
+        } else if (key->code == sf::Keyboard::Key::Num6) {
+            engine.getPlayerEconomyMut(1).selectedBuilding = 6;
+            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Кликнете сграда за премахване.\nВръща 50% от дърво и руда.", "[SPACE/КЛИК]: Премахни | [Q]: Отказ", sf::Color(255, 80, 80));
         }
 
         // [Space] or [F]: Confirm / Place Building / Buy Land / Mine Resource
@@ -427,7 +583,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                             if (engine.buyLandPlot(1, plot.id, buyMsg)) {
                                 triggerPlayerPopup(1, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак SPACE за строеж.", "[SPACE]: Постави сградата", sf::Color(255, 215, 0));
                             } else {
-                                triggerPlayerPopup(1, "ГРЕШКА", "Няма злато за земя!", buyMsg + "\nПродавайте ток на града за злато.", "[Q]: Отказ", sf::Color(255, 90, 90));
+                                triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите злато!", sf::Color(255, 180, 50));
                             }
                             return;
                         }
@@ -437,10 +593,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 std::string msg;
                 if (engine.placeBuilding(1, sel, p1Pos, msg)) {
                     p1Pulse = 1.0f;
-                    triggerPlayerPopup(1, "УСПЕХ", "Построена сграда!", msg + "\nГенераторът захранва града!", "[E]: Следващ строеж", sf::Color(0, 255, 180));
-                    engine.clearBuildingSelection(1);
+                    triggerPlayerPopup(1, "УСПЕХ", "Действието е успешно!", msg, "[E]: Следващ строеж", sf::Color(0, 255, 180));
+                    if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(1);
                 } else {
-                    triggerPlayerPopup(1, "ГРЕШКА", "Не може да се построи!", msg, "[Q]: Отказ | Добийте ресурси", sf::Color(255, 90, 90));
+                    triggerPlayerModal(1, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
+                                       (!engine.isDaylight() ? "Поставете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
                 }
             } else {
                 // No building selected: check if near mine, forest, or unpurchased plot
@@ -462,7 +619,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                                 if (engine.buyLandPlot(1, plot.id, msg)) {
                                     triggerPlayerPopup(1, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете E за избор на сграда.", "[E]: Избери сграда", sf::Color(255, 215, 0));
                                 } else {
-                                    triggerPlayerPopup(1, "ГРЕШКА", "Няма злато!", msg, "[Q]: Отказ", sf::Color(255, 90, 90));
+                                    triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите злато!", sf::Color(255, 180, 50));
                                 }
                             } else {
                                 triggerPlayerPopup(1, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[E]: Изберете сграда за строеж", sf::Color(0, 229, 255));
@@ -475,17 +632,35 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
 
         // =====================================================================
+        // =====================================================================
         // PLAYER 2 ACTIONS (EAST)
         // =====================================================================
 
-        // [PgDn]: Choose what to do (Cycle buildings)
+        // [Delete] / [End]: Quick Demolish mode toggle for P2
+        if (key->code == sf::Keyboard::Key::Delete || key->code == sf::Keyboard::Key::End) {
+            if (engine.getSelectedBuilding(2) == BuildingType::DEMOLISH) {
+                engine.clearBuildingSelection(2);
+                triggerPlayerPopup(2, "ОТКАЗ", "Премахването е отменено", "Свободен режим.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
+            } else {
+                engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
+                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Кликнете сградата, която искате да махнете.", "[ENTER]: Премахни | [PgUp]: Отказ", sf::Color(255, 80, 80));
+            }
+        }
+
+        // [PgDn]: Choose what to do (Cycle buildings: Solar -> Wind -> Hydro -> Battery -> Lamp -> Demolish)
         if (key->code == sf::Keyboard::Key::PageDown) {
             engine.cycleBuildingSelection(2);
             BuildingType newSel = engine.getSelectedBuilding(2);
             BuildingCost c = engine.getBuildingCost(newSel);
-            triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
-                               "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               "[ENTER/КЛИК]: Постави | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 120, 200));
+            if (newSel == BuildingType::DEMOLISH) {
+                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от дърво и руда.", "[ENTER/КЛИК]: Премахни | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 80, 80));
+            } else if (newSel == BuildingType::LAMP) {
+                triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, "Нужно: 15 Дърво, 10 Руда.\nОсветява нощем за строителство.", "[ENTER/КЛИК]: Постави | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 220, 100));
+            } else {
+                triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                                   "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
+                                   "[ENTER/КЛИК]: Постави | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 120, 200));
+            }
         }
 
         // [PgUp]: CANCEL / КЕНСЕЛИРАЙ
@@ -509,7 +684,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                             if (engine.buyLandPlot(2, plot.id, buyMsg)) {
                                 triggerPlayerPopup(2, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак ENTER за строеж.", "[ENTER]: Постави сградата", sf::Color(255, 215, 0));
                             } else {
-                                triggerPlayerPopup(2, "ГРЕШКА", "Няма злато за земя!", buyMsg, "[PgUp]: Отказ", sf::Color(255, 90, 90));
+                                triggerPlayerModal(2, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите злато!", sf::Color(255, 180, 50));
                             }
                             return;
                         }
@@ -519,10 +694,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 std::string msg;
                 if (engine.placeBuilding(2, sel, p2Pos, msg)) {
                     p2Pulse = 1.0f;
-                    triggerPlayerPopup(2, "УСПЕХ", "Построена сграда!", msg + "\nГенераторът захранва града!", "[PgDn]: Следващ строеж", sf::Color(255, 120, 200));
-                    engine.clearBuildingSelection(2);
+                    triggerPlayerPopup(2, "УСПЕХ", "Действието е успешно!", msg, "[PgDn]: Следващ строеж", sf::Color(255, 120, 200));
+                    if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(2);
                 } else {
-                    triggerPlayerPopup(2, "ГРЕШКА", "Не може да се построи!", msg, "[PgUp]: Отказ | Добийте ресурси", sf::Color(255, 90, 90));
+                    triggerPlayerModal(2, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
+                                       (!engine.isDaylight() ? "Поставете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
                 }
             } else {
                 if (nodes.isNearP2Mine(p2Pos)) {
@@ -627,7 +803,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     if (engine.buyLandPlot(owner, plot.id, msg)) {
                         triggerPlayerPopup(owner, "ЗЕМЯ", "Купихте парцел!", msg + "\nВече можете да строите тук.", "[КЛИК]: Постави сграда", sf::Color(255, 215, 0));
                     } else {
-                        triggerPlayerPopup(owner, "ГРЕШКА", "Няма злато!", msg, "[Q]: Отказ", sf::Color(255, 90, 90));
+                        triggerPlayerModal(owner, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите злато!", sf::Color(255, 180, 50));
                     }
                     return;
                 } else {
@@ -635,10 +811,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     if (sel != BuildingType::NONE) {
                         std::string msg;
                         if (engine.placeBuilding(owner, sel, clickPos, msg)) {
-                            triggerPlayerPopup(owner, "УСПЕХ", "Построена сграда!", msg + "\nГенераторът захранва града!", "", sf::Color(0, 255, 180));
-                            engine.clearBuildingSelection(owner);
+                            triggerPlayerPopup(owner, "УСПЕХ", "Действието е успешно!", msg, "", sf::Color(0, 255, 180));
+                            if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(owner);
                         } else {
-                            triggerPlayerPopup(owner, "ГРЕШКА", "Не може да се построи!", msg, "[Q]: Отказ", sf::Color(255, 90, 90));
+                            triggerPlayerModal(owner, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
+                                               (!engine.isDaylight() ? "Поставете Осветителна лампа за работа нощем!" : "Проверете вашите ресурси и парцели!"), sf::Color(255, 75, 75));
                         }
                         return;
                     }
@@ -748,9 +925,12 @@ void UI_map::render(sf::RenderWindow& window) {
     // 15. Menu button & persistent HUD
     drawHUD(window);
 
-    // 16. Player targeting cursors (RENDERED ON TOP OF QUARTER CIRCLES AND ALL HUD!)
+    // 16. Interactive Modal Dialogs (Requires player to click OK or confirm)
+    drawPlayerModals(window);
+
+    // 17. Player targeting cursors (RENDERED ON TOP OF EVERYTHING!)
     drawPlayerCursors(window);
 
-    // 17. Floating Notices
+    // 18. Floating Notices
     drawFloatingNotices(window);
 }

@@ -56,6 +56,21 @@ private:
     PlayerPopup p1Popup;
     PlayerPopup p2Popup;
 
+    // Interactive Modal Popups with required [OK] dismissal
+    struct PlayerModalDialog {
+        bool active = false;
+        std::string badge;
+        std::string title;
+        std::string detail;
+        std::string tip;
+        sf::FloatRect box;
+        sf::FloatRect okBtn;
+        sf::Color accentColor = sf::Color(255, 75, 75);
+    };
+
+    PlayerModalDialog p1Modal;
+    PlayerModalDialog p2Modal;
+
     std::vector<FloatingNotice> notices;
 
     void drawGrassBackground(sf::RenderWindow& window);
@@ -63,11 +78,15 @@ private:
     void drawHUD(sf::RenderWindow& window);
     void drawFloatingNotices(sf::RenderWindow& window);
     void drawPlayerPopups(sf::RenderWindow& window);
+    void drawPlayerModals(sf::RenderWindow& window);
 
     void updateControls(const sf::RenderWindow& window, float dt);
     void spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color color);
     void triggerPlayerPopup(int player, const std::string& badge, const std::string& title,
                             const std::string& detail, const std::string& action, sf::Color accent);
+    void triggerPlayerModal(int player, const std::string& badge, const std::string& title,
+                            const std::string& detail, const std::string& tip, sf::Color accent = sf::Color(255, 75, 75));
+    void closePlayerModal(int player);
 
 public:
     UI_map();

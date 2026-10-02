@@ -147,38 +147,136 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
             intake.setFillColor(sf::Color(80, 200, 255));
             window.draw(intake);
         } else if (b.type == BuildingType::BATTERY) {
-            // Battery container
-            sf::RectangleShape box({ 26.0f, 32.0f });
-            box.setOrigin({ 13.0f, 16.0f });
+            // Battery outer casing
+            sf::RectangleShape box({ 26.0f, 34.0f });
+            box.setOrigin({ 13.0f, 17.0f });
             box.setPosition(b.position);
-            box.setFillColor(sf::Color(25, 30, 38));
+            box.setFillColor(sf::Color(20, 26, 36));
             box.setOutlineThickness(1.5f);
             box.setOutlineColor(ownerColor);
             window.draw(box);
 
-            // Terminal
-            sf::RectangleShape term({ 8.0f, 4.0f });
-            term.setOrigin({ 4.0f, 4.0f });
-            term.setPosition({ b.position.x, b.position.y - 16.0f });
+            // Positive terminal on top
+            sf::RectangleShape term({ 10.0f, 4.0f });
+            term.setOrigin({ 5.0f, 4.0f });
+            term.setPosition({ b.position.x, b.position.y - 17.0f });
             term.setFillColor(sf::Color(255, 215, 0));
             window.draw(term);
 
-            // Glowing charge level
-            sf::RectangleShape charge({ 18.0f, 18.0f });
-            charge.setOrigin({ 9.0f, 9.0f });
-            charge.setPosition(b.position);
-            charge.setFillColor(sf::Color(0, 255, 120, 200));
-            window.draw(charge);
+            // Dark inner glass chamber
+            sf::RectangleShape glass({ 18.0f, 24.0f });
+            glass.setOrigin({ 9.0f, 12.0f });
+            glass.setPosition({ b.position.x, b.position.y + 1.0f });
+            glass.setFillColor(sf::Color(10, 15, 20));
+            glass.setOutlineThickness(1.0f);
+            glass.setOutlineColor(sf::Color(60, 75, 95));
+            window.draw(glass);
+
+            // Dynamic fluid fill level
+            float pct = std::max(0.0f, std::min(1.0f, b.energyStored / b.maxCapacity));
+            float fluidH = 22.0f * pct;
+            if (fluidH > 1.0f) {
+                sf::Color fluidColor = (pct > 0.5f) ? sf::Color(0, 255, 160) :
+                                      ((pct > 0.2f) ? sf::Color(255, 210, 40) : sf::Color(255, 75, 75));
+                sf::RectangleShape fluid({ 16.0f, fluidH });
+                fluid.setPosition({ b.position.x - 8.0f, b.position.y + 12.0f - fluidH });
+                fluid.setFillColor(fluidColor);
+                window.draw(fluid);
+            }
+
+            // Segment tick marks
+            for (int seg = 1; seg <= 3; seg++) {
+                sf::RectangleShape tick({ 16.0f, 1.0f });
+                tick.setPosition({ b.position.x - 8.0f, b.position.y - 10.0f + seg * 5.5f });
+                tick.setFillColor(sf::Color(40, 55, 75, 180));
+                window.draw(tick);
+            }
+        } else if (b.type == BuildingType::LAMP) {
+            // Illuminated light circle on ground
+            sf::CircleShape lightGlow(b.lightRadius);
+            lightGlow.setOrigin({ b.lightRadius, b.lightRadius });
+            lightGlow.setPosition(b.position);
+            lightGlow.setFillColor(sf::Color(255, 235, 140, 35));
+            lightGlow.setOutlineThickness(1.5f);
+            lightGlow.setOutlineColor(sf::Color(255, 220, 100, 80));
+            window.draw(lightGlow);
+
+            // Base pedestal
+            sf::CircleShape base(6.0f);
+            base.setOrigin({ 6.0f, 6.0f });
+            base.setPosition(b.position);
+            base.setFillColor(sf::Color(35, 42, 54));
+            base.setOutlineThickness(1.0f);
+            base.setOutlineColor(ownerColor);
+            window.draw(base);
+
+            // Pole
+            sf::RectangleShape pole({ 3.0f, 26.0f });
+            pole.setOrigin({ 1.5f, 26.0f });
+            pole.setPosition(b.position);
+            pole.setFillColor(sf::Color(180, 195, 215));
+            window.draw(pole);
+
+            // Lantern head
+            sf::CircleShape lantern(7.0f);
+            lantern.setOrigin({ 7.0f, 7.0f });
+            lantern.setPosition({ b.position.x, b.position.y - 26.0f });
+            lantern.setFillColor(sf::Color(255, 235, 120));
+            lantern.setOutlineThickness(2.0f);
+            lantern.setOutlineColor(sf::Color::White);
+            window.draw(lantern);
         }
 
-        // Power Output label
+        // Crisp, high-contrast labels without overlapping clutter
         if (fontLoaded) {
-            std::string pStr = "+" + std::to_string(static_cast<int>(b.currentOutputMW)) + " MW";
-            sf::Text t(font, toUtf8(pStr), 10);
-            t.setFillColor(sf::Color(255, 215, 0));
-            sf::FloatRect tb = t.getLocalBounds();
-            t.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y + 16.0f });
-            window.draw(t);
+            if (b.type == BuildingType::BATTERY) {
+                int pct = static_cast<int>((b.energyStored / b.maxCapacity) * 100.0f);
+                std::string bStr = std::to_string(pct) + "% (" + std::to_string(static_cast<int>(b.energyStored)) + "MWh)";
+                sf::Text t(font, toUtf8(bStr), 9);
+                t.setFillColor(sf::Color(160, 255, 200));
+                sf::FloatRect tb = t.getLocalBounds();
+
+                sf::RectangleShape pill({ tb.size.x + 8.0f, 14.0f });
+                pill.setOrigin({ (tb.size.x + 8.0f) / 2.0f, 7.0f });
+                pill.setPosition({ b.position.x, b.position.y + 22.0f });
+                pill.setFillColor(sf::Color(12, 16, 24, 235));
+                pill.setOutlineThickness(1.0f);
+                pill.setOutlineColor(sf::Color(60, 90, 120));
+                window.draw(pill);
+
+                t.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y + 15.0f });
+                window.draw(t);
+            } else if (b.type == BuildingType::LAMP) {
+                std::string lStr = "ЛАМПА";
+                sf::Text t(font, toUtf8(lStr), 9);
+                t.setFillColor(sf::Color(255, 235, 120));
+                sf::FloatRect tb = t.getLocalBounds();
+
+                sf::RectangleShape pill({ tb.size.x + 8.0f, 14.0f });
+                pill.setOrigin({ (tb.size.x + 8.0f) / 2.0f, 7.0f });
+                pill.setPosition({ b.position.x, b.position.y + 12.0f });
+                pill.setFillColor(sf::Color(12, 16, 24, 235));
+                window.draw(pill);
+
+                t.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y + 5.0f });
+                window.draw(t);
+            } else if (b.currentOutputMW > 0.0f) {
+                std::string pStr = "+" + std::to_string(static_cast<int>(b.currentOutputMW)) + " MW";
+                sf::Text t(font, toUtf8(pStr), 9);
+                t.setFillColor(sf::Color(255, 220, 80));
+                sf::FloatRect tb = t.getLocalBounds();
+
+                sf::RectangleShape pill({ tb.size.x + 8.0f, 14.0f });
+                pill.setOrigin({ (tb.size.x + 8.0f) / 2.0f, 7.0f });
+                pill.setPosition({ b.position.x, b.position.y + 20.0f });
+                pill.setFillColor(sf::Color(12, 16, 24, 235));
+                pill.setOutlineThickness(1.0f);
+                pill.setOutlineColor(sf::Color(70, 95, 130));
+                window.draw(pill);
+
+                t.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y + 13.0f });
+                window.draw(t);
+            }
         }
     }
 }
@@ -187,6 +285,34 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
                                         BuildingType type, sf::Vector2f pos, bool isValidPlacement,
                                         const BuildingCost& cost) {
     if (type == BuildingType::NONE) return;
+
+    if (type == BuildingType::DEMOLISH) {
+        sf::Color tint = isValidPlacement ? sf::Color(255, 80, 80, 220) : sf::Color(180, 180, 180, 160);
+        sf::RectangleShape ghost({ 42.0f, 42.0f });
+        ghost.setOrigin({ 21.0f, 21.0f });
+        ghost.setPosition(pos);
+        ghost.setFillColor(isValidPlacement ? sf::Color(255, 60, 60, 90) : sf::Color(100, 100, 100, 60));
+        ghost.setOutlineThickness(2.5f);
+        ghost.setOutlineColor(tint);
+        window.draw(ghost);
+
+        if (fontLoaded) {
+            std::string label = isValidPlacement ? "ПРЕМАХНИ СГРАДА [КЛИК]" : "ИЗБЕРЕТЕ ВАША СГРАДА";
+            sf::Text t(font, toUtf8(label), 12);
+            t.setFillColor(tint);
+            sf::FloatRect tb = t.getLocalBounds();
+            t.setPosition({ pos.x - tb.size.x / 2.0f, pos.y - 34.0f });
+            window.draw(t);
+
+            std::string hint = isValidPlacement ? "Връща 50% от вложените ресурси" : "Посочете сграда за разрушаване";
+            sf::Text th(font, toUtf8(hint), 10);
+            th.setFillColor(sf::Color(255, 210, 210));
+            sf::FloatRect thb = th.getLocalBounds();
+            th.setPosition({ pos.x - thb.size.x / 2.0f, pos.y + 24.0f });
+            window.draw(th);
+        }
+        return;
+    }
 
     sf::Color tint = isValidPlacement ? sf::Color(0, 255, 150, 180) : sf::Color(255, 60, 60, 200);
 

@@ -131,9 +131,31 @@ void GameEngine::updateBuildingsEnergy(float dt) {
             case BuildingType::HYDRO_PLANT:
                 output = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
                 break;
-            case BuildingType::BATTERY:
-                // Batteries stabilize power at night
-                output = (hour24 < 6.0f || hour24 > 18.0f) ? cost.basePowerMW : 0.0f;
+            case BuildingType::BATTERY: {
+                // Daytime: charge battery from surplus power
+                if (hour24 >= 6.0f && hour24 <= 18.0f) {
+                    float chargeRate = 35.0f * dt;
+                    b.energyStored = std::min(b.maxCapacity, b.energyStored + chargeRate);
+                    output = 0.0f; // Storing clean energy
+                } else {
+                    // Nighttime: discharge stored energy to provide steady electricity!
+                    if (b.energyStored > 0.0f) {
+                        float maxDischarge = static_cast<float>(cost.basePowerMW);
+                        float discharge = std::min(maxDischarge, b.energyStored * 0.8f);
+                        output = discharge;
+                        b.energyStored = std::max(0.0f, b.energyStored - (output * 0.12f * dt));
+                    } else {
+                        output = 0.0f; // Depleted
+                    }
+                }
+                break;
+            }
+            case BuildingType::LAMP:
+                output = 0.0f; // Lamps consume negligible power and illuminate
+                b.lightRadius = 150.0f;
+                break;
+            case BuildingType::DEMOLISH:
+                output = 0.0f;
                 break;
             default:
                 break;
@@ -288,7 +310,7 @@ bool GameEngine::buyNextLandTier(int player, std::string& outMsg) {
 
 void GameEngine::cycleBuildingSelection(int player) {
     auto& econ = (player == 1) ? p1 : p2;
-    if (econ.selectedBuilding < 1 || econ.selectedBuilding >= 4) {
+    if (econ.selectedBuilding < 1 || econ.selectedBuilding >= 6) {
         econ.selectedBuilding = 1;
     } else {
         econ.selectedBuilding++;
@@ -315,9 +337,65 @@ BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
             return { BuildingType::HYDRO_PLANT, "ВЕЦ / Хидро", "Hydro Plant", 85, 90, 180 };
         case BuildingType::BATTERY:
             return { BuildingType::BATTERY, "Батерия / Акумулатор", "Battery Storage", 30, 60, 40 };
+        case BuildingType::LAMP:
+            return { BuildingType::LAMP, "Осветителна лампа", "Light Tower / Lamp", 15, 10, 0 };
+        case BuildingType::DEMOLISH:
+            return { BuildingType::DEMOLISH, "Премахване", "Demolish Tool", 0, 0, 0 };
         default:
             return { BuildingType::NONE, "", "", 0, 0, 0 };
     }
+}
+
+bool GameEngine::isAreaIlluminated(int player, sf::Vector2f pos) const {
+    if (isDaylight()) {
+        return true;
+    }
+    // Check if within illuminated radius of any Lamp owned by player
+    for (const auto& b : buildings) {
+        if (b.playerOwner == player && b.type == BuildingType::LAMP) {
+            float dx = b.position.x - pos.x;
+            float dy = b.position.y - pos.y;
+            if (std::sqrt(dx * dx + dy * dy) <= b.lightRadius) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool GameEngine::removeBuilding(int player, sf::Vector2f pos, std::string& outMsg) {
+    auto& econ = (player == 1) ? p1 : p2;
+    float closestDist = 999999.0f;
+    int closestIdx = -1;
+
+    for (size_t i = 0; i < buildings.size(); i++) {
+        if (buildings[i].playerOwner == player) {
+            float dx = buildings[i].position.x - pos.x;
+            float dy = buildings[i].position.y - pos.y;
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist < 38.0f && dist < closestDist) {
+                closestDist = dist;
+                closestIdx = static_cast<int>(i);
+            }
+        }
+    }
+
+    if (closestIdx == -1) {
+        outMsg = "НЯМА ВАША СГРАДА ТУК ЗА ПРЕМАХВАНЕ!";
+        return false;
+    }
+
+    PlacedBuilding b = buildings[closestIdx];
+    BuildingCost cost = getBuildingCost(b.type);
+    int refundWood = cost.woodCost / 2;
+    int refundOre = cost.oreCost / 2;
+
+    econ.wood += refundWood;
+    econ.ore += refundOre;
+
+    buildings.erase(buildings.begin() + closestIdx);
+    outMsg = "ПРЕМАХНАТ " + cost.nameBg + "! (Върнати: +" + std::to_string(refundWood) + " Дърво, +" + std::to_string(refundOre) + " Руда)";
+    return true;
 }
 
 bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f pos, std::string& reason) const {
@@ -326,11 +404,35 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    if (type == BuildingType::DEMOLISH) {
+        // Demolish tool checks if there is an owned building within reach
+        for (const auto& b : buildings) {
+            if (b.playerOwner == player) {
+                float dx = b.position.x - pos.x;
+                float dy = b.position.y - pos.y;
+                if (std::sqrt(dx * dx + dy * dy) < 38.0f) {
+                    return true;
+                }
+            }
+        }
+        reason = "НЯМА ВАША СГРАДА В ТАЗИ ТОЧКА ЗА ПРЕМАХВАНЕ!";
+        return false;
+    }
+
     const auto& econ = (player == 1) ? p1 : p2;
     BuildingCost cost = getBuildingCost(type);
     if (econ.wood < cost.woodCost || econ.ore < cost.oreCost) {
-        reason = "НЕДОСТИГ НА РЕСУРСИ! (НУЖНО: " + std::to_string(cost.woodCost) + " Дърво, " + std::to_string(cost.oreCost) + " Руда)";
+        reason = "НЕДОСТИГ НА РЕСУРСИ! (Нужно: " + std::to_string(cost.woodCost) + " Дърво, " + std::to_string(cost.oreCost) + " Руда)";
         return false;
+    }
+
+    // Night Construction Restriction:
+    // Players CANNOT build at night without a Lamp illuminating the area!
+    if (!isDaylight() && type != BuildingType::LAMP) {
+        if (!isAreaIlluminated(player, pos)) {
+            reason = "НОЩЕН МРАК! В тъмнината строителите не виждат.\nПоставете Лампа за осветление!";
+            return false;
+        }
     }
 
     // Must be inside a PURCHASED plot owned by this player
@@ -340,7 +442,7 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
             if (plot.isPurchased) {
                 onPurchasedLand = true;
             } else {
-                reason = "ТРЯБВА ПЪРВО ДА КУПИТЕ ТОЗИ ПАРЦЕЛ ЗЕМЯ! (ЦЕНА: " + std::to_string(plot.costGold) + " G)";
+                reason = "НЕПРИТЕЖАВАНА ЗЕМЯ! Трябва първо да закупите този парцел с " + std::to_string(plot.costGold) + " G!";
                 return false;
             }
             break;
@@ -356,7 +458,7 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
     for (const auto& b : buildings) {
         float dx = b.position.x - pos.x;
         float dy = b.position.y - pos.y;
-        if (std::sqrt(dx * dx + dy * dy) < 32.0f) {
+        if (std::sqrt(dx * dx + dy * dy) < 28.0f) {
             reason = "ТВЪРДЕ БЛИЗО ДО ДРУГА СГРАДА!";
             return false;
         }
@@ -366,6 +468,10 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
 }
 
 bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, std::string& outMsg) {
+    if (type == BuildingType::DEMOLISH) {
+        return removeBuilding(player, pos, outMsg);
+    }
+
     std::string reason;
     if (!canPlaceBuilding(player, type, pos, reason)) {
         outMsg = reason;
@@ -383,8 +489,15 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     b.playerOwner = player;
     b.currentOutputMW = static_cast<float>(cost.basePowerMW);
     b.animTimer = 0.0f;
+    b.energyStored = (type == BuildingType::BATTERY) ? 60.0f : 0.0f; // Initial partial charge for newly placed battery
+    b.maxCapacity = 200.0f;
+    b.lightRadius = (type == BuildingType::LAMP) ? 150.0f : 0.0f;
     buildings.push_back(b);
 
-    outMsg = "ПОСТРОЕН " + cost.nameBg + "! (+" + std::to_string(cost.basePowerMW) + " MW)";
+    if (type == BuildingType::LAMP) {
+        outMsg = "ПОСТАВЕНА Осветителна лампа! (Осветява нощем в радиус 150 px)";
+    } else {
+        outMsg = "ПОСТРОЕН " + cost.nameBg + "! (+" + std::to_string(cost.basePowerMW) + " MW)";
+    }
     return true;
 }
