@@ -1,4 +1,4 @@
-#include "game_random.h"
+#include "../includes/game_random.h"
 #include <random>
 
 int randomInt(int min, int max)

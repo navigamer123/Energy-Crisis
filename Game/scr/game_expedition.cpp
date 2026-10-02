@@ -1,5 +1,5 @@
-#include "game_expedition.h"
-#include "game_random.h"
+#include "../includes/game_expedition.h"
+#include "../includes/game_random.h"
 
 std::vector<int> Expedition(int expedition_time, const std::string& expedition_type)
 {

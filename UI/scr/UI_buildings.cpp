@@ -1,6 +1,6 @@
 #include "../includes/UI_buildings.h"
 #include "../includes/UI_types.h"
-#include "game_balance.h"
+#include "../../Game/includes/game_balance.h"
 #include <iostream>
 
 UI_buildings::UI_buildings()
