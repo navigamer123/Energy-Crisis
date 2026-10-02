@@ -21,12 +21,18 @@ void UI_buildings::setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size,
     accentColor = accent;
 
     buildings.clear();
-    buildings.push_back({ BuildingType::SOLAR_PANEL, "Solar Panel", "Слънчев панел", 35, 30, 60, 0, {} });
-    buildings.push_back({ BuildingType::WIND_TURBINE, "Wind Turbine", "Вятърна мелница", 50, 45, 90, 0, {} });
-    buildings.push_back({ BuildingType::HYDRO_PLANT, "Hydro Plant", "ВЕЦ / Хидро", 85, 90, 180, 0, {} });
-    buildings.push_back({ BuildingType::BATTERY, "Battery Storage", "Батерия / Акумулатор", 30, 60, 40, 0, {} });
-    buildings.push_back({ BuildingType::LAMP, "Street Lamp", "Осветителна лампа", 15, 10, 0, 0, {} });
-    buildings.push_back({ BuildingType::DEMOLISH, "Demolish Tool", "Премахване / Разруши", 0, 0, 0, 0, {} });
+    // Solar Panel: 6 Wood, 4 Iron, 6 Copper, 8 Silicon (+60 MW)
+    buildings.push_back({ BuildingType::SOLAR_PANEL, "Solar Panel", "Слънчев панел", 6, 4, 6, 0, 8, 0, 18, 60, 0, {} });
+    // Wind Turbine: 8 Wood, 14 Iron, 8 Copper, 6 Coal (+85 MW)
+    buildings.push_back({ BuildingType::WIND_TURBINE, "Wind Turbine", "Вятърна мелница", 8, 14, 8, 6, 0, 0, 28, 85, 0, {} });
+    // Hydro Plant: 15 Wood, 20 Iron, 12 Copper, 6 Silicon (+160 MW)
+    buildings.push_back({ BuildingType::HYDRO_PLANT, "Hydro Plant", "ВЕЦ / Хидро", 15, 20, 12, 0, 6, 0, 38, 160, 0, {} });
+    // Battery Storage: 4 Wood, 8 Iron, 10 Copper, 4 Coal, 4 Silver (200 MWh)
+    buildings.push_back({ BuildingType::BATTERY, "Battery Storage", "Батерия / Акумулатор", 4, 8, 10, 4, 0, 4, 26, 0, 0, {} });
+    // Street Lamp: 4 Wood, 5 Iron, 3 Copper (150px)
+    buildings.push_back({ BuildingType::LAMP, "Street Lamp", "Осветителна лампа", 4, 5, 3, 0, 0, 0, 8, 0, 0, {} });
+    // Demolish Tool: 0
+    buildings.push_back({ BuildingType::DEMOLISH, "Demolish Tool", "Премахване / Разруши", 0, 0, 0, 0, 0, 0, 0, 0, 0, {} });
 }
 
 BuildingType UI_buildings::handleClick(sf::Vector2f clickPos) {
@@ -73,7 +79,13 @@ void UI_buildings::draw(sf::RenderWindow& window, const sf::Font& font, bool fon
         b.btnBounds = sf::FloatRect({ itemX, y }, { itemW, itemH });
 
         bool isSelected = (b.type == activeSelection);
-        bool canAfford = (b.type == BuildingType::DEMOLISH) ? true : (econ.wood >= b.woodCost && econ.ore >= b.oreCost);
+        bool canAfford = (b.type == BuildingType::DEMOLISH) ? true :
+            (econ.wood >= b.woodCost &&
+             (econ.iron >= b.ironCost || econ.ore >= b.oreCost) &&
+             (b.copperCost == 0 || econ.copper >= b.copperCost || econ.ore >= b.oreCost) &&
+             (b.coalCost == 0 || econ.coal >= b.coalCost || econ.ore >= b.oreCost) &&
+             (b.siliconCost == 0 || econ.silicon >= b.siliconCost || econ.ore >= b.oreCost) &&
+             (b.silverCost == 0 || econ.silver >= b.silverCost || econ.ore >= b.oreCost));
         bool hover = b.btnBounds.contains(mousePos);
 
         // Card background
@@ -116,6 +128,9 @@ void UI_buildings::draw(sf::RenderWindow& window, const sf::Font& font, bool fon
             } else if (b.type == BuildingType::LAMP) {
                 pStr = "[Нощ: 150px]";
                 badgeColor = sf::Color(255, 230, 120);
+            } else if (b.type == BuildingType::BATTERY) {
+                pStr = "[200 MWh]";
+                badgeColor = sf::Color(100, 240, 180);
             } else {
                 pStr = "+" + std::to_string(b.powerOutputMW) + " MW";
             }
@@ -129,10 +144,14 @@ void UI_buildings::draw(sf::RenderWindow& window, const sf::Font& font, bool fon
             std::string cStr;
             if (b.type == BuildingType::DEMOLISH) {
                 cStr = "Кликнете върху ваша сграда";
-            } else if (b.type == BuildingType::LAMP) {
-                cStr = "Дърво: " + std::to_string(b.woodCost) + " | Руда: " + std::to_string(b.oreCost) + " (Осветява)";
             } else {
-                cStr = "Дърво: " + std::to_string(b.woodCost) + " | Руда: " + std::to_string(b.oreCost);
+                cStr = std::to_string(b.woodCost) + " Дър";
+                if (b.ironCost > 0) cStr += " " + std::to_string(b.ironCost) + " Жел";
+                if (b.copperCost > 0) cStr += " " + std::to_string(b.copperCost) + " Мед";
+                if (b.siliconCost > 0) cStr += " " + std::to_string(b.siliconCost) + " Сил";
+                if (b.coalCost > 0) cStr += " " + std::to_string(b.coalCost) + " Въгл";
+                if (b.silverCost > 0) cStr += " " + std::to_string(b.silverCost) + " Среб";
+                if (b.type == BuildingType::LAMP) cStr += " (10MW)";
             }
             sf::Text tCost(font, toUtf8(cStr), 10);
             tCost.setFillColor(canAfford ? sf::Color(140, 210, 250) : sf::Color(255, 130, 130));

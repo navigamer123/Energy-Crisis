@@ -29,10 +29,17 @@ struct PlayerData {
 // Resource Types
 // -----------------------------------------------------------------------------
 enum class ResourceType {
-    WOOD,     // Gathered from forests
-    ORE,      // Mined from stone/ore mines
-    ENERGY,   // Megawatts (MW) generated to power the city
-    GOLD      // Currency earned from supplying electricity
+    NONE = 0,
+    WOOD,     // Дървесина (Гора)
+    IRON,     // Желязо (Желязна мина)
+    COPPER,   // Мед (Медна мина)
+    COAL,     // Въглища (Въглищен пласт)
+    SILICON,  // Силиций (Силициева кариера)
+    SILVER,   // Сребро (Сребърна жила)
+    GOLD,     // Злато (Златна жила)
+    MONEY,    // Пари (Градска валута от ток)
+    ENERGY,   // Електроенергия (MW)
+    ORE       // Legacy alias for tests
 };
 
 // -----------------------------------------------------------------------------
@@ -52,9 +59,14 @@ struct BuildingCost {
     BuildingType type;
     std::string nameBg;
     std::string nameEn;
-    int woodCost;
-    int oreCost;
-    int basePowerMW;
+    int woodCost = 0;
+    int ironCost = 0;
+    int copperCost = 0;
+    int coalCost = 0;
+    int siliconCost = 0;
+    int silverCost = 0;
+    int oreCost = 0; // Legacy backwards compatibility
+    int basePowerMW = 0;
 };
 
 struct PlacedBuilding {
@@ -77,13 +89,20 @@ struct LandPlot {
 };
 
 struct PlayerEconomy {
-    int gold = 0;               // Currency (starts at 0)
-    int wood = 0;               // Harvested from forests (starts at 0)
-    int ore = 0;                // Mined from base mines (starts at 0)
+    int money = 0;              // City currency earned from power generation
+    int gold = 0;               // Mined Gold
+    int silver = 0;             // Mined Silver
+    int iron = 0;               // Mined Iron
+    int coal = 0;               // Mined Coal
+    int copper = 0;             // Mined Copper
+    int silicon = 0;            // Mined Silicon
+    int wood = 0;               // Harvested Wood
+    int ore = 0;                // Legacy mineral total
     int energyMW = 0;           // Clean electricity generated (starts at 0)
     int landTier = 1;           // Land tier
     float cityInfluence = 0.50f;// Percentage of city supplied / captured (0.0 to 1.0)
-    int selectedBuilding = 0;   // 0 = None, 1 = Solar, 2 = Wind, 3 = Hydro, 4 = Battery
+    int selectedBuilding = 0;   // 0 = None, 1 = Solar, 2 = Wind, 3 = Hydro, 4 = Battery, 5 = Lamp, 6 = Demolish
+    int lastPlacedBuilding = 1; // Remembers lastly placed building for instant reuse
     PlayerData data;            // Teammate's detailed inventory from weatherF
 };
 
@@ -98,10 +117,16 @@ struct CityConquestState {
 };
 
 struct MineResult {
+    ResourceType type = ResourceType::NONE;
+    int amount = 0;
     int wood = 0;
-    int ore = 0;
-    int gold = 0;
+    int iron = 0;
+    int copper = 0;
     int coal = 0;
+    int silicon = 0;
+    int silver = 0;
+    int gold = 0;
+    int money = 0;
 };
 
 // -----------------------------------------------------------------------------
@@ -161,6 +186,8 @@ public:
     // Building Data helper
     BuildingCost getBuildingCost(BuildingType type) const;
     sf::Vector2f snapToBuildingGrid(int player, sf::Vector2f pos) const;
+    sf::Vector2f getGridSlot(int player, int col, int row) const;
+    void getClosestGridIndex(int player, sf::Vector2f pos, int& outCol, int& outRow) const;
 
     // Getters for UI
     const PlayerEconomy& getPlayerEconomy(int player) const { return (player == 1) ? p1 : p2; }

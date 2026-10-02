@@ -116,6 +116,12 @@ private:
     bool p2PrevPgUp = false;
     bool p2PrevDel = false;
 
+    // Discrete grid movement stepping for building placement
+    float p1GridStepCooldown = 0.0f;
+    float p2GridStepCooldown = 0.0f;
+    int p1GridCol = 0, p1GridRow = 0;
+    int p2GridCol = 0, p2GridRow = 0;
+
     // Mining FX particles
     struct MiningParticle {
         sf::Vector2f pos;

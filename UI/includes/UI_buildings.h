@@ -10,10 +10,15 @@ struct BuildingTypeInfo {
     BuildingType type;
     std::string name;
     std::string bgName; // Bulgarian label
-    int woodCost;
-    int oreCost;
-    int powerOutputMW;
-    int builtCount;
+    int woodCost = 0;
+    int ironCost = 0;
+    int copperCost = 0;
+    int coalCost = 0;
+    int siliconCost = 0;
+    int silverCost = 0;
+    int oreCost = 0;
+    int powerOutputMW = 0;
+    int builtCount = 0;
     sf::FloatRect btnBounds;
 };
 
