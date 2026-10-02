@@ -117,67 +117,130 @@ void GameEngine::update(float dt) {
 }
 
 void GameEngine::updateBuildingsEnergy(float dt) {
-    (void)dt;
-    float p1Total = 0.0f;
-    float p2Total = 0.0f;
-
+    // -------------------------------------------------------------------------
+    // 1. Advance building animation timers
+    // -------------------------------------------------------------------------
     for (auto& b : buildings) {
         b.animTimer += dt;
-        BuildingCost cost = getBuildingCost(b.type);
-        WeatherType w = (b.playerOwner == 1) ? p1Weather : p2Weather;
-
-        float output = 0.0f;
-        switch (b.type) {
-            case BuildingType::SOLAR_PANEL:
-                output = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24);
-                break;
-            case BuildingType::WIND_TURBINE:
-                output = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24);
-                break;
-            case BuildingType::HYDRO_PLANT:
-                output = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
-                break;
-            case BuildingType::BATTERY: {
-                // Daytime: charge battery from surplus power
-                if (hour24 >= 6.0f && hour24 <= 18.0f) {
-                    float chargeRate = 35.0f * dt;
-                    b.energyStored = std::min(b.maxCapacity, b.energyStored + chargeRate);
-                    output = 0.0f; // Storing clean energy
-                } else {
-                    // Nighttime: discharge stored energy to provide steady electricity!
-                    if (b.energyStored > 0.0f) {
-                        float maxDischarge = static_cast<float>(cost.basePowerMW);
-                        float discharge = std::min(maxDischarge, b.energyStored * 0.8f);
-                        output = discharge;
-                        b.energyStored = std::max(0.0f, b.energyStored - (output * 0.12f * dt));
-                    } else {
-                        output = 0.0f; // Depleted
-                    }
-                }
-                break;
-            }
-            case BuildingType::LAMP:
-                output = 0.0f; // Lamps consume negligible power and illuminate
-                b.lightRadius = 150.0f;
-                break;
-            case BuildingType::DEMOLISH:
-                output = 0.0f;
-                break;
-            default:
-                break;
-        }
-
-        b.currentOutputMW = output;
-        if (b.playerOwner == 1) p1Total += output;
-        else p2Total += output;
     }
 
-    p1.energyMW = static_cast<int>(p1Total);
-    p2.energyMW = static_cast<int>(p2Total);
+    // -------------------------------------------------------------------------
+    // 2. Process Energy Grid for Player 1 (West) and Player 2 (East)
+    // -------------------------------------------------------------------------
+    auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
+        float rawGen = 0.0f;
+        std::vector<PlacedBuilding*> playerLamps;
+        std::vector<PlacedBuilding*> playerBatteries;
 
-    // Track daily delivery
-    city.p1DailyDelivered += p1Total * dt * 0.1f;
-    city.p2DailyDelivered += p2Total * dt * 0.1f;
+        // Step A: Calculate pure generation from Solar, Wind, and Hydro
+        for (auto& b : buildings) {
+            if (b.playerOwner != player) continue;
+            BuildingCost cost = getBuildingCost(b.type);
+
+            if (b.type == BuildingType::SOLAR_PANEL) {
+                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24);
+                b.currentOutputMW = out;
+                rawGen += out;
+            } else if (b.type == BuildingType::WIND_TURBINE) {
+                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24);
+                b.currentOutputMW = out;
+                rawGen += out;
+            } else if (b.type == BuildingType::HYDRO_PLANT) {
+                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
+                b.currentOutputMW = out;
+                rawGen += out;
+            } else if (b.type == BuildingType::LAMP) {
+                playerLamps.push_back(&b);
+            } else if (b.type == BuildingType::BATTERY) {
+                playerBatteries.push_back(&b);
+            }
+        }
+
+        // Step B: Calculate Lamp demand (each active lamp consumes 10 MW)
+        float lampDemand = playerLamps.size() * LAMP_POWER_MW;
+        float netPlayerOutput = 0.0f;
+
+        if (rawGen >= lampDemand) {
+            // Surplus generation from active power plants!
+            // All lamps are fully powered
+            for (auto* lamp : playerLamps) {
+                lamp->lightRadius = 150.0f;
+                lamp->currentOutputMW = -LAMP_POWER_MW;
+            }
+
+            float surplus = rawGen - lampDemand;
+
+            // Batteries charge ONLY from actual generated surplus power!
+            // Batteries NEVER charge from thin air if player produces 0 energy.
+            std::vector<PlacedBuilding*> notFullBatteries;
+            for (auto* bat : playerBatteries) {
+                if (bat->energyStored < bat->maxCapacity) {
+                    notFullBatteries.push_back(bat);
+                }
+            }
+
+            if (surplus > 0.0f && !notFullBatteries.empty()) {
+                float maxChargeRequested = notFullBatteries.size() * 40.0f;
+                float actualChargePower = std::min(surplus * 0.6f, maxChargeRequested);
+                float chargePerBat = actualChargePower / notFullBatteries.size();
+
+                for (auto* bat : notFullBatteries) {
+                    float addEnergy = chargePerBat * dt;
+                    bat->energyStored = std::min(bat->maxCapacity, bat->energyStored + addEnergy);
+                    bat->currentOutputMW = 0.0f; // Storing clean electricity
+                }
+            }
+
+            // Batteries that are already full or idling with surplus do not discharge
+            for (auto* bat : playerBatteries) {
+                if (bat->energyStored >= bat->maxCapacity) {
+                    bat->currentOutputMW = 0.0f;
+                }
+            }
+
+            netPlayerOutput = surplus;
+        } else {
+            // Deficit (e.g. night with no wind, or low generation)
+            // Batteries discharge stored energy to power lamps and supply the grid!
+            float totalDischarge = 0.0f;
+            for (auto* bat : playerBatteries) {
+                if (bat->energyStored > 0.0f) {
+                    float maxDischarge = 40.0f;
+                    float discharge = std::min(maxDischarge, bat->energyStored * 0.8f);
+                    bat->currentOutputMW = discharge;
+                    // Slowly consume stored energy based on discharge rate
+                    bat->energyStored = std::max(0.0f, bat->energyStored - (discharge * 0.15f * dt));
+                    totalDischarge += discharge;
+                } else {
+                    bat->currentOutputMW = 0.0f; // Depleted (0 MWh)
+                }
+            }
+
+            float totalAvailable = rawGen + totalDischarge;
+
+            // Power as many lamps as available electricity allows
+            int poweredCount = static_cast<int>(totalAvailable / LAMP_POWER_MW);
+            for (size_t i = 0; i < playerLamps.size(); i++) {
+                if (static_cast<int>(i) < poweredCount) {
+                    playerLamps[i]->lightRadius = 150.0f;
+                    playerLamps[i]->currentOutputMW = -LAMP_POWER_MW;
+                } else {
+                    // UNPOWERED LAMP! Shuts down, dark lantern head, no light circle
+                    playerLamps[i]->lightRadius = 0.0f;
+                    playerLamps[i]->currentOutputMW = 0.0f;
+                }
+            }
+
+            float remainingPower = std::max(0.0f, totalAvailable - (std::min((int)playerLamps.size(), poweredCount) * LAMP_POWER_MW));
+            netPlayerOutput = remainingPower;
+        }
+
+        econ.energyMW = static_cast<int>(netPlayerOutput);
+        dailyDelivered += netPlayerOutput * dt * 0.1f;
+    };
+
+    processPlayerGrid(1, p1Weather, p1, city.p1DailyDelivered);
+    processPlayerGrid(2, p2Weather, p2, city.p2DailyDelivered);
 }
 
 void GameEngine::processDayEnd() {
@@ -378,13 +441,58 @@ BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
     }
 }
 
+sf::Vector2f GameEngine::snapToBuildingGrid(int player, sf::Vector2f pos) const {
+    const LandPlot* targetPlot = nullptr;
+    float bestDistSq = 9999999.0f;
+
+    // 1. Check if pos is strictly inside any plot owned by this player
+    for (const auto& plot : landPlots) {
+        if (plot.playerOwner == player && plot.bounds.contains(pos)) {
+            targetPlot = &plot;
+            break;
+        }
+    }
+
+    // 2. If not directly inside, find closest plot owned by player within 120px
+    if (!targetPlot) {
+        for (const auto& plot : landPlots) {
+            if (plot.playerOwner == player) {
+                float cx = plot.bounds.position.x + plot.bounds.size.x * 0.5f;
+                float cy = plot.bounds.position.y + plot.bounds.size.y * 0.5f;
+                float d2 = (pos.x - cx) * (pos.x - cx) + (pos.y - cy) * (pos.y - cy);
+                if (d2 < bestDistSq && d2 < (130.0f * 130.0f)) {
+                    bestDistSq = d2;
+                    targetPlot = &plot;
+                }
+            }
+        }
+    }
+
+    // 3. If a target plot is found, snap to its 2x2 grid slots
+    if (targetPlot) {
+        float left = targetPlot->bounds.position.x;
+        float top = targetPlot->bounds.position.y;
+        float colW = targetPlot->bounds.size.x * 0.5f; // 52.5f
+        float rowH = targetPlot->bounds.size.y * 0.5f; // 47.5f
+
+        int col = (pos.x >= left + colW) ? 1 : 0;
+        int row = (pos.y >= top + rowH) ? 1 : 0;
+
+        float snapX = left + (col + 0.5f) * colW;
+        float snapY = top + (row + 0.5f) * rowH;
+        return sf::Vector2f(snapX, snapY);
+    }
+
+    return pos;
+}
+
 bool GameEngine::isAreaIlluminated(int player, sf::Vector2f pos) const {
     if (isDaylight()) {
         return true;
     }
-    // Check if within illuminated radius of any Lamp owned by player
+    // Check if within illuminated radius of any active, powered Lamp owned by player
     for (const auto& b : buildings) {
-        if (b.playerOwner == player && b.type == BuildingType::LAMP) {
+        if (b.playerOwner == player && b.type == BuildingType::LAMP && b.lightRadius > 0.0f) {
             float dx = b.position.x - pos.x;
             float dy = b.position.y - pos.y;
             if (std::sqrt(dx * dx + dy * dy) <= b.lightRadius) {
@@ -451,6 +559,9 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    // Snap to 2x2 grid slot inside land plot
+    pos = snapToBuildingGrid(player, pos);
+
     const auto& econ = (player == 1) ? p1 : p2;
     BuildingCost cost = getBuildingCost(type);
     if (econ.wood < cost.woodCost || econ.ore < cost.oreCost) {
@@ -459,11 +570,15 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
     }
 
     // Night Construction Restriction:
-    // Players CANNOT build at night without a Lamp illuminating the area!
-    if (!isDaylight() && type != BuildingType::LAMP) {
-        if (!isAreaIlluminated(player, pos)) {
-            reason = "НОЩЕН МРАК! В тъмнината строителите не виждат.\nПоставете Лампа за осветление!";
-            return false;
+    // Players CANNOT build at night unless an active powered Lamp illuminates the area!
+    if (!isDaylight()) {
+        if (type == BuildingType::LAMP) {
+            // Placing a lamp at night is allowed (needed to illuminate the darkness)
+        } else {
+            if (!isAreaIlluminated(player, pos)) {
+                reason = "НОЩЕН МРАК! Строежът нощем е забранен без осветление!\nПоставете и захранете Осветителна лампа, за да работите.";
+                return false;
+            }
         }
     }
 
@@ -490,7 +605,11 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
     for (const auto& b : buildings) {
         float dx = b.position.x - pos.x;
         float dy = b.position.y - pos.y;
-        if (std::sqrt(dx * dx + dy * dy) < 28.0f) {
+        float dist = std::sqrt(dx * dx + dy * dy);
+        if (dist < 10.0f) {
+            reason = "В ТАЗИ КЛЕТКА ВЕЧЕ ИМА СГРАДА! Изберете свободна клетка от грида.";
+            return false;
+        } else if (dist < 28.0f) {
             reason = "ТВЪРДЕ БЛИЗО ДО ДРУГА СГРАДА!";
             return false;
         }
@@ -503,6 +622,9 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     if (type == BuildingType::DEMOLISH) {
         return removeBuilding(player, pos, outMsg);
     }
+
+    // Snap to 2x2 grid slot inside land plot
+    pos = snapToBuildingGrid(player, pos);
 
     std::string reason;
     if (!canPlaceBuilding(player, type, pos, reason)) {
@@ -521,13 +643,16 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     b.playerOwner = player;
     b.currentOutputMW = static_cast<float>(cost.basePowerMW);
     b.animTimer = 0.0f;
-    b.energyStored = (type == BuildingType::BATTERY) ? 60.0f : 0.0f; // Initial partial charge for newly placed battery
+    // Spawns with 0% battery charge as requested!
+    b.energyStored = 0.0f;
     b.maxCapacity = 200.0f;
     b.lightRadius = (type == BuildingType::LAMP) ? 150.0f : 0.0f;
     buildings.push_back(b);
 
     if (type == BuildingType::LAMP) {
-        outMsg = "ПОСТАВЕНА Осветителна лампа! (Осветява нощем в радиус 150 px)";
+        outMsg = "ПОСТАВЕНА Осветителна лампа! (Консумира 10 MW, осветява 150 px)";
+    } else if (type == BuildingType::BATTERY) {
+        outMsg = "ПОСТРОЕН Акумулатор! (0% заряд. Зарежда се от произведената чиста енергия)";
     } else {
         outMsg = "ПОСТРОЕН " + cost.nameBg + "! (+" + std::to_string(cost.basePowerMW) + " MW)";
     }

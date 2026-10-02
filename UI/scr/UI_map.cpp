@@ -820,14 +820,15 @@ void UI_map::executeP1Action() {
                 break;
             }
         }
+        sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
         std::string msg;
-        if (engine.placeBuilding(1, sel, p1Pos, msg)) {
+        if (engine.placeBuilding(1, sel, targetPos, msg)) {
             triggerPlayerPopup(1, "УСПЕХ", "Действието е успешно!", msg, "[E]: Следващ строеж", sf::Color(0, 255, 180));
-            spawnNotice("ПОСТРОЕНА СГРАДА!", p1Pos, sf::Color(0, 255, 180));
+            spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, sf::Color(0, 255, 180));
             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(1);
         } else {
             triggerPlayerModal(1, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
-                               (!engine.isDaylight() ? "Поставете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
+                               (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
         }
     } else {
         if (nodes.isNearP1Mine(p1Pos)) {
@@ -889,14 +890,15 @@ void UI_map::executeP2Action() {
                 break;
             }
         }
+        sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
         std::string msg;
-        if (engine.placeBuilding(2, sel, p2Pos, msg)) {
+        if (engine.placeBuilding(2, sel, targetPos, msg)) {
             triggerPlayerPopup(2, "УСПЕХ", "Действието е успешно!", msg, "[PgDn]: Следващ строеж", sf::Color(255, 120, 200));
-            spawnNotice("ПОСТРОЕНА СГРАДА!", p2Pos, sf::Color(255, 120, 200));
+            spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, sf::Color(255, 120, 200));
             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(2);
         } else {
             triggerPlayerModal(2, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
-                               (!engine.isDaylight() ? "Поставете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
+                               (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
         }
     } else {
         if (nodes.isNearP2Mine(p2Pos)) {
@@ -1400,13 +1402,14 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 } else {
                     BuildingType sel = engine.getSelectedBuilding(owner);
                     if (sel != BuildingType::NONE) {
+                        sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? clickPos : engine.snapToBuildingGrid(owner, clickPos);
                         std::string msg;
-                        if (engine.placeBuilding(owner, sel, clickPos, msg)) {
+                        if (engine.placeBuilding(owner, sel, targetPos, msg)) {
                             triggerPlayerPopup(owner, "УСПЕХ", "Действието е успешно!", msg, "", sf::Color(0, 255, 180));
                             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(owner);
                         } else {
                             triggerPlayerModal(owner, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
-                                               (!engine.isDaylight() ? "Поставете Осветителна лампа за работа нощем!" : "Проверете вашите ресурси и парцели!"), sf::Color(255, 75, 75));
+                                               (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете вашите ресурси и парцели!"), sf::Color(255, 75, 75));
                         }
                         return;
                     }
@@ -1496,17 +1499,20 @@ void UI_map::render(sf::RenderWindow& window) {
     nodes.drawPlacedBuildings(window, font, resourcesLoaded, engine.getBuildings());
 
     // 7. Holographic ghost preview if building is selected
+    // 7. Holographic ghost preview if building is selected (snapped to plot grid)
     BuildingType p1Sel = engine.getSelectedBuilding(1);
     if (p1Sel != BuildingType::NONE) {
+        sf::Vector2f targetPos = (p1Sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
         std::string reason;
-        bool valid = engine.canPlaceBuilding(1, p1Sel, p1Pos, reason);
-        nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, p1Pos, valid, engine.getBuildingCost(p1Sel));
+        bool valid = engine.canPlaceBuilding(1, p1Sel, targetPos, reason);
+        nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, targetPos, valid, engine.getBuildingCost(p1Sel));
     }
     BuildingType p2Sel = engine.getSelectedBuilding(2);
     if (p2Sel != BuildingType::NONE) {
+        sf::Vector2f targetPos = (p2Sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
         std::string reason;
-        bool valid = engine.canPlaceBuilding(2, p2Sel, p2Pos, reason);
-        nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, p2Pos, valid, engine.getBuildingCost(p2Sel));
+        bool valid = engine.canPlaceBuilding(2, p2Sel, targetPos, reason);
+        nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, targetPos, valid, engine.getBuildingCost(p2Sel));
     }
 
     // 8. Compact Metropolis City Center with territorial slicing & conquest

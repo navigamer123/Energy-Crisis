@@ -37,6 +37,44 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
             box.setOutlineColor(ownerAccent);
             window.draw(box);
 
+            // 2x2 Building Placement Grid Dividers & Slot Crosshairs
+            float midX = plot.bounds.position.x + plot.bounds.size.x * 0.5f;
+            float midY = plot.bounds.position.y + plot.bounds.size.y * 0.5f;
+
+            // Horizontal grid divider
+            sf::RectangleShape hLine({ plot.bounds.size.x - 8.0f, 1.0f });
+            hLine.setPosition({ plot.bounds.position.x + 4.0f, midY });
+            hLine.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 65));
+            window.draw(hLine);
+
+            // Vertical grid divider
+            sf::RectangleShape vLine({ 1.0f, plot.bounds.size.y - 8.0f });
+            vLine.setPosition({ midX, plot.bounds.position.y + 4.0f });
+            vLine.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 65));
+            window.draw(vLine);
+
+            // Slot center crosshairs '+'
+            float colW = plot.bounds.size.x * 0.5f;
+            float rowH = plot.bounds.size.y * 0.5f;
+            for (int r = 0; r < 2; r++) {
+                for (int c = 0; c < 2; c++) {
+                    float cx = plot.bounds.position.x + (c + 0.5f) * colW;
+                    float cy = plot.bounds.position.y + (r + 0.5f) * rowH;
+
+                    sf::RectangleShape crossH({ 6.0f, 1.0f });
+                    crossH.setOrigin({ 3.0f, 0.5f });
+                    crossH.setPosition({ cx, cy });
+                    crossH.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 75));
+                    window.draw(crossH);
+
+                    sf::RectangleShape crossV({ 1.0f, 6.0f });
+                    crossV.setOrigin({ 0.5f, 3.0f });
+                    crossV.setPosition({ cx, cy });
+                    crossV.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 75));
+                    window.draw(crossV);
+                }
+            }
+
             // Boundary posts on corners
             sf::CircleShape post(3.0f);
             post.setOrigin({ 3.0f, 3.0f });
@@ -192,14 +230,18 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 window.draw(tick);
             }
         } else if (b.type == BuildingType::LAMP) {
-            // Illuminated light circle on ground
-            sf::CircleShape lightGlow(b.lightRadius);
-            lightGlow.setOrigin({ b.lightRadius, b.lightRadius });
-            lightGlow.setPosition(b.position);
-            lightGlow.setFillColor(sf::Color(255, 235, 140, 35));
-            lightGlow.setOutlineThickness(1.5f);
-            lightGlow.setOutlineColor(sf::Color(255, 220, 100, 80));
-            window.draw(lightGlow);
+            bool isPowered = (b.lightRadius > 0.0f);
+
+            if (isPowered) {
+                // Illuminated light circle on ground
+                sf::CircleShape lightGlow(b.lightRadius);
+                lightGlow.setOrigin({ b.lightRadius, b.lightRadius });
+                lightGlow.setPosition(b.position);
+                lightGlow.setFillColor(sf::Color(255, 235, 140, 38));
+                lightGlow.setOutlineThickness(1.5f);
+                lightGlow.setOutlineColor(sf::Color(255, 220, 100, 90));
+                window.draw(lightGlow);
+            }
 
             // Base pedestal
             sf::CircleShape base(6.0f);
@@ -221,9 +263,16 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
             sf::CircleShape lantern(7.0f);
             lantern.setOrigin({ 7.0f, 7.0f });
             lantern.setPosition({ b.position.x, b.position.y - 26.0f });
-            lantern.setFillColor(sf::Color(255, 235, 120));
-            lantern.setOutlineThickness(2.0f);
-            lantern.setOutlineColor(sf::Color::White);
+            if (isPowered) {
+                lantern.setFillColor(sf::Color(255, 235, 120));
+                lantern.setOutlineThickness(2.0f);
+                lantern.setOutlineColor(sf::Color::White);
+            } else {
+                // Unpowered lamp: dark gray head, no illumination
+                lantern.setFillColor(sf::Color(65, 70, 80));
+                lantern.setOutlineThickness(1.5f);
+                lantern.setOutlineColor(sf::Color(120, 125, 135));
+            }
             window.draw(lantern);
         }
 
@@ -233,7 +282,7 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 int pct = static_cast<int>((b.energyStored / b.maxCapacity) * 100.0f);
                 std::string bStr = std::to_string(pct) + "% (" + std::to_string(static_cast<int>(b.energyStored)) + "MWh)";
                 sf::Text t(font, toUtf8(bStr), 9);
-                t.setFillColor(sf::Color(160, 255, 200));
+                t.setFillColor(pct > 0 ? sf::Color(160, 255, 200) : sf::Color(200, 200, 200));
                 sf::FloatRect tb = t.getLocalBounds();
 
                 sf::RectangleShape pill({ tb.size.x + 8.0f, 14.0f });
@@ -241,21 +290,24 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 pill.setPosition({ b.position.x, b.position.y + 22.0f });
                 pill.setFillColor(sf::Color(12, 16, 24, 235));
                 pill.setOutlineThickness(1.0f);
-                pill.setOutlineColor(sf::Color(60, 90, 120));
+                pill.setOutlineColor(pct > 0 ? sf::Color(60, 90, 120) : sf::Color(100, 100, 100));
                 window.draw(pill);
 
                 t.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y + 15.0f });
                 window.draw(t);
             } else if (b.type == BuildingType::LAMP) {
-                std::string lStr = "ЛАМПА";
+                bool isPowered = (b.lightRadius > 0.0f);
+                std::string lStr = isPowered ? "ЛАМПА (-10 MW)" : "БЕЗ ТОК (-10 MW)";
                 sf::Text t(font, toUtf8(lStr), 9);
-                t.setFillColor(sf::Color(255, 235, 120));
+                t.setFillColor(isPowered ? sf::Color(255, 235, 120) : sf::Color(255, 95, 95));
                 sf::FloatRect tb = t.getLocalBounds();
 
                 sf::RectangleShape pill({ tb.size.x + 8.0f, 14.0f });
                 pill.setOrigin({ (tb.size.x + 8.0f) / 2.0f, 7.0f });
                 pill.setPosition({ b.position.x, b.position.y + 12.0f });
                 pill.setFillColor(sf::Color(12, 16, 24, 235));
+                pill.setOutlineThickness(1.0f);
+                pill.setOutlineColor(isPowered ? sf::Color(110, 95, 40) : sf::Color(160, 45, 45));
                 window.draw(pill);
 
                 t.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y + 5.0f });
@@ -314,25 +366,106 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
         return;
     }
 
-    sf::Color tint = isValidPlacement ? sf::Color(0, 255, 150, 180) : sf::Color(255, 60, 60, 200);
+    sf::Color tint = isValidPlacement ? sf::Color(0, 255, 180, 220) : sf::Color(255, 60, 60, 220);
 
-    sf::RectangleShape ghost({ 40.0f, 40.0f });
-    ghost.setOrigin({ 20.0f, 20.0f });
-    ghost.setPosition(pos);
-    ghost.setFillColor(isValidPlacement ? sf::Color(0, 255, 150, 60) : sf::Color(255, 60, 60, 80));
-    ghost.setOutlineThickness(2.5f);
-    ghost.setOutlineColor(tint);
-    window.draw(ghost);
+    // 1. Grid Cell Snapping Reticle Frame
+    sf::RectangleShape cellSlot({ 50.0f, 44.0f });
+    cellSlot.setOrigin({ 25.0f, 22.0f });
+    cellSlot.setPosition(pos);
+    cellSlot.setFillColor(isValidPlacement ? sf::Color(0, 255, 180, 35) : sf::Color(255, 60, 60, 35));
+    cellSlot.setOutlineThickness(1.5f);
+    cellSlot.setOutlineColor(tint);
+    window.draw(cellSlot);
+
+    // Grid snap corner ticks
+    float cw = 6.0f;
+    for (float ox : { -25.0f, 25.0f }) {
+        for (float oy : { -22.0f, 22.0f }) {
+            sf::RectangleShape c1({ (ox < 0 ? cw : -cw), 2.0f });
+            c1.setPosition({ pos.x + ox, pos.y + oy });
+            c1.setFillColor(tint);
+            window.draw(c1);
+
+            sf::RectangleShape c2({ 2.0f, (oy < 0 ? cw : -cw) });
+            c2.setPosition({ pos.x + ox, pos.y + oy });
+            c2.setFillColor(tint);
+            window.draw(c2);
+        }
+    }
+
+    // 2. If placing a Lamp, show illumination coverage circle!
+    if (type == BuildingType::LAMP) {
+        sf::CircleShape lampCone(150.0f);
+        lampCone.setOrigin({ 150.0f, 150.0f });
+        lampCone.setPosition(pos);
+        lampCone.setFillColor(isValidPlacement ? sf::Color(255, 235, 120, 28) : sf::Color(255, 80, 80, 20));
+        lampCone.setOutlineThickness(1.5f);
+        lampCone.setOutlineColor(isValidPlacement ? sf::Color(255, 220, 100, 120) : sf::Color(255, 80, 80, 100));
+        window.draw(lampCone);
+    }
+
+    // 3. Mini holographic preview of the building
+    if (type == BuildingType::SOLAR_PANEL) {
+        sf::RectangleShape frame({ 34.0f, 24.0f });
+        frame.setOrigin({ 17.0f, 12.0f });
+        frame.setPosition(pos);
+        frame.setFillColor(sf::Color(20, 35, 55, 180));
+        frame.setOutlineThickness(1.2f);
+        frame.setOutlineColor(tint);
+        window.draw(frame);
+    } else if (type == BuildingType::WIND_TURBINE) {
+        sf::RectangleShape mast({ 4.0f, 24.0f });
+        mast.setOrigin({ 2.0f, 24.0f });
+        mast.setPosition(pos);
+        mast.setFillColor(sf::Color(200, 220, 240, 180));
+        window.draw(mast);
+
+        sf::CircleShape hub(3.5f);
+        hub.setOrigin({ 3.5f, 3.5f });
+        hub.setPosition({ pos.x, pos.y - 24.0f });
+        hub.setFillColor(tint);
+        window.draw(hub);
+    } else if (type == BuildingType::HYDRO_PLANT) {
+        sf::RectangleShape station({ 34.0f, 26.0f });
+        station.setOrigin({ 17.0f, 13.0f });
+        station.setPosition(pos);
+        station.setFillColor(sf::Color(25, 45, 65, 180));
+        station.setOutlineThickness(1.2f);
+        station.setOutlineColor(tint);
+        window.draw(station);
+    } else if (type == BuildingType::BATTERY) {
+        sf::RectangleShape box({ 24.0f, 30.0f });
+        box.setOrigin({ 12.0f, 15.0f });
+        box.setPosition(pos);
+        box.setFillColor(sf::Color(18, 24, 34, 180));
+        box.setOutlineThickness(1.2f);
+        box.setOutlineColor(tint);
+        window.draw(box);
+    } else if (type == BuildingType::LAMP) {
+        sf::CircleShape lantern(6.0f);
+        lantern.setOrigin({ 6.0f, 6.0f });
+        lantern.setPosition({ pos.x, pos.y - 20.0f });
+        lantern.setFillColor(sf::Color(255, 235, 120, 220));
+        window.draw(lantern);
+
+        sf::RectangleShape pole({ 2.5f, 20.0f });
+        pole.setOrigin({ 1.25f, 20.0f });
+        pole.setPosition(pos);
+        pole.setFillColor(sf::Color(180, 195, 215, 180));
+        window.draw(pole);
+    }
 
     if (fontLoaded) {
-        std::string label = cost.nameBg + (isValidPlacement ? " [ПОСТАВИ]" : " [НЕДОПУСТИМО]");
+        std::string label = cost.nameBg + (isValidPlacement ? " [ПОСТАВИ В ГРИДА]" : " [НЕДОПУСТИМО]");
         sf::Text t(font, toUtf8(label), 12);
         t.setFillColor(tint);
         sf::FloatRect tb = t.getLocalBounds();
-        t.setPosition({ pos.x - tb.size.x / 2.0f, pos.y - 36.0f });
+        t.setPosition({ pos.x - tb.size.x / 2.0f, pos.y - 38.0f });
         window.draw(t);
 
         std::string costStr = "Нужно: " + std::to_string(cost.woodCost) + " Дърво, " + std::to_string(cost.oreCost) + " Руда";
+        if (type == BuildingType::LAMP) costStr += " | Консумация: 10 MW";
+        else if (type == BuildingType::BATTERY) costStr += " | Заряд: 0%";
         sf::Text tc(font, toUtf8(costStr), 10);
         tc.setFillColor(sf::Color::White);
         sf::FloatRect tcb = tc.getLocalBounds();

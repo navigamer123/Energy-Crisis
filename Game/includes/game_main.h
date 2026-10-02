@@ -155,8 +155,12 @@ public:
     bool removeBuilding(int player, sf::Vector2f pos, std::string& outMsg);
     bool isAreaIlluminated(int player, sf::Vector2f pos) const;
 
+    // Lamp consumption constant (MW)
+    static constexpr float LAMP_POWER_MW = 10.0f;
+
     // Building Data helper
     BuildingCost getBuildingCost(BuildingType type) const;
+    sf::Vector2f snapToBuildingGrid(int player, sf::Vector2f pos) const;
 
     // Getters for UI
     const PlayerEconomy& getPlayerEconomy(int player) const { return (player == 1) ? p1 : p2; }
