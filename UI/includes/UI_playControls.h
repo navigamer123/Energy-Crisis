@@ -10,6 +10,7 @@ private:
     int activeScheme;    // 0..3 ControlScheme
     bool requestStart;
     bool requestBack;
+    sf::Vector2f lastMousePos = { -999.0f, -999.0f };
 
     void drawButton(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                     sf::FloatRect bounds, const sf::String& text,

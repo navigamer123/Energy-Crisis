@@ -38,6 +38,8 @@ public:
     ResourceType getP2ResourceAt(sf::Vector2f pt) const;
     ResourceType getP1UpgradeAt(sf::Vector2f pt) const;
     ResourceType getP2UpgradeAt(sf::Vector2f pt) const;
+    ResourceType getP1StationAt(sf::Vector2f pt) const;
+    ResourceType getP2StationAt(sf::Vector2f pt) const;
     const ResourceStation* getStation(int player, ResourceType type) const;
 
     // Backward compatibility helpers

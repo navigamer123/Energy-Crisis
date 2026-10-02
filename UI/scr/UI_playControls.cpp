@@ -113,11 +113,16 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
         }
     };
 
+    bool mouseMoved = (std::abs(mousePos.x - lastMousePos.x) > 2.0f || std::abs(mousePos.y - lastMousePos.y) > 2.0f);
+    if (mouseMoved) {
+        lastMousePos = mousePos;
+    }
+
     for (int i = 0; i < 4; i++) {
         float y = optStartY + i * optSpacing;
         sf::FloatRect bounds({ optX, y }, { optWidth, optHeight });
 
-        if (bounds.contains(mousePos)) {
+        if (mouseMoved && bounds.contains(mousePos)) {
             selectedIndex = i;
         }
 
@@ -191,8 +196,10 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
     sf::FloatRect startBtn({ cardX + cardWidth / 2.0f - btnWidth - 20.0f, buttonY }, { btnWidth, btnHeight });
     sf::FloatRect backBtn({ cardX + cardWidth / 2.0f + 20.0f, buttonY }, { btnWidth, btnHeight });
 
-    if (startBtn.contains(mousePos)) selectedIndex = 4;
-    else if (backBtn.contains(mousePos)) selectedIndex = 5;
+    if (mouseMoved) {
+        if (startBtn.contains(mousePos)) selectedIndex = 4;
+        else if (backBtn.contains(mousePos)) selectedIndex = 5;
+    }
 
     drawButton(window, font, fontLoaded, startBtn, toUtf8("СТАРТ НА ИГРАТА"),
                sf::Color(25, 110, 60), sf::Color(40, 160, 85), sf::Color::White, selectedIndex == 4);

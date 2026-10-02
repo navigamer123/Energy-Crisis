@@ -77,11 +77,6 @@ void UI_main::render() {
                     toggleFullscreen();
                     continue;
                 }
-                if (key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::M) {
-                    if (currentState == UIState::PLAYING) {
-                        currentState = UIState::MAIN_MENU;
-                    }
-                }
             }
 
             if (currentState == UIState::MAIN_MENU) {
@@ -94,6 +89,7 @@ void UI_main::render() {
         if (currentState == UIState::MAIN_MENU) {
             if (mainMenu.isPlayRequested()) {
                 mainMenu.resetPlayRequest();
+                map.restartMatch();
                 map.setControlScheme(mainMenu.getSelectedControlScheme());
                 currentState = UIState::PLAYING;
             } else if (mainMenu.isQuitRequested()) {

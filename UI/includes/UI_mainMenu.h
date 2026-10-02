@@ -20,6 +20,7 @@ private:
 
     int selectedMainIndex;       // 0: Play, 1: Settings, 2: Quit
     int selectedSettingsIndex;   // 0: Volume, 1: SoundFX, 2: Difficulty, 3: Back
+    sf::Vector2f lastMenuMousePos = { -999.0f, -999.0f };
 
     // Settings state
     int volume;

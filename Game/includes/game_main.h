@@ -7,6 +7,7 @@
 #include "game_weather.h"
 #include "game_expedition.h"
 #include "game_random.h"
+#include "game_balance.h"
 
 // -----------------------------------------------------------------------------
 // PlayerData (integrated from weatherF branch)

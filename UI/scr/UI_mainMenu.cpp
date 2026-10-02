@@ -110,15 +110,17 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     float btnX = (screenWidth - btnWidth) / 2.0f;
 
     sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-
     sf::FloatRect playBtn({ btnX, 230.0f }, { btnWidth, btnHeight });
     sf::FloatRect settingsBtn({ btnX, 306.0f }, { btnWidth, btnHeight });
     sf::FloatRect quitBtn({ btnX, 382.0f }, { btnWidth, btnHeight });
 
-    // Sync mouse hover to selection index
-    if (playBtn.contains(mousePos)) selectedMainIndex = 0;
-    else if (settingsBtn.contains(mousePos)) selectedMainIndex = 1;
-    else if (quitBtn.contains(mousePos)) selectedMainIndex = 2;
+    bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
+    if (mouseMoved) {
+        lastMenuMousePos = mousePos;
+        if (playBtn.contains(mousePos)) selectedMainIndex = 0;
+        else if (settingsBtn.contains(mousePos)) selectedMainIndex = 1;
+        else if (quitBtn.contains(mousePos)) selectedMainIndex = 2;
+    }
 
     sf::Color defaultBtn(30, 40, 56);
     sf::Color whiteText(240, 245, 255);

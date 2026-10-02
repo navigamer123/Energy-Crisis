@@ -306,8 +306,15 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
 }
 
 void UI_map::closePlayerModal(int player) {
-    PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
-    m.active = false;
+    if (player == 1) {
+        p1Modal.active = false;
+        p1ActionCooldown = 0.35f;
+        p1PrevAction = true;
+    } else {
+        p2Modal.active = false;
+        p2ActionCooldown = 0.35f;
+        p2PrevAction = true;
+    }
 }
 
 void UI_map::drawPlayerModals(sf::RenderWindow& window) {
@@ -602,26 +609,30 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         };
 
         drawSection("1. ЦЕЛ НА ИГРАТА И ДОМИНИРАНЕ НА ГРАДА",
-                    "• Централният Метрополис изисква постоянно нарастваща мощност (MW) всеки изминал ден.\n"
-                    "• Ако в края на денонощието не покриете своята квота, опонентът завзема част от вашия град!\n"
+                    "• Всеки играч започва с 1 Соларен панел (60 MW) и 50% дял в града за справедлив старт.\n"
+                    "• Захранването на града носи пари ($) от договори и златен дивидент (Gold) за покупки.\n"
+                    "• Дневните квоти и превесът в доставената мощност плавно изместват градското влияние.\n"
                     "• Победител е играчът, който постигне 100% териториален контрол над Метрополиса.",
                     sf::Color(255, 215, 0));
 
-        drawSection("2. СТРОЕЖ, ЗЕМЯ И ДОБИВ НА РЕСУРСИ",
-                    "• За да строите, първо трябва да закупите свободен парцел (ЗЕМЯ) в своята територия.\n"
-                    "• Добивайте Дървесина (Wood) от горите и Руда (Ore) от мините чрез курсора или клик.\n"
-                    "• Всеки тип централа има предимства: Солар (денем), Вятър (бури), ВЕЦ (дъжд), Батерия (буфер).",
+        drawSection("2. РЕСУРСИ И ЪПГРЕЙД НА МИНИ С ЗЛАТО",
+                    "• 7 суровини: Дърво, Желязо, Мед, Въглища, Силиций, Сребро и Злато (парите са само от ток!).\n"
+                    "• Добивните станции се надграждат до Ниво 5 със Злато, като всяко ниво дава +75% добив!\n"
+                    "• Ъпгрейдвайте с бутона [+1 НИВО] на мината или клавиш [F] (Играч 1) / [RShift] (Играч 2).\n"
+                    "• Престоят върху ресурсна станция забързва денонощието 6 пъти за светкавичен добив.",
                     sf::Color(0, 229, 255));
 
-        drawSection("3. НОЩНИ ПРАВИЛА И ОСВЕТЛИТЕЛНИ ЛАМПИ",
-                    "• През нощта (21:00 - 05:00) работниците не строят на тъмно, освен ако няма поставена ЛАМПА!\n"
-                    "• Батериите се зареждат през деня от излишната енергия и я отдават нощем, за да спасят града ви от срив.",
+        drawSection("3. ЗЕМЯ, СТРОИТЕЛСТВО И НОЩЕН РЕЖИМ",
+                    "• Всеки играч разполага с 12 парцела земя по 9 слота за сгради (общо 108 слота).\n"
+                    "• Строежът е възможен само върху закупена собствена земя (купува се с налично злато).\n"
+                    "• Нощем (18:00 - 06:00) работниците строят само под светлината на захранена Осветителна лампа!\n"
+                    "• Батериите акумулират излишна зелена енергия денем и я отдават автоматично през нощта.",
                     sf::Color(255, 140, 220));
 
         drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
-                    "• ИГРАЧ 1 (Син): [W/A/S/D] - Движение  |  [E] - Избор сграда  |  [X] - Разруши  |  [Q] - Отказ  |  [SPACE/Клик] - Действие\n"
-                    "• ИГРАЧ 2 (Розов): [Стрелки] - Движение | [PgDn] - Избор сграда | [Del] - Разруши | [PgUp] - Отказ | [ENTER] - Действие\n"
-                    "• СИСТЕМНИ: [F11] - Цял екран (Fullscreen)  |  [H] или [F1] - Този наръчник  |  [ESC/M] - Главно меню",
+                    "• ИГРАЧ 1 (Запад/Син): [W/A/S/D] - Движение  |  [SPACE/Клик] - Строеж/Добив  |  [E]/[Q] - Сграда  |  [F] - Ъпгрейд мина  |  [X] - Разруши\n"
+                    "• ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n"
+                    "• СИСТЕМНИ: [ESC] - Меню Пауза  |  [R] - Нова игра  |  [H]/[F1] - Помощ  |  [F11] - Цял екран",
                     sf::Color(100, 255, 150));
     }
 }
@@ -818,19 +829,27 @@ void UI_map::executeP1Action() {
     BuildingType sel = engine.getSelectedBuilding(1);
 
     if (sel != BuildingType::NONE) {
-        for (const auto& plot : engine.getLandPlots()) {
-            if (plot.playerOwner == 1 && plot.bounds.contains(p1Pos)) {
-                if (!plot.isPurchased) {
-                    std::string buyMsg;
-                    if (engine.buyLandPlot(1, plot.id, buyMsg)) {
-                        triggerPlayerPopup(1, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак SPACE за строеж.", "[SPACE]: Постави сградата", sf::Color(255, 215, 0));
-                        spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, sf::Color(255, 215, 0));
-                    } else {
-                        triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", sf::Color(255, 180, 50));
+        if (sel != BuildingType::DEMOLISH) {
+            bool onPlot = false;
+            for (const auto& plot : engine.getLandPlots()) {
+                if (plot.playerOwner == 1 && plot.bounds.contains(p1Pos)) {
+                    onPlot = true;
+                    if (!plot.isPurchased) {
+                        std::string buyMsg;
+                        if (engine.buyLandPlot(1, plot.id, buyMsg)) {
+                            triggerPlayerPopup(1, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак SPACE за строеж.", "[SPACE]: Постави сградата", sf::Color(255, 215, 0));
+                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, sf::Color(255, 215, 0));
+                        } else {
+                            triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", sf::Color(255, 180, 50));
+                        }
+                        return;
                     }
-                    return;
+                    break;
                 }
-                break;
+            }
+            if (!onPlot) {
+                // Outside buildable land plots: do not attempt placement and don't pop up any error
+                return;
             }
         }
         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
@@ -888,19 +907,27 @@ void UI_map::executeP2Action() {
     BuildingType sel = engine.getSelectedBuilding(2);
 
     if (sel != BuildingType::NONE) {
-        for (const auto& plot : engine.getLandPlots()) {
-            if (plot.playerOwner == 2 && plot.bounds.contains(p2Pos)) {
-                if (!plot.isPurchased) {
-                    std::string buyMsg;
-                    if (engine.buyLandPlot(2, plot.id, buyMsg)) {
-                        triggerPlayerPopup(2, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак ENTER за строеж.", "[ENTER]: Постави сградата", sf::Color(255, 215, 0));
-                        spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, sf::Color(255, 215, 0));
-                    } else {
-                        triggerPlayerModal(2, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", sf::Color(255, 180, 50));
+        if (sel != BuildingType::DEMOLISH) {
+            bool onPlot = false;
+            for (const auto& plot : engine.getLandPlots()) {
+                if (plot.playerOwner == 2 && plot.bounds.contains(p2Pos)) {
+                    onPlot = true;
+                    if (!plot.isPurchased) {
+                        std::string buyMsg;
+                        if (engine.buyLandPlot(2, plot.id, buyMsg)) {
+                            triggerPlayerPopup(2, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак ENTER за строеж.", "[ENTER]: Постави сградата", sf::Color(255, 215, 0));
+                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, sf::Color(255, 215, 0));
+                        } else {
+                            triggerPlayerModal(2, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", sf::Color(255, 180, 50));
+                        }
+                        return;
                     }
-                    return;
+                    break;
                 }
-                break;
+            }
+            if (!onPlot) {
+                // Outside buildable land plots: do not attempt placement and don't pop up any error
+                return;
             }
         }
         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
@@ -955,7 +982,7 @@ void UI_map::executeP2Action() {
 
 void UI_map::executeP1Upgrade() {
     p1Pulse = 1.0f;
-    ResourceType resType = nodes.getP1ResourceAt(p1Pos);
+    ResourceType resType = nodes.getP1StationAt(p1Pos);
     if (resType == ResourceType::NONE || resType == ResourceType::MONEY) {
         spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
         return;
@@ -973,7 +1000,7 @@ void UI_map::executeP1Upgrade() {
 
 void UI_map::executeP2Upgrade() {
     p2Pulse = 1.0f;
-    ResourceType resType = nodes.getP2ResourceAt(p2Pos);
+    ResourceType resType = nodes.getP2StationAt(p2Pos);
     if (resType == ResourceType::NONE || resType == ResourceType::MONEY) {
         spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
         return;
@@ -990,6 +1017,7 @@ void UI_map::executeP2Upgrade() {
 }
 
 void UI_map::restartMatch() {
+    isPaused = false;
     engine.restartGame();
     p1Pos = { 420.0f, 320.0f };
     p2Pos = { 1180.0f, 320.0f };
@@ -1006,6 +1034,15 @@ void UI_map::restartMatch() {
     notices.clear();
     miningParticles.clear();
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
+}
+
+bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
+    for (const auto& plot : engine.getLandPlots()) {
+        if (plot.playerOwner == player && plot.isPurchased && plot.bounds.contains(pos)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
@@ -1136,9 +1173,110 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
     }
 }
 
+void UI_map::drawPauseMenu(sf::RenderWindow& window) {
+    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    bool mouseMoved = (std::abs(mousePos.x - lastPauseMousePos.x) > 2.0f ||
+                       std::abs(mousePos.y - lastPauseMousePos.y) > 2.0f);
+    if (mouseMoved) {
+        lastPauseMousePos = mousePos;
+    }
+
+    // 1. Frosted dim backdrop
+    sf::RectangleShape backdrop({ 1600.0f, 900.0f });
+    backdrop.setFillColor(sf::Color(8, 12, 20, 215));
+    window.draw(backdrop);
+
+    // 2. Pause Card
+    float boxW = 500.0f;
+    float boxH = 430.0f;
+    float boxX = (1600.0f - boxW) / 2.0f;
+    float boxY = (900.0f - boxH) / 2.0f;
+
+    sf::RectangleShape box({ boxW, boxH });
+    box.setPosition({ boxX, boxY });
+    box.setFillColor(sf::Color(16, 22, 34, 252));
+    box.setOutlineThickness(3.0f);
+    box.setOutlineColor(sf::Color(0, 229, 255));
+    window.draw(box);
+
+    // Header banner
+    sf::RectangleShape header({ boxW, 56.0f });
+    header.setPosition({ boxX, boxY });
+    header.setFillColor(sf::Color(24, 34, 52));
+    window.draw(header);
+
+    sf::RectangleShape glowLine({ boxW, 3.0f });
+    glowLine.setPosition({ boxX, boxY + 56.0f });
+    glowLine.setFillColor(sf::Color(0, 229, 255));
+    window.draw(glowLine);
+
+    if (resourcesLoaded) {
+        sf::Text tHeader(font, toUtf8("⚡  ИГРАТА Е НА ПАУЗА  ⚡"), 18);
+        tHeader.setFillColor(sf::Color(255, 215, 0));
+        sf::FloatRect hb = tHeader.getLocalBounds();
+        tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 16.0f });
+        window.draw(tHeader);
+
+        sf::Text tSub(font, toUtf8("Използвайте [Стрелки] / [Enter] или мишката за избор"), 12);
+        tSub.setFillColor(sf::Color(150, 185, 220));
+        sf::FloatRect sb = tSub.getLocalBounds();
+        tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f, boxY + 70.0f });
+        window.draw(tSub);
+
+        // 4 Menu Options
+        float btnW = 390.0f;
+        float btnH = 52.0f;
+        float btnX = boxX + (boxW - btnW) / 2.0f;
+        float startY = boxY + 105.0f;
+        float spacing = 62.0f;
+
+        pauseResumeBtn  = sf::FloatRect({ btnX, startY }, { btnW, btnH });
+        pauseRestartBtn = sf::FloatRect({ btnX, startY + spacing }, { btnW, btnH });
+        pauseHelpBtn    = sf::FloatRect({ btnX, startY + 2.0f * spacing }, { btnW, btnH });
+        pauseMenuBtn    = sf::FloatRect({ btnX, startY + 3.0f * spacing }, { btnW, btnH });
+
+        struct PauseOption {
+            sf::FloatRect bounds;
+            std::string label;
+            sf::Color normalColor;
+            sf::Color hoverColor;
+            sf::Color outlineColor;
+        };
+
+        PauseOption opts[4] = {
+            { pauseResumeBtn,  "▶  ПРОДЪЛЖИ  [ ESC / ENTER ]", sf::Color(20, 120, 85),  sf::Color(30, 175, 120), sf::Color(0, 255, 180) },
+            { pauseRestartBtn, "🔄  НОВА ИГРА  [ R ]",          sf::Color(45, 90, 130),  sf::Color(65, 130, 185), sf::Color(0, 229, 255) },
+            { pauseHelpBtn,    "📖  ПОМОЩ И ПРАВИЛА  [ H ]",    sf::Color(80, 75, 45),   sf::Color(135, 125, 60), sf::Color(255, 215, 0) },
+            { pauseMenuBtn,    "🏠  ГЛАВНО МЕНЮ  [ M ]",        sf::Color(70, 45, 55),   sf::Color(120, 65, 80),  sf::Color(255, 120, 140) }
+        };
+
+        for (int i = 0; i < 4; i++) {
+            if (mouseMoved && opts[i].bounds.contains(mousePos)) {
+                pauseSelectedIdx = i;
+            }
+            bool isSel = (pauseSelectedIdx == i);
+
+            sf::RectangleShape bShape(opts[i].bounds.size);
+            bShape.setPosition(opts[i].bounds.position);
+            bShape.setFillColor(isSel ? opts[i].hoverColor : opts[i].normalColor);
+            bShape.setOutlineThickness(isSel ? 2.5f : 1.0f);
+            bShape.setOutlineColor(isSel ? sf::Color::White : opts[i].outlineColor);
+            window.draw(bShape);
+
+            sf::Text tBtn(font, toUtf8(opts[i].label), 14);
+            tBtn.setFillColor(isSel ? sf::Color::White : sf::Color(225, 240, 255));
+            sf::FloatRect bb = tBtn.getLocalBounds();
+            tBtn.setPosition({ opts[i].bounds.position.x + (opts[i].bounds.size.x - bb.size.x) / 2.0f,
+                               opts[i].bounds.position.y + (opts[i].bounds.size.y - bb.size.y) / 2.0f - 2.0f });
+            window.draw(tBtn);
+        }
+    }
+}
+
 void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
-    if (engine.getCityState().winner != 0) {
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
+    if (isPaused || engine.getCityState().winner != 0) {
+        if (engine.getCityState().winner != 0 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
             restartMatch();
         }
         return;
@@ -1506,21 +1644,13 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     }
 
     // -------------------------------------------------------------------------
-    // 1. Check if interactive player modal dialog is active
+    // 1. Check if interactive player modal dialog is active (any click or key dismisses easily)
     // -------------------------------------------------------------------------
-    if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
-        sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
-        if (p1Modal.active) {
-            if (p1Modal.okBtn.contains(clickPos) || p1Modal.box.contains(clickPos) || clickPos.x <= 800.0f) {
-                closePlayerModal(1);
-                return;
-            }
-        }
-        if (p2Modal.active) {
-            if (p2Modal.okBtn.contains(clickPos) || p2Modal.box.contains(clickPos) || clickPos.x > 800.0f) {
-                closePlayerModal(2);
-                return;
-            }
+    if (p1Modal.active || p2Modal.active) {
+        if (event.is<sf::Event::MouseButtonPressed>() || event.is<sf::Event::KeyPressed>()) {
+            if (p1Modal.active) closePlayerModal(1);
+            if (p2Modal.active) closePlayerModal(2);
+            return;
         }
     }
 
@@ -1529,32 +1659,95 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             requestFullscreenToggle = true;
             return;
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Pause Menu Event Handling
+    // -------------------------------------------------------------------------
+    if (isPaused) {
+        if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (key->code == sf::Keyboard::Key::Escape) {
+                isPaused = false;
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W) {
+                pauseSelectedIdx = (pauseSelectedIdx + 3) % 4;
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S) {
+                pauseSelectedIdx = (pauseSelectedIdx + 1) % 4;
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space) {
+                if (pauseSelectedIdx == 0) {
+                    isPaused = false;
+                } else if (pauseSelectedIdx == 1) {
+                    isPaused = false;
+                    restartMatch();
+                } else if (pauseSelectedIdx == 2) {
+                    showHelpOverlay = true;
+                } else if (pauseSelectedIdx == 3) {
+                    isPaused = false;
+                    requestMenu = true;
+                }
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::R) {
+                isPaused = false;
+                restartMatch();
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1) {
+                showHelpOverlay = true;
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::M) {
+                isPaused = false;
+                requestMenu = true;
+                return;
+            }
+        }
+        if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            if (pauseResumeBtn.contains(clickPos)) {
+                isPaused = false;
+                return;
+            }
+            if (pauseRestartBtn.contains(clickPos)) {
+                isPaused = false;
+                restartMatch();
+                return;
+            }
+            if (pauseHelpBtn.contains(clickPos)) {
+                showHelpOverlay = true;
+                return;
+            }
+            if (pauseMenuBtn.contains(clickPos)) {
+                isPaused = false;
+                requestMenu = true;
+                return;
+            }
+        }
+        return;
+    }
+
+    if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1) {
             showHelpOverlay = !showHelpOverlay;
             return;
         }
 
-        if (p1Modal.active) {
-            if (key->code == sf::Keyboard::Key::Space || key->code == sf::Keyboard::Key::Enter ||
-                key->code == sf::Keyboard::Key::E || key->code == sf::Keyboard::Key::Q) {
-                closePlayerModal(1);
-                return;
-            }
-        }
-        if (p2Modal.active) {
-            if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::PageDown ||
-                key->code == sf::Keyboard::Key::PageUp) {
-                closePlayerModal(2);
-                return;
-            }
+        if (key->code == sf::Keyboard::Key::Escape) {
+            isPaused = true;
+            pauseSelectedIdx = 0;
+            return;
         }
 
-        if (key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::M) {
-            requestMenu = true;
+        if (key->code == sf::Keyboard::Key::M) {
+            isPaused = true;
+            pauseSelectedIdx = 3;
+            return;
         }
-
-        // Modal dismissal / escape / menu requests are handled above.
-        // In-game player actions and hotkeys are handled in update() to ensure precise single-press and debouncing.
     }
 
     if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
@@ -1574,7 +1767,8 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         // Left-Click:
         // Click on ESC / MENU
         if (sf::FloatRect({ 1600.0f - 130.0f, 900.0f - 34.0f }, { 120.0f, 28.0f }).contains(clickPos)) {
-            requestMenu = true;
+            isPaused = true;
+            pauseSelectedIdx = 0;
             return;
         }
 
@@ -1741,10 +1935,12 @@ void UI_map::render(sf::RenderWindow& window) {
     float dt = deltaClock.restart().asSeconds();
     if (dt > 0.05f) dt = 0.05f;
 
-    // 1. Advance continuous backend simulation
-    engine.update(dt);
-    updateControls(window, dt);
-    updateWeatherParticles(dt);
+    // 1. Advance continuous backend simulation (only when NOT paused and game not won)
+    if (!isPaused && engine.getCityState().winner == 0) {
+        engine.update(dt);
+        updateControls(window, dt);
+        updateWeatherParticles(dt);
+    }
 
     // 2. Synchronize clock displays with continuous time and dynamic weather
     p1Clock.setHour(engine.getHour24());
@@ -1775,21 +1971,24 @@ void UI_map::render(sf::RenderWindow& window) {
     // 6. Placed Buildings on the Map
     nodes.drawPlacedBuildings(window, font, resourcesLoaded, engine.getBuildings());
 
-    // 7. Holographic ghost preview if building is selected
-    // 7. Holographic ghost preview if building is selected (snapped to plot grid)
+    // 7. Holographic ghost preview if building is selected (snapped to plot grid, hidden if outside purchased land)
     BuildingType p1Sel = engine.getSelectedBuilding(1);
     if (p1Sel != BuildingType::NONE) {
         sf::Vector2f targetPos = (p1Sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
-        std::string reason;
-        bool valid = engine.canPlaceBuilding(1, p1Sel, targetPos, reason);
-        nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, targetPos, valid, engine.getBuildingCost(p1Sel));
+        if (p1Sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(1, targetPos)) {
+            std::string reason;
+            bool valid = engine.canPlaceBuilding(1, p1Sel, targetPos, reason);
+            nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, targetPos, valid, engine.getBuildingCost(p1Sel));
+        }
     }
     BuildingType p2Sel = engine.getSelectedBuilding(2);
     if (p2Sel != BuildingType::NONE) {
         sf::Vector2f targetPos = (p2Sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
-        std::string reason;
-        bool valid = engine.canPlaceBuilding(2, p2Sel, targetPos, reason);
-        nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, targetPos, valid, engine.getBuildingCost(p2Sel));
+        if (p2Sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(2, targetPos)) {
+            std::string reason;
+            bool valid = engine.canPlaceBuilding(2, p2Sel, targetPos, reason);
+            nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, targetPos, valid, engine.getBuildingCost(p2Sel));
+        }
     }
 
     // 8. Compact Metropolis City Center with territorial slicing & conquest
@@ -1845,5 +2044,7 @@ void UI_map::render(sf::RenderWindow& window) {
     // 21. Game Over / Victory Screen (When a player reaches 100% influence)
     if (engine.getCityState().winner != 0) {
         drawVictoryScreen(window);
+    } else if (isPaused) {
+        drawPauseMenu(window);
     }
 }

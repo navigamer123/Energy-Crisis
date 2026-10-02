@@ -150,10 +150,20 @@ private:
     void drawEnergyConduits(sf::RenderWindow& window, float animTime);
     void drawHelpOverlay(sf::RenderWindow& window);
     void drawVictoryScreen(sf::RenderWindow& window);
-    void restartMatch();
+    void drawPauseMenu(sf::RenderWindow& window);
+    bool isPosOnPurchasedLand(int player, sf::Vector2f pos) const;
 
     sf::FloatRect victoryRestartBtn;
     sf::FloatRect victoryMenuBtn;
+
+    // Pause Menu state & button bounds
+    bool isPaused = false;
+    int pauseSelectedIdx = 0;
+    sf::Vector2f lastPauseMousePos = { -999.0f, -999.0f };
+    sf::FloatRect pauseResumeBtn;
+    sf::FloatRect pauseRestartBtn;
+    sf::FloatRect pauseHelpBtn;
+    sf::FloatRect pauseMenuBtn;
 
 public:
     UI_map();
@@ -166,8 +176,11 @@ public:
     bool isFullscreenRequested() const { return requestFullscreenToggle; }
     void resetFullscreenRequest() { requestFullscreenToggle = false; }
 
+    const GameEngine& getEngine() const { return engine; }
+
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
     void render(sf::RenderWindow& window);
+    void restartMatch();
 };
 
 #endif // UI_MAP_H

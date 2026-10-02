@@ -24,6 +24,13 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     landPlots.clear();
     buildings.clear();
 
+    // Reset City State on fresh game or restart
+    city = CityConquestState();
+    city.cityEnergyDemand = Balance::STARTING_CITY_DEMAND_MW;
+    city.p1CityShare = 0.50f;
+    city.winner = 0;
+    city.lastCutMessage = "ДОБРЕ ДОШЛИ! ДОСТАВЯЙТЕ ЧИСТА ЕНЕРГИЯ КЪМ ГРАДА!";
+
     // -------------------------------------------------------------------------
     // Generate Purchasable Land Grid on West (P1) and East (P2)
     // 12 land plots per player (3 cols x 4 rows)
@@ -52,7 +59,7 @@ void GameEngine::init(float screenWidth, float screenHeight) {
             plot.bounds = sf::FloatRect({ x, y }, { plotW, plotH });
             // Starting top-left plot is unlocked, others are purchasable
             plot.isPurchased = (r == 0 && c == 0);
-            plot.costGold = 150 + (r * 3 + c) * 45;
+            plot.costGold = Balance::getLandPlotCost(r, c);
             landPlots.push_back(plot);
         }
     }
@@ -71,15 +78,35 @@ void GameEngine::init(float screenWidth, float screenHeight) {
             plot.bounds = sf::FloatRect({ x, y }, { plotW, plotH });
             // Starting top-right plot is unlocked, others are purchasable
             plot.isPurchased = (r == 0 && c == 2);
-            plot.costGold = 150 + (r * 3 + c) * 45;
+            plot.costGold = Balance::getLandPlotCost(r, c);
             landPlots.push_back(plot);
         }
     }
 
-    // Players start with 0 buildings and 0 resources - they build from scratch
+    // Clear and reset players
     buildings.clear();
     p1 = PlayerEconomy();
     p2 = PlayerEconomy();
+
+    // -------------------------------------------------------------------------
+    // Starter Solar Panels (1 for Player 1, 1 for Player 2)
+    // Ensures fair 50/50 baseline so that first placement does not give monopoly
+    // -------------------------------------------------------------------------
+    PlacedBuilding starterP1;
+    starterP1.type = BuildingType::SOLAR_PANEL;
+    starterP1.position = getGridSlot(1, 0, 0); // Slot 0,0 in P1 starting plot
+    starterP1.playerOwner = 1;
+    starterP1.currentOutputMW = static_cast<float>(Balance::SOLAR_PANEL.basePowerMW);
+    starterP1.animTimer = 0.0f;
+    buildings.push_back(starterP1);
+
+    PlacedBuilding starterP2;
+    starterP2.type = BuildingType::SOLAR_PANEL;
+    starterP2.position = getGridSlot(2, 8, 0); // Slot 8,0 in P2 starting plot (r=0, c=2)
+    starterP2.playerOwner = 2;
+    starterP2.currentOutputMW = static_cast<float>(Balance::SOLAR_PANEL.basePowerMW);
+    starterP2.animTimer = 0.0f;
+    buildings.push_back(starterP2);
 
     // Initialize day 1 weather with weather_report from weatherF
     auto rep1 = weather_report("spring");
@@ -92,16 +119,26 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     p2.data.weather = weather_state;
     p2.data.wind_speed = (rep2.size() > 3) ? rep2[3] : "0";
 
-    std::cout << "[GameEngine] Backend initialized with " << landPlots.size() << " land plots (0 starter resources).\n";
+    // Initial update of building energies
+    updateBuildingsEnergy(0.0f);
+    p1.cityInfluence = 0.50f;
+    p2.cityInfluence = 0.50f;
+
+    std::cout << "[GameEngine] Backend initialized with " << landPlots.size() << " land plots & 2 starter solar panels.\n";
 }
 
 void GameEngine::update(float dt) {
+    // If the match is concluded, freeze all simulation, economy and dividends
+    if (city.winner != 0) {
+        return;
+    }
+
     float effectiveDt = dt * timeScale;
     gameSeconds += effectiveDt;
     float prevHour = hour24;
-    hour24 = std::fmod((gameSeconds / secondsPerDay) * 24.0f + 6.0f, 24.0f);
+    hour24 = std::fmod((gameSeconds / Balance::SECONDS_PER_DAY) * 24.0f + 6.0f, 24.0f);
 
-    int calculatedDay = 1 + static_cast<int>(gameSeconds / secondsPerDay);
+    int calculatedDay = 1 + static_cast<int>(gameSeconds / Balance::SECONDS_PER_DAY);
     if (calculatedDay > currentDay || (prevHour > 23.0f && hour24 < 1.0f)) {
         currentDay = calculatedDay;
         processDayEnd();
@@ -121,10 +158,10 @@ void GameEngine::update(float dt) {
             float p1Share = static_cast<float>(p1.energyMW) / totalGrid;
             float p2Share = static_cast<float>(p2.energyMW) / totalGrid;
 
-            // City energy contract pool (scales with total clean power provided)
-            int contractPool = 25 + static_cast<int>(totalGrid * 0.25f);
-            int p1Payout = static_cast<int>(std::round(contractPool * p1Share));
-            int p2Payout = static_cast<int>(std::round(contractPool * p2Share));
+            // City energy contract pool from central Balance formula
+            int contractPool = Balance::calculateContractPool(totalGrid);
+            int p1Payout = Balance::calculatePlayerPayout(contractPool, p1Share);
+            int p2Payout = Balance::calculatePlayerPayout(contractPool, p2Share);
 
             p1.money += p1Payout;
             p1.data.money = p1.money;
@@ -132,21 +169,16 @@ void GameEngine::update(float dt) {
             p2.money += p2Payout;
             p2.data.money = p2.money;
 
-            // Gold dividend for sustained power supply
-            if (p1.energyMW >= 30) {
-                p1.gold += std::max(1, static_cast<int>(p1.energyMW * 0.03f));
-                p1.data.gold = p1.gold;
-            }
-            if (p2.energyMW >= 30) {
-                p2.gold += std::max(1, static_cast<int>(p2.energyMW * 0.03f));
-                p2.data.gold = p2.gold;
-            }
+            // Gold dividend for sustained power supply from Balance formula
+            p1.gold += Balance::calculateGoldDividend(p1.energyMW);
+            p1.data.gold = p1.gold;
 
-            // Gradual tug-of-war city influence progression (moves smoothly instead of jumping instantly)
+            p2.gold += Balance::calculateGoldDividend(p2.energyMW);
+            p2.data.gold = p2.gold;
+
+            // Gradual tug-of-war city influence progression from Balance formula
             if (city.winner == 0) {
-                float powerDiff = static_cast<float>(p1.energyMW - p2.energyMW);
-                float driftStep = (powerDiff / std::max(50.0f, static_cast<float>(city.cityEnergyDemand))) * 0.015f;
-                driftStep = std::clamp(driftStep, -0.03f, 0.03f);
+                float driftStep = Balance::calculateInfluenceDrift(p1.energyMW, p2.energyMW, city.cityEnergyDemand);
                 city.p1CityShare = std::clamp(city.p1CityShare + driftStep, 0.0f, 1.0f);
             }
         }
@@ -155,13 +187,13 @@ void GameEngine::update(float dt) {
         p2.cityInfluence = 1.0f - city.p1CityShare;
 
         // Victory condition when someone reaches 100% (1.0)
-        if (city.p1CityShare >= 0.999f) {
+        if (city.p1CityShare >= Balance::VICTORY_INFLUENCE_P1) {
             city.p1CityShare = 1.0f;
             p1.cityInfluence = 1.0f;
             p2.cityInfluence = 0.0f;
             city.winner = 1;
             city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
-        } else if (city.p1CityShare <= 0.001f) {
+        } else if (city.p1CityShare <= Balance::VICTORY_INFLUENCE_P2) {
             city.p1CityShare = 0.0f;
             p1.cityInfluence = 0.0f;
             p2.cityInfluence = 1.0f;
@@ -372,12 +404,12 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
     result.type = type;
 
     int lvl = getMineLevel(player, type);
-    float mult = 1.0f + (lvl - 1) * 0.75f;
+    float mult = Balance::getMineYieldMultiplier(lvl);
     std::string lvlTag = (lvl > 1 ? " [НИВО " + std::to_string(lvl) + "]" : "");
 
     switch (type) {
         case ResourceType::WOOD: {
-            int amount = static_cast<int>(std::round(12 * mult));
+            int amount = static_cast<int>(std::round(Balance::WOOD_BASE_YIELD * mult));
             econ.wood += amount;
             econ.data.wood = econ.wood;
             result.wood = amount;
@@ -386,7 +418,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             return true;
         }
         case ResourceType::IRON: {
-            int amount = static_cast<int>(std::round(8 * mult));
+            int amount = static_cast<int>(std::round(Balance::IRON_BASE_YIELD * mult));
             econ.iron += amount;
             econ.ore += amount;
             econ.data.iron = econ.iron;
@@ -396,7 +428,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             return true;
         }
         case ResourceType::COPPER: {
-            int amount = static_cast<int>(std::round(6 * mult));
+            int amount = static_cast<int>(std::round(Balance::COPPER_BASE_YIELD * mult));
             econ.copper += amount;
             econ.ore += amount;
             econ.data.copper = econ.copper;
@@ -406,7 +438,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             return true;
         }
         case ResourceType::COAL: {
-            int amount = static_cast<int>(std::round(6 * mult));
+            int amount = static_cast<int>(std::round(Balance::COAL_BASE_YIELD * mult));
             econ.coal += amount;
             econ.ore += amount;
             econ.data.coal = econ.coal;
@@ -416,7 +448,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             return true;
         }
         case ResourceType::SILICON: {
-            int amount = static_cast<int>(std::round(6 * mult));
+            int amount = static_cast<int>(std::round(Balance::SILICON_BASE_YIELD * mult));
             econ.silicon += amount;
             econ.ore += amount;
             econ.data.silicon = econ.silicon;
@@ -426,7 +458,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             return true;
         }
         case ResourceType::SILVER: {
-            int amount = static_cast<int>(std::round(4 * mult));
+            int amount = static_cast<int>(std::round(Balance::SILVER_BASE_YIELD * mult));
             econ.silver += amount;
             econ.ore += amount;
             econ.data.silver = econ.silver;
@@ -436,7 +468,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             return true;
         }
         case ResourceType::GOLD: {
-            int amount = static_cast<int>(std::round(3 * mult));
+            int amount = static_cast<int>(std::round(Balance::GOLD_BASE_YIELD * mult));
             econ.gold += amount;
             econ.data.gold = econ.gold;
             result.gold = amount;
@@ -450,7 +482,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         }
         case ResourceType::ORE: {
             // Legacy cave expedition support
-            int fe = 8, cu = 6, c = 6, au = 3, ore = 20;
+            int fe = Balance::IRON_BASE_YIELD, cu = Balance::COPPER_BASE_YIELD, c = Balance::COAL_BASE_YIELD, au = Balance::GOLD_BASE_YIELD, ore = 20;
             econ.iron += fe; econ.data.iron = econ.iron;
             econ.copper += cu; econ.data.copper = econ.copper;
             econ.coal += c; econ.data.coal = econ.coal;
@@ -476,11 +508,8 @@ int GameEngine::getMineLevel(int player, ResourceType type) const {
 
 int GameEngine::getMineUpgradeCost(int player, ResourceType type) const {
     int lvl = getMineLevel(player, type);
-    if (lvl >= 5) return -1; // Max Level reached
-    if (type == ResourceType::GOLD) {
-        return 20 * lvl; // Gold mine: 20, 40, 60, 80 G
-    }
-    return 15 * lvl; // Other mines: 15, 30, 45, 60 G
+    if (lvl >= Balance::MINE_MAX_LEVEL) return -1; // Max Level reached
+    return Balance::getMineUpgradeCost(lvl, type == ResourceType::GOLD);
 }
 
 bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg) {
@@ -495,12 +524,12 @@ bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg)
         return false;
     }
     int lvl = econ.mineLevels[idx];
-    if (lvl >= 5) {
+    if (lvl >= Balance::MINE_MAX_LEVEL) {
         outMsg = "МАКСИМАЛНО НИВО НА МИНАТА (НИВО 5)!";
         return false;
     }
     int cost = getMineUpgradeCost(player, type);
-    if (econ.gold < cost) {
+    if (cost < 0 || econ.gold < cost) {
         outMsg = "НЕДОСТИГ НА ЗЛАТО! НУЖНО: " + std::to_string(cost) + " G (ИМАТЕ " + std::to_string(econ.gold) + " G)";
         return false;
     }
@@ -596,21 +625,31 @@ BuildingType GameEngine::getSelectedBuilding(int player) const {
 
 BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
     switch (type) {
-        case BuildingType::SOLAR_PANEL:
-            // 6 Wood, 4 Iron, 6 Copper, 8 Silicon (ore total: 18)
-            return { BuildingType::SOLAR_PANEL, "Слънчев панел", "Solar Panel", 6, 4, 6, 0, 8, 0, 18, 60 };
-        case BuildingType::WIND_TURBINE:
-            // 8 Wood, 14 Iron, 8 Copper, 6 Coal (ore total: 28)
-            return { BuildingType::WIND_TURBINE, "Вятърна мелница", "Wind Turbine", 8, 14, 8, 6, 0, 0, 28, 85 };
-        case BuildingType::HYDRO_PLANT:
-            // 15 Wood, 20 Iron, 12 Copper, 6 Silicon (ore total: 38)
-            return { BuildingType::HYDRO_PLANT, "ВЕЦ / Хидро", "Hydro Plant", 15, 20, 12, 0, 6, 0, 38, 160 };
-        case BuildingType::BATTERY:
-            // 4 Wood, 8 Iron, 10 Copper, 4 Coal, 4 Silver (ore total: 26)
-            return { BuildingType::BATTERY, "Батерия / Акумулатор", "Battery Storage", 4, 8, 10, 4, 0, 4, 26, 0 };
-        case BuildingType::LAMP:
-            // 4 Wood, 5 Iron, 3 Copper (ore total: 8)
-            return { BuildingType::LAMP, "Осветителна лампа", "Light Tower / Lamp", 4, 5, 3, 0, 0, 0, 8, 0 };
+        case BuildingType::SOLAR_PANEL: {
+            const auto& b = Balance::SOLAR_PANEL;
+            int ore = b.ironCost + b.copperCost + b.siliconCost;
+            return { BuildingType::SOLAR_PANEL, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
+        }
+        case BuildingType::WIND_TURBINE: {
+            const auto& b = Balance::WIND_TURBINE;
+            int ore = b.ironCost + b.copperCost + b.coalCost;
+            return { BuildingType::WIND_TURBINE, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
+        }
+        case BuildingType::HYDRO_PLANT: {
+            const auto& b = Balance::HYDRO_PLANT;
+            int ore = b.ironCost + b.copperCost + b.siliconCost;
+            return { BuildingType::HYDRO_PLANT, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
+        }
+        case BuildingType::BATTERY: {
+            const auto& b = Balance::BATTERY;
+            int ore = b.ironCost + b.copperCost + b.coalCost + b.silverCost;
+            return { BuildingType::BATTERY, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
+        }
+        case BuildingType::LAMP: {
+            const auto& b = Balance::STREET_LAMP;
+            int ore = b.ironCost + b.copperCost;
+            return { BuildingType::LAMP, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
+        }
         case BuildingType::DEMOLISH:
             return { BuildingType::DEMOLISH, "Премахване", "Demolish Tool", 0, 0, 0, 0, 0, 0, 0, 0 };
         default:
