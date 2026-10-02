@@ -1,6 +1,5 @@
 #include "../includes/UI_resourceNodes.h"
 #include "../includes/UI_types.h"
-#include "game_balance.h"
 #include <cmath>
 #include <string>
 #include <algorithm>
