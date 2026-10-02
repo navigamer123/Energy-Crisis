@@ -5,6 +5,25 @@
 #include <vector>
 #include <SFML/Graphics.hpp>
 #include "game_weather.h"
+#include "game_expedition.h"
+#include "game_random.h"
+
+// -----------------------------------------------------------------------------
+// PlayerData (integrated from weatherF branch)
+// -----------------------------------------------------------------------------
+struct PlayerData {
+    int money = 0;
+    int iron = 0;
+    int coal = 0;
+    int gold = 0;
+    int copper = 0;
+    int silver = 0;
+    int silicon = 0;
+    int wood = 0;
+    int sticks = 0;
+    std::string weather = "clear";
+    std::string wind_speed = "0";
+};
 
 // -----------------------------------------------------------------------------
 // Resource Types
@@ -60,10 +79,11 @@ struct PlayerEconomy {
     int landTier = 1;           // Land tier
     float cityInfluence = 0.50f;// Percentage of city supplied / captured (0.0 to 1.0)
     int selectedBuilding = 0;   // 0 = None, 1 = Solar, 2 = Wind, 3 = Hydro, 4 = Battery
+    PlayerData data;            // Teammate's detailed inventory from weatherF
 };
 
 struct CityConquestState {
-    int cityEnergyDemand = 800; // Daily requirement, grows each day
+    int cityEnergyDemand = 30;  // Starts very low (15 MW each player quota) and grows gradually
     float p1CityShare = 0.50f;  // 0.0 to 1.0 (P1 vs P2 city control tug-of-war)
     float p1DailyDelivered = 0.0f;
     float p2DailyDelivered = 0.0f;

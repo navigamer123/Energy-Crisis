@@ -1,7 +1,16 @@
 #ifndef GAME_WEATHER_H
 #define GAME_WEATHER_H
 
+#include <vector>
 #include <string>
+
+// Teammate's globals from weatherF
+extern std::string weather_state;
+extern bool wind;
+extern std::string wind_direction;
+
+// Returns {cloud, precipitation, wind direction, wind speed}
+std::vector<std::string> weather_report(const std::string& season);
 
 // -----------------------------------------------------------------------------
 // Weather types for Player Sectors
@@ -32,6 +41,7 @@ public:
     static float getWindMultiplier(WeatherType w, float hour24);
     static float getHydroMultiplier(WeatherType w);
     static WeatherType generateDailyWeather(int day, int player);
+    static WeatherType reportToWeatherType(const std::vector<std::string>& report);
 };
 
 #endif // GAME_WEATHER_H

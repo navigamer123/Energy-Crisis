@@ -14,19 +14,22 @@ GameEngine::GameEngine()
 }
 
 void GameEngine::init(float screenWidth, float screenHeight) {
+    (void)screenWidth;
     (void)screenHeight;
     landPlots.clear();
     buildings.clear();
 
     // -------------------------------------------------------------------------
     // Generate Purchasable Land Grid on West (P1) and East (P2)
+    // Land dimensions strictly positioned so they NEVER touch or go under the city!
+    // City bounds: X in [610.0, 990.0].
     // -------------------------------------------------------------------------
-    float plotW = 120.0f;
-    float plotH = 100.0f;
-    float gap = 16.0f;
+    float plotW = 105.0f;
+    float plotH = 95.0f;
+    float gap = 12.0f;
 
-    // West Side (P1): 3 columns x 3 rows
-    float westStartX = 250.0f;
+    // West Side (P1): 3 columns x 3 rows (Col 0: 258-363, Col 1: 375-480, Col 2: 492-597 < 610)
+    float westStartX = 258.0f;
     float startY = 120.0f;
     int idCounter = 1;
 
@@ -46,8 +49,8 @@ void GameEngine::init(float screenWidth, float screenHeight) {
         }
     }
 
-    // East Side (P2): 3 columns x 3 rows
-    float eastStartX = screenWidth - 250.0f - (3 * plotW + 2 * gap); // ~958
+    // East Side (P2): 3 columns x 3 rows (Col 0: 1003-1108 > 990, Col 1: 1120-1225, Col 2: 1237-1342 < 1360)
+    float eastStartX = 1003.0f;
     for (int r = 0; r < 3; r++) {
         for (int c = 0; c < 3; c++) {
             float x = eastStartX + c * (plotW + gap);
@@ -68,6 +71,17 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     buildings.clear();
     p1 = PlayerEconomy();
     p2 = PlayerEconomy();
+
+    // Initialize day 1 weather with weather_report from weatherF
+    auto rep1 = weather_report("spring");
+    p1Weather = WeatherSystem::reportToWeatherType(rep1);
+    p1.data.weather = weather_state;
+    p1.data.wind_speed = (rep1.size() > 3) ? rep1[3] : "0";
+
+    auto rep2 = weather_report("spring");
+    p2Weather = WeatherSystem::reportToWeatherType(rep2);
+    p2.data.weather = weather_state;
+    p2.data.wind_speed = (rep2.size() > 3) ? rep2[3] : "0";
 
     std::cout << "[GameEngine] Backend initialized with " << landPlots.size() << " land plots (0 starter resources).\n";
 }
@@ -178,28 +192,61 @@ void GameEngine::processDayEnd() {
         city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
     }
 
-    // City expands and demands more power next day
-    city.cityEnergyDemand += 200;
+    // City expands and demands more power next day (gradual progression)
+    city.cityEnergyDemand += 25;
     city.p1DailyDelivered = 0.0f;
     city.p2DailyDelivered = 0.0f;
 
-    // Daily dynamic weather generation
-    p1Weather = WeatherSystem::generateDailyWeather(currentDay, 1);
-    p2Weather = WeatherSystem::generateDailyWeather(currentDay, 2);
-
+    // Daily dynamic weather generation using weather_report from weatherF
     int sIdx = ((currentDay - 1) / 5) % 4;
     currentSeason = static_cast<SeasonType>(sIdx);
+    std::string sName = (currentSeason == SeasonType::SPRING) ? "spring" :
+                        ((currentSeason == SeasonType::SUMMER) ? "summer" :
+                        ((currentSeason == SeasonType::AUTUMN) ? "fall" : "winter"));
+
+    auto rep1 = weather_report(sName);
+    p1Weather = WeatherSystem::reportToWeatherType(rep1);
+    p1.data.weather = weather_state;
+    p1.data.wind_speed = (rep1.size() > 3) ? rep1[3] : "0";
+
+    auto rep2 = weather_report(sName);
+    p2Weather = WeatherSystem::reportToWeatherType(rep2);
+    p2.data.weather = weather_state;
+    p2.data.wind_speed = (rep2.size() > 3) ? rep2[3] : "0";
 }
 
 bool GameEngine::mineResource(int player, ResourceType type, std::string& outMsg) {
     auto& econ = (player == 1) ? p1 : p2;
     if (type == ResourceType::ORE) {
-        econ.ore += 15;
-        outMsg = (player == 1 ? "ИГРАЧ 1: +15 РУДА (МИНА)" : "ИГРАЧ 2: +15 РУДА (МИНА)");
+        // Mine expedition (cave) from weatherF branch
+        auto res = Expedition(1, "cave");
+        // res = {silicon, copper, silver, iron, gold, coal};
+        int iron = (res.size() > 3) ? res[3] : 15;
+        int gold = (res.size() > 4) ? res[4] : 5;
+        int coal = (res.size() > 5) ? res[5] : 20;
+
+        econ.ore += iron;
+        econ.gold += gold;
+        econ.data.iron += iron;
+        econ.data.gold += gold;
+        econ.data.coal += coal;
+
+        outMsg = (player == 1 ? "ИГРАЧ 1: +" + std::to_string(iron) + " РУДА, +" + std::to_string(gold) + "G (ПЕЩЕРА)"
+                              : "ИГРАЧ 2: +" + std::to_string(iron) + " РУДА, +" + std::to_string(gold) + "G (ПЕЩЕРА)");
         return true;
     } else if (type == ResourceType::WOOD) {
-        econ.wood += 20;
-        outMsg = (player == 1 ? "ИГРАЧ 1: +20 ДЪРВО (ГОРА)" : "ИГРАЧ 2: +20 ДЪРВО (ГОРА)");
+        // Forest expedition from weatherF branch
+        auto res = Expedition(1, "forest");
+        // res = {wood, sticks};
+        int wood = (res.size() > 0) ? res[0] : 20;
+        int sticks = (res.size() > 1) ? res[1] : 30;
+
+        econ.wood += wood;
+        econ.data.wood += wood;
+        econ.data.sticks += sticks;
+
+        outMsg = (player == 1 ? "ИГРАЧ 1: +" + std::to_string(wood) + " ДЪРВО (ГОРА)"
+                              : "ИГРАЧ 2: +" + std::to_string(wood) + " ДЪРВО (ГОРА)");
         return true;
     }
     return false;
