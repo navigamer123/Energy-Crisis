@@ -90,17 +90,19 @@ void testEachResourceMinedSeparately() {
 }
 
 void testPrecisionGridMovement() {
-    std::cout << "[TEST 3] Testing precision grid coordinates...\n";
+    std::cout << "[TEST 3] Testing precision 9x12 grid coordinates (12 plots x 9 slots = 108 slots per player)...\n";
     GameEngine engine;
     engine.init(1600.0f, 900.0f);
 
-    // Check 6x6 grid for P1
-    for (int r = 0; r < 6; ++r) {
-        for (int c = 0; c < 6; ++c) {
+    assert(engine.getLandPlots().size() == 24); // 12 plots for P1, 12 plots for P2
+
+    // Check 9x12 grid for P1
+    for (int r = 0; r < 12; ++r) {
+        for (int c = 0; c < 9; ++c) {
             sf::Vector2f slot = engine.getGridSlot(1, c, r);
             // Must be strictly in West sector (X < 610)
             assert(slot.x >= 258.0f && slot.x < 610.0f);
-            assert(slot.y >= 120.0f && slot.y < 460.0f);
+            assert(slot.y >= 105.0f && slot.y < 530.0f);
 
             // Re-query closest index must return exactly (c, r)
             int qc = -1, qr = -1;
@@ -109,13 +111,13 @@ void testPrecisionGridMovement() {
         }
     }
 
-    // Check 6x6 grid for P2
-    for (int r = 0; r < 6; ++r) {
-        for (int c = 0; c < 6; ++c) {
+    // Check 9x12 grid for P2
+    for (int r = 0; r < 12; ++r) {
+        for (int c = 0; c < 9; ++c) {
             sf::Vector2f slot = engine.getGridSlot(2, c, r);
             // Must be strictly in East sector (X > 990)
             assert(slot.x > 990.0f && slot.x <= 1360.0f);
-            assert(slot.y >= 120.0f && slot.y < 460.0f);
+            assert(slot.y >= 105.0f && slot.y < 530.0f);
 
             int qc = -1, qr = -1;
             engine.getClosestGridIndex(2, slot, qc, qr);
@@ -123,11 +125,11 @@ void testPrecisionGridMovement() {
         }
     }
 
-    std::cout << "  -> PASS: Precision 6x6 grid coordinates perfectly aligned and invertible.\n";
+    std::cout << "  -> PASS: Precision 9x12 grid coordinates perfectly aligned and invertible (108 slots/player).\n";
 }
 
 void testLastPlacedBuildingMemory() {
-    std::cout << "[TEST 4] Testing last placed building memory...\n";
+    std::cout << "[TEST 4] Testing last placed building memory & bidirectional cycling...\n";
     GameEngine engine;
     engine.init(1600.0f, 900.0f);
 
@@ -161,7 +163,15 @@ void testLastPlacedBuildingMemory() {
     engine.cycleBuildingSelection(1);
     assert(p1.selectedBuilding == static_cast<int>(BuildingType::WIND_TURBINE));
 
-    std::cout << "  -> PASS: Lastly placed item is remembered and selected on resume.\n";
+    // Test backward cycling with cycleBuildingSelectionPrev
+    engine.cycleBuildingSelectionPrev(1);
+    assert(p1.selectedBuilding == 1); // 2 -> 1
+    engine.cycleBuildingSelectionPrev(1);
+    assert(p1.selectedBuilding == 6); // 1 -> 6 (wrap to Demolish)
+    engine.cycleBuildingSelection(1);
+    assert(p1.selectedBuilding == 1); // 6 -> 1 (forward wrap to Solar)
+
+    std::cout << "  -> PASS: Lastly placed item remembered, bidirectional cycling works flawlessly.\n";
 }
 
 void testPercentageBasedEnergyRewards() {

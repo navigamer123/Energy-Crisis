@@ -172,6 +172,7 @@ public:
     bool buyNextLandTier(int player, std::string& outMsg);
 
     void cycleBuildingSelection(int player);
+    void cycleBuildingSelectionPrev(int player);
     void clearBuildingSelection(int player);
     BuildingType getSelectedBuilding(int player) const;
 

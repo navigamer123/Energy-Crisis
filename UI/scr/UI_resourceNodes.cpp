@@ -152,38 +152,42 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
             box.setOutlineColor(ownerAccent);
             window.draw(box);
 
-            // 2x2 Building Placement Grid Dividers & Slot Crosshairs
-            float midX = plot.bounds.position.x + plot.bounds.size.x * 0.5f;
-            float midY = plot.bounds.position.y + plot.bounds.size.y * 0.5f;
+            // 3x3 Building Placement Grid Dividers & Slot Crosshairs (9 slots per slab)
+            float colW = plot.bounds.size.x / 3.0f;
+            float rowH = plot.bounds.size.y / 3.0f;
 
-            // Horizontal grid divider
-            sf::RectangleShape hLine({ plot.bounds.size.x - 8.0f, 1.0f });
-            hLine.setPosition({ plot.bounds.position.x + 4.0f, midY });
-            hLine.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 65));
-            window.draw(hLine);
+            // Horizontal grid dividers (2 lines)
+            for (int divR = 1; divR < 3; ++divR) {
+                float y = plot.bounds.position.y + divR * rowH;
+                sf::RectangleShape hLine({ plot.bounds.size.x - 6.0f, 1.0f });
+                hLine.setPosition({ plot.bounds.position.x + 3.0f, y });
+                hLine.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 65));
+                window.draw(hLine);
+            }
 
-            // Vertical grid divider
-            sf::RectangleShape vLine({ 1.0f, plot.bounds.size.y - 8.0f });
-            vLine.setPosition({ midX, plot.bounds.position.y + 4.0f });
-            vLine.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 65));
-            window.draw(vLine);
+            // Vertical grid dividers (2 lines)
+            for (int divC = 1; divC < 3; ++divC) {
+                float x = plot.bounds.position.x + divC * colW;
+                sf::RectangleShape vLine({ 1.0f, plot.bounds.size.y - 6.0f });
+                vLine.setPosition({ x, plot.bounds.position.y + 3.0f });
+                vLine.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 65));
+                window.draw(vLine);
+            }
 
-            // Slot center crosshairs '+'
-            float colW = plot.bounds.size.x * 0.5f;
-            float rowH = plot.bounds.size.y * 0.5f;
-            for (int r = 0; r < 2; r++) {
-                for (int c = 0; c < 2; c++) {
+            // 9 Slot center crosshairs '+'
+            for (int r = 0; r < 3; r++) {
+                for (int c = 0; c < 3; c++) {
                     float cx = plot.bounds.position.x + (c + 0.5f) * colW;
                     float cy = plot.bounds.position.y + (r + 0.5f) * rowH;
 
-                    sf::RectangleShape crossH({ 6.0f, 1.0f });
-                    crossH.setOrigin({ 3.0f, 0.5f });
+                    sf::RectangleShape crossH({ 5.0f, 1.0f });
+                    crossH.setOrigin({ 2.5f, 0.5f });
                     crossH.setPosition({ cx, cy });
                     crossH.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 75));
                     window.draw(crossH);
 
-                    sf::RectangleShape crossV({ 1.0f, 6.0f });
-                    crossV.setOrigin({ 0.5f, 3.0f });
+                    sf::RectangleShape crossV({ 1.0f, 5.0f });
+                    crossV.setOrigin({ 0.5f, 2.5f });
                     crossV.setPosition({ cx, cy });
                     crossV.setFillColor(sf::Color(ownerAccent.r, ownerAccent.g, ownerAccent.b, 75));
                     window.draw(crossV);
@@ -239,18 +243,18 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
         sf::Color ownerColor = (b.playerOwner == 1) ? sf::Color(0, 229, 255) : sf::Color(255, 120, 200);
 
         if (b.type == BuildingType::SOLAR_PANEL) {
-            sf::RectangleShape frame({ 36.0f, 26.0f });
-            frame.setOrigin({ 18.0f, 13.0f });
+            sf::RectangleShape frame({ 26.0f, 20.0f });
+            frame.setOrigin({ 13.0f, 10.0f });
             frame.setPosition(b.position);
             frame.setFillColor(sf::Color(25, 35, 55));
-            frame.setOutlineThickness(1.5f);
+            frame.setOutlineThickness(1.2f);
             frame.setOutlineColor(ownerColor);
             window.draw(frame);
 
             for (int r = 0; r < 2; r++) {
                 for (int c = 0; c < 3; c++) {
-                    sf::RectangleShape cell({ 8.0f, 8.0f });
-                    cell.setPosition({ b.position.x - 14.0f + c * 10.0f, b.position.y - 10.0f + r * 10.0f });
+                    sf::RectangleShape cell({ 6.0f, 6.0f });
+                    cell.setPosition({ b.position.x - 10.0f + c * 7.5f, b.position.y - 7.0f + r * 7.5f });
                     cell.setFillColor(sf::Color(20, 100, 220, 220));
                     cell.setOutlineThickness(0.5f);
                     cell.setOutlineColor(sf::Color(100, 180, 255, 180));
@@ -258,94 +262,94 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 }
             }
         } else if (b.type == BuildingType::WIND_TURBINE) {
-            sf::RectangleShape mast({ 4.0f, 30.0f });
-            mast.setOrigin({ 2.0f, 30.0f });
+            sf::RectangleShape mast({ 3.0f, 22.0f });
+            mast.setOrigin({ 1.5f, 22.0f });
             mast.setPosition(b.position);
             mast.setFillColor(sf::Color(210, 225, 240));
             mast.setOutlineThickness(1.0f);
             mast.setOutlineColor(sf::Color(140, 160, 185));
             window.draw(mast);
 
-            sf::Vector2f hubPos = { b.position.x, b.position.y - 30.0f };
+            sf::Vector2f hubPos = { b.position.x, b.position.y - 22.0f };
             float angleDeg = b.animTimer * 180.0f;
             for (int blade = 0; blade < 3; blade++) {
                 float a = (angleDeg + blade * 120.0f) * 3.14159265f / 180.0f;
                 sf::VertexArray bladeGeom(sf::PrimitiveType::Triangles, 3);
                 bladeGeom[0].position = hubPos;
                 bladeGeom[0].color = sf::Color::White;
-                bladeGeom[1].position = { hubPos.x + 22.0f * std::cos(a), hubPos.y + 22.0f * std::sin(a) };
+                bladeGeom[1].position = { hubPos.x + 15.0f * std::cos(a), hubPos.y + 15.0f * std::sin(a) };
                 bladeGeom[1].color = sf::Color(220, 235, 250);
-                bladeGeom[2].position = { hubPos.x + 18.0f * std::cos(a + 0.15f), hubPos.y + 18.0f * std::sin(a + 0.15f) };
+                bladeGeom[2].position = { hubPos.x + 12.0f * std::cos(a + 0.15f), hubPos.y + 12.0f * std::sin(a + 0.15f) };
                 bladeGeom[2].color = ownerColor;
                 window.draw(bladeGeom);
             }
 
-            sf::CircleShape hub(4.0f);
-            hub.setOrigin({ 4.0f, 4.0f });
+            sf::CircleShape hub(3.0f);
+            hub.setOrigin({ 3.0f, 3.0f });
             hub.setPosition(hubPos);
             hub.setFillColor(ownerColor);
             window.draw(hub);
         } else if (b.type == BuildingType::HYDRO_PLANT) {
-            sf::RectangleShape station({ 38.0f, 30.0f });
-            station.setOrigin({ 19.0f, 15.0f });
+            sf::RectangleShape station({ 26.0f, 22.0f });
+            station.setOrigin({ 13.0f, 11.0f });
             station.setPosition(b.position);
             station.setFillColor(sf::Color(30, 48, 70));
-            station.setOutlineThickness(1.5f);
+            station.setOutlineThickness(1.2f);
             station.setOutlineColor(ownerColor);
             window.draw(station);
 
-            sf::CircleShape wheel(8.0f);
-            wheel.setOrigin({ 8.0f, 8.0f });
+            sf::CircleShape wheel(6.0f);
+            wheel.setOrigin({ 6.0f, 6.0f });
             wheel.setPosition(b.position);
             wheel.setFillColor(sf::Color(45, 120, 180, 180));
             wheel.setOutlineThickness(1.0f);
             wheel.setOutlineColor(sf::Color(100, 220, 255));
             window.draw(wheel);
         } else if (b.type == BuildingType::BATTERY) {
-            sf::RectangleShape caseBox({ 28.0f, 36.0f });
-            caseBox.setOrigin({ 14.0f, 18.0f });
+            sf::RectangleShape caseBox({ 22.0f, 26.0f });
+            caseBox.setOrigin({ 11.0f, 13.0f });
             caseBox.setPosition(b.position);
             caseBox.setFillColor(sf::Color(18, 25, 36));
-            caseBox.setOutlineThickness(1.5f);
+            caseBox.setOutlineThickness(1.2f);
             caseBox.setOutlineColor(ownerColor);
             window.draw(caseBox);
 
-            sf::RectangleShape term({ 10.0f, 3.5f });
-            term.setOrigin({ 5.0f, 3.5f });
-            term.setPosition({ b.position.x, b.position.y - 18.0f });
+            sf::RectangleShape term({ 8.0f, 3.0f });
+            term.setOrigin({ 4.0f, 3.0f });
+            term.setPosition({ b.position.x, b.position.y - 13.0f });
             term.setFillColor(sf::Color(210, 215, 225));
             window.draw(term);
 
             float pct = std::min(1.0f, std::max(0.0f, b.energyStored / b.maxCapacity));
-            float fillH = 26.0f * pct;
+            float fillH = 18.0f * pct;
             if (fillH > 0.5f) {
-                sf::RectangleShape fluid({ 20.0f, fillH });
-                fluid.setOrigin({ 10.0f, fillH });
-                fluid.setPosition({ b.position.x, b.position.y + 13.0f });
+                sf::RectangleShape fluid({ 16.0f, fillH });
+                fluid.setOrigin({ 8.0f, fillH });
+                fluid.setPosition({ b.position.x, b.position.y + 9.0f });
                 sf::Color fluidCol = (pct > 0.6f) ? sf::Color(0, 230, 140) : ((pct > 0.25f) ? sf::Color(255, 210, 40) : sf::Color(255, 90, 60));
                 fluid.setFillColor(fluidCol);
                 window.draw(fluid);
             }
 
             for (int seg = 1; seg <= 3; seg++) {
-                sf::RectangleShape div({ 20.0f, 1.0f });
-                div.setOrigin({ 10.0f, 0.5f });
-                div.setPosition({ b.position.x, b.position.y + 13.0f - seg * 6.5f });
+                sf::RectangleShape div({ 16.0f, 1.0f });
+                div.setOrigin({ 8.0f, 0.5f });
+                div.setPosition({ b.position.x, b.position.y + 9.0f - seg * 4.5f });
                 div.setFillColor(sf::Color(60, 75, 95, 150));
                 window.draw(div);
             }
 
             if (fontLoaded) {
                 int pctInt = static_cast<int>(pct * 100.0f);
-                sf::Text tPct(font, std::to_string(pctInt) + "%", 9);
+                sf::Text tPct(font, std::to_string(pctInt) + "%", 8);
                 tPct.setFillColor(sf::Color::White);
                 sf::FloatRect tb = tPct.getLocalBounds();
-                tPct.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y - 6.0f });
+                tPct.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y - 5.0f });
                 window.draw(tPct);
             }
         } else if (b.type == BuildingType::LAMP) {
-            sf::RectangleShape pole({ 3.0f, 24.0f });
-            pole.setOrigin({ 1.5f, 24.0f });
+            sf::RectangleShape pole({ 3.0f, 20.0f });
+            pole.setOrigin({ 1.5f, 20.0f });
             pole.setPosition(b.position);
             pole.setFillColor(sf::Color(170, 185, 205));
             window.draw(pole);
@@ -549,7 +553,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
                 window.draw(cdText);
 
                 // Progress bar
-                float cdRatio = std::min(1.0f, std::max(0.0f, cd / 2.0f));
+                float cdRatio = std::min(1.0f, std::max(0.0f, cd / 1.0f));
                 sf::RectangleShape cdBar({ (s.bounds.size.x - 16.0f) * (1.0f - cdRatio), 2.0f });
                 cdBar.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 68.0f });
                 cdBar.setFillColor(sf::Color(255, 180, 50));

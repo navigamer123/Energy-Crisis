@@ -26,48 +26,52 @@ void GameEngine::init(float screenWidth, float screenHeight) {
 
     // -------------------------------------------------------------------------
     // Generate Purchasable Land Grid on West (P1) and East (P2)
+    // 12 land plots per player (3 cols x 4 rows)
     // Land dimensions strictly positioned so they NEVER touch or go under the city!
     // City bounds: X in [610.0, 990.0].
     // -------------------------------------------------------------------------
     float plotW = 105.0f;
     float plotH = 95.0f;
-    float gap = 12.0f;
+    float gapX = 12.0f;
+    float gapY = 10.0f;
 
-    // West Side (P1): 3 columns x 3 rows (Col 0: 258-363, Col 1: 375-480, Col 2: 492-597 < 610)
+    // West Side (P1): 3 columns x 4 rows = 12 land plots
+    // Col 0: 258-363, Col 1: 375-480, Col 2: 492-597 < 610. Row 0..3: Y in [105..515] < 582
     float westStartX = 258.0f;
-    float startY = 120.0f;
+    float startY = 105.0f;
     int idCounter = 1;
 
-    for (int r = 0; r < 3; r++) {
+    for (int r = 0; r < 4; r++) {
         for (int c = 0; c < 3; c++) {
-            float x = westStartX + c * (plotW + gap);
-            float y = startY + r * (plotH + gap);
+            float x = westStartX + c * (plotW + gapX);
+            float y = startY + r * (plotH + gapY);
 
             LandPlot plot;
             plot.id = idCounter++;
             plot.playerOwner = 1;
             plot.bounds = sf::FloatRect({ x, y }, { plotW, plotH });
-            // Starting central plot is unlocked, others are purchasable
+            // Starting top-left plot is unlocked, others are purchasable
             plot.isPurchased = (r == 0 && c == 0);
-            plot.costGold = 180 + (r * 3 + c) * 60;
+            plot.costGold = 150 + (r * 3 + c) * 45;
             landPlots.push_back(plot);
         }
     }
 
-    // East Side (P2): 3 columns x 3 rows (Col 0: 1003-1108 > 990, Col 1: 1120-1225, Col 2: 1237-1342 < 1360)
+    // East Side (P2): 3 columns x 4 rows = 12 land plots
+    // Col 0: 1003-1108 > 990, Col 1: 1120-1225, Col 2: 1237-1342 < 1360. Row 0..3: Y in [105..515]
     float eastStartX = 1003.0f;
-    for (int r = 0; r < 3; r++) {
+    for (int r = 0; r < 4; r++) {
         for (int c = 0; c < 3; c++) {
-            float x = eastStartX + c * (plotW + gap);
-            float y = startY + r * (plotH + gap);
+            float x = eastStartX + c * (plotW + gapX);
+            float y = startY + r * (plotH + gapY);
 
             LandPlot plot;
             plot.id = idCounter++;
             plot.playerOwner = 2;
             plot.bounds = sf::FloatRect({ x, y }, { plotW, plotH });
-            // Starting plot is unlocked, others are purchasable
+            // Starting top-right plot is unlocked, others are purchasable
             plot.isPurchased = (r == 0 && c == 2);
-            plot.costGold = 180 + (r * 3 + c) * 60;
+            plot.costGold = 150 + (r * 3 + c) * 45;
             landPlots.push_back(plot);
         }
     }
@@ -492,6 +496,18 @@ void GameEngine::cycleBuildingSelection(int player) {
     }
 }
 
+void GameEngine::cycleBuildingSelectionPrev(int player) {
+    auto& econ = (player == 1) ? p1 : p2;
+    if (econ.selectedBuilding == 0) {
+        int last = econ.lastPlacedBuilding;
+        econ.selectedBuilding = (last >= 1 && last <= 6) ? last : 6;
+    } else if (econ.selectedBuilding <= 1) {
+        econ.selectedBuilding = 6;
+    } else {
+        econ.selectedBuilding--;
+    }
+}
+
 void GameEngine::clearBuildingSelection(int player) {
     auto& econ = (player == 1) ? p1 : p2;
     econ.selectedBuilding = 0;
@@ -527,25 +543,30 @@ BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
 }
 
 sf::Vector2f GameEngine::getGridSlot(int player, int col, int row) const {
-    col = std::max(0, std::min(col, 5));
-    row = std::max(0, std::min(row, 5));
+    // 9 columns (0..8) and 12 rows (0..11) for 12 plots x 9 slots each
+    col = std::max(0, std::min(col, 8));
+    row = std::max(0, std::min(row, 11));
 
-    int plotC = col / 2;
-    int subC = col % 2;
-    int plotR = row / 2;
-    int subR = row % 2;
+    int plotC = col / 3;
+    int subC = col % 3;
+    int plotR = row / 3;
+    int subR = row % 3;
 
     float plotW = 105.0f;
     float plotH = 95.0f;
-    float gap = 12.0f;
+    float gapX = 12.0f;
+    float gapY = 10.0f;
     float startX = (player == 1) ? 258.0f : 1003.0f;
-    float startY = 120.0f;
+    float startY = 105.0f;
 
-    float plotLeft = startX + plotC * (plotW + gap);
-    float plotTop = startY + plotR * (plotH + gap);
+    float plotLeft = startX + plotC * (plotW + gapX);
+    float plotTop = startY + plotR * (plotH + gapY);
 
-    float cx = plotLeft + (subC + 0.5f) * (plotW * 0.5f);
-    float cy = plotTop + (subR + 0.5f) * (plotH * 0.5f);
+    float subW = plotW / 3.0f;
+    float subH = plotH / 3.0f;
+
+    float cx = plotLeft + (subC + 0.5f) * subW;
+    float cy = plotTop + (subR + 0.5f) * subH;
     return sf::Vector2f(cx, cy);
 }
 
@@ -553,8 +574,8 @@ void GameEngine::getClosestGridIndex(int player, sf::Vector2f pos, int& outCol, 
     float bestD2 = 1e12f;
     outCol = 0;
     outRow = 0;
-    for (int r = 0; r < 6; ++r) {
-        for (int c = 0; c < 6; ++c) {
+    for (int r = 0; r < 12; ++r) {
+        for (int c = 0; c < 9; ++c) {
             sf::Vector2f s = getGridSlot(player, c, r);
             float d2 = (pos.x - s.x) * (pos.x - s.x) + (pos.y - s.y) * (pos.y - s.y);
             if (d2 < bestD2) {
@@ -648,12 +669,12 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
     }
 
     if (type == BuildingType::DEMOLISH) {
-        // Demolish tool checks if there is an owned building within reach
+        // Demolish tool checks if there is an owned building on this slot
         for (const auto& b : buildings) {
             if (b.playerOwner == player) {
                 float dx = b.position.x - pos.x;
                 float dy = b.position.y - pos.y;
-                if (std::sqrt(dx * dx + dy * dy) < 38.0f) {
+                if (std::sqrt(dx * dx + dy * dy) < 20.0f) {
                     return true;
                 }
             }
@@ -717,16 +738,13 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
-    // Check collision with other buildings
+    // Check collision with other buildings (same slot is blocked, adjacent 3x3 slots are allowed)
     for (const auto& b : buildings) {
         float dx = b.position.x - pos.x;
         float dy = b.position.y - pos.y;
         float dist = std::sqrt(dx * dx + dy * dy);
-        if (dist < 10.0f) {
+        if (dist < 16.0f) {
             reason = "В ТАЗИ КЛЕТКА ВЕЧЕ ИМА СГРАДА! Изберете свободна клетка от грида.";
-            return false;
-        } else if (dist < 28.0f) {
-            reason = "ТВЪРДЕ БЛИЗО ДО ДРУГА СГРАДА!";
             return false;
         }
     }

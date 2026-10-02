@@ -104,8 +104,10 @@ private:
     // Multi-input cooldown timers & edge-detection key states
     float p1ActionCooldown = 0.0f;
     float p2ActionCooldown = 0.0f;
-    float p1ResourceCooldown = 0.0f; // 2.0s cooldown between resource harvests
-    float p2ResourceCooldown = 0.0f; // 2.0s cooldown between resource harvests
+    float p1ResourceCooldown = 0.0f; // 1.0s cooldown between resource harvests
+    float p2ResourceCooldown = 0.0f; // 1.0s cooldown between resource harvests
+    float p1SelectCooldown = 0.0f;   // Debounce cooldown for building selection
+    float p2SelectCooldown = 0.0f;   // Debounce cooldown for building selection
     bool p1PrevAction = false;       // Single-press edge trigger (no continuous holding)
     bool p2PrevAction = false;       // Single-press edge trigger (no continuous holding)
     bool p1PrevE = false;

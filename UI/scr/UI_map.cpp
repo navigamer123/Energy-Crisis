@@ -855,11 +855,11 @@ void UI_map::executeP1Action() {
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, resType, res, msg)) {
-                p1ResourceCooldown = 2.0f;
+                p1ResourceCooldown = 1.0f;
                 const auto* st = nodes.getStation(1, resType);
                 sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
                 spawnMiningParticles(p1Pos, c, 18);
-                triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[SPACE]: Добив (на 2 сек)", c);
+                triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[SPACE]: Добив (на 1 сек)", c);
                 spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), c);
             }
         } else {
@@ -925,11 +925,11 @@ void UI_map::executeP2Action() {
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, resType, res, msg)) {
-                p2ResourceCooldown = 2.0f;
+                p2ResourceCooldown = 1.0f;
                 const auto* st = nodes.getStation(2, resType);
                 sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);
                 spawnMiningParticles(p2Pos, c, 18);
-                triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[ENTER]: Добив (на 2 сек)", c);
+                triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[ENTER]: Добив (на 1 сек)", c);
                 spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), c);
             }
         } else {
@@ -1000,14 +1000,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     p1GridRow = std::max(0, p1GridRow - 1);
                     moved = true;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) {
-                    p1GridRow = std::min(5, p1GridRow + 1);
+                    p1GridRow = std::min(11, p1GridRow + 1);
                     moved = true;
                 }
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
                     p1GridCol = std::max(0, p1GridCol - 1);
                     moved = true;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
-                    p1GridCol = std::min(5, p1GridCol + 1);
+                    p1GridCol = std::min(8, p1GridCol + 1);
                     moved = true;
                 }
                 if (moved) {
@@ -1045,14 +1045,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     p2GridRow = std::max(0, p2GridRow - 1);
                     moved = true;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
-                    p2GridRow = std::min(5, p2GridRow + 1);
+                    p2GridRow = std::min(11, p2GridRow + 1);
                     moved = true;
                 }
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
                     p2GridCol = std::max(0, p2GridCol - 1);
                     moved = true;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-                    p2GridCol = std::min(5, p2GridCol + 1);
+                    p2GridCol = std::min(8, p2GridCol + 1);
                     moved = true;
                 }
                 if (moved) {
@@ -1080,11 +1080,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
     }
 
-    // 5. Action cooldown decrement
+    // 5. Action and selection cooldown decrements
     if (p1ActionCooldown > 0.0f) p1ActionCooldown -= dt;
     if (p2ActionCooldown > 0.0f) p2ActionCooldown -= dt;
     if (p1ResourceCooldown > 0.0f) p1ResourceCooldown -= dt;
     if (p2ResourceCooldown > 0.0f) p2ResourceCooldown -= dt;
+    if (p1SelectCooldown > 0.0f) p1SelectCooldown -= dt;
+    if (p2SelectCooldown > 0.0f) p2SelectCooldown -= dt;
 
     // 6. Player 1 Action Input (Single Press only, NO continuous hold-to-mine!)
     bool p1PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
@@ -1096,38 +1098,53 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p1ActionCooldown = 0.20f;
     }
 
+    // P1: [E] Cycle Forward
     bool curE = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
-    if (curE && !p1PrevE && !p1Modal.active && !showHelpOverlay) {
+    if (curE && !p1PrevE && p1SelectCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         engine.cycleBuildingSelection(1);
+        p1SelectCooldown = 0.16f;
         BuildingType newSel = engine.getSelectedBuilding(1);
         BuildingCost c = engine.getBuildingCost(newSel);
         p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
         if (newSel == BuildingType::DEMOLISH) {
-            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE]: Премахни | [E]: Смени | [Q]: Отказ", sf::Color(255, 80, 80));
+            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE]: Премахни | [E]: Следваща | [Q]: Предишна", sf::Color(255, 80, 80));
         } else if (newSel == BuildingType::LAMP) {
-            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE]: Постави | [E]: Смени | [Q]: Отказ", sf::Color(255, 220, 100));
+            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE]: Постави | [E]: Следваща | [Q]: Предишна", sf::Color(255, 220, 100));
         } else {
             triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               "[SPACE]: Постави в грида | [E]: Смени | [Q]: Отказ", sf::Color(0, 229, 255));
+                               "[SPACE]: Постави в грида | [E]: Следваща | [Q]: Предишна", sf::Color(0, 229, 255));
         }
     }
     p1PrevE = curE;
 
+    // P1: [Q] Cycle Backward / Cancel
     bool curQ = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q);
-    if (curQ && !p1PrevQ) {
+    if (curQ && !p1PrevQ && p1SelectCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
-            engine.clearBuildingSelection(1);
-            triggerPlayerPopup(1, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "[E]: Постави отново същата", sf::Color(180, 180, 180));
+            engine.cycleBuildingSelectionPrev(1);
+            p1SelectCooldown = 0.16f;
+            BuildingType newSel = engine.getSelectedBuilding(1);
+            BuildingCost c = engine.getBuildingCost(newSel);
+            p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+            if (newSel == BuildingType::DEMOLISH) {
+                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE]: Премахни | [E]: Следваща | [Q]: Предишна", sf::Color(255, 80, 80));
+            } else if (newSel == BuildingType::LAMP) {
+                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE]: Постави | [E]: Следваща | [Q]: Предишна", sf::Color(255, 220, 100));
+            } else {
+                triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
+                                   formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
+                                   "[SPACE]: Постави в грида | [E]: Следваща | [Q]: Предишна", sf::Color(0, 229, 255));
+            }
         }
     }
     p1PrevQ = curQ;
 
     bool curX = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::X);
     if (curX && !p1PrevX) {
-        if (engine.getSelectedBuilding(1) == BuildingType::DEMOLISH) {
+        if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
             engine.clearBuildingSelection(1);
-            triggerPlayerPopup(1, "ОТКАЗ", "Премахването е отменено", "Свободен режим.", "[E]: Избери сграда", sf::Color(180, 180, 180));
+            triggerPlayerPopup(1, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[E]: Избери сграда", sf::Color(180, 180, 180));
         } else {
             engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
@@ -1146,7 +1163,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
             triggerPlayerPopup(1, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
                                (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
-                               "[SPACE]: Постави в грида | [Q]: Отказ", (k == 6 ? sf::Color(255, 80, 80) : sf::Color(0, 229, 255)));
+                               "[SPACE]: Постави в грида | [X]: Отказ", (k == 6 ? sf::Color(255, 80, 80) : sf::Color(0, 229, 255)));
         }
         p1PrevNum[k] = curNum;
     }
@@ -1161,38 +1178,51 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p2ActionCooldown = 0.20f;
     }
 
+    // P2: [PgDn] Cycle Forward (Solar -> Wind -> Hydro -> Battery -> Lamp -> Demolish)
     bool curPgDn = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown);
-    if (curPgDn && !p2PrevPgDn && !p2Modal.active && !showHelpOverlay) {
+    if (curPgDn && !p2PrevPgDn && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
         engine.cycleBuildingSelection(2);
+        p2SelectCooldown = 0.16f;
         BuildingType newSel = engine.getSelectedBuilding(2);
         BuildingCost c = engine.getBuildingCost(newSel);
         p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
         if (newSel == BuildingType::DEMOLISH) {
-            triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 80, 80));
+            triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
         } else if (newSel == BuildingType::LAMP) {
-            triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 220, 100));
+            triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 220, 100));
         } else {
             triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               "[ENTER]: Постави в грида | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 120, 200));
+                               "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 120, 200));
         }
     }
     p2PrevPgDn = curPgDn;
 
+    // P2: [PgUp] Cycle Backward
     bool curPgUp = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp);
-    if (curPgUp && !p2PrevPgUp) {
-        if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
-            engine.clearBuildingSelection(2);
-            triggerPlayerPopup(2, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "[PgDn]: Постави отново същата", sf::Color(180, 180, 180));
+    if (curPgUp && !p2PrevPgUp && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
+        engine.cycleBuildingSelectionPrev(2);
+        p2SelectCooldown = 0.16f;
+        BuildingType newSel = engine.getSelectedBuilding(2);
+        BuildingCost c = engine.getBuildingCost(newSel);
+        p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+        if (newSel == BuildingType::DEMOLISH) {
+            triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
+        } else if (newSel == BuildingType::LAMP) {
+            triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 220, 100));
+        } else {
+            triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                               formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
+                               "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 120, 200));
         }
     }
     p2PrevPgUp = curPgUp;
 
     bool curDel = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
     if (curDel && !p2PrevDel) {
-        if (engine.getSelectedBuilding(2) == BuildingType::DEMOLISH) {
+        if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
             engine.clearBuildingSelection(2);
-            triggerPlayerPopup(2, "ОТКАЗ", "Премахването е отменено", "Свободен режим.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
+            triggerPlayerPopup(2, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
         } else {
             engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
             p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
@@ -1289,124 +1319,8 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             requestMenu = true;
         }
 
-        // =====================================================================
-        // PLAYER 1 ACTIONS (WEST)
-        // =====================================================================
-
-        // [X]: Quick Demolish mode toggle
-        if (key->code == sf::Keyboard::Key::X) {
-            if (engine.getSelectedBuilding(1) == BuildingType::DEMOLISH) {
-                engine.clearBuildingSelection(1);
-                triggerPlayerPopup(1, "ОТКАЗ", "Премахването е отменено", "Свободен режим.", "[E]: Избери сграда", sf::Color(180, 180, 180));
-            } else {
-                engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
-                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Кликнете сградата, която искате да махнете.", "[КЛИК/SPACE]: Премахни | [Q/X]: Отказ", sf::Color(255, 80, 80));
-            }
-        }
-
-        // [E]: Choose what to do (Cycle buildings: Solar -> Wind -> Hydro -> Battery -> Lamp -> Demolish)
-        if (key->code == sf::Keyboard::Key::E) {
-            engine.cycleBuildingSelection(1);
-            BuildingType newSel = engine.getSelectedBuilding(1);
-            BuildingCost c = engine.getBuildingCost(newSel);
-            if (newSel == BuildingType::DEMOLISH) {
-                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от дърво и руда.", "[SPACE/КЛИК]: Премахни | [E]: Смени | [Q]: Отказ", sf::Color(255, 80, 80));
-            } else if (newSel == BuildingType::LAMP) {
-                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, "Нужно: 15 Дърво, 10 Руда.\nОсветява нощем за строителство.", "[SPACE/КЛИК]: Постави | [E]: Смени | [Q]: Отказ", sf::Color(255, 220, 100));
-            } else {
-                triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
-                                   "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                                   "[SPACE/КЛИК]: Постави | [E]: Смени | [Q]: Отказ", sf::Color(0, 229, 255));
-            }
-        }
-
-        // [Q]: CANCEL / КЕНСЕЛИРАЙ
-        if (key->code == sf::Keyboard::Key::Q) {
-            if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
-                engine.clearBuildingSelection(1);
-                triggerPlayerPopup(1, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "[E]: Избери нова сграда", sf::Color(180, 180, 180));
-            } else {
-                triggerPlayerPopup(1, "ИНФО", "Свободен режим", "Няма активен избор на сграда.", "[E]: Избери сграда", sf::Color(180, 180, 180));
-            }
-        }
-
-        // Direct Hotkeys 1..6 for P1
-        if (key->code == sf::Keyboard::Key::Num1) {
-            engine.getPlayerEconomyMut(1).selectedBuilding = 1;
-            BuildingCost c = engine.getBuildingCost(BuildingType::SOLAR_PANEL);
-            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Нужно: 35 Дърво, 30 Руда.\nДобив: +25 MW при слънце.", "[SPACE/КЛИК]: Постави | [Q]: Отказ", sf::Color(0, 229, 255));
-        } else if (key->code == sf::Keyboard::Key::Num2) {
-            engine.getPlayerEconomyMut(1).selectedBuilding = 2;
-            BuildingCost c = engine.getBuildingCost(BuildingType::WIND_TURBINE);
-            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Нужно: 50 Дърво, 45 Руда.\nДобив: +45 MW при вятър.", "[SPACE/КЛИК]: Постави | [Q]: Отказ", sf::Color(0, 229, 255));
-        } else if (key->code == sf::Keyboard::Key::Num3) {
-            engine.getPlayerEconomyMut(1).selectedBuilding = 3;
-            BuildingCost c = engine.getBuildingCost(BuildingType::HYDRO_PLANT);
-            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Нужно: 85 Дърво, 90 Руда.\nДобив: +90 MW при дъжд.", "[SPACE/КЛИК]: Постави | [Q]: Отказ", sf::Color(0, 229, 255));
-        } else if (key->code == sf::Keyboard::Key::Num4) {
-            engine.getPlayerEconomyMut(1).selectedBuilding = 4;
-            BuildingCost c = engine.getBuildingCost(BuildingType::BATTERY);
-            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Нужно: 30 Дърво, 60 Руда.\nЗарежда се денем, отдава нощем.", "[SPACE/КЛИК]: Постави | [Q]: Отказ", sf::Color(0, 229, 255));
-        } else if (key->code == sf::Keyboard::Key::Num5) {
-            engine.getPlayerEconomyMut(1).selectedBuilding = 5;
-            BuildingCost c = engine.getBuildingCost(BuildingType::LAMP);
-            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, "Нужно: 15 Дърво, 10 Руда.\nОсветява нощем за строителство.", "[SPACE/КЛИК]: Постави | [Q]: Отказ", sf::Color(255, 220, 100));
-        } else if (key->code == sf::Keyboard::Key::Num6) {
-            engine.getPlayerEconomyMut(1).selectedBuilding = 6;
-            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Кликнете сграда за премахване.\nВръща 50% от дърво и руда.", "[SPACE/КЛИК]: Премахни | [Q]: Отказ", sf::Color(255, 80, 80));
-        }
-
-        // [Space] or [F]: Confirm / Place Building / Buy Land / Mine Resource
-        if (key->code == sf::Keyboard::Key::Space || key->code == sf::Keyboard::Key::F) {
-            executeP1Action();
-        }
-
-        // =====================================================================
-        // =====================================================================
-        // PLAYER 2 ACTIONS (EAST)
-        // =====================================================================
-
-        // [Delete] / [End]: Quick Demolish mode toggle for P2
-        if (key->code == sf::Keyboard::Key::Delete || key->code == sf::Keyboard::Key::End) {
-            if (engine.getSelectedBuilding(2) == BuildingType::DEMOLISH) {
-                engine.clearBuildingSelection(2);
-                triggerPlayerPopup(2, "ОТКАЗ", "Премахването е отменено", "Свободен режим.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
-            } else {
-                engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
-                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Кликнете сградата, която искате да махнете.", "[ENTER]: Премахни | [PgUp]: Отказ", sf::Color(255, 80, 80));
-            }
-        }
-
-        // [PgDn]: Choose what to do (Cycle buildings: Solar -> Wind -> Hydro -> Battery -> Lamp -> Demolish)
-        if (key->code == sf::Keyboard::Key::PageDown) {
-            engine.cycleBuildingSelection(2);
-            BuildingType newSel = engine.getSelectedBuilding(2);
-            BuildingCost c = engine.getBuildingCost(newSel);
-            if (newSel == BuildingType::DEMOLISH) {
-                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от дърво и руда.", "[ENTER/КЛИК]: Премахни | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 80, 80));
-            } else if (newSel == BuildingType::LAMP) {
-                triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, "Нужно: 15 Дърво, 10 Руда.\nОсветява нощем за строителство.", "[ENTER/КЛИК]: Постави | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 220, 100));
-            } else {
-                triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
-                                   "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                                   "[ENTER/КЛИК]: Постави | [PgDn]: Смени | [PgUp]: Отказ", sf::Color(255, 120, 200));
-            }
-        }
-
-        // [PgUp]: CANCEL / КЕНСЕЛИРАЙ
-        if (key->code == sf::Keyboard::Key::PageUp) {
-            if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
-                engine.clearBuildingSelection(2);
-                triggerPlayerPopup(2, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "[PgDn]: Избери нова сграда", sf::Color(180, 180, 180));
-            } else {
-                triggerPlayerPopup(2, "ИНФО", "Свободен режим", "Няма активен избор на сграда.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
-            }
-        }
-
-        // [Enter] or [Num0] or [RCtrl]: Confirm / Place / Buy / Mine
-        if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Numpad0 || key->code == sf::Keyboard::Key::RControl) {
-            executeP2Action();
-        }
+        // Modal dismissal / escape / menu requests are handled above.
+        // In-game player actions and hotkeys are handled in update() to ensure precise single-press and debouncing.
     }
 
     if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
@@ -1525,7 +1439,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, p1Res, res, msg)) {
-                p1ResourceCooldown = 2.0f;
+                p1ResourceCooldown = 1.0f;
                 p1Pulse = 1.0f;
                 const auto* st = nodes.getStation(1, p1Res);
                 sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
@@ -1547,7 +1461,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, p2Res, res, msg)) {
-                p2ResourceCooldown = 2.0f;
+                p2ResourceCooldown = 1.0f;
                 p2Pulse = 1.0f;
                 const auto* st = nodes.getStation(2, p2Res);
                 sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);

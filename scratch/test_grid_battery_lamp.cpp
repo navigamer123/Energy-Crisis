@@ -28,23 +28,23 @@ int main() {
 
     float left = p1Plot->bounds.position.x;
     float top = p1Plot->bounds.position.y;
-    float colW = p1Plot->bounds.size.x * 0.5f;
-    float rowH = p1Plot->bounds.size.y * 0.5f;
+    float colW = p1Plot->bounds.size.x / 3.0f;
+    float rowH = p1Plot->bounds.size.y / 3.0f;
 
     // Test snapping inside slot (0, 0)
-    sf::Vector2f rawPos1(left + 10.0f, top + 10.0f);
+    sf::Vector2f rawPos1(left + 5.0f, top + 5.0f);
     sf::Vector2f snapped1 = engine.snapToBuildingGrid(1, rawPos1);
     sf::Vector2f expected1(left + 0.5f * colW, top + 0.5f * rowH);
     assert(std::abs(snapped1.x - expected1.x) < 0.01f);
     assert(std::abs(snapped1.y - expected1.y) < 0.01f);
 
     // Test snapping inside slot (1, 1)
-    sf::Vector2f rawPos2(left + colW + 15.0f, top + rowH + 15.0f);
+    sf::Vector2f rawPos2(left + colW + 5.0f, top + rowH + 5.0f);
     sf::Vector2f snapped2 = engine.snapToBuildingGrid(1, rawPos2);
     sf::Vector2f expected2(left + 1.5f * colW, top + 1.5f * rowH);
     assert(std::abs(snapped2.x - expected2.x) < 0.01f);
     assert(std::abs(snapped2.y - expected2.y) < 0.01f);
-    std::cout << "  -> Grid snapping works perfectly! Slot (0,0) and Slot (1,1) match expected centers.\n";
+    std::cout << "  -> 3x3 Grid snapping works perfectly! Slot (0,0) and Slot (1,1) match expected centers.\n";
 
     // -------------------------------------------------------------------------
     // Test 2: Battery Spawns with 0% Battery Charge
@@ -78,7 +78,7 @@ int main() {
     std::cout << "  -> Battery remained at 0% when player generated 0 power. No magic energy!\n";
 
     // Now place a Solar Panel on slot (1,0)
-    sf::Vector2f rawSolarPos(left + colW + 10.0f, top + 10.0f);
+    sf::Vector2f rawSolarPos(left + colW + 5.0f, top + 5.0f);
     bool placedSolar = engine.placeBuilding(1, BuildingType::SOLAR_PANEL, rawSolarPos, msg);
     assert(placedSolar);
 
@@ -96,7 +96,7 @@ int main() {
     // Test 4: Lamp Energy Consumption & Light Illumination
     // -------------------------------------------------------------------------
     std::cout << "[Test 4] Testing Lamp Placement and 10 MW Consumption...\n";
-    sf::Vector2f rawLampPos(left + 10.0f, top + rowH + 10.0f);
+    sf::Vector2f rawLampPos(left + 5.0f, top + rowH + 5.0f);
     bool placedLamp = engine.placeBuilding(1, BuildingType::LAMP, rawLampPos, msg);
     assert(placedLamp);
     engine.update(0.1f);
@@ -124,7 +124,7 @@ int main() {
     std::cout << "  -> Night has fallen (hour24 = " << engine.getHour24() << ")\n";
 
     // Inside illuminated area of active lamp, placement should succeed!
-    sf::Vector2f insideLightSlot(left + colW + 10.0f, top + rowH + 10.0f); // Slot (1, 1) in same plot is within 150px
+    sf::Vector2f insideLightSlot(left + colW + 5.0f, top + rowH + 5.0f); // Slot (1, 1) in same plot is within 150px
     std::string placeReason;
     bool canBuildInsideLight = engine.canPlaceBuilding(1, BuildingType::SOLAR_PANEL, insideLightSlot, placeReason);
     std::cout << "  -> Building inside active lamp illumination: " << (canBuildInsideLight ? "ALLOWED (OK)" : "REJECTED (" + placeReason + ")") << "\n";
