@@ -1,14 +1,370 @@
 #include "../includes/UI_mainMenu.h"
 #include <iostream>
 
-UI_mainMenu::UI_mainMenu() {
-    std::cout << "[UI_mainMenu] Main menu initialized.\n";
+UI_mainMenu::UI_mainMenu()
+    : state(MenuState::MAIN),
+      requestPlay(false),
+      requestQuit(false),
+      selectedMainIndex(0),
+      selectedSettingsIndex(0),
+      volume(80),
+      soundEffects(true),
+      difficultyIndex(1),
+      fontLoaded(false) {
+    if (font.openFromFile("assets/font.ttf")) {
+        fontLoaded = true;
+    } else {
+        std::cerr << "[UI_mainMenu] Warning: Failed to load assets/font.ttf\n";
+    }
+    std::cout << "[UI_mainMenu] SFML Main Menu with Keyboard & Arrow navigation ready.\n";
 }
 
 UI_mainMenu::~UI_mainMenu() {
-    std::cout << "[UI_mainMenu] Main menu destroyed.\n";
+    std::cout << "[UI_mainMenu] SFML Main Menu destroyed.\n";
 }
 
-void UI_mainMenu::render() {
-    std::cout << "[UI_mainMenu] Rendering main menu...\n";
+bool UI_mainMenu::isPointInside(sf::FloatRect bounds, sf::Vector2f pt) const {
+    return bounds.contains(pt);
+}
+
+void UI_mainMenu::drawButton(sf::RenderWindow& window, sf::FloatRect bounds, const sf::String& text,
+                             sf::Color baseColor, sf::Color hoverColor, sf::Color textColor,
+                             bool isSelected) {
+    sf::RectangleShape shape(bounds.size);
+    shape.setPosition(bounds.position);
+    shape.setFillColor(isSelected ? hoverColor : baseColor);
+    shape.setOutlineThickness(isSelected ? 3.0f : 1.5f);
+    shape.setOutlineColor(isSelected ? sf::Color(255, 215, 0) : sf::Color(70, 90, 120));
+    window.draw(shape);
+
+    if (fontLoaded) {
+        sf::String displayText = isSelected ? (toUtf8("▶ ") + text + toUtf8(" ◀")) : text;
+        sf::Text label(font, displayText, 19);
+        label.setFillColor(isSelected ? sf::Color(255, 240, 150) : textColor);
+
+        sf::FloatRect textBounds = label.getLocalBounds();
+        label.setPosition({
+            bounds.position.x + (bounds.size.x - textBounds.size.x) / 2.0f - textBounds.position.x,
+            bounds.position.y + (bounds.size.y - textBounds.size.y) / 2.0f - textBounds.position.y
+        });
+        window.draw(label);
+    }
+}
+
+void UI_mainMenu::drawHeader(sf::RenderWindow& window) {
+    float screenWidth = static_cast<float>(window.getSize().x);
+
+    if (fontLoaded) {
+        // Drop shadow
+        sf::Text titleShadow(font, "ENERGY CRISIS", 54);
+        titleShadow.setFillColor(sf::Color(180, 100, 0, 180));
+        sf::FloatRect sBounds = titleShadow.getLocalBounds();
+        titleShadow.setPosition({ (screenWidth - sBounds.size.x) / 2.0f + 2.0f, 62.0f });
+        window.draw(titleShadow);
+
+        // Main Title
+        sf::Text title(font, "ENERGY CRISIS", 54);
+        title.setFillColor(sf::Color(255, 204, 0));
+        title.setPosition({ (screenWidth - sBounds.size.x) / 2.0f, 60.0f });
+        window.draw(title);
+
+        // Subtitle
+        sf::Text subtitle(font, toUtf8("УПРАВЛЕНИЕ НА ЕНЕРГИЙНАТА МРЕЖА И РЕСУРСИТЕ"), 16);
+        subtitle.setFillColor(sf::Color(140, 180, 220));
+        sf::FloatRect subBounds = subtitle.getLocalBounds();
+        subtitle.setPosition({ (screenWidth - subBounds.size.x) / 2.0f, 124.0f });
+        window.draw(subtitle);
+
+        // Decorative line
+        sf::RectangleShape line({ subBounds.size.x + 80.0f, 2.0f });
+        line.setPosition({ (screenWidth - (subBounds.size.x + 80.0f)) / 2.0f, 152.0f });
+        line.setFillColor(sf::Color(60, 85, 120, 180));
+        window.draw(line);
+    }
+}
+
+void UI_mainMenu::onPlay() {
+    std::cout << "[UI_mainMenu] Game launching with Control Scheme "
+              << static_cast<int>(playControls.getSelectedScheme()) << "...\n";
+    requestPlay = true;
+}
+
+void UI_mainMenu::onSettings() {
+    std::cout << "[UI_mainMenu] Settings opened.\n";
+    state = MenuState::SETTINGS;
+    selectedSettingsIndex = 0;
+}
+
+void UI_mainMenu::onQuit() {
+    std::cout << "[UI_mainMenu] Exiting game...\n";
+    requestQuit = true;
+}
+
+void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
+    drawHeader(window);
+
+    float screenWidth = static_cast<float>(window.getSize().x);
+    float btnWidth = 320.0f;
+    float btnHeight = 54.0f;
+    float btnX = (screenWidth - btnWidth) / 2.0f;
+
+    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    sf::FloatRect playBtn({ btnX, 230.0f }, { btnWidth, btnHeight });
+    sf::FloatRect settingsBtn({ btnX, 306.0f }, { btnWidth, btnHeight });
+    sf::FloatRect quitBtn({ btnX, 382.0f }, { btnWidth, btnHeight });
+
+    // Sync mouse hover to selection index
+    if (playBtn.contains(mousePos)) selectedMainIndex = 0;
+    else if (settingsBtn.contains(mousePos)) selectedMainIndex = 1;
+    else if (quitBtn.contains(mousePos)) selectedMainIndex = 2;
+
+    sf::Color defaultBtn(30, 40, 56);
+    sf::Color whiteText(240, 245, 255);
+
+    drawButton(window, playBtn, toUtf8("ИГРА / PLAY"), defaultBtn, sf::Color(35, 120, 70), whiteText, selectedMainIndex == 0);
+    drawButton(window, settingsBtn, toUtf8("НАСТРОЙКИ / SETTINGS"), defaultBtn, sf::Color(35, 80, 140), whiteText, selectedMainIndex == 1);
+    drawButton(window, quitBtn, toUtf8("ИЗХОД / QUIT"), defaultBtn, sf::Color(140, 40, 40), whiteText, selectedMainIndex == 2);
+
+    // Keyboard hints at bottom
+    if (fontLoaded) {
+        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter]"), 14);
+        hint.setFillColor(sf::Color(130, 155, 185));
+        sf::FloatRect hb = hint.getLocalBounds();
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, 470.0f });
+        window.draw(hint);
+    }
+}
+
+void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
+    drawHeader(window);
+
+    float screenWidth = static_cast<float>(window.getSize().x);
+    float panelWidth = 560.0f;
+    float panelHeight = 370.0f;
+    float panelX = (screenWidth - panelWidth) / 2.0f;
+    float panelY = 200.0f;
+
+    sf::RectangleShape panel({ panelWidth, panelHeight });
+    panel.setPosition({ panelX, panelY });
+    panel.setFillColor(sf::Color(22, 28, 40, 245));
+    panel.setOutlineThickness(2.0f);
+    panel.setOutlineColor(sf::Color(0, 200, 255, 200));
+    window.draw(panel);
+
+    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    if (fontLoaded) {
+        sf::Text sTitle(font, toUtf8("НАСТРОЙКИ / SETTINGS"), 24);
+        sTitle.setFillColor(sf::Color(0, 229, 255));
+        sf::FloatRect tb = sTitle.getLocalBounds();
+        sTitle.setPosition({ panelX + (panelWidth - tb.size.x) / 2.0f, panelY + 16.0f });
+        window.draw(sTitle);
+    }
+
+    // Row 0: Volume
+    sf::FloatRect volRow({ panelX + 30.0f, panelY + 70.0f }, { panelWidth - 60.0f, 42.0f });
+    bool volSelected = (selectedSettingsIndex == 0);
+    sf::RectangleShape volHighlight(volRow.size);
+    volHighlight.setPosition(volRow.position);
+    volHighlight.setFillColor(volSelected ? sf::Color(40, 55, 80, 200) : sf::Color::Transparent);
+    volHighlight.setOutlineThickness(volSelected ? 1.5f : 0.0f);
+    volHighlight.setOutlineColor(sf::Color(255, 215, 0));
+    window.draw(volHighlight);
+
+    if (fontLoaded) {
+        sf::Text tVol(font, toUtf8(volSelected ? "▶ Сила на звука:" : "  Сила на звука:"), 17);
+        tVol.setFillColor(volSelected ? sf::Color(255, 240, 150) : sf::Color::White);
+        tVol.setPosition({ panelX + 45.0f, panelY + 78.0f });
+        window.draw(tVol);
+
+        sf::Text volVal(font, toUtf8(std::to_string(volume) + "%"), 18);
+        volVal.setFillColor(sf::Color(255, 204, 0));
+        volVal.setPosition({ panelX + 345.0f, panelY + 78.0f });
+        window.draw(volVal);
+    }
+    sf::FloatRect volDown({ panelX + 280.0f, panelY + 74.0f }, { 36.0f, 32.0f });
+    sf::FloatRect volUp({ panelX + 420.0f, panelY + 74.0f }, { 36.0f, 32.0f });
+    drawButton(window, volDown, "-", sf::Color(40, 50, 70), sf::Color(60, 80, 110), sf::Color::White, volDown.contains(mousePos));
+    drawButton(window, volUp, "+", sf::Color(40, 50, 70), sf::Color(60, 80, 110), sf::Color::White, volUp.contains(mousePos));
+
+    // Row 1: Sound FX
+    sf::FloatRect sfxRow({ panelX + 30.0f, panelY + 125.0f }, { panelWidth - 60.0f, 42.0f });
+    bool sfxSelected = (selectedSettingsIndex == 1);
+    sf::RectangleShape sfxHighlight(sfxRow.size);
+    sfxHighlight.setPosition(sfxRow.position);
+    sfxHighlight.setFillColor(sfxSelected ? sf::Color(40, 55, 80, 200) : sf::Color::Transparent);
+    sfxHighlight.setOutlineThickness(sfxSelected ? 1.5f : 0.0f);
+    sfxHighlight.setOutlineColor(sf::Color(255, 215, 0));
+    window.draw(sfxHighlight);
+
+    if (fontLoaded) {
+        sf::Text tSfx(font, toUtf8(sfxSelected ? "▶ Звукови ефекти:" : "  Звукови ефекти:"), 17);
+        tSfx.setFillColor(sfxSelected ? sf::Color(255, 240, 150) : sf::Color::White);
+        tSfx.setPosition({ panelX + 45.0f, panelY + 133.0f });
+        window.draw(tSfx);
+    }
+    sf::FloatRect sfxBtn({ panelX + 280.0f, panelY + 129.0f }, { 180.0f, 34.0f });
+    drawButton(window, sfxBtn, toUtf8(soundEffects ? "ВКЛЮЧЕНИ" : "ИЗКЛЮЧЕНИ"),
+               soundEffects ? sf::Color(30, 100, 60) : sf::Color(100, 40, 40),
+               sf::Color(50, 120, 80), sf::Color::White, sfxSelected || sfxBtn.contains(mousePos));
+
+    // Row 2: Difficulty
+    sf::FloatRect diffRow({ panelX + 30.0f, panelY + 180.0f }, { panelWidth - 60.0f, 42.0f });
+    bool diffSelected = (selectedSettingsIndex == 2);
+    sf::RectangleShape diffHighlight(diffRow.size);
+    diffHighlight.setPosition(diffRow.position);
+    diffHighlight.setFillColor(diffSelected ? sf::Color(40, 55, 80, 200) : sf::Color::Transparent);
+    diffHighlight.setOutlineThickness(diffSelected ? 1.5f : 0.0f);
+    diffHighlight.setOutlineColor(sf::Color(255, 215, 0));
+    window.draw(diffHighlight);
+
+    if (fontLoaded) {
+        sf::Text tDiff(font, toUtf8(diffSelected ? "▶ Трудност:" : "  Трудност:"), 17);
+        tDiff.setFillColor(diffSelected ? sf::Color(255, 240, 150) : sf::Color::White);
+        tDiff.setPosition({ panelX + 45.0f, panelY + 188.0f });
+        window.draw(tDiff);
+    }
+    const char* diffLabels[] = { "ЛЕСНО", "НОРМАЛНО", "ТРУДНО" };
+    sf::FloatRect diffBtn({ panelX + 280.0f, panelY + 184.0f }, { 180.0f, 34.0f });
+    drawButton(window, diffBtn, toUtf8(diffLabels[difficultyIndex]),
+               sf::Color(40, 55, 80), sf::Color(60, 85, 120), sf::Color::White, diffSelected || diffBtn.contains(mousePos));
+
+    // Row 3: Back button
+    sf::FloatRect backBtn({ panelX + (panelWidth - 220.0f) / 2.0f, panelY + 285.0f }, { 220.0f, 46.0f });
+    bool backSelected = (selectedSettingsIndex == 3);
+    drawButton(window, backBtn, toUtf8("НАЗАД"), sf::Color(35, 45, 65), sf::Color(80, 90, 120), sf::Color::White, backSelected || backBtn.contains(mousePos));
+
+    // Hints
+    if (fontLoaded) {
+        sf::Text hint(font, toUtf8("Навигация: [W/S или Стрелки] | Промяна: [A/D или Enter]"), 13);
+        hint.setFillColor(sf::Color(130, 155, 185));
+        sf::FloatRect hb = hint.getLocalBounds();
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 14.0f });
+        window.draw(hint);
+    }
+}
+
+void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
+    if (state == MenuState::PLAY_CONTROLS) {
+        playControls.handleEvent(event, window);
+        if (playControls.isStartRequested()) {
+            playControls.resetRequests();
+            onPlay();
+        } else if (playControls.isBackRequested()) {
+            playControls.resetRequests();
+            state = MenuState::MAIN;
+        }
+        return;
+    }
+
+    if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+        bool isUp = (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W);
+        bool isDown = (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S);
+        bool isLeft = (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::A);
+        bool isRight = (key->code == sf::Keyboard::Key::Right || key->code == sf::Keyboard::Key::D);
+        bool isSelect = (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space);
+
+        if (state == MenuState::MAIN) {
+            if (isUp) {
+                selectedMainIndex = (selectedMainIndex + 2) % 3;
+            } else if (isDown) {
+                selectedMainIndex = (selectedMainIndex + 1) % 3;
+            } else if (isSelect) {
+                if (selectedMainIndex == 0) {
+                    state = MenuState::PLAY_CONTROLS;
+                    playControls.resetRequests();
+                } else if (selectedMainIndex == 1) {
+                    onSettings();
+                } else if (selectedMainIndex == 2) {
+                    onQuit();
+                }
+            }
+        } else if (state == MenuState::SETTINGS) {
+            if (isUp) {
+                selectedSettingsIndex = (selectedSettingsIndex + 3) % 4;
+            } else if (isDown) {
+                selectedSettingsIndex = (selectedSettingsIndex + 1) % 4;
+            } else if (isLeft) {
+                if (selectedSettingsIndex == 0) {
+                    if (volume >= 10) volume -= 10;
+                } else if (selectedSettingsIndex == 1) {
+                    soundEffects = !soundEffects;
+                } else if (selectedSettingsIndex == 2) {
+                    difficultyIndex = (difficultyIndex + 2) % 3;
+                }
+            } else if (isRight) {
+                if (selectedSettingsIndex == 0) {
+                    if (volume <= 90) volume += 10;
+                } else if (selectedSettingsIndex == 1) {
+                    soundEffects = !soundEffects;
+                } else if (selectedSettingsIndex == 2) {
+                    difficultyIndex = (difficultyIndex + 1) % 3;
+                }
+            } else if (isSelect) {
+                if (selectedSettingsIndex == 0) {
+                    volume = (volume >= 100) ? 0 : volume + 20;
+                } else if (selectedSettingsIndex == 1) {
+                    soundEffects = !soundEffects;
+                } else if (selectedSettingsIndex == 2) {
+                    difficultyIndex = (difficultyIndex + 1) % 3;
+                } else if (selectedSettingsIndex == 3) {
+                    state = MenuState::MAIN;
+                }
+            }
+        }
+    }
+
+    if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+        if (mb->button == sf::Mouse::Button::Left) {
+            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            float screenWidth = static_cast<float>(window.getSize().x);
+
+            if (state == MenuState::MAIN) {
+                float btnWidth = 320.0f;
+                float btnHeight = 54.0f;
+                float btnX = (screenWidth - btnWidth) / 2.0f;
+
+                if (isPointInside({ { btnX, 230.0f }, { btnWidth, btnHeight } }, clickPos)) {
+                    state = MenuState::PLAY_CONTROLS;
+                    playControls.resetRequests();
+                } else if (isPointInside({ { btnX, 306.0f }, { btnWidth, btnHeight } }, clickPos)) {
+                    onSettings();
+                } else if (isPointInside({ { btnX, 382.0f }, { btnWidth, btnHeight } }, clickPos)) {
+                    onQuit();
+                }
+            } else if (state == MenuState::SETTINGS) {
+                float panelWidth = 560.0f;
+                float panelX = (screenWidth - panelWidth) / 2.0f;
+                float panelY = 200.0f;
+
+                if (isPointInside({ { panelX + 280.0f, panelY + 74.0f }, { 36.0f, 32.0f } }, clickPos)) {
+                    if (volume >= 10) volume -= 10;
+                    selectedSettingsIndex = 0;
+                } else if (isPointInside({ { panelX + 420.0f, panelY + 74.0f }, { 36.0f, 32.0f } }, clickPos)) {
+                    if (volume <= 90) volume += 10;
+                    selectedSettingsIndex = 0;
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 129.0f }, { 180.0f, 34.0f } }, clickPos)) {
+                    soundEffects = !soundEffects;
+                    selectedSettingsIndex = 1;
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 184.0f }, { 180.0f, 34.0f } }, clickPos)) {
+                    difficultyIndex = (difficultyIndex + 1) % 3;
+                    selectedSettingsIndex = 2;
+                } else if (isPointInside({ { panelX + (panelWidth - 220.0f) / 2.0f, panelY + 285.0f }, { 220.0f, 46.0f } }, clickPos)) {
+                    state = MenuState::MAIN;
+                }
+            }
+        }
+    }
+}
+
+void UI_mainMenu::render(sf::RenderWindow& window) {
+    if (state == MenuState::MAIN) {
+        drawMainMenu(window);
+    } else if (state == MenuState::PLAY_CONTROLS) {
+        drawHeader(window);
+        playControls.draw(window, font, fontLoaded);
+    } else if (state == MenuState::SETTINGS) {
+        drawSettingsMenu(window);
+    }
 }

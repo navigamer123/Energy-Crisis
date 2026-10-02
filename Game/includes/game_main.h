@@ -1,0 +1,135 @@
+#ifndef GAME_MAIN_H
+#define GAME_MAIN_H
+
+#include <string>
+#include <vector>
+#include <SFML/Graphics.hpp>
+#include "game_weather.h"
+
+// -----------------------------------------------------------------------------
+// Resource Types
+// -----------------------------------------------------------------------------
+enum class ResourceType {
+    WOOD,     // Gathered from forests
+    ORE,      // Mined from stone/ore mines
+    ENERGY,   // Megawatts (MW) generated to power the city
+    GOLD      // Currency earned from supplying electricity
+};
+
+// -----------------------------------------------------------------------------
+// Building Types
+// -----------------------------------------------------------------------------
+enum class BuildingType {
+    NONE = 0,
+    SOLAR_PANEL,
+    WIND_TURBINE,
+    HYDRO_PLANT,
+    BATTERY
+};
+
+struct BuildingCost {
+    BuildingType type;
+    std::string nameBg;
+    std::string nameEn;
+    int woodCost;
+    int oreCost;
+    int basePowerMW;
+};
+
+struct PlacedBuilding {
+    BuildingType type;
+    sf::Vector2f position;
+    int playerOwner; // 1 or 2
+    float currentOutputMW;
+    float animTimer;
+};
+
+struct LandPlot {
+    int id;
+    int playerOwner; // 1 = West, 2 = East
+    sf::FloatRect bounds;
+    bool isPurchased;
+    int costGold;
+};
+
+struct PlayerEconomy {
+    int gold = 0;               // Currency (starts at 0)
+    int wood = 0;               // Harvested from forests (starts at 0)
+    int ore = 0;                // Mined from base mines (starts at 0)
+    int energyMW = 0;           // Clean electricity generated (starts at 0)
+    int landTier = 1;           // Land tier
+    float cityInfluence = 0.50f;// Percentage of city supplied / captured (0.0 to 1.0)
+    int selectedBuilding = 0;   // 0 = None, 1 = Solar, 2 = Wind, 3 = Hydro, 4 = Battery
+};
+
+struct CityConquestState {
+    int cityEnergyDemand = 800; // Daily requirement, grows each day
+    float p1CityShare = 0.50f;  // 0.0 to 1.0 (P1 vs P2 city control tug-of-war)
+    float p1DailyDelivered = 0.0f;
+    float p2DailyDelivered = 0.0f;
+    bool dayCutOccurred = false;
+    std::string lastCutMessage;
+    int winner = 0;             // 0 = None, 1 = P1, 2 = P2
+};
+
+// -----------------------------------------------------------------------------
+// Backend Game Engine
+// -----------------------------------------------------------------------------
+class GameEngine {
+private:
+    float gameSeconds;
+    int currentDay;
+    float hour24;
+    float secondsPerDay;
+
+    WeatherType p1Weather;
+    WeatherType p2Weather;
+    SeasonType currentSeason;
+
+    PlayerEconomy p1;
+    PlayerEconomy p2;
+    CityConquestState city;
+
+    std::vector<PlacedBuilding> buildings;
+    std::vector<LandPlot> landPlots;
+
+    void updateBuildingsEnergy(float dt);
+    void processDayEnd();
+
+public:
+    GameEngine();
+    void init(float screenWidth, float screenHeight);
+    void update(float dt);
+
+    // Player Actions
+    bool mineResource(int player, ResourceType type, std::string& outMsg);
+    bool buyLandPlot(int player, int plotId, std::string& outMsg);
+    bool buyNextLandTier(int player, std::string& outMsg);
+
+    void cycleBuildingSelection(int player);
+    void clearBuildingSelection(int player);
+    BuildingType getSelectedBuilding(int player) const;
+
+    bool canPlaceBuilding(int player, BuildingType type, sf::Vector2f pos, std::string& reason) const;
+    bool placeBuilding(int player, BuildingType type, sf::Vector2f pos, std::string& outMsg);
+
+    // Building Data helper
+    BuildingCost getBuildingCost(BuildingType type) const;
+
+    // Getters for UI
+    const PlayerEconomy& getPlayerEconomy(int player) const { return (player == 1) ? p1 : p2; }
+    PlayerEconomy& getPlayerEconomyMut(int player) { return (player == 1) ? p1 : p2; }
+    const CityConquestState& getCityState() const { return city; }
+    const std::vector<PlacedBuilding>& getBuildings() const { return buildings; }
+    const std::vector<LandPlot>& getLandPlots() const { return landPlots; }
+
+    int getCurrentDay() const { return currentDay; }
+    float getHour24() const { return hour24; }
+    float getDayProgress() const { return hour24 / 24.0f; }
+    bool isDaylight() const { return hour24 >= 6.0f && hour24 <= 18.0f; }
+
+    WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
+    SeasonType getSeason() const { return currentSeason; }
+};
+
+#endif // GAME_MAIN_H
