@@ -101,6 +101,36 @@ private:
     };
     std::vector<WeatherParticle> particles;
 
+    // Multi-input cooldown timers & edge-detection key states
+    float p1ActionCooldown = 0.0f;
+    float p2ActionCooldown = 0.0f;
+    bool p1PrevE = false;
+    bool p1PrevQ = false;
+    bool p1PrevX = false;
+    bool p1PrevNum[7] = {false, false, false, false, false, false, false};
+    bool p2PrevPgDn = false;
+    bool p2PrevPgUp = false;
+    bool p2PrevDel = false;
+
+    // Mining FX particles
+    struct MiningParticle {
+        sf::Vector2f pos;
+        sf::Vector2f vel;
+        sf::Color color;
+        float life = 0.6f;
+        float maxLife = 0.6f;
+        float size = 3.0f;
+    };
+    std::vector<MiningParticle> miningParticles;
+
+    void spawnMiningParticles(sf::Vector2f pos, sf::Color color, int count);
+    void updateMiningParticles(float dt);
+    void drawMiningParticles(sf::RenderWindow& window);
+    void drawMiningZonesAndBadges(sf::RenderWindow& window);
+
+    void executeP1Action();
+    void executeP2Action();
+
     void updateWeatherParticles(float dt);
     void drawWeatherParticles(sf::RenderWindow& window);
     void drawEnergyConduits(sf::RenderWindow& window, float animTime);

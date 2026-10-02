@@ -97,10 +97,20 @@ struct CityConquestState {
     int winner = 0;             // 0 = None, 1 = P1, 2 = P2
 };
 
+struct MineResult {
+    int wood = 0;
+    int ore = 0;
+    int gold = 0;
+    int coal = 0;
+};
+
 // -----------------------------------------------------------------------------
 // Backend Game Engine
 // -----------------------------------------------------------------------------
 class GameEngine {
+public:
+    using MineResult = ::MineResult;
+
 private:
     float gameSeconds;
     int currentDay;
@@ -110,6 +120,7 @@ private:
     WeatherType p1Weather;
     WeatherType p2Weather;
     SeasonType currentSeason;
+    float timeScale;
 
     PlayerEconomy p1;
     PlayerEconomy p2;
@@ -126,8 +137,12 @@ public:
     void init(float screenWidth, float screenHeight);
     void update(float dt);
 
+    void setTimeScale(float scale) { timeScale = (scale > 0.1f ? scale : 1.0f); }
+    float getTimeScale() const { return timeScale; }
+
     // Player Actions
     bool mineResource(int player, ResourceType type, std::string& outMsg);
+    bool mineResource(int player, ResourceType type, MineResult& result, std::string& outMsg);
     bool buyLandPlot(int player, int plotId, std::string& outMsg);
     bool buyNextLandTier(int player, std::string& outMsg);
 

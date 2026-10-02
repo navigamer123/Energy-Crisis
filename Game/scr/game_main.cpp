@@ -4,18 +4,23 @@
 #include <algorithm>
 
 GameEngine::GameEngine()
-    : gameSeconds(0.0f),
+    : gameSeconds(5.0f),
       currentDay(1),
       hour24(8.0f),
       secondsPerDay(60.0f), // 1 real minute = 1 full day
       p1Weather(WeatherType::SUNNY),
       p2Weather(WeatherType::WINDY),
-      currentSeason(SeasonType::SPRING) {
+      currentSeason(SeasonType::SPRING),
+      timeScale(1.0f) {
 }
 
 void GameEngine::init(float screenWidth, float screenHeight) {
     (void)screenWidth;
     (void)screenHeight;
+    gameSeconds = 5.0f;
+    hour24 = 8.0f;
+    currentDay = 1;
+    timeScale = 1.0f;
     landPlots.clear();
     buildings.clear();
 
@@ -87,7 +92,8 @@ void GameEngine::init(float screenWidth, float screenHeight) {
 }
 
 void GameEngine::update(float dt) {
-    gameSeconds += dt;
+    float effectiveDt = dt * timeScale;
+    gameSeconds += effectiveDt;
     float prevHour = hour24;
     hour24 = std::fmod((gameSeconds / secondsPerDay) * 24.0f + 6.0f, 24.0f);
 
@@ -98,11 +104,11 @@ void GameEngine::update(float dt) {
     }
 
     // Update building energy outputs based on real-time continuous weather & sun
-    updateBuildingsEnergy(dt);
+    updateBuildingsEnergy(effectiveDt);
 
     // Passive revenue from delivered power
     static float revenueTimer = 0.0f;
-    revenueTimer += dt;
+    revenueTimer += effectiveDt;
     if (revenueTimer >= 1.0f) {
         revenueTimer = 0.0f;
         p1.gold += std::max(1, static_cast<int>(p1.energyMW * 0.05f));
@@ -238,37 +244,63 @@ void GameEngine::processDayEnd() {
 }
 
 bool GameEngine::mineResource(int player, ResourceType type, std::string& outMsg) {
+    MineResult ignored;
+    return mineResource(player, type, ignored, outMsg);
+}
+
+bool GameEngine::mineResource(int player, ResourceType type, MineResult& result, std::string& outMsg) {
     auto& econ = (player == 1) ? p1 : p2;
+    result = MineResult();
+
     if (type == ResourceType::ORE) {
         // Mine expedition (cave) from weatherF branch
         auto res = Expedition(1, "cave");
         // res = {silicon, copper, silver, iron, gold, coal};
-        int iron = (res.size() > 3) ? res[3] : 15;
-        int gold = (res.size() > 4) ? res[4] : 5;
-        int coal = (res.size() > 5) ? res[5] : 20;
+        int silicon = (res.size() > 0) ? res[0] : 6;
+        int copper  = (res.size() > 1) ? res[1] : 10;
+        int silver  = (res.size() > 2) ? res[2] : 4;
+        int iron    = (res.size() > 3) ? res[3] : 12;
+        int gold    = (res.size() > 4) ? res[4] : 4;
+        int coal    = (res.size() > 5) ? res[5] : 15;
 
-        econ.ore += iron;
-        econ.gold += gold;
+        // Combine all extractable metal ores into Ore + Gold currency
+        int totalOre = iron + copper + silicon + silver;
+        if (totalOre < 16) totalOre = 16 + (rand() % 12);
+        int totalGold = gold;
+        if (totalGold < 2) totalGold = 3 + (rand() % 4);
+
+        econ.ore += totalOre;
+        econ.gold += totalGold;
+
         econ.data.iron += iron;
-        econ.data.gold += gold;
+        econ.data.copper += copper;
+        econ.data.silicon += silicon;
+        econ.data.silver += silver;
+        econ.data.gold += totalGold;
         econ.data.coal += coal;
 
-        outMsg = (player == 1 ? "ИГРАЧ 1: +" + std::to_string(iron) + " РУДА, +" + std::to_string(gold) + "G (ПЕЩЕРА)"
-                              : "ИГРАЧ 2: +" + std::to_string(iron) + " РУДА, +" + std::to_string(gold) + "G (ПЕЩЕРА)");
+        result.ore = totalOre;
+        result.gold = totalGold;
+        result.coal = coal;
+
+        outMsg = "+" + std::to_string(totalOre) + " Руда, +" + std::to_string(totalGold) + " Злато";
         return true;
     } else if (type == ResourceType::WOOD) {
         // Forest expedition from weatherF branch
         auto res = Expedition(1, "forest");
         // res = {wood, sticks};
-        int wood = (res.size() > 0) ? res[0] : 20;
-        int sticks = (res.size() > 1) ? res[1] : 30;
+        int rawWood = (res.size() > 0) ? res[0] : 25;
+        int sticks  = (res.size() > 1) ? res[1] : 30;
 
-        econ.wood += wood;
-        econ.data.wood += wood;
+        // Balanced wood yield per action: 20-35
+        int totalWood = 20 + (rawWood % 18);
+        econ.wood += totalWood;
+        econ.data.wood += totalWood;
         econ.data.sticks += sticks;
 
-        outMsg = (player == 1 ? "ИГРАЧ 1: +" + std::to_string(wood) + " ДЪРВО (ГОРА)"
-                              : "ИГРАЧ 2: +" + std::to_string(wood) + " ДЪРВО (ГОРА)");
+        result.wood = totalWood;
+
+        outMsg = "+" + std::to_string(totalWood) + " Дървесина";
         return true;
     }
     return false;
