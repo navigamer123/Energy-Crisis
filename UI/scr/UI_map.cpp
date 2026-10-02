@@ -1626,21 +1626,23 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     }
 
     // -------------------------------------------------------------------------
-    // 0. If Help overlay is active, any dismiss key or click closes it
+    // 0. If Help overlay is active, any dismiss key or click closes it.
+    //    Stays paused after (if it was opened from the pause menu).
     // -------------------------------------------------------------------------
     if (showHelpOverlay) {
         if (event.is<sf::Event::MouseButtonPressed>()) {
             showHelpOverlay = false;
-            return;
+            return; // stays paused if isPaused is true
         }
         if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
             if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1 ||
                 key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::Enter ||
                 key->code == sf::Keyboard::Key::Space) {
                 showHelpOverlay = false;
-                return;
+                return; // stays paused if isPaused is true
             }
         }
+        return; // swallow all other input while help is open
     }
 
     // -------------------------------------------------------------------------
@@ -1733,7 +1735,10 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1) {
-            showHelpOverlay = !showHelpOverlay;
+            // Auto-pause then open help on top
+            isPaused = true;
+            pauseSelectedIdx = 0;
+            showHelpOverlay = true;
             return;
         }
 
@@ -1778,9 +1783,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
-        // Click on Help button
+        // Click on Help button — auto-pause then show help on top
         if (sf::FloatRect({ 1600.0f - 405.0f, 900.0f - 34.0f }, { 120.0f, 28.0f }).contains(clickPos)) {
-            showHelpOverlay = !showHelpOverlay;
+            isPaused = true;
+            pauseSelectedIdx = 0;
+            showHelpOverlay = true;
             return;
         }
 
@@ -2038,13 +2045,13 @@ void UI_map::render(sf::RenderWindow& window) {
     // 19. Floating Notices
     drawFloatingNotices(window);
 
-    // 20. Interactive Help & Rules Manual Overlay (if opened)
-    drawHelpOverlay(window);
-
-    // 21. Game Over / Victory Screen (When a player reaches 100% influence)
+    // 20. Pause Menu (drawn before help so help is layered on top)
     if (engine.getCityState().winner != 0) {
         drawVictoryScreen(window);
     } else if (isPaused) {
         drawPauseMenu(window);
     }
+
+    // 21. Help & Rules Manual Overlay — ALWAYS on top of everything (including pause menu)
+    drawHelpOverlay(window);
 }
