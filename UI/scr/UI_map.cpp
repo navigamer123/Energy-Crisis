@@ -743,7 +743,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
     bool p2InMine = nodes.isNearP2Mine(p2Pos);
     bool p2InForest = nodes.isNearP2Forest(p2Pos);
 
-    auto drawZonePrompt = [&](sf::FloatRect bounds, const std::string& title, const std::string& holdKey, sf::Color col, bool active) {
+    auto drawZonePrompt = [&](sf::FloatRect bounds, const std::string& title, const std::string& holdKey, sf::Color col, bool active, float cd) {
         sf::RectangleShape box(bounds.size);
         box.setPosition(bounds.position);
         float pulseAlpha = active ? (180.0f + 70.0f * std::sin(animTime * 6.0f)) : 90.0f;
@@ -753,26 +753,43 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         window.draw(box);
 
         if (resourcesLoaded && active) {
-            sf::RectangleShape tagBox({ 250.0f, 24.0f });
-            tagBox.setPosition({ bounds.position.x + (bounds.size.x - 250.0f) / 2.0f, bounds.position.y - 28.0f });
-            tagBox.setFillColor(sf::Color(10, 15, 25, 230));
+            sf::RectangleShape tagBox({ 260.0f, 26.0f });
+            tagBox.setPosition({ bounds.position.x + (bounds.size.x - 260.0f) / 2.0f, bounds.position.y - 30.0f });
+            tagBox.setFillColor(sf::Color(10, 15, 25, 235));
             tagBox.setOutlineThickness(1.5f);
-            tagBox.setOutlineColor(col);
+            tagBox.setOutlineColor(cd > 0.05f ? sf::Color(255, 180, 50) : col);
             window.draw(tagBox);
 
-            std::string promptText = title + " | Задръж " + holdKey + " (6x)";
+            std::string promptText = title + " | " + holdKey;
+            if (cd > 0.05f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), " (Изчакай: %.1fs)", cd);
+                promptText += buf;
+            } else {
+                promptText += " [Добив: 2с]";
+            }
+
             sf::Text t(font, toUtf8(promptText), 11);
-            t.setFillColor(col);
+            t.setFillColor(cd > 0.05f ? sf::Color(255, 210, 100) : col);
             sf::FloatRect tb = t.getLocalBounds();
-            t.setPosition({ tagBox.getPosition().x + (250.0f - tb.size.x) / 2.0f, tagBox.getPosition().y + 4.0f });
+            t.setPosition({ tagBox.getPosition().x + (260.0f - tb.size.x) / 2.0f, tagBox.getPosition().y + 5.0f });
             window.draw(t);
+
+            // Cooldown progress bar under the tag box
+            if (cd > 0.05f) {
+                float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / 2.0f));
+                sf::RectangleShape cdBar({ 256.0f * fillRatio, 3.0f });
+                cdBar.setPosition({ tagBox.getPosition().x + 2.0f, tagBox.getPosition().y + 24.0f });
+                cdBar.setFillColor(sf::Color(0, 255, 180));
+                window.draw(cdBar);
+            }
         }
     };
 
-    drawZonePrompt(nodes.getP1ForestBounds(), "🌲 ГОРА (ДЪРВО)", "[SPACE]", sf::Color(100, 255, 140), p1InForest);
-    drawZonePrompt(nodes.getP1MineBounds(), "⛏️ МИНА (РУДА/G)", "[SPACE]", sf::Color(0, 229, 255), p1InMine);
-    drawZonePrompt(nodes.getP2MineBounds(), "⛏️ МИНА (РУДА/G)", "[ENTER]", sf::Color(255, 140, 210), p2InMine);
-    drawZonePrompt(nodes.getP2ForestBounds(), "🌲 ГОРА (ДЪРВО)", "[ENTER]", sf::Color(255, 204, 100), p2InForest);
+    drawZonePrompt(nodes.getP1ForestBounds(), "🌲 ГОРА (ДЪРВО)", "[SPACE]", sf::Color(100, 255, 140), p1InForest, p1ResourceCooldown);
+    drawZonePrompt(nodes.getP1MineBounds(), "⛏️ МИНА (РУДА/G)", "[SPACE]", sf::Color(0, 229, 255), p1InMine, p1ResourceCooldown);
+    drawZonePrompt(nodes.getP2MineBounds(), "⛏️ МИНА (РУДА/G)", "[ENTER]", sf::Color(255, 140, 210), p2InMine, p2ResourceCooldown);
+    drawZonePrompt(nodes.getP2ForestBounds(), "🌲 ГОРА (ДЪРВО)", "[ENTER]", sf::Color(255, 204, 100), p2InForest, p2ResourceCooldown);
 
     // High-speed 6x time badges under the top clocks when active
     if (engine.getTimeScale() > 1.5f && resourcesLoaded) {
@@ -832,21 +849,35 @@ void UI_map::executeP1Action() {
         }
     } else {
         if (nodes.isNearP1Mine(p1Pos)) {
+            if (p1ResourceCooldown > 0.0f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
+                spawnNotice(buf, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                return;
+            }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, ResourceType::ORE, res, msg)) {
+                p1ResourceCooldown = 2.0f;
                 spawnMiningParticles(p1Pos, sf::Color(0, 229, 255), 18);
                 spawnMiningParticles(p1Pos, sf::Color(255, 215, 0), 8);
-                triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсите са добавени в склада.", "[ЗАДРЪЖ SPACE]: 6x Добив", sf::Color(0, 229, 255));
+                triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсите са добавени в склада.", "[SPACE]: Добив (на 2 сек)", sf::Color(0, 229, 255));
                 spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(0, 229, 255));
             }
         } else if (nodes.isNearP1Forest(p1Pos)) {
+            if (p1ResourceCooldown > 0.0f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
+                spawnNotice(buf, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                return;
+            }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, ResourceType::WOOD, res, msg)) {
+                p1ResourceCooldown = 2.0f;
                 spawnMiningParticles(p1Pos, sf::Color(100, 255, 140), 18);
                 spawnMiningParticles(p1Pos, sf::Color(210, 180, 90), 8);
-                triggerPlayerPopup(1, "ДОБИВ", msg, "Дървесината е добавена в склада.", "[ЗАДРЪЖ SPACE]: 6x Добив", sf::Color(100, 255, 140));
+                triggerPlayerPopup(1, "ДОБИВ", msg, "Дървесината е добавена в склада.", "[SPACE]: Добив (на 2 сек)", sf::Color(100, 255, 140));
                 spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(100, 255, 140));
             }
         } else {
@@ -902,20 +933,34 @@ void UI_map::executeP2Action() {
         }
     } else {
         if (nodes.isNearP2Mine(p2Pos)) {
+            if (p2ResourceCooldown > 0.0f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
+                spawnNotice(buf, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                return;
+            }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, ResourceType::ORE, res, msg)) {
+                p2ResourceCooldown = 2.0f;
                 spawnMiningParticles(p2Pos, sf::Color(255, 140, 210), 18);
                 spawnMiningParticles(p2Pos, sf::Color(255, 215, 0), 8);
-                triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсите са добавени в склада.", "[ЗАДРЪЖ ENTER]: 6x Добив", sf::Color(255, 140, 210));
+                triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсите са добавени в склада.", "[ENTER]: Добив (на 2 сек)", sf::Color(255, 140, 210));
                 spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 140, 210));
             }
         } else if (nodes.isNearP2Forest(p2Pos)) {
+            if (p2ResourceCooldown > 0.0f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
+                spawnNotice(buf, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                return;
+            }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, ResourceType::WOOD, res, msg)) {
+                p2ResourceCooldown = 2.0f;
                 spawnMiningParticles(p2Pos, sf::Color(255, 204, 100), 18);
-                triggerPlayerPopup(2, "ДОБИВ", msg, "Дървесината е добавена в склада.", "[ЗАДРЪЖ ENTER]: 6x Добив", sf::Color(255, 204, 100));
+                triggerPlayerPopup(2, "ДОБИВ", msg, "Дървесината е добавена в склада.", "[ENTER]: Добив (на 2 сек)", sf::Color(255, 204, 100));
                 spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 204, 100));
             }
         } else {
@@ -1000,12 +1045,17 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     // 5. Action cooldown decrement
     if (p1ActionCooldown > 0.0f) p1ActionCooldown -= dt;
     if (p2ActionCooldown > 0.0f) p2ActionCooldown -= dt;
+    if (p1ResourceCooldown > 0.0f) p1ResourceCooldown -= dt;
+    if (p2ResourceCooldown > 0.0f) p2ResourceCooldown -= dt;
 
-    // 6. Simultaneous Player 1 Continuous & Edge-Triggered Inputs
+    // 6. Player 1 Action Input (Single Press only, NO continuous hold-to-mine!)
     bool p1PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
-    if (p1PressingAction && p1ActionCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
+    bool p1JustPressed = p1PressingAction && !p1PrevAction;
+    p1PrevAction = p1PressingAction;
+
+    if (p1JustPressed && p1ActionCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         executeP1Action();
-        p1ActionCooldown = (p1InMine || p1InForest) ? 0.28f : 0.38f;
+        p1ActionCooldown = 0.20f;
     }
 
     bool curE = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
@@ -1060,11 +1110,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p1PrevNum[k] = curNum;
     }
 
-    // 7. Simultaneous Player 2 Continuous & Edge-Triggered Inputs
+    // 7. Player 2 Action Input (Single Press only, NO continuous hold-to-mine!)
     bool p2PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Numpad0) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RControl);
-    if (p2PressingAction && p2ActionCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
+    bool p2JustPressed = p2PressingAction && !p2PrevAction;
+    p2PrevAction = p2PressingAction;
+
+    if (p2JustPressed && p2ActionCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
         executeP2Action();
-        p2ActionCooldown = (p2InMine || p2InForest) ? 0.28f : 0.38f;
+        p2ActionCooldown = 0.20f;
     }
 
     bool curPgDn = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown);
@@ -1419,43 +1472,75 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 
         // 4. Click on Resource Mines & Forests
         if (nodes.isNearP1Forest(clickPos)) {
+            if (p1ResourceCooldown > 0.0f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
+                spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                return;
+            }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, ResourceType::WOOD, res, msg)) {
+                p1ResourceCooldown = 2.0f;
                 p1Pulse = 1.0f;
                 spawnMiningParticles(clickPos, sf::Color(100, 255, 140), 16);
                 triggerPlayerPopup(1, "ДОБИВ", msg, "Дървесината е добавена за строеж.", "[E]: Избери сграда", sf::Color(100, 255, 140));
                 spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(100, 255, 140));
             }
+            return;
         } else if (nodes.isNearP1Mine(clickPos)) {
+            if (p1ResourceCooldown > 0.0f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
+                spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                return;
+            }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, ResourceType::ORE, res, msg)) {
+                p1ResourceCooldown = 2.0f;
                 p1Pulse = 1.0f;
                 spawnMiningParticles(clickPos, sf::Color(0, 229, 255), 16);
                 spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 8);
                 triggerPlayerPopup(1, "ДОБИВ", msg, "Рудата е добавена за генератори.", "[E]: Избери сграда", sf::Color(0, 229, 255));
                 spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(0, 229, 255));
             }
+            return;
         } else if (nodes.isNearP2Mine(clickPos)) {
+            if (p2ResourceCooldown > 0.0f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
+                spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                return;
+            }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, ResourceType::ORE, res, msg)) {
+                p2ResourceCooldown = 2.0f;
                 p2Pulse = 1.0f;
                 spawnMiningParticles(clickPos, sf::Color(255, 140, 210), 16);
                 spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 8);
                 triggerPlayerPopup(2, "ДОБИВ", msg, "Рудата е добавена за генератори.", "[PgDn]: Избери сграда", sf::Color(255, 140, 210));
                 spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 140, 210));
             }
+            return;
         } else if (nodes.isNearP2Forest(clickPos)) {
+            if (p2ResourceCooldown > 0.0f) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
+                spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                return;
+            }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, ResourceType::WOOD, res, msg)) {
+                p2ResourceCooldown = 2.0f;
                 p2Pulse = 1.0f;
                 spawnMiningParticles(clickPos, sf::Color(255, 204, 100), 16);
                 triggerPlayerPopup(2, "ДОБИВ", msg, "Дървесината е добавена за строеж.", "[PgDn]: Избери сграда", sf::Color(255, 204, 100));
                 spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 204, 100));
             }
+            return;
         }
     }
 }
