@@ -1,8 +1,12 @@
 #include "../includes/UI_city.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
 #include "../includes/UI_types.h"
 #include "../../Game/includes/game_balance.h"
 #include <cmath>
 #include <string>
+#include <vector>
 
 UI_city::UI_city() {
 }
@@ -14,7 +18,7 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
     // Full Central Dividing Line from Y=0 to Y=900
     sf::RectangleShape centerLine({ 3.0f, screenHeight });
     centerLine.setPosition({ midX - 1.5f, 0.0f });
-    centerLine.setFillColor(sf::Color(0, 220, 100, 200));
+    centerLine.setFillColor(theme::withAlpha(theme::Neutral, 200));
     window.draw(centerLine);
 
     // River channel through the city area (Y = 65 to Y = 395)
@@ -40,7 +44,7 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
         bridge.setPosition({ midX - 20.0f, bridgeY });
         bridge.setFillColor(sf::Color(45, 52, 65, 245));
         bridge.setOutlineThickness(1.0f);
-        bridge.setOutlineColor(sf::Color(255, 215, 0, 180));
+        bridge.setOutlineColor(sf::Color(255, 230, 120, 180));
         window.draw(bridge);
 
         sf::RectangleShape lane({ 16.0f, 2.0f });
@@ -52,13 +56,13 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
         float carOffset1 = std::fmod(animTime * 40.0f + bridgeY, 50.0f) - 25.0f;
         sf::RectangleShape car1({ 8.0f, 4.5f });
         car1.setPosition({ midX + carOffset1, bridgeY + 3.0f });
-        car1.setFillColor(sf::Color(0, 229, 255));
+        car1.setFillColor(theme::P1);
         window.draw(car1);
 
         float carOffset2 = 25.0f - std::fmod(animTime * 32.0f + bridgeY * 1.5f, 50.0f);
         sf::RectangleShape car2({ 8.0f, 4.5f });
         car2.setPosition({ midX + carOffset2, bridgeY + 12.0f });
-        car2.setFillColor(sf::Color(255, 120, 200));
+        car2.setFillColor(theme::P2);
         window.draw(car2);
 
         // Night bridge streetlights and car headlights
@@ -89,17 +93,18 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
     // Border marker tag below city
     sf::RectangleShape tag({ 200.0f, 26.0f });
     tag.setPosition({ midX - 100.0f, 400.0f });
-    tag.setFillColor(sf::Color(15, 20, 32, 245));
+    tag.setFillColor(theme::withAlpha(theme::Panel, 245));
     tag.setOutlineThickness(1.0f);
-    tag.setOutlineColor(sf::Color(0, 220, 100, 200));
+    tag.setOutlineColor(theme::withAlpha(theme::Neutral, 200));
     window.draw(tag);
 
     if (fontLoaded) {
-        sf::Text bText(font, toUtf8("ЦЕНТРАЛНА ГРАНИЦА"), 12);
-        bText.setFillColor(sf::Color(140, 255, 180));
+        sf::Text bText(font, toUtf8("ЦЕНТРАЛНА ГРАНИЦА"), fontsize::Label);
+        bText.setStyle(sf::Text::Bold);
+        bText.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = bText.getLocalBounds();
         bText.setPosition({ midX - tb.size.x / 2.0f, 404.0f });
-        window.draw(bText);
+        ui::drawText(window, bText, sf::FloatRect(tag.getPosition(), tag.getSize()));
     }
 }
 
@@ -120,10 +125,11 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
     // City base platform
     sf::RectangleShape base({ cityWidth, cityHeight });
     base.setPosition({ cityLeft, cityTop });
-    base.setFillColor(isDaylight ? sf::Color(24, 30, 42, 245) : sf::Color(14, 18, 28, 250));
+    base.setFillColor(isDaylight ? theme::withAlpha(theme::Card, 245) : theme::withAlpha(theme::Well, 250));
     base.setOutlineThickness(2.0f);
-    base.setOutlineColor(sf::Color(0, 220, 100, 220));
+    base.setOutlineColor(theme::withAlpha(theme::Neutral, 220));
     window.draw(base);
+    ui::lint::solid(sf::FloatRect({ cityLeft, cityTop }, { cityWidth, cityHeight })); // nothing may hide under the city
 
     // High-rise Skyscraper Buildings
     struct CityBuilding {
@@ -146,10 +152,10 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
     };
 
     // Predefined colors for Player 1 (Blue/Cyan) and Player 2 (Magenta/Red)
-    const sf::Color p1Outline(0, 200, 255);
-    const sf::Color p2Outline(255, 120, 200);
-    const sf::Color p1Roof(80, 230, 255);
-    const sf::Color p2Roof(255, 160, 220);
+    const sf::Color p1Outline = theme::P1;
+    const sf::Color p2Outline = theme::P2;
+    const sf::Color p1Roof = theme::P1Light;
+    const sf::Color p2Roof = theme::P2Light;
     const sf::Color p1ColorDay(32, 44, 62);
     const sf::Color p2ColorDay(48, 34, 52);
     const sf::Color p1ColorNight(18, 26, 38);
@@ -267,7 +273,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
                     if (isDaylight) {
                         win.setFillColor(winInP1 ? sf::Color(90, 160, 200, 190) : sf::Color(210, 180, 130, 190));
                     } else {
-                        win.setFillColor(winInP1 ? sf::Color(0, 235, 255, 245) : sf::Color(255, 130, 190, 245));
+                        win.setFillColor(theme::withAlpha(winInP1 ? theme::P1 : theme::P2, 245));
                     }
                 } else {
                     win.setFillColor(sf::Color(14, 18, 26, 240));
@@ -287,7 +293,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
                 for (float hy = b.y + 10.0f; hy < b.y + b.h - 10.0f; hy += 24.0f) {
                     sf::RectangleShape stripe({ endX - startX, 3.0f });
                     stripe.setPosition({ startX, hy });
-                    stripe.setFillColor(sf::Color(255, 215, 0, 160));
+                    stripe.setFillColor(theme::withAlpha(theme::Warn, 150));
                     window.draw(stripe);
                 }
             }
@@ -299,7 +305,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
                 for (float hy = b.y + 10.0f; hy < b.y + b.h - 10.0f; hy += 24.0f) {
                     sf::RectangleShape stripe({ endX - startX, 3.0f });
                     stripe.setPosition({ startX, hy });
-                    stripe.setFillColor(sf::Color(255, 215, 0, 160));
+                    stripe.setFillColor(theme::withAlpha(theme::Warn, 150));
                     window.draw(stripe);
                 }
             }
@@ -309,42 +315,60 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
     // Dynamic capture line through the city
     sf::RectangleShape capNeedle({ 3.0f, cityHeight });
     capNeedle.setPosition({ captureX - 1.5f, cityTop });
-    capNeedle.setFillColor(sf::Color(255, 240, 100));
+    capNeedle.setFillColor(theme::Focus);
     window.draw(capNeedle);
 
     // City Header banner
     if (fontLoaded) {
         sf::RectangleShape banner({ cityWidth, 26.0f });
         banner.setPosition({ cityLeft, cityTop });
-        banner.setFillColor(sf::Color(15, 22, 34, 250));
+        banner.setFillColor(theme::withAlpha(theme::Panel, 250));
         banner.setOutlineThickness(1.0f);
-        banner.setOutlineColor(sf::Color(0, 220, 100));
+        banner.setOutlineColor(theme::Neutral);
         window.draw(banner);
 
         int p1Pct = static_cast<int>(std::lround(p1Share * 100.0f));
         int p2Pct = 100 - p1Pct;
         std::string phaseStr = isDaylight ? "ДЕН" : "НОЩ";
-        std::string titleStr = "ГРАД (METROPOLIS) | " + phaseStr + " | P1: " + std::to_string(p1Pct) + "% | P2: " + std::to_string(p2Pct) + "%";
-        sf::Text cLabel(font, toUtf8(titleStr), 12);
-        cLabel.setFillColor(sf::Color(0, 255, 180));
+        std::string titleStr = "ГРАД · " + phaseStr + " · P1 " + std::to_string(p1Pct) + "% · P2 " + std::to_string(p2Pct) + "%";
+        sf::Text cLabel(font, toUtf8(titleStr), fontsize::Label);
+        cLabel.setStyle(sf::Text::Bold);
+        cLabel.setFillColor(theme::TextPrimary);
         sf::FloatRect lb = cLabel.getLocalBounds();
         cLabel.setPosition({ midX - lb.size.x / 2.0f, cityTop + 5.0f });
-        window.draw(cLabel);
+        ui::drawText(window, cLabel, sf::FloatRect(banner.getPosition(), banner.getSize()));
 
         // Cut notification banner at bottom of city if conquest occurred
         if (!cutMessage.empty()) {
-            sf::RectangleShape cutBar({ cityWidth, 22.0f });
-            cutBar.setPosition({ cityLeft, cityTop + cityHeight - 24.0f });
-            cutBar.setFillColor(sf::Color(45, 15, 20, 230));
+            // The engine's day messages are long: wrap them into centred lines and size the bar to fit
+            const unsigned int cutSize = fontsize::Caption;
+            const float lineH = 14.0f;
+            std::string wrapped = ui::wrapText(font, cutMessage, cutSize, cityWidth - 16.0f);
+            std::vector<std::string> lines;
+            std::size_t start = 0;
+            while (true) {
+                std::size_t nl = wrapped.find('\n', start);
+                lines.push_back(wrapped.substr(start, nl == std::string::npos ? std::string::npos : nl - start));
+                if (nl == std::string::npos) break;
+                start = nl + 1;
+            }
+            const float barH = 8.0f + lineH * static_cast<float>(lines.size());
+            sf::RectangleShape cutBar({ cityWidth, barH });
+            cutBar.setPosition({ cityLeft, cityTop + cityHeight - barH - 2.0f });
+            cutBar.setFillColor(theme::withAlpha(theme::Panel, 240));
             cutBar.setOutlineThickness(1.0f);
-            cutBar.setOutlineColor(sf::Color(255, 100, 100));
+            cutBar.setOutlineColor(theme::Warn);
             window.draw(cutBar);
+            const sf::FloatRect barRect(cutBar.getPosition(), cutBar.getSize());
 
-            sf::Text cutText(font, toUtf8(cutMessage), 10);
-            cutText.setFillColor(sf::Color(255, 220, 100));
-            sf::FloatRect cb = cutText.getLocalBounds();
-            cutText.setPosition({ midX - cb.size.x / 2.0f, cityTop + cityHeight - 20.0f });
-            window.draw(cutText);
+            for (std::size_t i = 0; i < lines.size(); ++i) {
+                sf::Text cutText(font, toUtf8(lines[i]), cutSize);
+                cutText.setFillColor(theme::TextPrimary);
+                sf::FloatRect cb = cutText.getLocalBounds();
+                cutText.setPosition({ midX - cb.size.x / 2.0f - cb.position.x,
+                                      barRect.position.y + 3.0f + lineH * static_cast<float>(i) });
+                ui::drawText(window, cutText, barRect);
+            }
         }
     }
 }
@@ -360,10 +384,11 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
 
     sf::RectangleShape cPanel({ panelW, panelH });
     cPanel.setPosition({ panelX, panelY });
-    cPanel.setFillColor(sf::Color(18, 24, 36, 245));
+    cPanel.setFillColor(theme::withAlpha(theme::Panel, 245));
     cPanel.setOutlineThickness(1.5f);
-    cPanel.setOutlineColor(sf::Color(70, 95, 130));
+    cPanel.setOutlineColor(theme::Line);
     window.draw(cPanel);
+    ui::lint::ContainerScope panelScope(sf::FloatRect({ panelX, panelY }, { panelW, panelH }));
 
     if (fontLoaded) {
         int totalSupplied = p1Energy + p2Energy;
@@ -371,20 +396,21 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         sf::Color demandColor;
 
         if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
-            dStr = "НУЖДА НА ГРАДА: 0 MW  * ГРАТИСЕН ПЕРИОД (ДЕН " + std::to_string(currentDay) + "/" +
-                   std::to_string(Balance::GRACE_PERIOD_DAYS) + ") * | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
-            demandColor = sf::Color(90, 255, 190);
+            dStr = "ГРАТИСЕН ПЕРИОД (ДЕН " + std::to_string(currentDay) + "/" +
+                   std::to_string(Balance::GRACE_PERIOD_DAYS) + "): ГРАДЪТ ИСКА 0 MW · ДОСТАВКА " + std::to_string(totalSupplied) + " MW";
+            demandColor = theme::Good;
         } else {
-            dStr = "НУЖДА НА ГРАДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) +
-                   " MW | ПОБЕДА: " + std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%";
-            demandColor = sf::Color(255, 215, 0);
+            dStr = "НУЖДА НА ГРАДА " + std::to_string(demand) + " MW · ДОСТАВКА " + std::to_string(totalSupplied) +
+                   " MW · ПОБЕДА ПРИ " + std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%";
+            demandColor = theme::TextPrimary;
         }
 
-        sf::Text tDemand(font, toUtf8(dStr), 12);
+        sf::Text tDemand(font, toUtf8(dStr), fontsize::Label);
+        tDemand.setStyle(sf::Text::Bold);
         tDemand.setFillColor(demandColor);
         sf::FloatRect db = tDemand.getLocalBounds();
         tDemand.setPosition({ panelX + (panelW - db.size.x) / 2.0f, panelY + 4.0f });
-        window.draw(tDemand);
+        ui::drawText(window, tDemand);
 
         float barW = 440.0f;
         float barH = 10.0f;
@@ -393,26 +419,26 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
 
         sf::RectangleShape baseBar({ barW, barH });
         baseBar.setPosition({ barX, barY });
-        baseBar.setFillColor(sf::Color(40, 50, 65));
+        baseBar.setFillColor(theme::Well);
         window.draw(baseBar);
 
         // P1 Cyan Portion
         sf::RectangleShape p1Bar({ barW * p1Share, barH });
         p1Bar.setPosition({ barX, barY });
-        p1Bar.setFillColor(sf::Color(0, 220, 255));
+        p1Bar.setFillColor(theme::P1);
         window.draw(p1Bar);
 
         // P2 Magenta Portion
         sf::RectangleShape p2Bar({ barW * (1.0f - p1Share), barH });
         p2Bar.setPosition({ barX + barW * p1Share, barY });
-        p2Bar.setFillColor(sf::Color(255, 120, 200));
+        p2Bar.setFillColor(theme::P2);
         window.draw(p2Bar);
 
         // Victory threshold ticks: P1 wins when the needle reaches the right tick, P2 at the left one
         for (float tickShare : { Balance::VICTORY_SHARE, 1.0f - Balance::VICTORY_SHARE }) {
             sf::RectangleShape tick({ 2.0f, barH + 6.0f });
             tick.setPosition({ barX + barW * tickShare - 1.0f, barY - 3.0f });
-            tick.setFillColor(sf::Color(255, 215, 0, 230));
+            tick.setFillColor(theme::withAlpha(theme::TextPrimary, 230));
             window.draw(tick);
         }
 
@@ -426,14 +452,16 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         int p1Pct = static_cast<int>(std::lround(p1Share * 100.0f));
         int p2Pct = 100 - p1Pct;
 
-        sf::Text p1Tag(font, toUtf8("P1: " + std::to_string(p1Pct) + "%"), 11);
-        p1Tag.setFillColor(sf::Color(0, 229, 255));
+        sf::Text p1Tag(font, toUtf8("P1 " + std::to_string(p1Pct) + "%"), fontsize::Caption);
+        p1Tag.setStyle(sf::Text::Bold);
+        p1Tag.setFillColor(theme::P1Light);
         p1Tag.setPosition({ barX - 48.0f, barY - 2.0f });
-        window.draw(p1Tag);
+        ui::drawText(window, p1Tag);
 
-        sf::Text p2Tag(font, toUtf8("P2: " + std::to_string(p2Pct) + "%"), 11);
-        p2Tag.setFillColor(sf::Color(255, 140, 210));
+        sf::Text p2Tag(font, toUtf8("P2 " + std::to_string(p2Pct) + "%"), fontsize::Caption);
+        p2Tag.setStyle(sf::Text::Bold);
+        p2Tag.setFillColor(theme::P2Light);
         p2Tag.setPosition({ barX + barW + 8.0f, barY - 2.0f });
-        window.draw(p2Tag);
+        ui::drawText(window, p2Tag);
     }
 }

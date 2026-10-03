@@ -1,4 +1,8 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
+#include "../includes/UI_icons.h"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -23,13 +27,20 @@ void UI_map::drawFloatingNotices(sf::RenderWindow& window) {
     for (const auto& n : notices) {
         float alphaFrac = n.timer / n.maxTimer;
         std::uint8_t alpha = static_cast<std::uint8_t>(alphaFrac * 255);
-        sf::Text t(font, toUtf8(n.text), 14);
-        sf::Color c = n.color;
-        c.a = alpha;
-        t.setFillColor(c);
+        sf::Text t(font, toUtf8(n.text), fontsize::Body);
+        t.setStyle(sf::Text::Bold);
+        t.setFillColor(theme::withAlpha(n.color, alpha));
         sf::FloatRect b = t.getLocalBounds();
-        t.setPosition(sf::Vector2f(n.pos.x - b.size.x / 2.0f, n.pos.y));
-        window.draw(t);
+        // Dark pill behind the rising text so it stays readable over the map and the panels
+        sf::Vector2f pillSize(b.size.x + 12.0f, b.size.y + 8.0f);
+        sf::Vector2f pillPos(std::max(2.0f, std::min(n.pos.x - pillSize.x / 2.0f, VIRTUAL_WIDTH - pillSize.x - 2.0f)), n.pos.y);
+        sf::RectangleShape pill(pillSize);
+        pill.setPosition(pillPos);
+        pill.setFillColor(theme::withAlpha(theme::Window, static_cast<std::uint8_t>(alphaFrac * 200)));
+        window.draw(pill);
+        if (alpha >= 40) ui::lint::occlude(sf::FloatRect(pillPos, pillSize));
+        t.setPosition({ pillPos.x + 6.0f - b.position.x, pillPos.y + 4.0f - b.position.y });
+        ui::drawText(window, t);
     }
 }
 
@@ -54,67 +65,69 @@ void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
 
         float alphaRatio = std::min(1.0f, pop.timer / 0.8f);
         std::uint8_t alpha = static_cast<std::uint8_t>(alphaRatio * 245);
+        const float w = 225.0f;
+        const float textW = w - 16.0f;
 
-        // Glassmorphic container box
-        sf::RectangleShape box({ 225.0f, 132.0f });
+        // Texts are wrapped to the box; the box grows to fit them
+        sf::Text tBadge(font, toUtf8(pop.badge), fontsize::Caption);
+        tBadge.setStyle(sf::Text::Bold);
+        sf::Text tTitle(font, toUtf8(ui::wrapText(font, pop.title, fontsize::Label, textW, true)), fontsize::Label);
+        tTitle.setStyle(sf::Text::Bold);
+        sf::Text tDetail(font, toUtf8(ui::wrapText(font, pop.detail, fontsize::Caption, textW)), fontsize::Caption);
+        sf::Text tAct(font, toUtf8(ui::wrapText(font, pop.action, fontsize::Caption, textW)), fontsize::Caption);
+        auto bottomOf = [](const sf::Text& t) { return t.getLocalBounds().position.y + t.getLocalBounds().size.y; };
+
+        const float badgeH = 18.0f;
+        float titleY = 8.0f + badgeH + 6.0f;
+        float detailY = titleY + bottomOf(tTitle) + 8.0f;
+        float actY = detailY + (pop.detail.empty() ? 0.0f : bottomOf(tDetail) + 8.0f);
+        float h = actY + (pop.action.empty() ? 0.0f : bottomOf(tAct) + 8.0f) + 6.0f;
+
+        sf::RectangleShape box({ w, h });
         box.setPosition({ x, y });
-        box.setFillColor(sf::Color(16, 22, 34, alpha));
+        box.setFillColor(theme::withAlpha(theme::Panel, alpha));
         box.setOutlineThickness(1.5f);
-        sf::Color outColor = pop.accentColor;
-        outColor.a = alpha;
-        box.setOutlineColor(outColor);
+        box.setOutlineColor(theme::withAlpha(pop.accentColor, alpha));
         window.draw(box);
+        const sf::FloatRect popupRect({ x, y }, { w, h });
+        ui::lint::occlude(popupRect);
+        ui::lint::ContainerScope popupScope(popupRect);
 
-        // Badge pill
-        sf::RectangleShape badgeBox({ 65.0f, 18.0f });
-        badgeBox.setPosition({ x + 8.0f, y + 8.0f });
-        sf::Color bColor = pop.accentColor;
-        bColor.a = static_cast<std::uint8_t>(alpha * 0.65f);
-        badgeBox.setFillColor(bColor);
-        window.draw(badgeBox);
-
-        sf::Text tBadge(font, toUtf8(pop.badge), 10);
-        tBadge.setFillColor(sf::Color(255, 255, 255, alpha));
+        // Badge: saturated accent fill with dark text (readable contrast)
         sf::FloatRect bb = tBadge.getLocalBounds();
-        tBadge.setPosition({ x + 8.0f + (65.0f - bb.size.x) / 2.0f, y + 9.0f });
-        window.draw(tBadge);
+        sf::RectangleShape badgeBox({ bb.size.x + 14.0f, badgeH });
+        badgeBox.setPosition({ x + 8.0f, y + 8.0f });
+        badgeBox.setFillColor(theme::withAlpha(pop.accentColor, alpha));
+        window.draw(badgeBox);
+        tBadge.setFillColor(theme::withAlpha(theme::TextOnLight, alpha));
+        tBadge.setPosition({ x + 15.0f - bb.position.x, y + 8.0f + (badgeH - bb.size.y) / 2.0f - bb.position.y });
+        ui::drawText(window, tBadge, sf::FloatRect(badgeBox.getPosition(), badgeBox.getSize()));
 
-        // Title
-        sf::Text tTitle(font, toUtf8(pop.title), 12);
-        tTitle.setFillColor(sf::Color(255, 255, 255, alpha));
-        tTitle.setPosition({ x + 78.0f, y + 9.0f });
-        window.draw(tTitle);
+        tTitle.setFillColor(theme::withAlpha(theme::TextPrimary, alpha));
+        tTitle.setPosition({ x + 8.0f, y + titleY });
+        ui::drawText(window, tTitle);
 
-        // Separator
-        sf::RectangleShape sep({ 209.0f, 1.0f });
-        sep.setPosition({ x + 8.0f, y + 31.0f });
-        sep.setFillColor(sf::Color(60, 85, 120, alpha));
-        window.draw(sep);
-
-        // Detailed Explanation
-        sf::Text tDetail(font, toUtf8(pop.detail), 11);
-        tDetail.setFillColor(sf::Color(195, 225, 255, alpha));
-        tDetail.setPosition({ x + 8.0f, y + 36.0f });
-        window.draw(tDetail);
-
-        // Action instructions
+        if (!pop.detail.empty()) {
+            tDetail.setFillColor(theme::withAlpha(theme::TextSecondary, alpha));
+            tDetail.setPosition({ x + 8.0f, y + detailY });
+            ui::drawText(window, tDetail);
+        }
         if (!pop.action.empty()) {
-            sf::Text tAct(font, toUtf8(pop.action), 10);
-            tAct.setFillColor(sf::Color(255, 215, 80, alpha));
-            tAct.setPosition({ x + 8.0f, y + 92.0f });
-            window.draw(tAct);
+            tAct.setFillColor(theme::withAlpha(theme::Info, alpha));
+            tAct.setPosition({ x + 8.0f, y + actY });
+            ui::drawText(window, tAct);
         }
 
-        // Timer progress bar at the bottom
-        float pWidth = 209.0f * (pop.timer / pop.maxTimer);
+        // Timer progress bar along the bottom edge
+        float pWidth = (w - 16.0f) * (pop.timer / pop.maxTimer);
         sf::RectangleShape prog({ std::max(0.0f, pWidth), 2.5f });
-        prog.setPosition({ x + 8.0f, y + 122.0f });
-        prog.setFillColor(outColor);
+        prog.setPosition({ x + 8.0f, y + h - 5.0f });
+        prog.setFillColor(theme::withAlpha(pop.accentColor, alpha));
         window.draw(prog);
     };
 
-    drawOnePopup(p1Popup, 20.0f, 520.0f);
-    drawOnePopup(p2Popup, 1600.0f - 245.0f, 520.0f);
+    drawOnePopup(p1Popup, 20.0f, 518.0f);
+    drawOnePopup(p2Popup, 1600.0f - 245.0f, 518.0f);
 }
 
 void UI_map::triggerPlayerModal(int player, const std::string& badge, const std::string& title,
@@ -126,18 +139,52 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
     m.active = true;
     m.badge = badge;
-    m.title = title;
-    m.detail = detail;
-    m.tip = tip;
     m.accentColor = accent;
 
-    float w = 340.0f;
-    float h = 210.0f;
-    float x = (player == 1) ? (800.0f - w) / 2.0f : 800.0f + (800.0f - w) / 2.0f;
-    float y = 250.0f;
+    // Wrap every text to the box and grow the box to fit, so long engine messages stay inside
+    const float w = 360.0f;
+    const float textW = w - 24.0f;
+    auto textHeight = [this](const std::string& s, unsigned int size) {
+        if (s.empty() || !resourcesLoaded) return 0.0f;
+        sf::Text t(font, toUtf8(s), size);
+        return t.getLocalBounds().position.y + t.getLocalBounds().size.y;
+    };
+    m.title = resourcesLoaded ? ui::wrapText(font, title, fontsize::Body, textW, true) : title;
+    m.detail = resourcesLoaded ? ui::wrapText(font, detail, fontsize::Label, textW) : detail;
+    std::string tipText = tip.empty() ? std::string() : "СЪВЕТ: " + tip;
+    m.tip = resourcesLoaded ? ui::wrapText(font, tipText, fontsize::Caption, textW) : tipText;
+
+    m.detailY = 40.0f + textHeight(m.title, fontsize::Body) + 10.0f;
+    m.tipY = m.detailY + textHeight(m.detail, fontsize::Label) + 12.0f;
+    float okY = m.tipY + (m.tip.empty() ? 0.0f : textHeight(m.tip, fontsize::Caption) + 14.0f);
+    float h = std::max(190.0f, okY + 32.0f + 12.0f);
+
+    // Centred in the player's free map area (between the building panel and the centre line)
+    float x = (player == 1) ? (248.0f + 800.0f - w) / 2.0f : (800.0f + 1352.0f - w) / 2.0f;
+    float y = std::max(120.0f, 355.0f - h / 2.0f);
 
     m.box = sf::FloatRect({ x, y }, { w, h });
-    m.okBtn = sf::FloatRect({ x + (w - 200.0f) / 2.0f, y + h - 42.0f }, { 200.0f, 32.0f });
+    m.okBtn = sf::FloatRect({ x + (w - 200.0f) / 2.0f, y + h - 44.0f }, { 200.0f, 32.0f });
+}
+
+void UI_map::reportBuildFailure(int player, BuildingType sel, const std::string& engineMsg) {
+    const sf::Color errorColor = theme::Bad;
+    if (sel != BuildingType::DEMOLISH && sel != BuildingType::NONE) {
+        BuildingCost cost = engine.getBuildingCost(sel);
+        std::string missing = missingResourcesText(engine.getPlayerEconomy(player), cost);
+        if (!missing.empty()) {
+            std::string key = (player == 1) ? "[SPACE]" : "[ENTER]";
+            triggerPlayerModal(player, "НЕДОСТИГ НА РЕСУРСИ", "Не стигат ресурси за " + cost.nameBg, missing,
+                               "Добийте ги от станциите долу: застанете върху станция и натиснете " + key +
+                                   " (или кликнете върху нея).",
+                               errorColor);
+            return;
+        }
+    }
+    triggerPlayerModal(player, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", engineMsg,
+                       !engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!"
+                                            : "Изберете свободна клетка от ваш закупен парцел.",
+                       errorColor);
 }
 
 void UI_map::closePlayerModal(int player) {
@@ -153,7 +200,7 @@ void UI_map::closePlayerModal(int player) {
 
 void UI_map::drawPlayerModals(sf::RenderWindow& window) {
     if (!resourcesLoaded) return;
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
 
     auto drawOneModal = [&](const PlayerModalDialog& m, int pIdx) {
         if (!m.active) return;
@@ -162,63 +209,69 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         float overlayX = (pIdx == 1) ? 0.0f : 800.0f;
         sf::RectangleShape overlay({ 800.0f, 900.0f });
         overlay.setPosition({ overlayX, 0.0f });
-        overlay.setFillColor(sf::Color(0, 0, 0, 140));
+        overlay.setFillColor(theme::withAlpha(theme::Dim, 140));
         window.draw(overlay);
 
         // Modal main box
         sf::RectangleShape card(m.box.size);
         card.setPosition(m.box.position);
-        card.setFillColor(sf::Color(16, 22, 34, 252));
+        card.setFillColor(theme::withAlpha(theme::Panel, 252));
         card.setOutlineThickness(2.5f);
         card.setOutlineColor(m.accentColor);
         window.draw(card);
+        ui::lint::occlude(m.box);
+        ui::lint::ContainerScope modalScope(m.box);
 
         // Header bar
         sf::RectangleShape hBar({ m.box.size.x, 30.0f });
         hBar.setPosition(m.box.position);
-        hBar.setFillColor(sf::Color(28, 38, 54, 250));
+        hBar.setFillColor(theme::PanelHeader);
         window.draw(hBar);
 
         // Badge / Alert Icon
-        sf::Text tBadge(font, toUtf8("! " + m.badge), 12);
+        sf::Text tBadge(font, toUtf8("! " + m.badge), fontsize::Label);
+        tBadge.setStyle(sf::Text::Bold);
         tBadge.setFillColor(m.accentColor);
         tBadge.setPosition({ m.box.position.x + 10.0f, m.box.position.y + 6.0f });
-        window.draw(tBadge);
+        ui::drawText(window, tBadge);
 
         // Title
-        sf::Text tTitle(font, toUtf8(m.title), 13);
-        tTitle.setFillColor(sf::Color::White);
-        tTitle.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 38.0f });
-        window.draw(tTitle);
+        sf::Text tTitle(font, toUtf8(m.title), fontsize::Body);
+        tTitle.setStyle(sf::Text::Bold);
+        tTitle.setFillColor(theme::TextPrimary);
+        tTitle.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 40.0f });
+        ui::drawText(window, tTitle);
 
         // Detail explanation
-        sf::Text tDetail(font, toUtf8(m.detail), 11);
-        tDetail.setFillColor(sf::Color(200, 225, 250));
-        tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 64.0f });
-        window.draw(tDetail);
+        sf::Text tDetail(font, toUtf8(m.detail), fontsize::Label);
+        tDetail.setFillColor(theme::TextPrimary);
+        tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.detailY });
+        ui::drawText(window, tDetail);
 
         // Tip text
         if (!m.tip.empty()) {
-            sf::Text tTip(font, toUtf8("СЪВЕТ: " + m.tip), 10);
-            tTip.setFillColor(sf::Color(255, 225, 110));
-            tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 115.0f });
-            window.draw(tTip);
+            sf::Text tTip(font, toUtf8(m.tip), fontsize::Caption);
+            tTip.setFillColor(theme::Warn);
+            tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.tipY });
+            ui::drawText(window, tTip);
         }
 
         // [ OK - РАЗБРАХ ] Button (clickable only by the player who owns the mouse)
         bool btnHover = (mouseOwnerAt(mousePos) == pIdx) && m.okBtn.contains(mousePos);
         sf::RectangleShape btn(m.okBtn.size);
         btn.setPosition(m.okBtn.position);
-        btn.setFillColor(btnHover ? sf::Color(55, 160, 95) : sf::Color(35, 110, 65));
-        btn.setOutlineThickness(1.5f);
-        btn.setOutlineColor(btnHover ? sf::Color(100, 255, 180) : sf::Color(70, 210, 110));
+        btn.setFillColor(theme::GoodFill);
+        btn.setOutlineThickness(btnHover ? 2.0f : 1.5f);
+        btn.setOutlineColor(btnHover ? theme::Focus : theme::Good);
         window.draw(btn);
 
-        sf::Text tOk(font, toUtf8(pIdx == 1 ? "OK [SPACE] - РАЗБРАХ" : "OK [ENTER] - РАЗБРАХ"), 12);
-        tOk.setFillColor(sf::Color::White);
+        sf::Text tOk(font, toUtf8(pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]"), fontsize::Label);
+        tOk.setStyle(sf::Text::Bold);
+        tOk.setFillColor(theme::TextPrimary);
         sf::FloatRect ob = tOk.getLocalBounds();
-        tOk.setPosition({ m.okBtn.position.x + (m.okBtn.size.x - ob.size.x) / 2.0f, m.okBtn.position.y + 6.0f });
-        window.draw(tOk);
+        tOk.setPosition({ m.okBtn.position.x + (m.okBtn.size.x - ob.size.x) / 2.0f - ob.position.x,
+                          m.okBtn.position.y + (m.okBtn.size.y - ob.size.y) / 2.0f - ob.position.y });
+        ui::drawText(window, tOk, m.okBtn);
     };
 
     drawOneModal(p1Modal, 1);
@@ -226,81 +279,59 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
 }
 
 void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
-    float animTime = animClock.getElapsedTime().asSeconds();
-
     ResourceType p1Res = nodes.getP1ResourceAt(p1Pos);
     ResourceType p2Res = nodes.getP2ResourceAt(p2Pos);
 
-    auto drawPrompt = [&](sf::Vector2f pos, const std::string& title, const std::string& keyStr, sf::Color col, float cd) {
+    // Mining prompt above the cursor's name tag: resource icon, station, current yield and key,
+    // or the remaining cooldown with a progress bar
+    auto drawPrompt = [&](int player, sf::Vector2f pos, ResourceType res, const std::string& keyStr, float cd) {
         if (!resourcesLoaded) return;
-        sf::RectangleShape tagBox({ 260.0f, 26.0f });
-        tagBox.setPosition({ pos.x - 130.0f, pos.y - 44.0f });
-        tagBox.setFillColor(sf::Color(10, 15, 25, 235));
-        tagBox.setOutlineThickness(1.5f);
-        tagBox.setOutlineColor(cd > 0.05f ? sf::Color(255, 180, 50) : col);
-        window.draw(tagBox);
-
-        std::string promptText = title + " | " + keyStr;
-        if (cd > 0.05f) {
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), " (%.1fs)", cd);
-            promptText += buf;
+        const auto* st = nodes.getStation(player, res);
+        const int yield = UI_resourceNodes::mineYield(res, engine.getMineLevel(player, res));
+        const bool cooling = cd > 0.05f;
+        std::string name = st ? st->nameBg : std::string("ДОБИВ");
+        std::string promptText;
+        if (cooling) {
+            char buf[48];
+            std::snprintf(buf, sizeof(buf), " · изчакайте %.1fс", static_cast<double>(cd));
+            promptText = name + buf;
         } else {
-            char cdBuf[48];
-            std::snprintf(cdBuf, sizeof(cdBuf), " [Добив: %gс]", static_cast<double>(Balance::MINE_COOLDOWN_SEC));
-            promptText += cdBuf;
+            promptText = name + " +" + std::to_string(yield) + " " + resourceNameBg(res) + " · " + keyStr;
         }
 
-        sf::Text t(font, toUtf8(promptText), 11);
-        t.setFillColor(cd > 0.05f ? sf::Color(255, 210, 100) : col);
+        sf::Text t(font, toUtf8(promptText), fontsize::Label);
+        t.setFillColor(cooling ? theme::Warn : theme::TextPrimary);
         sf::FloatRect tb = t.getLocalBounds();
-        t.setPosition({ tagBox.getPosition().x + (260.0f - tb.size.x) / 2.0f, tagBox.getPosition().y + 5.0f });
-        window.draw(t);
+        const float iconSize = 16.0f;
+        const float w = tb.size.x + iconSize + 22.0f;
+        const float h = 24.0f;
+        float x = std::max(4.0f, std::min(pos.x - w / 2.0f, VIRTUAL_WIDTH - w - 4.0f));
+        float y = std::max(4.0f, pos.y - 74.0f);
 
-        if (cd > 0.05f) {
+        sf::RectangleShape tagBox({ w, h });
+        tagBox.setPosition({ x, y });
+        tagBox.setFillColor(theme::withAlpha(theme::Panel, 240));
+        tagBox.setOutlineThickness(1.5f);
+        tagBox.setOutlineColor(cooling ? theme::Warn : theme::player(player));
+        window.draw(tagBox);
+        const sf::FloatRect tagRect({ x, y }, { w, h });
+        ui::lint::occlude(tagRect);
+
+        drawResourceIcon(window, res, { x + 6.0f + iconSize / 2.0f, y + h / 2.0f }, iconSize);
+        t.setPosition({ x + iconSize + 14.0f - tb.position.x, y + (h - tb.size.y) / 2.0f - tb.position.y });
+        ui::drawText(window, t, tagRect);
+
+        if (cooling) {
             float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / Balance::MINE_COOLDOWN_SEC));
-            sf::RectangleShape cdBar({ 256.0f * fillRatio, 3.0f });
-            cdBar.setPosition({ tagBox.getPosition().x + 2.0f, tagBox.getPosition().y + 24.0f });
-            cdBar.setFillColor(sf::Color(0, 255, 180));
+            sf::RectangleShape cdBar({ (w - 4.0f) * fillRatio, 3.0f });
+            cdBar.setPosition({ x + 2.0f, y + h - 4.0f });
+            cdBar.setFillColor(theme::Good);
             window.draw(cdBar);
         }
     };
 
-    if (p1Res != ResourceType::NONE) {
-        const auto* st = nodes.getStation(1, p1Res);
-        std::string name = st ? st->nameBg + " (" + st->yieldStr + ")" : "ДОБИВ";
-        sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
-        drawPrompt(p1Pos, name, "[SPACE]", c, p1ResourceCooldown);
-    }
-    if (p2Res != ResourceType::NONE) {
-        const auto* st = nodes.getStation(2, p2Res);
-        std::string name = st ? st->nameBg + " (" + st->yieldStr + ")" : "ДОБИВ";
-        sf::Color c = st ? st->themeColor : sf::Color(255, 120, 200);
-        drawPrompt(p2Pos, name, "[ENTER]", c, p2ResourceCooldown);
-    }
+    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, "[SPACE]", p1ResourceCooldown);
+    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, "[ENTER]", p2ResourceCooldown);
 
-    // High-speed 6x time badges under the top clocks when active
-    if (engine.getTimeScale() > 1.5f && resourcesLoaded) {
-        float pulse = (std::sin(animTime * 8.0f) + 1.0f) * 0.5f;
-        std::uint8_t glowAlpha = static_cast<std::uint8_t>(180 + pulse * 75);
-
-        auto drawClockSpeedBadge = [&](float x, float y) {
-            sf::RectangleShape badge({ 230.0f, 24.0f });
-            badge.setPosition({ x, y });
-            badge.setFillColor(sf::Color(45, 30, 8, 230));
-            badge.setOutlineThickness(1.5f);
-            badge.setOutlineColor(sf::Color(255, 215, 0, glowAlpha));
-            window.draw(badge);
-
-            sf::Text bt(font, toUtf8("⏩ 6x СКОРОСТ НА ВРЕМЕТО (ДОБИВ)"), 10);
-            bt.setStyle(sf::Text::Bold);
-            bt.setFillColor(sf::Color(255, 235, 120));
-            sf::FloatRect btb = bt.getLocalBounds();
-            bt.setPosition({ x + (230.0f - btb.size.x) / 2.0f, y + 5.0f });
-            window.draw(bt);
-        };
-
-        drawClockSpeedBadge(20.0f, 115.0f);
-        drawClockSpeedBadge(1600.0f - 250.0f, 115.0f);
-    }
+    // The 6x mining speed-up is shown inside each player's clock card (UI_clock)
 }

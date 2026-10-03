@@ -1,4 +1,8 @@
 #include "../includes/UI_clock.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
+#include <cstdio>
 #include "../includes/UI_types.h"
 #include <cmath>
 #include <algorithm>
@@ -42,26 +46,70 @@ void UI_clock::advanceTime(float hours) {
     }
 }
 
+namespace {
+
+// Bulgarian-only names (the engine's names also carry English in brackets); a sunny night is "Ясно"
+const char* weatherNameBg(WeatherType w, bool daylight) {
+    switch (w) {
+        case WeatherType::SUNNY:  return daylight ? "Слънчево" : "Ясно";
+        case WeatherType::WINDY:  return "Ветровито";
+        case WeatherType::RAINY:  return "Дъждовно";
+        case WeatherType::STORMY: return "Буря";
+        case WeatherType::SNOWY:  return "Снежно";
+        case WeatherType::CLOUDY: return "Облачно";
+    }
+    return "Слънчево";
+}
+
+const char* seasonNameBg(SeasonType s) {
+    switch (s) {
+        case SeasonType::SPRING: return "Пролет";
+        case SeasonType::SUMMER: return "Лято";
+        case SeasonType::AUTUMN: return "Есен";
+        case SeasonType::WINTER: return "Зима";
+    }
+    return "Пролет";
+}
+
+// Weather colours never use a player colour (both cards show weather)
+sf::Color weatherColor(WeatherType w, bool daylight) {
+    switch (w) {
+        case WeatherType::SUNNY:  return daylight ? theme::Energy : theme::TextPrimary;
+        case WeatherType::WINDY:  return theme::TextPrimary;
+        case WeatherType::RAINY:  return theme::Info;
+        case WeatherType::STORMY: return theme::Warn;
+        case WeatherType::SNOWY:  return theme::TextPrimary;
+        case WeatherType::CLOUDY: return theme::TextSecondary;
+    }
+    return theme::TextPrimary;
+}
+
+// Drawn "fast forward" mark (two triangles); the font has no U+23E9 glyph
+void drawFastForward(sf::RenderWindow& window, sf::Vector2f pos, float h, sf::Color color) {
+    for (int i = 0; i < 2; ++i) {
+        sf::ConvexShape tri(3);
+        float x = pos.x + i * h * 0.55f;
+        tri.setPoint(0, { x, pos.y });
+        tri.setPoint(1, { x + h * 0.6f, pos.y + h / 2.0f });
+        tri.setPoint(2, { x, pos.y + h });
+        tri.setFillColor(color);
+        window.draw(tri);
+    }
+}
+
+} // namespace
+
 void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                     sf::Vector2f pos, sf::Vector2f size, sf::Color accentColor) {
-    // Background card with glowing outline
+    // Background card with the player's outline
     sf::RectangleShape card(size);
     card.setPosition(pos);
-    card.setFillColor(sf::Color(16, 22, 34, 250));
+    card.setFillColor(theme::withAlpha(theme::Panel, 250));
     card.setOutlineThickness(2.0f);
     card.setOutlineColor(accentColor);
     window.draw(card);
-
-    // Format 12h/24h AM/PM
-    int hour = static_cast<int>(currentHour);
-    int minute = static_cast<int>(std::fmod(currentHour * 60.0f, 60.0f));
-    bool isPM = (hour >= 12);
-    int hour12 = hour % 12;
-    if (hour12 == 0) hour12 = 12;
-
-    std::ostringstream oss;
-    oss << (hour12 < 10 ? "0" : "") << hour12 << ":" << (minute < 10 ? "0" : "") << minute << (isPM ? " PM" : " AM");
-    std::string timeStr = oss.str();
+    ui::lint::solid(sf::FloatRect(pos, size));
+    ui::lint::ContainerScope cardScope(sf::FloatRect(pos, size));
 
     // Celestial Sun/Moon dial
     bool daylight = isDaylight();
@@ -69,7 +117,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     celestial.setOrigin({ 9.0f, 9.0f });
     celestial.setPosition({ pos.x + size.x - 22.0f, pos.y + 20.0f });
     if (daylight) {
-        celestial.setFillColor(sf::Color(255, 215, 0));
+        celestial.setFillColor(theme::Energy);
         celestial.setOutlineThickness(2.0f);
         celestial.setOutlineColor(sf::Color(255, 245, 180));
     } else {
@@ -78,70 +126,73 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         celestial.setOutlineColor(sf::Color(220, 240, 255));
     }
     window.draw(celestial);
+    ui::lint::icon(celestial.getGlobalBounds());
 
-    if (fontLoaded) {
-        // Header: Player Name & Day (ДЕН N/FINAL_DAY). The grace period is shown by the green
-        // title colour and the "(0 MW Гратис)" sun line below (a "[ГРАТИС]" tag no longer fits).
-        // After the final day ends the engine is already on the next day; never show e.g. 21/20.
-        const int finalDay = static_cast<int>(Balance::FINAL_DAY);
-        const int shownDay = std::min(currentDay, finalDay);
-        std::string pTitle = (playerIndex == 1) ? "ИГРАЧ 1 (ЗАПАД)" : "ИГРАЧ 2 (ИЗТОК)";
-        std::string dayStr = pTitle + " | ДЕН " + std::to_string(shownDay) + "/" + std::to_string(finalDay);
-        unsigned int titleSize = 13;
-        sf::Text tTitle(font, toUtf8(dayStr), titleSize);
-        // Keep the title clear of the sun/moon dial on the right edge of the card
-        const float maxTitleW = size.x - 20.0f - 26.0f;
-        while (titleSize > 10 && tTitle.getLocalBounds().size.x > maxTitleW) {
-            --titleSize;
-            tTitle.setCharacterSize(titleSize);
-        }
-        tTitle.setFillColor(currentDay <= Balance::GRACE_PERIOD_DAYS ? sf::Color(90, 255, 190) : accentColor);
-        tTitle.setPosition({ pos.x + 10.0f, pos.y + 5.0f });
-        window.draw(tTitle);
+    if (!fontLoaded) return;
 
-        // Divider
-        sf::RectangleShape div({ size.x - 20.0f, 1.5f });
-        div.setPosition({ pos.x + 10.0f, pos.y + 24.0f });
-        div.setFillColor(sf::Color(70, 95, 130));
-        window.draw(div);
+    const bool grace = currentDay <= Balance::GRACE_PERIOD_DAYS;
+    const float textX = pos.x + 10.0f;
 
-        // Line 1: Weather (Време) - font size 12
-        std::string wStr = "Време: " + std::string(getWeatherName(weather));
-        sf::Text tWeather(font, toUtf8(wStr), 12);
-        tWeather.setFillColor(weather == WeatherType::SUNNY ? sf::Color(255, 225, 110) :
-                             (weather == WeatherType::WINDY ? sf::Color(130, 245, 255) :
-                             (weather == WeatherType::RAINY ? sf::Color(150, 190, 255) :
-                             (weather == WeatherType::SNOWY ? sf::Color(220, 235, 255) :
-                             (weather == WeatherType::CLOUDY ? sf::Color(180, 185, 200) : sf::Color(255, 160, 140))))));
-        tWeather.setPosition({ pos.x + 10.0f, pos.y + 27.0f });
-        window.draw(tWeather);
+    // Header: player and day (ДЕН N/FINAL_DAY). After the final day ends the engine is already on
+    // the next day; never show e.g. 21/20.
+    const int finalDay = static_cast<int>(Balance::FINAL_DAY);
+    const int shownDay = std::min(currentDay, finalDay);
+    // (The side is clear from the card position and colour; "ИГРАЧ 1 (ЗАПАД) | ДЕН 16/20" ran under the dial.)
+    std::string pTitle = (playerIndex == 1) ? "ИГРАЧ 1" : "ИГРАЧ 2";
+    std::string dayStr = pTitle + " · ДЕН " + std::to_string(shownDay) + "/" + std::to_string(finalDay);
+    // Keep the title clear of the sun/moon dial on the right edge of the card
+    const float maxTitleW = size.x - 20.0f - 26.0f;
+    unsigned int titleSize = ui::fitTextSize(font, dayStr, fontsize::Label, fontsize::Caption, maxTitleW, true);
+    sf::Text tTitle(font, toUtf8(dayStr), titleSize);
+    tTitle.setStyle(sf::Text::Bold);
+    tTitle.setFillColor(accentColor);
+    tTitle.setPosition({ textX, pos.y + 6.0f });
+    ui::drawText(window, tTitle);
 
-        // Line 2: Season (Сезон) - font size 12
-        std::string sStr = "Сезон: " + std::string(getSeasonName(season)) + (daylight ? " [ДЕН]" : " [НОЩ]");
-        sf::Text tSeason(font, toUtf8(sStr), 12);
-        tSeason.setFillColor(season == SeasonType::SPRING ? sf::Color(140, 255, 160) :
-                            (season == SeasonType::SUMMER ? sf::Color(255, 235, 120) :
-                            (season == SeasonType::AUTUMN ? sf::Color(255, 185, 110) : sf::Color(210, 235, 255))));
-        tSeason.setPosition({ pos.x + 10.0f, pos.y + 44.0f });
-        window.draw(tSeason);
+    // Divider under the title; it stops before the dial instead of crossing it
+    sf::RectangleShape div({ size.x - 20.0f - 26.0f, 1.0f });
+    div.setPosition({ textX, pos.y + 25.0f });
+    div.setFillColor(theme::Line);
+    window.draw(div);
 
-        // Line 3: Hour (Час) - font size 13
-        std::string hStr = "Час: " + timeStr;
-        sf::Text tHour(font, toUtf8(hStr), 13);
-        tHour.setFillColor(daylight ? sf::Color(255, 255, 255) : sf::Color(190, 220, 255));
-        tHour.setPosition({ pos.x + 10.0f, pos.y + 61.0f });
-        window.draw(tHour);
+    // Weather (colour by weather), season and day / night
+    sf::Text tWeather(font, toUtf8(std::string("Време: ") + weatherNameBg(weather, daylight)), fontsize::Label);
+    tWeather.setFillColor(weatherColor(weather, daylight));
+    tWeather.setPosition({ textX, pos.y + 29.0f });
+    ui::drawText(window, tWeather);
 
-        // Line 4: Adaptive Sun Schedule (Sunrise & Sunset) - font size 11
-        std::string riseStr = Balance::formatHourMinute(Balance::getSunriseHour(season));
-        std::string setStr = Balance::formatHourMinute(Balance::getSunsetHour(season));
-        std::string sLine = "Слънце: " + riseStr + " - " + setStr;
-        if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
-            sLine += " (0 MW Гратис)";
-        }
-        sf::Text tSun(font, toUtf8(sLine), 11);
-        tSun.setFillColor(currentDay <= Balance::GRACE_PERIOD_DAYS ? sf::Color(90, 255, 190) : sf::Color(255, 215, 120));
-        tSun.setPosition({ pos.x + 10.0f, pos.y + 79.0f });
-        window.draw(tSun);
+    std::string sStr = std::string("Сезон: ") + seasonNameBg(season) + (daylight ? " · ден" : " · нощ");
+    sf::Text tSeason(font, toUtf8(sStr), fontsize::Label);
+    tSeason.setFillColor(theme::TextSecondary);
+    tSeason.setPosition({ textX, pos.y + 45.0f });
+    ui::drawText(window, tSeason);
+
+    // 24-hour clock; while the mining speed-up runs: a fast-forward mark and the factor
+    sf::Text tHour(font, toUtf8("Час: " + Balance::formatHourMinute(currentHour)), fontsize::Body);
+    tHour.setStyle(sf::Text::Bold);
+    tHour.setFillColor(daylight ? theme::TextPrimary : theme::Info);
+    tHour.setPosition({ textX, pos.y + 60.0f });
+    ui::drawText(window, tHour);
+
+    if (timeScale > 1.5f) {
+        char buf[24];
+        std::snprintf(buf, sizeof(buf), "%dx добив", static_cast<int>(std::lround(timeScale)));
+        sf::Text tFast(font, toUtf8(buf), fontsize::Label);
+        tFast.setStyle(sf::Text::Bold);
+        tFast.setFillColor(theme::Warn);
+        sf::FloatRect fb = tFast.getLocalBounds();
+        float fx = pos.x + size.x - 10.0f - fb.size.x - fb.position.x;
+        tFast.setPosition({ fx, pos.y + 62.0f });
+        drawFastForward(window, { fx - 20.0f, pos.y + 65.0f }, 10.0f, theme::Warn);
+        ui::drawText(window, tFast);
     }
+
+    // Adaptive sun schedule (sunrise - sunset), grace period note
+    std::string sLine = "Слънце: " + Balance::formatHourMinute(Balance::getSunriseHour(season)) + " - " +
+                        Balance::formatHourMinute(Balance::getSunsetHour(season));
+    if (grace) sLine += " · гратис";
+    sf::Text tSun(font, toUtf8(sLine), fontsize::Caption);
+    tSun.setFillColor(grace ? theme::Good : theme::TextSecondary);
+    tSun.setPosition({ textX, pos.y + 81.0f });
+    ui::drawText(window, tSun);
 }

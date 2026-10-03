@@ -172,6 +172,21 @@ void UI_map::updateWeatherParticles(float dt) {
     }
 }
 
+// Thick line segment (SFML lines are 1 px, too thin for a bolt on the bright ground)
+static void drawThickSegment(sf::RenderWindow& window, sf::Vector2f a, sf::Vector2f b, float width, sf::Color color) {
+    sf::Vector2f d = b - a;
+    float len = std::sqrt(d.x * d.x + d.y * d.y);
+    if (len <= 0.0f) return;
+    sf::Vector2f n(-d.y / len * width * 0.5f, d.x / len * width * 0.5f);
+    sf::ConvexShape quad(4);
+    quad.setPoint(0, a + n);
+    quad.setPoint(1, b + n);
+    quad.setPoint(2, b - n);
+    quad.setPoint(3, a - n);
+    quad.setFillColor(color);
+    window.draw(quad);
+}
+
 void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
     // 1. Screen Lightning flash
     if (lightningFlashTimer > 0.0f) {
@@ -189,21 +204,13 @@ void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
 
         if (bolt.mainBolt.size() >= 2) {
             for (size_t i = 0; i < bolt.mainBolt.size() - 1; ++i) {
-                // Outer cyan electric glow
-                sf::Vertex glow[2];
-                glow[0].position = bolt.mainBolt[i];
-                glow[0].color = sf::Color(110, 215, 255, static_cast<std::uint8_t>(alpha * 0.65f));
-                glow[1].position = bolt.mainBolt[i + 1];
-                glow[1].color = sf::Color(110, 215, 255, static_cast<std::uint8_t>(alpha * 0.65f));
-                window.draw(glow, 2, sf::PrimitiveType::Lines);
-
-                // Core brilliant hot white bolt
-                sf::Vertex core[2];
-                core[0].position = bolt.mainBolt[i] + sf::Vector2f(1.0f, 0.0f);
-                core[0].color = sf::Color(255, 255, 255, alpha);
-                core[1].position = bolt.mainBolt[i + 1] + sf::Vector2f(1.0f, 0.0f);
-                core[1].color = sf::Color(255, 255, 255, alpha);
-                window.draw(core, 2, sf::PrimitiveType::Lines);
+                // Outer cyan electric glow, then the brilliant hot white core
+                drawThickSegment(window, bolt.mainBolt[i], bolt.mainBolt[i + 1], 7.0f,
+                                 sf::Color(110, 215, 255, static_cast<std::uint8_t>(alpha * 0.35f)));
+                drawThickSegment(window, bolt.mainBolt[i], bolt.mainBolt[i + 1], 3.5f,
+                                 sf::Color(150, 230, 255, static_cast<std::uint8_t>(alpha * 0.75f)));
+                drawThickSegment(window, bolt.mainBolt[i], bolt.mainBolt[i + 1], 1.6f,
+                                 sf::Color(255, 255, 255, alpha));
             }
         }
 
@@ -211,12 +218,8 @@ void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
         for (const auto& branch : bolt.branches) {
             if (branch.size() >= 2) {
                 for (size_t i = 0; i < branch.size() - 1; ++i) {
-                    sf::Vertex bLine[2];
-                    bLine[0].position = branch[i];
-                    bLine[0].color = sf::Color(140, 225, 255, static_cast<std::uint8_t>(alpha * 0.55f));
-                    bLine[1].position = branch[i + 1];
-                    bLine[1].color = sf::Color(180, 240, 255, static_cast<std::uint8_t>(alpha * 0.35f));
-                    window.draw(bLine, 2, sf::PrimitiveType::Lines);
+                    drawThickSegment(window, branch[i], branch[i + 1], 2.0f,
+                                     sf::Color(160, 230, 255, static_cast<std::uint8_t>(alpha * 0.55f)));
                 }
             }
         }

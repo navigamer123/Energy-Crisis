@@ -16,7 +16,7 @@
 
 class UI_map {
 private:
-    sf::Texture grassTexture;
+    sf::Texture backgroundTexture; // assets/background.png, stretched over the 1600x900 canvas
     sf::Font font;
     bool resourcesLoaded;
     sf::Clock animClock;
@@ -66,7 +66,9 @@ private:
         std::string badge;
         std::string title;
         std::string detail;
-        std::string tip;
+        std::string tip;          // Already prefixed with "СЪВЕТ: " and wrapped to the box
+        float detailY = 64.0f;    // Text offsets from the top of the box (computed when the modal opens)
+        float tipY = 115.0f;
         sf::FloatRect box;
         sf::FloatRect okBtn;
         sf::Color accentColor = sf::Color(255, 75, 75);
@@ -77,7 +79,7 @@ private:
 
     std::vector<FloatingNotice> notices;
 
-    void drawGrassBackground(sf::RenderWindow& window);
+    void drawBackground(sf::RenderWindow& window);
     void drawPlayerCursors(sf::RenderWindow& window);
     void drawHUD(sf::RenderWindow& window);
     void drawFloatingNotices(sf::RenderWindow& window);
@@ -91,6 +93,9 @@ private:
     void triggerPlayerModal(int player, const std::string& badge, const std::string& title,
                             const std::string& detail, const std::string& tip, sf::Color accent = sf::Color(255, 75, 75));
     void closePlayerModal(int player);
+    // Build error dialog: lists exactly the missing resources ("Недостигат: 3 желязо, 2 мед") when that
+    // is the reason, otherwise shows the engine's reason
+    void reportBuildFailure(int player, BuildingType sel, const std::string& engineMsg);
 
     bool requestFullscreenToggle = false;
     bool showHelpOverlay = false;
@@ -109,6 +114,7 @@ private:
         sf::Color color = sf::Color(220, 245, 255);
     };
     std::vector<ActiveLightning> activeLightnings;
+    int debugBoltCountdown = -1; // Screenshot storm scene: frames until one bolt is fired (-1 = off)
     void triggerLightningStrike(sf::Vector2f targetPos, bool hitBuilding);
 
     struct WeatherParticle {
@@ -136,6 +142,7 @@ private:
     bool p2PrevPgDn = false;
     bool p2PrevPgUp = false;
     bool p2PrevDel = false;
+    bool p2PrevNum[7] = {false, false, false, false, false, false, false}; // Numpad 1..6 (co-op P2)
 
     // Discrete grid movement stepping for building placement
     float p1GridStepCooldown = 0.0f;
@@ -221,6 +228,11 @@ public:
     void primeInputEdges(int player = 0); // Keys held right now are not fresh presses (0 = both players)
     void resetMatchInputState();          // Call after restartMatch()/setBotDifficulty() when a match starts
     void onFocusLost();                   // Auto-pause when the window loses focus
+
+    // Screenshot mode (UI_map_debug.cpp): puts the running match into a named scene
+    // (game, mining, night, winter, storm, victory, pause, help, modal, tutorial) using only the public
+    // engine API. frames = frames the capture will render (used to time a lightning bolt).
+    void setupDebugScene(const std::string& scene, int frames);
 };
 
 #endif // UI_MAP_H

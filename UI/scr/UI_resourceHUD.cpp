@@ -1,4 +1,8 @@
 #include "../includes/UI_resourceHUD.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
+#include "../includes/UI_icons.h"
 #include "../includes/UI_types.h"
 #include <cmath>
 #include <string>
@@ -10,306 +14,116 @@ UI_resourceHUD::UI_resourceHUD()
 
 void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                                        const PlayerEconomy& econ, bool isWest) {
-    float screenWidth = VIRTUAL_WIDTH;
-    float screenHeight = VIRTUAL_HEIGHT;
-    float R = 250.0f; // Radius of the corner quarter-circle
+    const float screenWidth = VIRTUAL_WIDTH;
+    const float screenHeight = VIRTUAL_HEIGHT;
+    const float R = 250.0f; // Radius of the corner quarter-circle
+    const int player = isWest ? 1 : 2;
+    const sf::Color accent = theme::player(player);
 
     // -------------------------------------------------------------------------
-    // Quarter circle geometry
+    // Quarter circle geometry (bottom-left for P1, bottom-right for P2)
     // -------------------------------------------------------------------------
     sf::VertexArray fan(sf::PrimitiveType::TriangleFan);
     sf::VertexArray border(sf::PrimitiveType::LineStrip);
-
-    if (isWest) {
-        // Player 1 (Bottom-Left: Center at (0, screenHeight))
-        fan.append(sf::Vertex{ { 0.0f, screenHeight }, sf::Color(14, 20, 32, 245), {} });
-        for (int deg = -90; deg <= 0; deg += 3) {
-            float rad = deg * 3.14159265f / 180.0f;
-            sf::Vector2f pt(R * std::cos(rad), screenHeight + R * std::sin(rad));
-            fan.append(sf::Vertex{ pt, sf::Color(20, 30, 48, 245), {} });
-            border.append(sf::Vertex{ pt, sf::Color(0, 229, 255, 220), {} });
-        }
-        border.append(sf::Vertex{ { 0.0f, screenHeight }, sf::Color(0, 229, 255, 180), {} });
-        border.append(sf::Vertex{ { 0.0f, screenHeight - R }, sf::Color(0, 229, 255, 180), {} });
-    } else {
-        // Player 2 (Bottom-Right: Center at (screenWidth, screenHeight))
-        fan.append(sf::Vertex{ { screenWidth, screenHeight }, sf::Color(24, 18, 32, 245), {} });
-        for (int deg = 180; deg <= 270; deg += 3) {
-            float rad = deg * 3.14159265f / 180.0f;
-            sf::Vector2f pt(screenWidth + R * std::cos(rad), screenHeight + R * std::sin(rad));
-            fan.append(sf::Vertex{ pt, sf::Color(36, 24, 46, 245), {} });
-            border.append(sf::Vertex{ pt, sf::Color(255, 120, 200, 220), {} });
-        }
-        border.append(sf::Vertex{ { screenWidth, screenHeight }, sf::Color(255, 120, 200, 180), {} });
-        border.append(sf::Vertex{ { screenWidth - R, screenHeight }, sf::Color(255, 120, 200, 180), {} });
+    const sf::Vector2f corner = isWest ? sf::Vector2f(0.0f, screenHeight) : sf::Vector2f(screenWidth, screenHeight);
+    fan.append(sf::Vertex{ corner, theme::withAlpha(theme::Panel, 245), {} });
+    const int degFrom = isWest ? -90 : 180;
+    for (int deg = degFrom; deg <= degFrom + 90; deg += 3) {
+        float rad = static_cast<float>(deg) * 3.14159265f / 180.0f;
+        sf::Vector2f pt(corner.x + R * std::cos(rad), corner.y + R * std::sin(rad));
+        fan.append(sf::Vertex{ pt, theme::withAlpha(theme::playerDark(player), 245), {} });
+        border.append(sf::Vertex{ pt, theme::withAlpha(accent, 220), {} });
     }
-
+    border.append(sf::Vertex{ corner, theme::withAlpha(accent, 180), {} });
+    border.append(sf::Vertex{ isWest ? sf::Vector2f(0.0f, screenHeight - R) : sf::Vector2f(screenWidth - R, screenHeight),
+                              theme::withAlpha(accent, 180), {} });
     window.draw(fan);
     window.draw(border);
 
+    sf::Vector2f mousePos = ui::pointerPos(window);
+
     // -------------------------------------------------------------------------
-    // Mini Vector Icon Drawing Helpers
+    // Stock: icon + number. Numbers are primary text; the colour is carried by the icon,
+    // except gold (the currency) and money.
     // -------------------------------------------------------------------------
-    auto drawIcon = [&](ResourceType type, float x, float y) {
-        if (type == ResourceType::WOOD) {
-            sf::RectangleShape log({ 14.0f, 7.0f });
-            log.setPosition({ x + 2.0f, y + 3.0f });
-            log.setFillColor(sf::Color(140, 90, 50));
-            window.draw(log);
-            sf::CircleShape leaf(3.0f, 3);
-            leaf.setPosition({ x + 10.0f, y });
-            leaf.setFillColor(sf::Color(70, 220, 90));
-            window.draw(leaf);
-        } else if (type == ResourceType::IRON) {
-            sf::RectangleShape bar({ 12.0f, 8.0f });
-            bar.setPosition({ x + 2.0f, y + 2.0f });
-            bar.setFillColor(sf::Color(170, 190, 215));
-            window.draw(bar);
-        } else if (type == ResourceType::COPPER) {
-            sf::CircleShape coil(5.5f);
-            coil.setPosition({ x + 2.0f, y + 2.0f });
-            coil.setFillColor(sf::Color::Transparent);
-            coil.setOutlineThickness(2.0f);
-            coil.setOutlineColor(sf::Color(235, 140, 70));
-            window.draw(coil);
-        } else if (type == ResourceType::COAL) {
-            sf::CircleShape lump(5.5f, 5);
-            lump.setPosition({ x + 2.0f, y + 2.0f });
-            lump.setFillColor(sf::Color(100, 105, 115));
-            window.draw(lump);
-        } else if (type == ResourceType::SILICON) {
-            sf::ConvexShape gem(4);
-            gem.setPoint(0, { x + 7.0f, y });
-            gem.setPoint(1, { x + 13.0f, y + 6.0f });
-            gem.setPoint(2, { x + 7.0f, y + 12.0f });
-            gem.setPoint(3, { x + 1.0f, y + 6.0f });
-            gem.setFillColor(sf::Color(0, 220, 255));
-            window.draw(gem);
-        } else if (type == ResourceType::SILVER) {
-            sf::RectangleShape bar({ 13.0f, 7.0f });
-            bar.setPosition({ x + 1.0f, y + 3.0f });
-            bar.setFillColor(sf::Color(225, 235, 245));
-            window.draw(bar);
-        } else if (type == ResourceType::GOLD) {
-            sf::CircleShape coin(6.0f);
-            coin.setPosition({ x + 2.0f, y + 2.0f });
-            coin.setFillColor(sf::Color(255, 215, 0));
-            window.draw(coin);
-        } else if (type == ResourceType::MONEY) {
-            sf::RectangleShape note({ 13.0f, 8.0f });
-            note.setPosition({ x + 1.0f, y + 2.0f });
-            note.setFillColor(sf::Color(70, 220, 130));
-            window.draw(note);
-        } else if (type == ResourceType::ENERGY) {
-            sf::ConvexShape bolt(6);
-            bolt.setPoint(0, { x + 8.0f, y });
-            bolt.setPoint(1, { x + 2.0f, y + 6.0f });
-            bolt.setPoint(2, { x + 7.0f, y + 6.0f });
-            bolt.setPoint(3, { x + 5.0f, y + 13.0f });
-            bolt.setPoint(4, { x + 13.0f, y + 5.0f });
-            bolt.setPoint(5, { x + 8.0f, y + 5.0f });
-            bolt.setFillColor(sf::Color(255, 225, 40));
-            window.draw(bolt);
-        }
+    struct Slot {
+        ResourceType type;
+        int value;
+        const char* suffix;
+        sf::Color color;
     };
+    const Slot leftCol[4] = {
+        { ResourceType::WOOD, econ.wood, "", theme::TextPrimary },
+        { ResourceType::IRON, econ.iron, "", theme::TextPrimary },
+        { ResourceType::COPPER, econ.copper, "", theme::TextPrimary },
+        { ResourceType::COAL, econ.coal, "", theme::TextPrimary },
+    };
+    const Slot rightCol[4] = {
+        { ResourceType::SILICON, econ.silicon, "", theme::TextPrimary },
+        { ResourceType::SILVER, econ.silver, "", theme::TextPrimary },
+        { ResourceType::GOLD, econ.gold, " G", theme::Gold },
+        { ResourceType::MONEY, econ.money, " $", theme::Money },
+    };
+    const float col1X = isWest ? 18.0f : screenWidth - 196.0f;
+    const float col2X = isWest ? 96.0f : screenWidth - 106.0f;
+    const float rowY[4] = { screenHeight - 216.0f, screenHeight - 186.0f, screenHeight - 156.0f, screenHeight - 126.0f };
 
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    auto drawSlot = [&](const Slot& s, float x, float y) {
+        drawResourceIcon(window, s.type, { x + 8.0f, y + 8.0f }, 16.0f);
+        if (!fontLoaded) return;
+        sf::Text t(font, toUtf8(std::to_string(s.value) + s.suffix), fontsize::H2);
+        t.setStyle(sf::Text::Bold);
+        t.setFillColor(s.color);
+        sf::FloatRect tb = t.getLocalBounds();
+        t.setPosition({ x + 22.0f - tb.position.x, y + 8.0f - tb.size.y / 2.0f - tb.position.y });
+        ui::drawText(window, t);
+    };
+    for (int i = 0; i < 4; ++i) {
+        drawSlot(leftCol[i], col1X, rowY[i]);
+        drawSlot(rightCol[i], col2X, rowY[i]);
+    }
 
+    // -------------------------------------------------------------------------
+    // Power plaque: MW delivered now and the player's share of the city
+    // -------------------------------------------------------------------------
+    const float plaqueX = isWest ? 14.0f : screenWidth - 200.0f;
+    sf::RectangleShape energyPlaque({ 186.0f, 26.0f });
+    energyPlaque.setPosition({ plaqueX, screenHeight - 98.0f });
+    energyPlaque.setFillColor(theme::withAlpha(theme::Panel, 235));
+    energyPlaque.setOutlineThickness(1.0f);
+    energyPlaque.setOutlineColor(accent);
+    window.draw(energyPlaque);
+    drawResourceIcon(window, ResourceType::ENERGY, { plaqueX + 13.0f, screenHeight - 85.0f }, 16.0f);
     if (fontLoaded) {
-        if (isWest) {
-            // Player 1 (West Corner)
-            // Left Column (Wood, Iron, Copper, Coal)
-            float col1X = 18.0f;
-            float col2X = 96.0f;
-            float row0Y = screenHeight - 215.0f;
-            float row1Y = screenHeight - 185.0f;
-            float row2Y = screenHeight - 155.0f;
-            float row3Y = screenHeight - 125.0f;
+        int sharePct = static_cast<int>(std::lround(econ.cityInfluence * 100.0f));
+        std::string pStr = std::to_string(econ.energyMW) + " MW · град " + std::to_string(sharePct) + "%";
+        sf::Text tPwr(font, toUtf8(pStr), fontsize::Label);
+        tPwr.setStyle(sf::Text::Bold);
+        tPwr.setFillColor(theme::Energy);
+        sf::FloatRect pb = tPwr.getLocalBounds();
+        tPwr.setPosition({ plaqueX + 26.0f - pb.position.x, screenHeight - 85.0f - pb.size.y / 2.0f - pb.position.y });
+        ui::drawText(window, tPwr, sf::FloatRect(energyPlaque.getPosition(), energyPlaque.getSize()));
+    }
 
-            // Wood
-            drawIcon(ResourceType::WOOD, col1X, row0Y);
-            sf::Text tWood(font, std::to_string(econ.wood), 14);
-            tWood.setFillColor(sf::Color(140, 255, 170));
-            tWood.setPosition({ col1X + 20.0f, row0Y - 2.0f });
-            window.draw(tWood);
-
-            // Iron
-            drawIcon(ResourceType::IRON, col1X, row1Y);
-            sf::Text tIron(font, std::to_string(econ.iron), 14);
-            tIron.setFillColor(sf::Color(170, 210, 245));
-            tIron.setPosition({ col1X + 20.0f, row1Y - 2.0f });
-            window.draw(tIron);
-
-            // Copper
-            drawIcon(ResourceType::COPPER, col1X, row2Y);
-            sf::Text tCopper(font, std::to_string(econ.copper), 14);
-            tCopper.setFillColor(sf::Color(255, 170, 100));
-            tCopper.setPosition({ col1X + 20.0f, row2Y - 2.0f });
-            window.draw(tCopper);
-
-            // Coal
-            drawIcon(ResourceType::COAL, col1X, row3Y);
-            sf::Text tCoal(font, std::to_string(econ.coal), 14);
-            tCoal.setFillColor(sf::Color(180, 185, 195));
-            tCoal.setPosition({ col1X + 20.0f, row3Y - 2.0f });
-            window.draw(tCoal);
-
-            // Right Column (Silicon, Silver, Gold, Money)
-            // Silicon
-            drawIcon(ResourceType::SILICON, col2X, row0Y);
-            sf::Text tSilicon(font, std::to_string(econ.silicon), 14);
-            tSilicon.setFillColor(sf::Color(0, 230, 255));
-            tSilicon.setPosition({ col2X + 20.0f, row0Y - 2.0f });
-            window.draw(tSilicon);
-
-            // Silver
-            drawIcon(ResourceType::SILVER, col2X, row1Y);
-            sf::Text tSilver(font, std::to_string(econ.silver), 14);
-            tSilver.setFillColor(sf::Color(230, 240, 250));
-            tSilver.setPosition({ col2X + 20.0f, row1Y - 2.0f });
-            window.draw(tSilver);
-
-            // Gold
-            drawIcon(ResourceType::GOLD, col2X, row2Y);
-            sf::Text tGold(font, std::to_string(econ.gold) + "G", 14);
-            tGold.setFillColor(sf::Color(255, 215, 0));
-            tGold.setPosition({ col2X + 20.0f, row2Y - 2.0f });
-            window.draw(tGold);
-
-            // Money
-            drawIcon(ResourceType::MONEY, col2X, row3Y);
-            sf::Text tMoney(font, std::to_string(econ.money) + "$", 14);
-            tMoney.setFillColor(sf::Color(80, 255, 160));
-            tMoney.setPosition({ col2X + 20.0f, row3Y - 2.0f });
-            window.draw(tMoney);
-
-            // Energy & Share Banner
-            sf::RectangleShape energyPlaque({ 186.0f, 26.0f });
-            energyPlaque.setPosition({ 14.0f, screenHeight - 98.0f });
-            energyPlaque.setFillColor(sf::Color(25, 36, 52, 230));
-            energyPlaque.setOutlineThickness(1.0f);
-            energyPlaque.setOutlineColor(sf::Color(0, 229, 255));
-            window.draw(energyPlaque);
-
-            drawIcon(ResourceType::ENERGY, 18.0f, screenHeight - 92.0f);
-            int p1SharePct = static_cast<int>(std::lround(econ.cityInfluence * 100.0f));
-            std::string pStr = std::to_string(econ.energyMW) + " MW (" + std::to_string(p1SharePct) + "% ток)";
-            sf::Text tPwr(font, toUtf8(pStr), 12);
-            tPwr.setFillColor(sf::Color(255, 235, 100));
-            tPwr.setPosition({ 40.0f, screenHeight - 93.0f });
-            window.draw(tPwr);
-
-            // Land Expansion Button
-            p1BuyLandBtn = sf::FloatRect({ 14.0f, screenHeight - 66.0f }, { 186.0f, 26.0f });
-            bool hoverLand = p1BuyLandBtn.contains(mousePos);
-            sf::RectangleShape landBtn(p1BuyLandBtn.size);
-            landBtn.setPosition(p1BuyLandBtn.position);
-            landBtn.setFillColor(hoverLand ? sf::Color(35, 85, 115) : sf::Color(18, 40, 60));
-            landBtn.setOutlineThickness(1.0f);
-            landBtn.setOutlineColor(hoverLand ? sf::Color(255, 215, 0) : sf::Color(0, 200, 255));
-            window.draw(landBtn);
-
-            sf::Text tLand(font, toUtf8("+ КУПИ ЗЕМЯ"), 11);
-            tLand.setFillColor(hoverLand ? sf::Color(255, 240, 150) : sf::Color::White);
-            sf::FloatRect tb = tLand.getLocalBounds();
-            tLand.setPosition({ p1BuyLandBtn.position.x + (p1BuyLandBtn.size.x - tb.size.x) / 2.0f, screenHeight - 61.0f });
-            window.draw(tLand);
-        } else {
-            // Player 2 (East Corner)
-            float col1X = screenWidth - 190.0f;
-            float col2X = screenWidth - 105.0f;
-            float row0Y = screenHeight - 215.0f;
-            float row1Y = screenHeight - 185.0f;
-            float row2Y = screenHeight - 155.0f;
-            float row3Y = screenHeight - 125.0f;
-
-            // Wood
-            drawIcon(ResourceType::WOOD, col1X, row0Y);
-            sf::Text tWood(font, std::to_string(econ.wood), 14);
-            tWood.setFillColor(sf::Color(140, 255, 170));
-            tWood.setPosition({ col1X + 20.0f, row0Y - 2.0f });
-            window.draw(tWood);
-
-            // Iron
-            drawIcon(ResourceType::IRON, col1X, row1Y);
-            sf::Text tIron(font, std::to_string(econ.iron), 14);
-            tIron.setFillColor(sf::Color(170, 210, 245));
-            tIron.setPosition({ col1X + 20.0f, row1Y - 2.0f });
-            window.draw(tIron);
-
-            // Copper
-            drawIcon(ResourceType::COPPER, col1X, row2Y);
-            sf::Text tCopper(font, std::to_string(econ.copper), 14);
-            tCopper.setFillColor(sf::Color(255, 170, 100));
-            tCopper.setPosition({ col1X + 20.0f, row2Y - 2.0f });
-            window.draw(tCopper);
-
-            // Coal
-            drawIcon(ResourceType::COAL, col1X, row3Y);
-            sf::Text tCoal(font, std::to_string(econ.coal), 14);
-            tCoal.setFillColor(sf::Color(180, 185, 195));
-            tCoal.setPosition({ col1X + 20.0f, row3Y - 2.0f });
-            window.draw(tCoal);
-
-            // Silicon
-            drawIcon(ResourceType::SILICON, col2X, row0Y);
-            sf::Text tSilicon(font, std::to_string(econ.silicon), 14);
-            tSilicon.setFillColor(sf::Color(0, 230, 255));
-            tSilicon.setPosition({ col2X + 20.0f, row0Y - 2.0f });
-            window.draw(tSilicon);
-
-            // Silver
-            drawIcon(ResourceType::SILVER, col2X, row1Y);
-            sf::Text tSilver(font, std::to_string(econ.silver), 14);
-            tSilver.setFillColor(sf::Color(230, 240, 250));
-            tSilver.setPosition({ col2X + 20.0f, row1Y - 2.0f });
-            window.draw(tSilver);
-
-            // Gold
-            drawIcon(ResourceType::GOLD, col2X, row2Y);
-            sf::Text tGold(font, std::to_string(econ.gold) + "G", 14);
-            tGold.setFillColor(sf::Color(255, 215, 0));
-            tGold.setPosition({ col2X + 20.0f, row2Y - 2.0f });
-            window.draw(tGold);
-
-            // Money
-            drawIcon(ResourceType::MONEY, col2X, row3Y);
-            sf::Text tMoney(font, std::to_string(econ.money) + "$", 14);
-            tMoney.setFillColor(sf::Color(80, 255, 160));
-            tMoney.setPosition({ col2X + 20.0f, row3Y - 2.0f });
-            window.draw(tMoney);
-
-            // Energy & Share Banner
-            sf::RectangleShape energyPlaque({ 186.0f, 26.0f });
-            energyPlaque.setPosition({ screenWidth - 200.0f, screenHeight - 98.0f });
-            energyPlaque.setFillColor(sf::Color(42, 25, 45, 230));
-            energyPlaque.setOutlineThickness(1.0f);
-            energyPlaque.setOutlineColor(sf::Color(255, 120, 200));
-            window.draw(energyPlaque);
-
-            drawIcon(ResourceType::ENERGY, screenWidth - 196.0f, screenHeight - 92.0f);
-            int p2SharePct = static_cast<int>(std::lround(econ.cityInfluence * 100.0f));
-            std::string pStr = std::to_string(econ.energyMW) + " MW (" + std::to_string(p2SharePct) + "% ток)";
-            sf::Text tPwr(font, toUtf8(pStr), 12);
-            tPwr.setFillColor(sf::Color(255, 235, 100));
-            tPwr.setPosition({ screenWidth - 174.0f, screenHeight - 93.0f });
-            window.draw(tPwr);
-
-            // Land Expansion Button
-            p2BuyLandBtn = sf::FloatRect({ screenWidth - 200.0f, screenHeight - 66.0f }, { 186.0f, 26.0f });
-            bool hoverLand = p2BuyLandBtn.contains(mousePos);
-            sf::RectangleShape landBtn(p2BuyLandBtn.size);
-            landBtn.setPosition(p2BuyLandBtn.position);
-            landBtn.setFillColor(hoverLand ? sf::Color(85, 35, 80) : sf::Color(45, 20, 40));
-            landBtn.setOutlineThickness(1.0f);
-            landBtn.setOutlineColor(hoverLand ? sf::Color(255, 215, 0) : sf::Color(255, 120, 200));
-            window.draw(landBtn);
-
-            sf::Text tLand(font, toUtf8("+ КУПИ ЗЕМЯ"), 11);
-            tLand.setFillColor(hoverLand ? sf::Color(255, 240, 150) : sf::Color::White);
-            sf::FloatRect tb = tLand.getLocalBounds();
-            tLand.setPosition({ p2BuyLandBtn.position.x + (p2BuyLandBtn.size.x - tb.size.x) / 2.0f, screenHeight - 61.0f });
-            window.draw(tLand);
-        }
+    // -------------------------------------------------------------------------
+    // Land expansion button (buys the cheapest plot still for sale)
+    // -------------------------------------------------------------------------
+    sf::FloatRect& landRect = isWest ? p1BuyLandBtn : p2BuyLandBtn;
+    landRect = sf::FloatRect({ plaqueX, screenHeight - 66.0f }, { 186.0f, 26.0f });
+    bool hoverLand = landRect.contains(mousePos);
+    sf::RectangleShape landBtn(landRect.size);
+    landBtn.setPosition(landRect.position);
+    landBtn.setFillColor(hoverLand ? theme::ButtonHover : theme::playerDark(player));
+    landBtn.setOutlineThickness(hoverLand ? 2.0f : 1.0f);
+    landBtn.setOutlineColor(hoverLand ? theme::Focus : accent);
+    window.draw(landBtn);
+    if (fontLoaded) {
+        sf::Text tLand(font, toUtf8("+ КУПИ ЗЕМЯ"), fontsize::Label);
+        tLand.setStyle(sf::Text::Bold);
+        tLand.setFillColor(theme::TextPrimary);
+        sf::FloatRect tb = tLand.getLocalBounds();
+        tLand.setPosition({ landRect.position.x + (landRect.size.x - tb.size.x) / 2.0f - tb.position.x,
+                            landRect.position.y + (landRect.size.y - tb.size.y) / 2.0f - tb.position.y });
+        ui::drawText(window, tLand, landRect);
     }
 }

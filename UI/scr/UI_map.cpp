@@ -1,4 +1,7 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
 #include <cmath>
 #include <iostream>
 #include <algorithm>
@@ -9,8 +12,8 @@ UI_map::UI_map()
       requestMenu(false),
       p1Clock(1),
       p2Clock(2),
-      p1Buildings(1, { 18.0f, 115.0f }, { 230.0f, 395.0f }, sf::Color(0, 229, 255)),
-      p2Buildings(2, { 1600.0f - 248.0f, 115.0f }, { 230.0f, 395.0f }, sf::Color(255, 120, 200)),
+      p1Buildings(1, { 18.0f, 115.0f }, { 230.0f, 395.0f }, theme::P1),
+      p2Buildings(2, { 1600.0f - 248.0f, 115.0f }, { 230.0f, 395.0f }, theme::P2),
       p1Pos(450.0f, 450.0f),
       p2Pos(1150.0f, 450.0f),
       p1Pulse(0.0f),
@@ -18,10 +21,10 @@ UI_map::UI_map()
       requestFullscreenToggle(false),
       showHelpOverlay(false),
       lightningFlashTimer(0.0f) {
-    if (grassTexture.loadFromFile("assets/grass.png")) {
-        grassTexture.setRepeated(true);
+    if (backgroundTexture.loadFromFile("assets/background.png")) {
+        backgroundTexture.setSmooth(true); // 1920x1080 artwork scaled down to the canvas
     } else {
-        std::cerr << "[UI_map] Warning: Failed to load assets/grass.png\n";
+        std::cerr << "[UI_map] Warning: Failed to load assets/background.png (plain ground colour shown instead)\n";
     }
 
     if (font.openFromFile("assets/font.ttf")) {
@@ -80,19 +83,23 @@ void UI_map::setBotDifficulty(BotDifficulty diff) {
     std::cout << "[UI_map] Bot difficulty set to: " << static_cast<int>(diff) << "\n";
 }
 
-void UI_map::drawGrassBackground(sf::RenderWindow& window) {
+void UI_map::drawBackground(sf::RenderWindow& window) {
     float screenWidth = VIRTUAL_WIDTH;
     float screenHeight = VIRTUAL_HEIGHT;
 
-    if (grassTexture.getSize().x > 0) {
-        sf::Sprite sprite(grassTexture);
-        sprite.setTextureRect(sf::IntRect({ 0, 0 }, { (int)screenWidth, (int)screenHeight }));
+    if (backgroundTexture.getSize().x > 0) {
+        // Stretch the artwork over the canvas and darken it (the source is a bright lime green)
+        // so the river, the city, the plots and their labels stay readable on top.
+        sf::Sprite sprite(backgroundTexture);
+        sf::Vector2f texSize(backgroundTexture.getSize());
+        sprite.setScale({ screenWidth / texSize.x, screenHeight / texSize.y });
         sprite.setPosition({ 0.0f, 0.0f });
+        sprite.setColor(theme::GroundTint);
         window.draw(sprite);
     } else {
         sf::RectangleShape ground({ screenWidth, screenHeight });
         ground.setPosition({ 0.0f, 0.0f });
-        ground.setFillColor(sf::Color(60, 115, 40));
+        ground.setFillColor(theme::GroundFallback);
         window.draw(ground);
     }
 
@@ -108,14 +115,14 @@ void UI_map::drawGrassBackground(sf::RenderWindow& window) {
     if (hour >= (sunrise - 0.75f) && hour < (sunrise + 0.5f)) {
         float t = (hour - (sunrise - 0.75f)) / 1.25f;
         float intensity = std::sin(t * 3.14159f);
-        skyOverlay.setFillColor(sf::Color(240, 150, 80, static_cast<std::uint8_t>(50 * intensity)));
+        skyOverlay.setFillColor(theme::withAlpha(theme::Dawn, static_cast<std::uint8_t>(50 * intensity)));
         window.draw(skyOverlay);
     }
     // 2. Dusk / Sunset transition (warm amber/crimson evening glow)
     else if (hour >= (sunset - 0.75f) && hour <= (sunset + 0.85f)) {
         float t = (hour - (sunset - 0.75f)) / 1.6f;
         float intensity = std::sin(t * 3.14159f);
-        skyOverlay.setFillColor(sf::Color(215, 80, 25, static_cast<std::uint8_t>(65 * intensity)));
+        skyOverlay.setFillColor(theme::withAlpha(theme::Dusk, static_cast<std::uint8_t>(65 * intensity)));
         window.draw(skyOverlay);
     }
     // 3. Nighttime (deep midnight indigo overlay)
@@ -124,7 +131,7 @@ void UI_map::drawGrassBackground(sf::RenderWindow& window) {
         if (engine.getSeason() == SeasonType::WINTER) {
             nightAlpha = 130; // Darker winter nights
         }
-        skyOverlay.setFillColor(sf::Color(8, 14, 28, nightAlpha));
+        skyOverlay.setFillColor(theme::withAlpha(theme::Night, nightAlpha));
         window.draw(skyOverlay);
     }
 }
@@ -133,16 +140,17 @@ void UI_map::drawEnergyConduits(sf::RenderWindow& window, float animTime) {
     const auto& bList = engine.getBuildings();
     if (bList.empty()) return;
 
-    sf::Vector2f cityEntranceP1(730.0f, 410.0f);
-    sf::Vector2f cityEntranceP2(870.0f, 410.0f);
+    // Conduits end at the city's bottom edge (not on the border tag below it)
+    sf::Vector2f cityEntranceP1(730.0f, 392.0f);
+    sf::Vector2f cityEntranceP2(870.0f, 392.0f);
 
     for (size_t i = 0; i < bList.size(); ++i) {
         const auto& b = bList[i];
         if (b.type == BuildingType::LAMP) continue;
 
         sf::Vector2f dest = (b.playerOwner == 1) ? cityEntranceP1 : cityEntranceP2;
-        sf::Color conduitColor = (b.playerOwner == 1) ? sf::Color(0, 229, 255, 90) : sf::Color(255, 120, 200, 90);
-        sf::Color packetColor = (b.playerOwner == 1) ? sf::Color(160, 250, 255, 230) : sf::Color(255, 190, 240, 230);
+        sf::Color conduitColor = theme::withAlpha(theme::player(b.playerOwner), 90);
+        sf::Color packetColor = theme::withAlpha(theme::playerLight(b.playerOwner), 230);
 
         // Draw base conduit line
         sf::Vertex conduitLine[2];
@@ -172,7 +180,7 @@ void UI_map::drawEnergyConduits(sf::RenderWindow& window, float animTime) {
                 sf::CircleShape aura(7.0f);
                 aura.setOrigin({ 7.0f, 7.0f });
                 aura.setPosition(packetPos);
-                aura.setFillColor(sf::Color(packetColor.r, packetColor.g, packetColor.b, 65));
+                aura.setFillColor(theme::withAlpha(packetColor, 65));
                 window.draw(aura);
             }
         }
@@ -235,7 +243,7 @@ void UI_map::restartMatch() {
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
 
-    spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
+    spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, theme::Good);
 }
 
 bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
@@ -259,6 +267,12 @@ void UI_map::render(sf::RenderWindow& window) {
         tutorial.update(dt, engine);
     }
 
+    // Screenshot storm scene: fire one harmless bolt into the stormy sector just before the capture
+    if (debugBoltCountdown >= 0 && debugBoltCountdown-- == 0) {
+        bool westStorm = engine.getPlayerWeather(1) == WeatherType::STORMY;
+        triggerLightningStrike(westStorm ? sf::Vector2f(430.0f, 470.0f) : sf::Vector2f(1170.0f, 520.0f), false);
+    }
+
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible
     // dialog/tutorial blocking input (or freezing the bot).
     if (!resourcesLoaded) {
@@ -272,23 +286,25 @@ void UI_map::render(sf::RenderWindow& window) {
     p1Clock.setDay(engine.getCurrentDay());
     p1Clock.setWeather(engine.getPlayerWeather(1));
     p1Clock.setSeason(engine.getSeason());
+    p1Clock.setTimeScale(engine.getTimeScale());
 
     p2Clock.setHour(engine.getHour24());
     p2Clock.setDay(engine.getCurrentDay());
     p2Clock.setWeather(engine.getPlayerWeather(2));
     p2Clock.setSeason(engine.getSeason());
+    p2Clock.setTimeScale(engine.getTimeScale());
 
     float animTime = animClock.getElapsedTime().asSeconds();
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
 
     // 3. Render terrain & atmosphere
-    drawGrassBackground(window);
+    drawBackground(window);
 
     // 4. Central dividing line & river
     city.drawDividingRiver(window, font, resourcesLoaded, animTime, engine.isDaylight());
 
     // 5. Purchasable Land Plots Grid
-    nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos);
+    nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos, engine.getBuildings());
 
     // Dynamic glowing energy conduit lines connecting generators to metropolis
     drawEnergyConduits(window, animTime);
@@ -296,23 +312,22 @@ void UI_map::render(sf::RenderWindow& window) {
     // 6. Placed Buildings on the Map
     nodes.drawPlacedBuildings(window, font, resourcesLoaded, engine.getBuildings());
 
-    // 7. Holographic ghost preview if building is selected (snapped to plot grid, hidden if outside purchased land)
+    // 7. Holographic ghost preview if building is selected (snapped to plot grid, hidden if outside purchased land).
+    //    The ghost's tooltip is drawn later (after the city and the mines) so nothing covers it.
+    struct GhostInfo { bool shown = false; BuildingType type = BuildingType::NONE; sf::Vector2f pos; bool valid = false; };
+    GhostInfo ghosts[2];
     BuildingType p1Sel = engine.getSelectedBuilding(1);
-    if (p1Sel != BuildingType::NONE) {
-        sf::Vector2f targetPos = (p1Sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
-        if (p1Sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(1, targetPos)) {
-            std::string reason;
-            bool valid = engine.canPlaceBuilding(1, p1Sel, targetPos, reason);
-            nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, targetPos, valid, engine.getBuildingCost(p1Sel));
-        }
-    }
     BuildingType p2Sel = engine.getSelectedBuilding(2);
-    if (p2Sel != BuildingType::NONE) {
-        sf::Vector2f targetPos = (p2Sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
-        if (p2Sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(2, targetPos)) {
+    for (int player = 1; player <= 2; ++player) {
+        BuildingType sel = (player == 1) ? p1Sel : p2Sel;
+        sf::Vector2f cursor = (player == 1) ? p1Pos : p2Pos;
+        if (sel == BuildingType::NONE) continue;
+        sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? cursor : engine.snapToBuildingGrid(player, cursor);
+        if (sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(player, targetPos)) {
             std::string reason;
-            bool valid = engine.canPlaceBuilding(2, p2Sel, targetPos, reason);
-            nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, targetPos, valid, engine.getBuildingCost(p2Sel));
+            bool valid = engine.canPlaceBuilding(player, sel, targetPos, reason);
+            nodes.drawBuildingGhost(window, font, resourcesLoaded, sel, targetPos, valid, engine.getBuildingCost(sel));
+            ghosts[player - 1] = { true, sel, targetPos, valid };
         }
     }
 
@@ -331,13 +346,28 @@ void UI_map::render(sf::RenderWindow& window) {
     // Interactive mining extraction prompts & 6x speed badges
     drawMiningZonesAndBadges(window);
 
+    // Ghost tooltips (name, cost, keys) on top of the city and the mines
+    for (const auto& g : ghosts) {
+        if (!g.shown) continue;
+        int owner = (&g == &ghosts[0]) ? 1 : 2;
+        std::string missing = (g.type == BuildingType::DEMOLISH) ? std::string()
+                            : missingResourcesText(engine.getPlayerEconomy(owner), engine.getBuildingCost(g.type));
+        nodes.drawBuildingGhostInfo(window, font, resourcesLoaded, g.type, g.pos, g.valid, engine.getBuildingCost(g.type), missing);
+    }
+
+    // 10.5 Dynamic Weather Particles (rain, snow, wind leaves, night stars/fireflies) & Lightning.
+    //      Drawn over the map but under the HUD panels, so no speck or flash hides panel text.
+    drawWeatherParticles(window);
+
     // 11. Top-Left & Top-Right Clocks (Continuous 24h cycle & weather)
-    p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(0, 229, 255));
-    p2Clock.draw(window, font, resourcesLoaded, { 1600.0f - 250.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(255, 120, 200));
+    p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, theme::P1);
+    p2Clock.draw(window, font, resourcesLoaded, { 1600.0f - 250.0f, 10.0f }, { 230.0f, 100.0f }, theme::P2);
 
     // 12. Left & Right Building Menus
-    p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine.getPlayerEconomy(1), p1Sel);
-    p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine.getPlayerEconomy(2), p2Sel);
+    p1Buildings.setHotkeys(BuildHotkeys::DIGITS);
+    p2Buildings.setHotkeys(bot.isActive() ? BuildHotkeys::NONE : BuildHotkeys::NUMPAD);
+    p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p1Sel);
+    p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p2Sel);
 
     // 13. Bottom Corner Quarter-Circles (Pure icons and numbers, gold at bottom)
     resourceHUD.drawQuarterCircle(window, font, resourcesLoaded, engine.getPlayerEconomy(1), true);
@@ -349,8 +379,6 @@ void UI_map::render(sf::RenderWindow& window) {
     // 15. Menu button & persistent HUD
     drawHUD(window);
 
-    // 16. Dynamic Weather Particles (rain, snow, wind leaves, night stars/fireflies) & Lightning
-    drawWeatherParticles(window);
 
     // Dynamic Mining sparks and wood chips
     drawMiningParticles(window);

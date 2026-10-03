@@ -27,12 +27,18 @@ public:
                    const GameEngine* engine = nullptr,
                    float p1Cooldown = 0.0f, float p2Cooldown = 0.0f);
     void drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                       const std::vector<LandPlot>& plots, sf::Vector2f mousePos);
+                       const std::vector<LandPlot>& plots, sf::Vector2f mousePos,
+                       const std::vector<PlacedBuilding>& buildings = {});
     void drawPlacedBuildings(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                              const std::vector<PlacedBuilding>& buildings);
     void drawBuildingGhost(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                            BuildingType type, sf::Vector2f pos, bool isValidPlacement,
                            const BuildingCost& cost);
+    // Name, cost and keys of the ghost in a tooltip panel; drawn after the city so nothing covers it
+    // (missing = "Недостигат: ..." replaces the cost line when the player cannot pay)
+    void drawBuildingGhostInfo(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+                               BuildingType type, sf::Vector2f pos, bool isValidPlacement,
+                               const BuildingCost& cost, const std::string& missing = std::string());
 
     ResourceType getP1ResourceAt(sf::Vector2f pt) const;
     ResourceType getP2ResourceAt(sf::Vector2f pt) const;
@@ -41,6 +47,8 @@ public:
     ResourceType getP1StationAt(sf::Vector2f pt) const;
     ResourceType getP2StationAt(sf::Vector2f pt) const;
     const ResourceStation* getStation(int player, ResourceType type) const;
+    // Amount one mining action gives for a mine of this type at this level
+    static int mineYield(ResourceType type, int level);
 
     // Backward compatibility helpers
     bool isNearP1Forest(sf::Vector2f pt) const;

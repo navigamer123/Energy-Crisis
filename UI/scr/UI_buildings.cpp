@@ -1,11 +1,84 @@
 #include "../includes/UI_buildings.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_icons.h"
+#include "../includes/UI_theme.h"
 #include "../../Game/includes/game_balance.h"
-#include <iostream>
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+
+// -----------------------------------------------------------------------------
+// Recipe helpers (also used for the "Недостигат: ..." build error)
+// -----------------------------------------------------------------------------
+std::vector<ResourceNeed> buildingNeeds(const PlayerEconomy& econ, const BuildingCost& cost) {
+    std::vector<ResourceNeed> needs;
+    auto add = [&](ResourceType t, int need, int have) {
+        if (need > 0) needs.push_back({ t, need, have });
+    };
+    add(ResourceType::WOOD, cost.woodCost, econ.wood);
+    add(ResourceType::IRON, cost.ironCost, econ.iron);
+    add(ResourceType::COPPER, cost.copperCost, econ.copper);
+    add(ResourceType::COAL, cost.coalCost, econ.coal);
+    add(ResourceType::SILICON, cost.siliconCost, econ.silicon);
+    add(ResourceType::SILVER, cost.silverCost, econ.silver);
+    return needs;
+}
+
+const char* resourceNameBg(ResourceType type) {
+    switch (type) {
+        case ResourceType::WOOD:    return "дърво";
+        case ResourceType::IRON:    return "желязо";
+        case ResourceType::COPPER:  return "мед";
+        case ResourceType::COAL:    return "въглища";
+        case ResourceType::SILICON: return "силиций";
+        case ResourceType::SILVER:  return "сребро";
+        case ResourceType::GOLD:    return "злато";
+        case ResourceType::MONEY:   return "пари";
+        case ResourceType::ENERGY:  return "ток";
+        default:                    return "";
+    }
+}
+
+std::string recipeText(const BuildingCost& cost) {
+    std::string list;
+    for (const auto& n : buildingNeeds(PlayerEconomy(), cost)) {
+        if (!list.empty()) list += ", ";
+        list += std::to_string(n.need) + " " + resourceNameBg(n.type);
+    }
+    return list;
+}
+
+std::string missingResourcesText(const PlayerEconomy& econ, const BuildingCost& cost) {
+    std::string list;
+    for (const auto& n : buildingNeeds(econ, cost)) {
+        if (n.have >= n.need) continue;
+        if (!list.empty()) list += ", ";
+        list += std::to_string(n.need - n.have) + " " + resourceNameBg(n.type);
+    }
+    return list.empty() ? std::string() : "Недостигат: " + list;
+}
+
+// -----------------------------------------------------------------------------
+// Panel
+// -----------------------------------------------------------------------------
+namespace {
+
+constexpr float HEADER_FRAC = 0.071f; // header strip height as a fraction of the panel height
+constexpr float ICON_BOX = 40.0f;     // building icon box on the left of each card
+
+std::string formatMultiplier(float m) {
+    char buf[16];
+    if (m <= 0.0f) return "×0";
+    std::snprintf(buf, sizeof(buf), "×%.1f", static_cast<double>(m));
+    return buf;
+}
+
+} // namespace
 
 UI_buildings::UI_buildings()
     : playerIndex(1), panelPos(18.0f, 115.0f), panelSize(230.0f, 395.0f),
-      accentColor(sf::Color(0, 229, 255)) {
+      accentColor(theme::P1) {
   setPlayer(1, panelPos, panelSize, accentColor);
 }
 
@@ -20,50 +93,23 @@ void UI_buildings::setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size,
   panelPos = pos;
   panelSize = size;
   accentColor = accent;
+  hotkeys = (playerIdx == 1) ? BuildHotkeys::DIGITS : BuildHotkeys::NUMPAD;
 
-  buildings.clear();
-  const auto& sp = Balance::SOLAR_PANEL;
-  buildings.push_back({BuildingType::SOLAR_PANEL, sp.nameEn, sp.nameBg,
-                       sp.woodCost, sp.ironCost, sp.copperCost, sp.coalCost,
-                       sp.siliconCost, sp.silverCost,
-                       sp.ironCost + sp.copperCost + sp.siliconCost,
-                       sp.basePowerMW, 0, {}});
+  // Order matches the engine's selection numbers 1..6 (and the hotkeys)
+  buildings = {
+      { BuildingType::SOLAR_PANEL, "Панел", {} },
+      { BuildingType::WIND_TURBINE, "Турбина", {} },
+      { BuildingType::HYDRO_PLANT, "ВЕЦ", {} },
+      { BuildingType::BATTERY, "Батерия", {} },
+      { BuildingType::LAMP, "Лампа", {} },
+      { BuildingType::DEMOLISH, "Събаряне", {} },
+  };
 
-  const auto& wt = Balance::WIND_TURBINE;
-  buildings.push_back({BuildingType::WIND_TURBINE, wt.nameEn, wt.nameBg,
-                       wt.woodCost, wt.ironCost, wt.copperCost, wt.coalCost,
-                       wt.siliconCost, wt.silverCost,
-                       wt.ironCost + wt.copperCost + wt.coalCost,
-                       wt.basePowerMW, 0, {}});
-
-  const auto& hp = Balance::HYDRO_PLANT;
-  buildings.push_back({BuildingType::HYDRO_PLANT, hp.nameEn, hp.nameBg,
-                       hp.woodCost, hp.ironCost, hp.copperCost, hp.coalCost,
-                       hp.siliconCost, hp.silverCost,
-                       hp.ironCost + hp.copperCost + hp.siliconCost,
-                       hp.basePowerMW, 0, {}});
-
-  const auto& bs = Balance::BATTERY;
-  buildings.push_back({BuildingType::BATTERY, bs.nameEn, bs.nameBg,
-                       bs.woodCost, bs.ironCost, bs.copperCost, bs.coalCost,
-                       bs.siliconCost, bs.silverCost,
-                       bs.ironCost + bs.copperCost + bs.coalCost + bs.silverCost,
-                       bs.basePowerMW, 0, {}});
-
-  const auto& sl = Balance::STREET_LAMP;
-  buildings.push_back({BuildingType::LAMP, sl.nameEn, sl.nameBg,
-                       sl.woodCost, sl.ironCost, sl.copperCost, sl.coalCost,
-                       sl.siliconCost, sl.silverCost,
-                       sl.ironCost + sl.copperCost,
-                       sl.basePowerMW, 0, {}});
-
-  buildings.push_back({BuildingType::DEMOLISH, "Demolish Tool",
-                       "Премахване / Разруши", 0, 0, 0, 0, 0, 0, 0, 0, 0, {}});
   // Pre-calculate proportional button bounds for click collision
   float marginX = panelSize.x * 0.026f;
   float itemX = panelPos.x + marginX;
   float itemW = panelSize.x - 2.0f * marginX;
-  float headerH = panelSize.y * 0.071f;
+  float headerH = panelSize.y * HEADER_FRAC;
   float itemStartY = panelPos.y + headerH;
   float availH = panelSize.y - headerH - panelSize.y * 0.018f;
   float spacing = availH / static_cast<float>(std::max<size_t>(1, buildings.size()));
@@ -85,174 +131,185 @@ BuildingType UI_buildings::handleClick(sf::Vector2f clickPos) {
 
 void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
                         bool fontLoaded, sf::Vector2f mousePos,
-                        const PlayerEconomy &econ,
+                        const GameEngine &engine,
                         BuildingType activeSelection) {
+  const PlayerEconomy &econ = engine.getPlayerEconomy(playerIndex);
+  const WeatherType weather = engine.getPlayerWeather(playerIndex);
+
   // Panel container
   sf::RectangleShape panel(panelSize);
   panel.setPosition(panelPos);
-  panel.setFillColor(sf::Color(16, 22, 34, 252));
+  panel.setFillColor(theme::withAlpha(theme::Panel, 252));
   panel.setOutlineThickness(2.0f);
   panel.setOutlineColor(accentColor);
   window.draw(panel);
+  ui::lint::solid(sf::FloatRect(panelPos, panelSize)); // no map text may hide under the panel
+  ui::lint::ContainerScope panelScope(sf::FloatRect(panelPos, panelSize));
 
   if (fontLoaded) {
     std::string pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
                                           : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
-    sf::Text tHeader(font, toUtf8(pTag), 12);
+    sf::Text tHeader(font, toUtf8(pTag), fontsize::Label);
+    tHeader.setStyle(sf::Text::Bold);
     tHeader.setFillColor(accentColor);
     tHeader.setPosition({panelPos.x + 8.0f, panelPos.y + 6.0f});
-    window.draw(tHeader);
+    ui::drawText(window, tHeader);
 
     sf::RectangleShape div({panelSize.x - 16.0f, 1.5f});
     div.setPosition({panelPos.x + 8.0f, panelPos.y + 24.0f});
-    div.setFillColor(sf::Color(65, 88, 120));
+    div.setFillColor(theme::Line);
     window.draw(div);
   }
 
-  // Proportional item spacing & sizing
-  float marginX = panelSize.x * 0.026f;
-  float itemX = panelPos.x + marginX;
-  float itemW = panelSize.x - 2.0f * marginX;
-  float headerH = panelSize.y * 0.071f;
-  float itemStartY = panelPos.y + headerH;
-  float availH = panelSize.y - headerH - panelSize.y * 0.018f;
-  float spacing = availH / static_cast<float>(std::max<size_t>(1, buildings.size()));
-  float itemH = spacing * 0.916f;
-
   for (size_t i = 0; i < buildings.size(); i++) {
     auto &b = buildings[i];
-    float y = itemStartY + i * spacing;
-    b.btnBounds = sf::FloatRect({itemX, y}, {itemW, itemH});
+    const sf::FloatRect &r = b.btnBounds;
+    const float x = r.position.x;
+    const float y = r.position.y;
+    const float w = r.size.x;
+    const float h = r.size.y;
 
-    bool isSelected = (b.type == activeSelection);
-    // Every resource of the recipe is required on its own (no legacy 'ore' wildcard)
-    bool canAfford =
-        (b.type == BuildingType::DEMOLISH)
-            ? true
-            : (econ.wood >= b.woodCost && econ.iron >= b.ironCost &&
-               econ.copper >= b.copperCost && econ.coal >= b.coalCost &&
-               econ.silicon >= b.siliconCost && econ.silver >= b.silverCost);
-    bool hover = b.btnBounds.contains(mousePos);
+    const BuildingCost cost = engine.getBuildingCost(b.type);
+    const std::vector<ResourceNeed> needs = buildingNeeds(econ, cost);
+    const bool isDemolish = (b.type == BuildingType::DEMOLISH);
+    const bool canAfford = std::all_of(needs.begin(), needs.end(),
+                                       [](const ResourceNeed &n) { return n.have >= n.need; });
+    const bool isSelected = (b.type == activeSelection);
+    const bool hover = r.contains(mousePos);
 
-    // Card background
-    sf::RectangleShape card(b.btnBounds.size);
-    card.setPosition(b.btnBounds.position);
+    // Card background: selection = white outline (gold is reserved for money)
+    sf::RectangleShape card(r.size);
+    card.setPosition(r.position);
     if (isSelected) {
-      card.setFillColor(sf::Color(42, 68, 92, 250));
+      card.setFillColor(theme::withAlpha(theme::CardSelected, 250));
       card.setOutlineThickness(2.0f);
-      card.setOutlineColor(sf::Color(255, 215, 0));
+      card.setOutlineColor(theme::Focus);
     } else if (hover) {
-      card.setFillColor(canAfford ? sf::Color(30, 56, 78, 240)
-                                  : sf::Color(55, 28, 38, 240));
+      card.setFillColor(theme::withAlpha(theme::CardHover, 245));
       card.setOutlineThickness(1.5f);
-      card.setOutlineColor(canAfford ? sf::Color(100, 255, 180)
-                                     : sf::Color(240, 90, 90));
+      card.setOutlineColor(canAfford ? theme::Good : theme::Bad);
     } else {
-      card.setFillColor(sf::Color(22, 30, 44, 220));
+      card.setFillColor(theme::withAlpha(theme::Card, 230));
       card.setOutlineThickness(1.0f);
-      card.setOutlineColor(canAfford ? sf::Color(70, 95, 125)
-                                     : sf::Color(70, 45, 55));
+      card.setOutlineColor(canAfford ? theme::Line : theme::withAlpha(theme::Bad, 110));
     }
     window.draw(card);
+    ui::lint::ContainerScope cardScope(r);
 
-    if (fontLoaded) {
-      // Line 1: Building name (clear 11pt, never overlaps badge)
-      sf::Text tName(font, toUtf8(b.bgName), 11);
-      if (b.type == BuildingType::DEMOLISH) {
-        tName.setFillColor(isSelected ? sf::Color(255, 215, 0)
-                                      : sf::Color(255, 140, 140));
-      } else if (isSelected) {
-        tName.setFillColor(sf::Color(255, 235, 120));
-      } else {
-        tName.setFillColor(hover ? sf::Color::White : sf::Color(220, 235, 250));
-      }
-      tName.setPosition({itemX + 6.0f, y + 3.0f});
-      window.draw(tName);
+    // Building icon in a small well on the left
+    sf::RectangleShape well({ICON_BOX, ICON_BOX});
+    well.setPosition({x + 5.0f, y + (h - ICON_BOX) / 2.0f});
+    well.setFillColor(theme::withAlpha(theme::Well, 230));
+    well.setOutlineThickness(1.0f);
+    well.setOutlineColor(isSelected ? theme::Focus : theme::Line);
+    window.draw(well);
+    drawBuildingIcon(window, b.type, {x + 5.0f + ICON_BOX / 2.0f, y + h / 2.0f}, ICON_BOX - 8.0f);
 
-      // Line 1 Right: Output or Type Badge
-      std::string pStr;
-      sf::Color badgeColor = sf::Color(255, 215, 0);
-      if (b.type == BuildingType::DEMOLISH) {
-        pStr = "[-50% Връща]";
-        badgeColor = sf::Color(255, 120, 120);
-      } else if (b.type == BuildingType::LAMP) {
-        pStr = "[Нощ: 150px]";
-        badgeColor = sf::Color(255, 230, 120);
-      } else if (b.type == BuildingType::BATTERY) {
-        pStr = "[200 MWh]";
-        badgeColor = sf::Color(100, 240, 180);
-      } else {
-        pStr = "+" + std::to_string(b.powerOutputMW) + " MW";
-      }
-      sf::Text tPwr(font, toUtf8(pStr), 11);
-      tPwr.setFillColor(badgeColor);
-      sf::FloatRect pb = tPwr.getLocalBounds();
-      tPwr.setPosition({itemX + itemW - pb.size.x - 6.0f, y + 3.0f});
-      window.draw(tPwr);
+    if (!fontLoaded) continue;
 
-      // Line 2: Cost description
-      std::string cStr;
-      if (b.type == BuildingType::DEMOLISH) {
-        cStr = "Кликнете върху ваша сграда";
-      } else {
-        cStr = std::to_string(b.woodCost) + " Дър";
-        if (b.ironCost > 0)
-          cStr += " " + std::to_string(b.ironCost) + " Жел";
-        if (b.copperCost > 0)
-          cStr += " " + std::to_string(b.copperCost) + " Мед";
-        if (b.siliconCost > 0)
-          cStr += " " + std::to_string(b.siliconCost) + " Сил";
-        if (b.coalCost > 0)
-          cStr += " " + std::to_string(b.coalCost) + " Въгл";
-        if (b.silverCost > 0)
-          cStr += " " + std::to_string(b.silverCost) + " Среб";
-        if (b.type == BuildingType::LAMP)
-          cStr += " (10MW)";
-      }
-      sf::Text tCost(font, toUtf8(cStr), 10);
-      tCost.setFillColor(canAfford ? sf::Color(140, 210, 250)
-                                   : sf::Color(255, 130, 130));
-      tCost.setPosition({itemX + 6.0f, y + 19.0f});
-      window.draw(tCost);
+    const float textX = x + ICON_BOX + 12.0f;
+    const float rightX = x + w - 6.0f;
 
-      // Line 3: Compact Action Button Indicator
-      sf::RectangleShape bBtn({itemW - 12.0f, 16.0f});
-      bBtn.setPosition({itemX + 6.0f, y + 35.0f});
-      if (isSelected) {
-        bBtn.setFillColor(sf::Color(210, 150, 15));
-        bBtn.setOutlineThickness(1.0f);
-        bBtn.setOutlineColor(sf::Color::White);
-      } else if (b.type == BuildingType::DEMOLISH) {
-        bBtn.setFillColor(hover ? sf::Color(160, 45, 55)
-                                : sf::Color(110, 30, 40));
-        bBtn.setOutlineThickness(1.0f);
-        bBtn.setOutlineColor(sf::Color(220, 80, 90));
-      } else {
-        bBtn.setFillColor(
-            canAfford ? (hover ? sf::Color(40, 130, 70) : sf::Color(28, 90, 48))
-                      : sf::Color(50, 32, 40));
-        bBtn.setOutlineThickness(1.0f);
-        bBtn.setOutlineColor(canAfford ? sf::Color(65, 210, 105)
-                                       : sf::Color(80, 48, 58));
-      }
-      window.draw(bBtn);
+    // Row 1: short name + output badge
+    sf::Text tName(font, toUtf8(b.shortName), fontsize::Label);
+    tName.setStyle(sf::Text::Bold);
+    tName.setFillColor(isDemolish ? theme::Bad : theme::TextPrimary);
+    tName.setPosition({textX, y + 3.0f});
+    ui::drawText(window, tName);
 
-      std::string btnText;
-      if (isSelected) {
-        btnText = (b.type == BuildingType::DEMOLISH)
-                      ? "ИЗБРАНО - КЛИКНИ СГРАДА ЗА МАХАНЕ"
-                      : "ИЗБРАНА - КЛИКНИ ЗА СТРОЕЖ";
-      } else if (b.type == BuildingType::DEMOLISH) {
-        btnText = "ИЗБЕРИ ЗА РАЗРУШАВАНЕ";
-      } else {
-        btnText = canAfford ? "ИЗБЕРИ ЗА СТРОЕЖ" : "НЕДОСТИГ НА РЕСУРСИ";
+    std::string badge;
+    sf::Color badgeColor = theme::Energy;
+    if (isDemolish) {
+      badge = "-50%";
+      badgeColor = theme::Bad;
+    } else if (b.type == BuildingType::LAMP) {
+      badge = "-" + std::to_string(static_cast<int>(GameEngine::LAMP_POWER_MW)) + " MW";
+      badgeColor = theme::Warn;
+    } else if (b.type == BuildingType::BATTERY) {
+      badge = std::to_string(Balance::BATTERY.batteryCapacityMWh) + " MWh";
+      badgeColor = theme::Good;
+    } else {
+      badge = "+" + std::to_string(cost.basePowerMW) + " MW";
+    }
+    sf::Text tBadge(font, toUtf8(badge), fontsize::Label);
+    tBadge.setStyle(sf::Text::Bold);
+    tBadge.setFillColor(badgeColor);
+    sf::FloatRect bb = tBadge.getLocalBounds();
+    tBadge.setPosition({rightX - bb.size.x - bb.position.x, y + 3.0f});
+    ui::drawText(window, tBadge);
+
+    // Row 2: costs as amount + resource icon, each green (enough) or red (missing)
+    const float costY = y + 20.0f;
+    if (isDemolish) {
+      sf::Text tInfo(font, toUtf8("Връща половината ресурси"), fontsize::Caption);
+      tInfo.setFillColor(theme::TextSecondary);
+      tInfo.setPosition({textX, costY + 1.0f});
+      ui::drawText(window, tInfo);
+    } else {
+      float cx = textX;
+      for (const auto &n : needs) {
+        sf::Text tNum(font, std::to_string(n.need), fontsize::Label);
+        tNum.setFillColor(n.have >= n.need ? theme::Good : theme::Bad);
+        tNum.setStyle(sf::Text::Bold);
+        tNum.setPosition({cx, costY});
+        ui::drawText(window, tNum);
+        cx += tNum.getLocalBounds().position.x + tNum.getLocalBounds().size.x + 2.0f;
+        drawResourceIcon(window, n.type, {cx + 7.0f, costY + 8.0f}, 14.0f);
+        cx += 14.0f + 6.0f;
       }
-      sf::Text tBtn(font, toUtf8(btnText), 9);
-      tBtn.setFillColor(sf::Color::White);
-      sf::FloatRect bb = tBtn.getLocalBounds();
-      tBtn.setPosition(
-          {itemX + 6.0f + (itemW - 12.0f - bb.size.x) / 2.0f, y + 36.0f});
-      window.draw(tBtn);
+    }
+
+    // Row 3: how many the player owns and their output right now (+ multiplier) | hotkey
+    int count = 0;
+    float liveMW = 0.0f;
+    float storedMWh = 0.0f;
+    for (const auto &pb : engine.getBuildings()) {
+      if (pb.playerOwner != playerIndex || pb.type != b.type) continue;
+      ++count;
+      liveMW += pb.currentOutputMW;
+      storedMWh += pb.energyStored;
+    }
+    float mult = -1.0f;
+    if (b.type == BuildingType::SOLAR_PANEL)
+      mult = WeatherSystem::getSolarMultiplier(weather, engine.getHour24(), engine.getSeason());
+    else if (b.type == BuildingType::WIND_TURBINE)
+      mult = WeatherSystem::getWindMultiplier(weather, engine.getHour24());
+    else if (b.type == BuildingType::HYDRO_PLANT)
+      mult = WeatherSystem::getHydroMultiplier(weather);
+
+    std::string hotkeyStr;
+    if (hotkeys == BuildHotkeys::DIGITS) hotkeyStr = "[" + std::to_string(i + 1) + "]";
+    else if (hotkeys == BuildHotkeys::NUMPAD) hotkeyStr = "[Num" + std::to_string(i + 1) + "]";
+
+    float hotkeyW = 0.0f;
+    const float statusY = y + 37.0f;
+    if (!hotkeyStr.empty()) {
+      sf::Text tKey(font, toUtf8(hotkeyStr), fontsize::Caption);
+      tKey.setFillColor(theme::TextMuted);
+      sf::FloatRect kb = tKey.getLocalBounds();
+      hotkeyW = kb.size.x + 6.0f;
+      tKey.setPosition({rightX - kb.size.x - kb.position.x, statusY});
+      ui::drawText(window, tKey);
+    }
+
+    std::string status;
+    if (!isDemolish) {
+      status = std::to_string(count) + " бр.";
+      if (b.type == BuildingType::BATTERY) {
+        if (count > 0) status += " · " + std::to_string(static_cast<int>(std::lround(storedMWh))) + " MWh";
+      } else if (count > 0) {
+        status += " · " + std::to_string(static_cast<int>(std::lround(liveMW))) + " MW";
+      }
+      if (mult >= 0.0f) {
+        std::string withMult = status + " · " + formatMultiplier(mult);
+        if (ui::measureText(font, withMult, fontsize::Caption) <= (rightX - textX) - hotkeyW) status = withMult;
+      }
+    }
+    if (!status.empty()) {
+      sf::Text tStatus(font, toUtf8(status), fontsize::Caption);
+      tStatus.setFillColor(count > 0 ? theme::TextSecondary : theme::TextMuted);
+      tStatus.setPosition({textX, statusY});
+      ui::drawText(window, tStatus);
     }
   }
 }
