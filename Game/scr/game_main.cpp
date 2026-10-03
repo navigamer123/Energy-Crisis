@@ -1018,6 +1018,8 @@ bool GameEngine::repairBuilding(int player, sf::Vector2f pos, std::string& outMs
 }
 
 bool GameEngine::breakBuildingAt(sf::Vector2f pos) {
+    // Team b-power: a reactor SCRAMs and a mega-project loses progress instead of disappearing
+    if (absorbLightningAt(pos)) return false;
     for (auto it = buildings.begin(); it != buildings.end(); ++it) {
         float dist = std::hypot(it->position.x - pos.x, it->position.y - pos.y);
         if (dist <= 30.0f) {
