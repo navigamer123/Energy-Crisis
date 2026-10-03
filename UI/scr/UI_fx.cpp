@@ -232,9 +232,11 @@ void UI_fx::onPlayerError(int player) {
 void UI_fx::handleEvents(const UI_resourceNodes& nodes) {
     UI_audio& audio = UI_audio::get();
     for (const FxEvent& e : events) {
+        // In single player the bot (P2) is heard a little quieter than the human player
+        const float vol = (singlePlayerMode && e.player == 2) ? 0.6f : 1.0f;
         switch (e.type) {
             case FxEvent::Type::Mined: {
-                audio.play(mineSound(e.resource), e.player);
+                audio.play(mineSound(e.resource), e.player, vol);
                 const ResourceStation* st = nodes.getStation(e.player, e.resource);
                 if (!st) break;
                 sf::Vector2f from = st->bounds.position + sf::Vector2f(st->bounds.size.x * 0.5f, st->bounds.size.y * 0.35f);
@@ -258,7 +260,7 @@ void UI_fx::handleEvents(const UI_resourceNodes& nodes) {
                 break;
             }
             case FxEvent::Type::Built: {
-                audio.play(Sfx::BuildOk, e.player);
+                audio.play(Sfx::BuildOk, e.player, vol);
                 popIns.push_back({ e.pos, e.player, 0.0f });
                 rings.push_back({ e.pos + sf::Vector2f(0.0f, 6.0f), 0.0f, 0.5f, 30.0f, FX_DUST });
                 spawnDust(e.pos + sf::Vector2f(0.0f, 8.0f), FX_DUST, 10, 55.0f);
@@ -271,19 +273,19 @@ void UI_fx::handleEvents(const UI_resourceNodes& nodes) {
                     if (s.second < STRIKE_MEMORY && dx * dx + dy * dy < 40.0f * 40.0f) struck = true;
                 }
                 if (struck) {
-                    audio.play(Sfx::Destroyed, e.player);
+                    audio.play(Sfx::Destroyed, e.player, vol);
                     rings.push_back({ e.pos, 0.0f, 0.6f, 46.0f, FX_DEBRIS });
                     spawnDust(e.pos, FX_DEBRIS, 14, 110.0f);
                     spawnDust(e.pos, sf::Color(90, 90, 100), 12, 70.0f);
                 } else {
-                    audio.play(Sfx::Demolish, e.player);
+                    audio.play(Sfx::Demolish, e.player, vol);
                     rings.push_back({ e.pos + sf::Vector2f(0.0f, 6.0f), 0.0f, 0.45f, 26.0f, FX_DUST });
                     spawnDust(e.pos, FX_DUST, 12, 70.0f);
                 }
                 break;
             }
             case FxEvent::Type::LandBought: {
-                audio.play(Sfx::LandBuy, e.player);
+                audio.play(Sfx::LandBuy, e.player, vol);
                 rectFlashes.push_back({ e.area, 0.0f, 0.75f, FX_GOLD });
                 for (int k = 0; k < 4; ++k) {
                     sf::Vector2f corner(e.area.position.x + ((k & 1) ? e.area.size.x : 0.0f),
@@ -293,7 +295,7 @@ void UI_fx::handleEvents(const UI_resourceNodes& nodes) {
                 break;
             }
             case FxEvent::Type::MineUpgraded: {
-                audio.play(Sfx::Upgrade, e.player);
+                audio.play(Sfx::Upgrade, e.player, vol);
                 if (const ResourceStation* st = nodes.getStation(e.player, e.resource)) {
                     rectFlashes.push_back({ st->bounds, 0.0f, 0.7f, FX_GOLD });
                     spawnDust(st->bounds.position + st->bounds.size * 0.5f, FX_GOLD, 12, 80.0f);
