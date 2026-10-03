@@ -343,6 +343,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
             sf::Text cutText(font, toUtf8(cutMessage), 10);
             cutText.setFillColor(sf::Color(255, 220, 100));
             sf::FloatRect cb = cutText.getLocalBounds();
+            if (cb.size.x > cityWidth - 8.0f) { cutText.setScale({ (cityWidth - 8.0f) / cb.size.x, 1.0f }); cb.size.x = cityWidth - 8.0f; } // [b-politics] keep the verdict inside the city box
             cutText.setPosition({ midX - cb.size.x / 2.0f, cityTop + cityHeight - 20.0f });
             window.draw(cutText);
         }

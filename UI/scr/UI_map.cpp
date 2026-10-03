@@ -42,6 +42,7 @@ UI_map::UI_map()
     }
 
     // Initialize backend game engine at 1600x900
+    engine.setCityPoliticsEnabled(resourcesLoaded); // [b-politics] events/council/contracts need visible text
     engine.init(1600.0f, 900.0f);
     std::cout << "[UI_map] 1600x900 map orchestrator with backend GameEngine ready.\n";
 }
@@ -215,6 +216,7 @@ void UI_map::restartMatch() {
     p2Popup.active = false;
     notices.clear();
     miningParticles.clear();
+    politics.reset(); // [b-politics] close panels, clear the news queue
 
     // Lightning
     activeLightnings.clear();
@@ -255,6 +257,7 @@ void UI_map::render(sf::RenderWindow& window) {
     if (!isPaused && engine.getCityState().winner == 0) {
         engine.update(dt);
         updateControls(window, dt);
+        politics.update(dt, engine, bot.isActive(), bot.getDifficulty()); // [b-politics] bot votes/bids, news
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
     }
@@ -330,6 +333,9 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // Interactive mining extraction prompts & 6x speed badges
     drawMiningZonesAndBadges(window);
+
+    // [b-politics] City column under the city: event chips, news line, exchange ticker, contract board
+    if (resourcesLoaded) politics.drawCityColumn(window, font, engine, animTime, mousePos, mouseOwnerAt(mousePos));
 
     // 11. Top-Left & Top-Right Clocks (Continuous 24h cycle & weather)
     p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(0, 229, 255));
