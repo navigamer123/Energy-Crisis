@@ -122,6 +122,7 @@ make test EC_SEED=42  # същото време и същите случайни
 | [TESTING.md](docs/TESTING.md) | Тестове без графика, детерминизъм, CI |
 | [CHANGELOG.md](docs/CHANGELOG.md) | Какво поправихме и подобрихме |
 | [PRESENTATION.md](docs/PRESENTATION.md) | Презентация за журито на хакатона |
+| [NEW_FEATURES.md](NEW_FEATURES.md) | Новите функции накратко: какво са, как се показват и кои 8 да покажете на журито |
 
 ---
 
