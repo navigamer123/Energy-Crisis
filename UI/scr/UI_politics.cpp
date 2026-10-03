@@ -341,25 +341,38 @@ void UI_politics::drawNewsLine(sf::RenderTarget& t, const sf::Font& font, const 
 
     drawRect(t, r, PANEL_BG, PANEL_EDGE, 1.0f);
     const CouncilState& c = engine.getPolitics().council;
-    std::string line;
+    // Candidates from the most to the least detailed: the first one that fits at 10 px is shown whole
+    std::vector<std::string> lines;
     sf::Color col = TEXT_DIM;
     if (c.active) {
-        line = "СЪВЕТЪТ ГЛАСУВА: " + std::string(getCouncilCard(c.cardId).titleBg) + " · " +
-               std::to_string(static_cast<int>(std::ceil(std::max(0.0f, c.timeLeft)))) + " с";
+        std::string secs = std::to_string(static_cast<int>(std::ceil(std::max(0.0f, c.timeLeft)))) + " с";
+        lines.push_back("СЪВЕТЪТ ГЛАСУВА: " + std::string(getCouncilCard(c.cardId).titleBg) + " · " + secs);
+        lines.push_back("СЪВЕТ: " + std::string(getCouncilCard(c.cardId).titleBg) + " · " + secs);
         col = GOLD;
     } else {
         int fd = engine.getNextFestivalDay();
         EventId fe = getFestivalOnDay(fd);
+        std::string name = (fe != EventId::NONE) ? getEventDef(fe).nameBg : "";
         if (fd == engine.getCurrentDay() && fe != EventId::NONE) {
-            line = "ДНЕС Е ПРАЗНИК: " + std::string(getEventDef(fe).nameBg) + "! ОСВЕТЕТЕ ГРАДА";
+            lines.push_back("ДНЕС Е ПРАЗНИК: " + name + "! ОСВЕТЕТЕ ГРАДА");
+            lines.push_back("ДНЕС: " + name + "!");
             col = FESTIVAL;
         } else if (fe != EventId::NONE) {
             int left = fd - engine.getCurrentDay();
-            line = "СЛЕДВАЩ ПРАЗНИК: " + std::string(getEventDef(fe).nameBg) + " · ДЕН " + std::to_string(fd) +
-                   (left == 1 ? " (УТРЕ)" : " (СЛЕД " + std::to_string(left) + " ДНИ)");
+            std::string when = (left == 1) ? "УТРЕ" : "СЛЕД " + std::to_string(left) + " ДНИ";
+            lines.push_back("СЛЕДВАЩ ПРАЗНИК: " + name + " · ДЕН " + std::to_string(fd) + " (" + when + ")");
+            lines.push_back("ПРАЗНИК: " + name + " · ДЕН " + std::to_string(fd) + " (" + when + ")");
+            lines.push_back("ДЕН " + std::to_string(fd) + ": " + name);
             col = withAlpha(FESTIVAL, 230);
         } else {
-            line = "ПОСЛЕДНИТЕ ДНИ НА КРИЗАТА - ВСЕКИ МЕГАВАТ Е ВАЖЕН";
+            lines.push_back("ПОСЛЕДНИТЕ ДНИ НА КРИЗАТА - ВСЕКИ МЕГАВАТ Е ВАЖЕН");
+        }
+    }
+    std::string line = lines.back();
+    for (const auto& cand : lines) {
+        if (textWidth(font, toUtf8(cand), 10) <= textW) {
+            line = cand;
+            break;
         }
     }
     drawFit(t, font, line, 12, { r.position.x + COL_W / 2.0f, r.position.y + 8.0f }, col, textW, Align::CENTER, false, 10);
