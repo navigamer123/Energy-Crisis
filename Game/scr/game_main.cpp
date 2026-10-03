@@ -615,6 +615,7 @@ bool GameEngine::buyLandPlot(int player, int plotId, std::string& outMsg) {
             }
             if (econ.gold >= plot.costGold) {
                 econ.gold -= plot.costGold;
+                econ.data.gold = econ.gold; // [wave-c-soak] keep the PlayerData mirror in sync
                 plot.isPurchased = true;
                 econ.landTier++;
                 outMsg = (player == 1 ? "ИГРАЧ 1 ЗАКУПИ НОВА ЗЕМЯ!" : "ИГРАЧ 2 ЗАКУПИ НОВА ЗЕМЯ!");

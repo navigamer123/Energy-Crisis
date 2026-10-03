@@ -192,11 +192,42 @@ void testStepCostDoesNotScaleWithRecipeLookups() {
     endGroup();
 }
 
+// Every resource of the PlayerData mirror equals the economy value
+bool mirrorInSync(const PlayerEconomy& p) {
+    return p.data.money == p.money && p.data.gold == p.gold && p.data.silver == p.silver && p.data.iron == p.iron &&
+           p.data.coal == p.coal && p.data.copper == p.copper && p.data.silicon == p.silicon && p.data.wood == p.wood;
+}
+
+// ---------------------------------------------------------------------------
+// [S3] buyLandPlot() took the gold from PlayerEconomy::gold but left PlayerEconomy::data.gold
+// (the weatherF mirror) unchanged, so the two disagreed after every land purchase.
+// ---------------------------------------------------------------------------
+void testLandPurchaseKeepsMirror() {
+    beginGroup("S3 buying land keeps the PlayerData mirror in sync");
+    GameEngine e;
+    initEngine(e, 13);
+    for (int p = 1; p <= 2; ++p) {
+        PlayerEconomy& ec = e.getPlayerEconomyMut(p);
+        ec.gold = ec.data.gold = 1000;
+        std::string msg;
+        bool ok = e.buyNextLandTier(p, msg);
+        REQUIRE(ok, "P" << p << " could not buy land: " << msg);
+        const PlayerEconomy& now = e.getPlayerEconomy(p);
+        CHECK(now.gold < 1000 && mirrorInSync(now), "P" << p << " gold " << now.gold << " mirror " << now.data.gold);
+        ok = e.buyLandPlot(p, p == 1 ? 3 : 13, msg);
+        REQUIRE(ok, "P" << p << " could not buy the river plot: " << msg);
+        CHECK(mirrorInSync(e.getPlayerEconomy(p)), "P" << p << " gold " << e.getPlayerEconomy(p).gold << " mirror "
+                                                       << e.getPlayerEconomy(p).data.gold);
+    }
+    endGroup();
+}
+
 } // namespace
 
 int main() {
     testClockDoesNotDrift();
     testStepCostDoesNotScaleWithRecipeLookups();
+    testLandPurchaseKeepsMirror();
     std::cout << "\n" << (g_failures == 0 ? "ALL PASSED" : "FAILED") << ": " << (g_checks - g_failures) << "/" << g_checks
               << " checks\n";
     return g_failures == 0 ? 0 : 1;
