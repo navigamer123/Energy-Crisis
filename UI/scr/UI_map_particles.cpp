@@ -132,9 +132,13 @@ void UI_map::updateWeatherParticles(float dt) {
         }
     }
 
+    // [b-effects] UX-09 / HX-11: calm days get their own seasonal particles (warm dust, spring petals,
+    // autumn leaves) instead of the night firefly type; fireflies only on warm-season nights.
+    SeasonType season = engine.getSeason();
     for (size_t i = 0; i < particles.size(); ++i) {
         auto& p = particles[i];
         WeatherType w = (p.pos.x < 800.0f) ? w1 : w2;
+        bool seasonal = (i % 3 == 0); // a third of the particles carry the season's petals / leaves
 
         if (w == WeatherType::RAINY || w == WeatherType::STORMY) {
             p.type = 0; // Rain
@@ -144,14 +148,20 @@ void UI_map::updateWeatherParticles(float dt) {
             float drift = std::sin(p.pos.y * 0.02f + static_cast<float>(i)) * 40.0f;
             p.vel = sf::Vector2f(drift, 65.0f);
         } else if (w == WeatherType::WINDY) {
-            p.type = 2; // Wind streak / leaf
+            p.type = (season == SeasonType::AUTUMN && seasonal) ? 6 : 2; // Autumn leaves ride the wind, else streaks
             p.vel = sf::Vector2f(320.0f, std::sin(p.pos.x * 0.015f) * 35.0f);
         } else if (isNight) {
-            p.type = 3; // Night star / firefly
+            bool warm = (season == SeasonType::SPRING || season == SeasonType::SUMMER || (season == SeasonType::AUTUMN && i % 2 == 0));
+            p.type = warm ? 3 : 4; // Firefly on warm nights, faint frost glitter otherwise
             p.vel = sf::Vector2f(std::cos(p.pos.y * 0.03f) * 12.0f, std::sin(p.pos.x * 0.03f) * 12.0f);
+        } else if (season == SeasonType::SPRING && seasonal) {
+            p.type = 5; // Blossom petal drifting down
+            p.vel = sf::Vector2f(18.0f + std::sin(p.pos.y * 0.03f + static_cast<float>(i)) * 22.0f, 38.0f);
+        } else if (season == SeasonType::AUTUMN && seasonal) {
+            p.type = 6; // Falling leaf, swaying
+            p.vel = sf::Vector2f(std::sin(p.pos.y * 0.025f + static_cast<float>(i)) * 45.0f, 48.0f);
         } else {
-            // Calm daylight atmospheric dust
-            p.type = 3;
+            p.type = 4; // Calm daylight dust mote (warm white, low alpha)
             p.vel = sf::Vector2f(std::cos(p.pos.y * 0.01f) * 8.0f, -15.0f);
         }
 
@@ -174,11 +184,91 @@ void UI_map::updateWeatherParticles(float dt) {
 }
 
 void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
+    // [b-effects] Drawn in the world layer (UX-09): particles first, lit by the time of day, then
+    // lightning on top. The screen flash is softer now that the light map also flashes.
+    auto lit = [this](sf::Color c, float x) {
+        sf::Color amb = fx.ambientColorAt(x);
+        return sf::Color(static_cast<std::uint8_t>(c.r * (amb.r + 60) / 315), static_cast<std::uint8_t>(c.g * (amb.g + 60) / 315),
+                         static_cast<std::uint8_t>(c.b * (amb.b + 60) / 315), c.a);
+    };
+    const sf::FloatRect cityRect = city.getCityBounds();
+    auto overGrass = [&](sf::Vector2f pos) {
+        if (cityRect.contains(pos)) return false;
+        for (const auto& plot : engine.getLandPlots()) {
+            if (plot.bounds.contains(pos)) return false;
+        }
+        return nodes.getP1StationAt(pos) == ResourceType::NONE && nodes.getP2StationAt(pos) == ResourceType::NONE;
+    };
+
+    for (const auto& p : particles) {
+        if (p.type == 0) {
+            // Rain streak
+            sf::Vertex line[2];
+            line[0].position = p.pos;
+            line[0].color = lit(sf::Color(160, 210, 255, 160), p.pos.x);
+            line[1].position = p.pos + sf::Vector2f(p.vel.x * 0.025f, p.vel.y * 0.025f);
+            line[1].color = lit(sf::Color(200, 235, 255, 220), p.pos.x);
+            window.draw(line, 2, sf::PrimitiveType::Lines);
+        } else if (p.type == 1) {
+            // Snow flake
+            sf::CircleShape flake(p.size);
+            flake.setPosition(p.pos);
+            flake.setFillColor(lit(sf::Color(255, 255, 255, static_cast<std::uint8_t>(p.alpha * 0.85f)), p.pos.x));
+            window.draw(flake);
+        } else if (p.type == 2) {
+            // Wind streak
+            sf::Vertex streak[2];
+            streak[0].position = p.pos;
+            streak[0].color = lit(sf::Color(235, 245, 255, 0), p.pos.x);
+            streak[1].position = p.pos + sf::Vector2f(22.0f, p.vel.y * 0.05f);
+            streak[1].color = lit(sf::Color(235, 245, 255, 120), p.pos.x);
+            window.draw(streak, 2, sf::PrimitiveType::Lines);
+        } else if (p.type == 3) {
+            // Firefly: only over open grass (never over the city, plots or mines), softly pulsing
+            if (!overGrass(p.pos)) continue;
+            float pulse = 0.5f + 0.5f * std::sin(animClock.getElapsedTime().asSeconds() * 2.3f + p.pos.x * 0.05f);
+            sf::CircleShape halo(p.size + 2.5f);
+            halo.setOrigin({ p.size + 2.5f, p.size + 2.5f });
+            halo.setPosition(p.pos);
+            halo.setFillColor(sf::Color(210, 255, 140, static_cast<std::uint8_t>(45.0f * pulse)));
+            window.draw(halo);
+            sf::CircleShape glow(p.size * 0.6f);
+            glow.setOrigin({ p.size * 0.6f, p.size * 0.6f });
+            glow.setPosition(p.pos);
+            glow.setFillColor(sf::Color(235, 255, 170, static_cast<std::uint8_t>(90.0f + 140.0f * pulse)));
+            window.draw(glow);
+        } else if (p.type == 4) {
+            // Dust mote (day) / frost glitter (cold nights): warm white, low alpha, tiny
+            sf::CircleShape mote(1.2f);
+            mote.setPosition(p.pos);
+            mote.setFillColor(lit(sf::Color(255, 246, 225, 70), p.pos.x));
+            window.draw(mote);
+        } else if (p.type == 5) {
+            // Spring blossom petal
+            sf::CircleShape petal(2.6f, 6);
+            petal.setOrigin({ 2.6f, 2.6f });
+            petal.setScale({ 1.0f, 0.6f });
+            petal.setRotation(sf::degrees(p.pos.y * 1.3f));
+            petal.setPosition(p.pos);
+            petal.setFillColor(lit(sf::Color(255, 190, 215, 220), p.pos.x));
+            window.draw(petal);
+        } else if (p.type == 6) {
+            // Autumn leaf
+            sf::RectangleShape leaf({ 6.0f, 3.0f });
+            leaf.setOrigin({ 3.0f, 1.5f });
+            leaf.setPosition(p.pos);
+            leaf.setRotation(sf::degrees(p.pos.y * 2.0f + p.pos.x * 0.5f));
+            static const sf::Color leafCols[3] = { sf::Color(214, 110, 36, 230), sf::Color(236, 170, 50, 230), sf::Color(170, 70, 30, 230) };
+            leaf.setFillColor(lit(leafCols[static_cast<int>(p.size) % 3], p.pos.x));
+            window.draw(leaf);
+        }
+    }
+
     // 1. Screen Lightning flash
     if (lightningFlashTimer > 0.0f) {
         sf::RectangleShape flash({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
         flash.setPosition({ 0.0f, 0.0f });
-        std::uint8_t a = static_cast<std::uint8_t>(std::min(220.0f, lightningFlashTimer * 750.0f));
+        std::uint8_t a = static_cast<std::uint8_t>(std::min(150.0f, lightningFlashTimer * 520.0f));
         flash.setFillColor(sf::Color(220, 240, 255, a));
         window.draw(flash);
     }
@@ -228,38 +318,6 @@ void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
         impact.setPosition(bolt.targetPos);
         impact.setFillColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(alpha * 0.75f)));
         window.draw(impact);
-    }
-
-    // 3. Particles
-    for (const auto& p : particles) {
-        if (p.type == 0) {
-            // Rain streak
-            sf::Vertex line[2];
-            line[0].position = p.pos;
-            line[0].color = sf::Color(160, 210, 255, 160);
-            line[1].position = p.pos + sf::Vector2f(p.vel.x * 0.025f, p.vel.y * 0.025f);
-            line[1].color = sf::Color(200, 235, 255, 220);
-            window.draw(line, 2, sf::PrimitiveType::Lines);
-        } else if (p.type == 1) {
-            // Snow flake
-            sf::CircleShape flake(p.size);
-            flake.setPosition(p.pos);
-            flake.setFillColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(p.alpha * 0.85f)));
-            window.draw(flake);
-        } else if (p.type == 2) {
-            // Wind leaf / amber petal
-            sf::RectangleShape leaf({ 5.0f, 2.5f });
-            leaf.setPosition(p.pos);
-            leaf.setRotation(sf::degrees(p.pos.x * 0.5f));
-            leaf.setFillColor(sf::Color(210, 170, 70, 180));
-            window.draw(leaf);
-        } else if (p.type == 3) {
-            // Night star or firefly
-            sf::CircleShape glow(p.size);
-            glow.setPosition(p.pos);
-            glow.setFillColor(sf::Color(180, 255, 120, static_cast<std::uint8_t>(120 + 80 * std::sin(p.pos.x * 0.05f))));
-            window.draw(glow);
-        }
     }
 }
 
