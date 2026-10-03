@@ -1036,6 +1036,9 @@ void testSolarCurve() {
             }
             CHECK(WeatherSystem::getSolarMultiplier(w, rise, s) == 0.0f, "season " << idx(s) << " weather " << idx(w) << " at sunrise: "
                                                                                    << WeatherSystem::getSolarMultiplier(w, rise, s));
+            // ... and at sunset, which is already night (isDaylightAt): exactly 0, never a negative output
+            CHECK(WeatherSystem::getSolarMultiplier(w, set, s) == 0.0f, "season " << idx(s) << " weather " << idx(w) << " at sunset: "
+                                                                                  << WeatherSystem::getSolarMultiplier(w, set, s));
         }
     }
 
