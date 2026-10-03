@@ -302,6 +302,15 @@ void UI_fx::handleEvents(const UI_resourceNodes& nodes) {
             }
             case FxEvent::Type::Settlement: {
                 if (e.player == 0) break;
+                // The day's verdict: the city outline flashes in the winner's colour with two shock rings
+                {
+                    const sf::FloatRect cityRect = UI_city().getCityBounds();
+                    sf::Color c = (e.player == 1) ? FX_P1 : FX_P2;
+                    sf::Vector2f centre = cityRect.position + cityRect.size * 0.5f;
+                    rectFlashes.push_back({ cityRect, 0.0f, 1.1f, c });
+                    rings.push_back({ centre + sf::Vector2f(0.0f, cityRect.size.y * 0.5f), 0.0f, 0.9f, 260.0f, c });
+                    rings.push_back({ centre + sf::Vector2f(0.0f, cityRect.size.y * 0.5f), -0.25f, 0.9f, 200.0f, c });
+                }
                 if (singlePlayerMode) {
                     audio.play(e.player == 1 ? Sfx::SettleWon : Sfx::SettleLost, 0);
                 } else {
@@ -467,6 +476,7 @@ void UI_fx::drawWorldFx(sf::RenderTarget& target) const {
         target.draw(box);
     }
     for (const auto& r : rings) {
+        if (r.age < 0.0f) continue; // delayed ring
         float t = r.age / r.life;
         float rad = 4.0f + r.radius * Ease::easeOutCubic(t);
         sf::CircleShape ring(rad, 40);
