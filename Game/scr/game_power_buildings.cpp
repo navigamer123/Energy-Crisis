@@ -292,6 +292,7 @@ float GameEngine::rollUnit() {
 void GameEngine::updateAdvancedSystems(float dt) {
     if (dt <= 0.0f) return;
     updateReactors(dt);
+    updateMegaProjects(dt);
     updateHazards(dt);
 }
 
