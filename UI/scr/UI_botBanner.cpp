@@ -19,6 +19,7 @@ constexpr float kCanvasW = 1600.0f;
 constexpr float kPlayLeft = 254.0f;  // right edge of the West HUD column
 constexpr float kPlayRight = 1346.0f; // left edge of the East HUD column
 constexpr float kPlayTop = 56.0f;    // below the demand bar
+constexpr float kPlayBottom = 866.0f; // above the bottom hint bar
 
 sf::Color withAlpha(sf::Color c, float a) {
     c.a = static_cast<std::uint8_t>(std::clamp(a, 0.0f, 1.0f) * c.a);
@@ -45,7 +46,7 @@ void drawPill(sf::RenderWindow& window, sf::FloatRect r, sf::Color fill, sf::Col
 } // namespace
 
 void drawBotNameTag(sf::RenderWindow& window, const sf::Font& font, const UIBot& bot, sf::Vector2f cursorPos,
-                    bool showIntent) {
+                    bool showIntent, const std::vector<sf::FloatRect>& avoid) {
     const BotProfile& p = bot.getProfile();
     const BotDifficulty diff = bot.getDifficulty();
     const sf::Color diffColor = botDifficultyColor(diff);
@@ -74,7 +75,26 @@ void drawBotNameTag(sf::RenderWindow& window, const sf::Font& font, const UIBot&
     float boxH = padY + line1H + line2H + padY;
     // Stay inside the play field: never over the side HUD columns or the top demand bar
     float boxX = std::clamp(cursorPos.x - boxW / 2.0f, kPlayLeft, std::max(kPlayLeft, kPlayRight - boxW));
+    // Above the cursor by default; when that would cover a card (a mine the bot works at), use the
+    // free space above or below that card instead
     float boxY = std::max(kPlayTop, cursorPos.y - 22.0f - boxH);
+    auto hitsCard = [&](float y) {
+        sf::FloatRect r({ boxX, y }, { boxW, boxH });
+        for (const auto& a : avoid) {
+            if (r.findIntersection(a)) return true;
+        }
+        return false;
+    };
+    if (hitsCard(boxY)) {
+        for (const auto& a : avoid) {
+            if (!a.contains(cursorPos)) continue;
+            float above = a.position.y - 4.0f - boxH;
+            float below = a.position.y + a.size.y + 4.0f;
+            if (above >= kPlayTop && !hitsCard(above)) boxY = above;
+            else if (below + boxH <= kPlayBottom && !hitsCard(below)) boxY = below;
+            break;
+        }
+    }
 
     drawPill(window, { { boxX, boxY }, { boxW, boxH } }, kPillFill, withAlpha(diffColor, 0.85f),
              diff == BotDifficulty::IMPOSSIBLE ? 1.5f : 1.0f);

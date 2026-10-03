@@ -75,7 +75,8 @@ void UI_map::resetMatchInputState() {
 
 // An active tutorial gives the human a head start, but only for a limited window
 bool UI_map::isBotHeldByTutorial() const {
-    return tutorial.isActive() && tutorial.getStep() != TutorialStep::COMPLETED && tutorialBotHoldLeft > 0.0f;
+    return tutorial.isActive() && tutorial.getStep() != TutorialStep::COMPLETED && tutorialBotHoldLeft > 0.0f &&
+           engine.isGracePeriod(); // [AI team] never holds the bot into a settled day
 }
 
 void UI_map::onFocusLost() {
@@ -164,8 +165,13 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     }
 
     if (resourcesLoaded && bot.isActive()) {
-        // [AI team] Rival name + difficulty (red for НЕВЪЗМОЖНО) and the bot's current plan
-        drawBotNameTag(window, font, bot, p2Pos, true);
+        // [AI team] Rival name + difficulty (red for НЕВЪЗМОЖНО) and the bot's current plan,
+        // kept off the East mine cards so it never covers their labels
+        std::vector<sf::FloatRect> mineCards;
+        for (int t = static_cast<int>(ResourceType::WOOD); t <= static_cast<int>(ResourceType::GOLD); ++t) {
+            if (const auto* st = nodes.getStation(2, static_cast<ResourceType>(t))) mineCards.push_back(st->bounds);
+        }
+        drawBotNameTag(window, font, bot, p2Pos, true, mineCards);
     } else if (resourcesLoaded) {
         std::string p2Label = "P2";
         sf::Text p2Tag(font, toUtf8(p2Label), 13);

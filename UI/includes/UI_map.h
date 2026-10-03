@@ -185,7 +185,7 @@ private:
     sf::FloatRect pauseMenuBtn;
 
     // Input ownership & per-match input state (UI_map_controls.cpp)
-    static constexpr float TUTORIAL_BOT_HOLD_SEC = 60.0f; // Max real seconds an unfinished tutorial keeps the bot idle
+    static constexpr float TUTORIAL_BOT_HOLD_SEC = 60.0f; // Max real seconds an unfinished tutorial keeps the bot idle (grace period only)
     float tutorialBotHoldLeft = TUTORIAL_BOT_HOLD_SEC;
     bool p1PrevUpgrade = false;         // Upgrade-key edge flags (were function-local statics)
     bool p2PrevUpgrade = false;

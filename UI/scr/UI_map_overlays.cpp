@@ -211,6 +211,7 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
                        : ((winner == 1) ? sf::Color(0, 229, 255) : sf::Color(255, 120, 200));
     std::string winPlayerStr = isDraw ? "РАВЕНСТВО!"
                              : ((winner == 1) ? "ИГРАЧ 1 (ЗАПАД) СПЕЧЕЛИ!" : "ИГРАЧ 2 (ИЗТОК) СПЕЧЕЛИ!");
+    if (winner == 2 && bot.isActive()) winPlayerStr = "„" + bot.getProfile().nameBg + "“ СПЕЧЕЛИ!"; // [AI team] rival name
     std::string headerStr = wonByShare
         ? "ЕНЕРГИЙНА КРИЗА: ПОБЕДА С " + std::to_string(victoryPct) + "% ОТ ГРАДА"
         : "ЕНЕРГИЙНА КРИЗА: КРАЙ НА ДЕН " + std::to_string(finalDay);
