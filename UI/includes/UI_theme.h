@@ -62,6 +62,8 @@ constexpr sf::Color GoodFill(28, 110, 64);       // success buttons (white or pr
 constexpr sf::Color Warn(255, 190, 80);          // cooldowns, cautions, tips
 constexpr sf::Color Bad(255, 105, 105);          // missing, errors, danger
 constexpr sf::Color BadFill(120, 34, 44);        // danger buttons
+constexpr sf::Color WarnFill(130, 88, 24);        // caution buttons (medium difficulty)
+constexpr sf::Color InfoFill(32, 78, 130);        // neutral primary buttons
 constexpr sf::Color Info(120, 200, 255);         // neutral highlights (night, hints)
 
 // --- Currency and power ------------------------------------------------------

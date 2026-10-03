@@ -1,6 +1,7 @@
 #include "../includes/UI_playControls.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
 #include <string>
 
 UI_playControls::UI_playControls()
@@ -18,13 +19,14 @@ void UI_playControls::drawButton(sf::RenderWindow& window, const sf::Font& font,
     shape.setPosition(bounds.position);
     shape.setFillColor(isSelected ? hoverColor : baseColor);
     shape.setOutlineThickness(isSelected ? 3.0f : 1.5f);
-    shape.setOutlineColor(isSelected ? sf::Color(255, 215, 0) : sf::Color(70, 90, 120));
+    shape.setOutlineColor(isSelected ? theme::Focus : theme::Line);
     window.draw(shape);
 
     if (fontLoaded) {
         sf::String displayText = isSelected ? (toUtf8("> ") + text + toUtf8(" <")) : text;
-        sf::Text label(font, displayText, 18);
-        label.setFillColor(isSelected ? sf::Color(255, 240, 150) : textColor);
+        sf::Text label(font, displayText, fontsize::H2);
+        label.setFillColor(isSelected ? theme::TextPrimary : textColor);
+        if (isSelected) label.setStyle(sf::Text::Bold);
 
         sf::FloatRect textBounds = label.getLocalBounds();
         label.setPosition({
@@ -45,31 +47,32 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
     // Card background
     sf::RectangleShape card({ cardWidth, cardHeight });
     card.setPosition({ cardX, cardY });
-    card.setFillColor(sf::Color(16, 22, 34, 250));
+    card.setFillColor(theme::withAlpha(theme::Panel, 250));
     card.setOutlineThickness(2.0f);
-    card.setOutlineColor(sf::Color(0, 229, 255, 220));
+    card.setOutlineColor(theme::LineStrong);
     window.draw(card);
     const sf::FloatRect cardRect({ cardX, cardY }, { cardWidth, cardHeight });
 
     if (fontLoaded) {
         // Modal title
-        sf::Text title(font, toUtf8("ИЗБЕРЕТЕ 2-PLAYER УПРАВЛЕНИЕ / CONTROL SCHEME"), 22);
-        title.setFillColor(sf::Color(255, 204, 0));
+        sf::Text title(font, toUtf8("ИЗБЕРЕТЕ УПРАВЛЕНИЕ ЗА ДВАМА ИГРАЧИ"), fontsize::H1);
+        title.setStyle(sf::Text::Bold);
+        title.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = title.getLocalBounds();
         title.setPosition({ cardX + (cardWidth - tb.size.x) / 2.0f, cardY + 14.0f });
         ui::drawText(window, title, cardRect);
 
         // Subtitle
-        sf::Text sub(font, toUtf8("Изберете схема за Играч 1 (Западен сектор) и Играч 2 (Източен сектор)"), 14);
-        sub.setFillColor(sf::Color(140, 185, 225));
+        sf::Text sub(font, toUtf8("Изберете схема за Играч 1 (Западен сектор) и Играч 2 (Източен сектор)"), fontsize::Body);
+        sub.setFillColor(theme::TextSecondary);
         sf::FloatRect sb = sub.getLocalBounds();
-        sub.setPosition({ cardX + (cardWidth - sb.size.x) / 2.0f, cardY + 44.0f });
+        sub.setPosition({ cardX + (cardWidth - sb.size.x) / 2.0f, cardY + 48.0f });
         ui::drawText(window, sub, cardRect);
 
         // Divider
         sf::RectangleShape div({ cardWidth - 60.0f, 2.0f });
-        div.setPosition({ cardX + 30.0f, cardY + 66.0f });
-        div.setFillColor(sf::Color(50, 70, 95));
+        div.setPosition({ cardX + 30.0f, cardY + 70.0f });
+        div.setFillColor(theme::Line);
         window.draw(div);
     }
 
@@ -91,28 +94,28 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
 
     OptionData options[4] = {
         {
-            "1. СПОДЕЛЕНА КЛАВИАТУРА (DUAL KEYBOARD)",
-            "Играч 1 (Запад): [W][A][S][D] Движение  |  [Q] и [E] Действие",
-            "Играч 2 (Изток): [Стрелки] Движение     |  [PgUp] и [PgDn] Действие",
-            "KB + KB"
+            "1. СПОДЕЛЕНА КЛАВИАТУРА",
+            "Играч 1 (Запад): [W][A][S][D] Движение  ·  [SPACE] Действие  ·  [E] / [Q] Сграда",
+            "Играч 2 (Изток): [Стрелки] Движение  ·  [ENTER] Действие  ·  [PgDn] / [PgUp] Сграда",
+            "КЛАВ. + КЛАВ."
         },
         {
             "2. ИГРАЧ 1 КЛАВИАТУРА + ИГРАЧ 2 МИШКА",
-            "Играч 1 (Запад): [W][A][S][D] Движение  |  [Q] и [E] Действие",
-            "Играч 2 (Изток): [Мишка] Позиция        |  [Ляв / Десен клик] Действие",
-            "KB + MOUSE"
+            "Играч 1 (Запад): [W][A][S][D] Движение  ·  [SPACE] Действие  ·  [E] / [Q] Сграда",
+            "Играч 2 (Изток): [Мишка] Позиция  ·  [Ляв клик] Действие  ·  [Десен клик] Отказ",
+            "КЛАВ. + МИШКА"
         },
         {
-            "3. ИГРАЧ 1 МИШКА + ИГРАЧ 2 КЛАВИАТУРА (ОБРАТНО)",
-            "Играч 1 (Запад): [Мишка] Позиция        |  [Ляв / Десен клик] Действие",
-            "Играч 2 (Изток): [Стрелки] Движение     |  [PgUp] и [PgDn] Действие",
-            "MOUSE + KB"
+            "3. ИГРАЧ 1 МИШКА + ИГРАЧ 2 КЛАВИАТУРА",
+            "Играч 1 (Запад): [Мишка] Позиция  ·  [Ляв клик] Действие  ·  [Десен клик] Отказ",
+            "Играч 2 (Изток): [Стрелки] Движение  ·  [ENTER] Действие  ·  [PgDn] / [PgUp] Сграда",
+            "МИШКА + КЛАВ."
         },
         {
             "4. ОБЩА МИШКА (ЕДНА МИШКА, ИГРА НА РЕД)",
             "Играч 1 (Запад): [Мишката в западната половина] Движение и Действие",
             "Играч 2 (Изток): [Мишката в източната половина] Движение и Действие",
-            "1x MOUSE"
+            "1 МИШКА"
         }
     };
 
@@ -136,13 +139,13 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
         optBox.setPosition(bounds.position);
 
         if (isActive) {
-            optBox.setFillColor(isNavSelected ? sf::Color(35, 70, 85, 240) : sf::Color(25, 52, 68, 230));
+            optBox.setFillColor(isNavSelected ? theme::withAlpha(theme::CardSelected, 240) : theme::withAlpha(theme::CardHover, 230));
             optBox.setOutlineThickness(2.5f);
-            optBox.setOutlineColor(sf::Color(0, 255, 180));
+            optBox.setOutlineColor(isNavSelected ? theme::Focus : theme::Good);
         } else {
-            optBox.setFillColor(isNavSelected ? sf::Color(35, 45, 65, 220) : sf::Color(22, 28, 42, 200));
+            optBox.setFillColor(isNavSelected ? theme::withAlpha(theme::CardHover, 220) : theme::withAlpha(theme::Card, 200));
             optBox.setOutlineThickness(isNavSelected ? 2.0f : 1.0f);
-            optBox.setOutlineColor(isNavSelected ? sf::Color(255, 204, 0) : sf::Color(60, 80, 110));
+            optBox.setOutlineColor(isNavSelected ? theme::Focus : theme::Line);
         }
         window.draw(optBox);
         ui::lint::ContainerScope optScope(bounds);
@@ -150,24 +153,25 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
         // Radio indicator
         sf::CircleShape radio(9.0f);
         radio.setPosition({ optX + 16.0f, y + 31.0f });
-        radio.setFillColor(isActive ? sf::Color(0, 255, 180) : sf::Color(30, 40, 55));
+        radio.setFillColor(isActive ? theme::Good : theme::Well);
         radio.setOutlineThickness(1.5f);
-        radio.setOutlineColor(isActive ? sf::Color(100, 255, 200) : sf::Color(100, 130, 160));
+        radio.setOutlineColor(isActive ? theme::TextPrimary : theme::LineStrong);
         window.draw(radio);
 
         if (fontLoaded) {
-            sf::Text tTitle(font, toUtf8(options[i].title), 16);
-            tTitle.setFillColor(isActive ? sf::Color(255, 235, 120) : (isNavSelected ? sf::Color::White : sf::Color(210, 225, 240)));
+            sf::Text tTitle(font, toUtf8(options[i].title), fontsize::H2);
+            tTitle.setStyle(sf::Text::Bold);
+            tTitle.setFillColor((isActive || isNavSelected) ? theme::TextPrimary : theme::TextSecondary);
             tTitle.setPosition({ optX + 44.0f, y + 8.0f });
             ui::drawText(window, tTitle);
 
-            sf::Text tP1(font, toUtf8(options[i].p1Text), 13);
-            tP1.setFillColor(sf::Color(0, 229, 255));
+            sf::Text tP1(font, toUtf8(options[i].p1Text), fontsize::Label);
+            tP1.setFillColor(theme::P1Light);
             tP1.setPosition({ optX + 44.0f, y + 34.0f });
             ui::drawText(window, tP1);
 
-            sf::Text tP2(font, toUtf8(options[i].p2Text), 13);
-            tP2.setFillColor(sf::Color(255, 140, 200));
+            sf::Text tP2(font, toUtf8(options[i].p2Text), fontsize::Label);
+            tP2.setFillColor(theme::P2Light);
             tP2.setPosition({ optX + 44.0f, y + 54.0f });
             ui::drawText(window, tP2);
 
@@ -179,13 +183,13 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
 
             sf::RectangleShape badge({ badgeW, badgeH });
             badge.setPosition({ badgeX, badgeY });
-            badge.setFillColor(isActive ? sf::Color(20, 80, 50) : sf::Color(30, 40, 55));
+            badge.setFillColor(isActive ? theme::GoodFill : theme::Well);
             badge.setOutlineThickness(1.0f);
-            badge.setOutlineColor(isActive ? sf::Color(50, 220, 120) : sf::Color(70, 90, 120));
+            badge.setOutlineColor(isActive ? theme::Good : theme::Line);
             window.draw(badge);
 
-            sf::Text bText(font, toUtf8(isActive ? "ИЗБРАНО" : options[i].badgeText), 13);
-            bText.setFillColor(isActive ? sf::Color(120, 255, 180) : sf::Color(150, 180, 210));
+            sf::Text bText(font, toUtf8(isActive ? "ИЗБРАНО" : options[i].badgeText), fontsize::Label);
+            bText.setFillColor(isActive ? theme::TextPrimary : theme::TextSecondary);
             sf::FloatRect bb = bText.getLocalBounds();
             bText.setPosition({ badgeX + (badgeW - bb.size.x) / 2.0f, badgeY + 4.0f });
             ui::drawText(window, bText, sf::FloatRect({ badgeX, badgeY }, { badgeW, badgeH }));
@@ -206,14 +210,14 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
     }
 
     drawButton(window, font, fontLoaded, startBtn, toUtf8("СТАРТ НА ИГРАТА"),
-               sf::Color(25, 110, 60), sf::Color(40, 160, 85), sf::Color::White, selectedIndex == 4);
+               theme::GoodFill, theme::GoodFill, theme::TextPrimary, selectedIndex == 4);
     drawButton(window, font, fontLoaded, backBtn, toUtf8("НАЗАД"),
-               sf::Color(40, 50, 70), sf::Color(70, 85, 115), sf::Color::White, selectedIndex == 5);
+               theme::Button, theme::ButtonHover, theme::TextPrimary, selectedIndex == 5);
 
     // Keyboard hints
     if (fontLoaded) {
-        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Клик] | Назад: [ESC]"), 13);
-        hint.setFillColor(sf::Color(130, 160, 190));
+        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Клик] | Назад: [ESC]"), fontsize::Label);
+        hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, cardY + cardHeight + 10.0f });
         ui::drawText(window, hint);
