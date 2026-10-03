@@ -58,9 +58,23 @@ GameEngine::GameEngine()
 void GameEngine::init(float screenWidth, float screenHeight) {
     (void)screenWidth;
     (void)screenHeight;
+    init(MatchConfig());
+}
 
+void GameEngine::init(const MatchConfig& cfg) {
     // Reset EVERY piece of match state (clock, season, revenue timer, city, players, buildings)
+    MatchConfig rules = cfg; // cfg may alias this->config, which the reset below overwrites
     *this = GameEngine();
+    rules.finalDay = std::clamp(rules.finalDay, MatchConfig::MIN_FINAL_DAY, MatchConfig::MAX_FINAL_DAY);
+    rules.victoryShare = std::isfinite(rules.victoryShare)
+                             ? std::clamp(rules.victoryShare, MatchConfig::MIN_VICTORY_SHARE, MatchConfig::MAX_VICTORY_SHARE)
+                             : Balance::VICTORY_SHARE;
+    rules.daySeconds = std::isfinite(rules.daySeconds)
+                           ? std::clamp(rules.daySeconds, MatchConfig::MIN_DAY_SECONDS, MatchConfig::MAX_DAY_SECONDS)
+                           : Balance::SECONDS_PER_DAY;
+    rules.graceDays = std::clamp(rules.graceDays, 0, rules.finalDay - 1); // the final day is never a grace day
+    config = rules;
+    gameSeconds = Balance::gameSecondsAtHour(Balance::MATCH_START_HOUR, config.daySeconds);
 
     // Seed both the weather RNG and std::rand (lightning, bot, particles) once per match
     bool seedFromEnv = false;
@@ -75,10 +89,17 @@ void GameEngine::init(float screenWidth, float screenHeight) {
 
     // Reset City State on fresh game or restart (First 2 days are Grace Period = 0 MW)
     city = CityConquestState();
-    city.cityEnergyDemand = (currentDay <= Balance::GRACE_PERIOD_DAYS) ? 0 : Balance::STARTING_CITY_DEMAND_MW;
+    city.cityEnergyDemand = (currentDay <= config.graceDays) ? 0 : Balance::STARTING_CITY_DEMAND_MW;
     city.p1CityShare = 0.50f;
     city.winner = 0;
-    city.lastCutMessage = "ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИТЕ 2 ДЕНА ГРАДЪТ ИСКА 0 ЕНЕРГИЯ ЗА РАЗВИТИЕ!";
+    if (config.graceDays <= 0) {
+        city.lastCutMessage = "ДОБРЕ ДОШЛИ! БЕЗ ГРАТИСЕН ПЕРИОД: ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ ОТ ДЕН 1!";
+    } else if (config.graceDays == 1) {
+        city.lastCutMessage = "ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИЯ ДЕН ГРАДЪТ ИСКА 0 ЕНЕРГИЯ ЗА РАЗВИТИЕ!";
+    } else {
+        city.lastCutMessage = "ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИТЕ " + std::to_string(config.graceDays) +
+                              " ДЕНА ГРАДЪТ ИСКА 0 ЕНЕРГИЯ ЗА РАЗВИТИЕ!";
+    }
 
     // -------------------------------------------------------------------------
     // Generate Purchasable Land Grid on West (P1) and East (P2)
@@ -168,7 +189,7 @@ void GameEngine::update(float dt) {
 
         // Never let a step cross the 06:00 day boundary: the day that ends is settled exactly once,
         // with exactly the energy delivered during that day, however large the frame is.
-        float dayEndSeconds = static_cast<float>(currentDay) * Balance::SECONDS_PER_DAY;
+        float dayEndSeconds = static_cast<float>(currentDay) * config.daySeconds;
         bool reachesDayEnd = (gameSeconds + step >= dayEndSeconds);
         if (reachesDayEnd) {
             step = std::max(0.0f, dayEndSeconds - gameSeconds);
@@ -187,9 +208,9 @@ void GameEngine::update(float dt) {
 
 void GameEngine::simulateStep(float dt) {
     gameSeconds += dt;
-    hour24 = std::fmod((gameSeconds / Balance::SECONDS_PER_DAY) * 24.0f + Balance::CLOCK_HOUR_AT_ZERO, 24.0f);
+    hour24 = std::fmod((gameSeconds / config.daySeconds) * 24.0f + Balance::CLOCK_HOUR_AT_ZERO, 24.0f);
     // Season flips at midnight (dark in every season), never at the 06:00 rollover
-    SeasonType seasonNow = Balance::getSeasonAtGameSeconds(gameSeconds);
+    SeasonType seasonNow = Balance::getSeasonAtGameSeconds(gameSeconds, config.daySeconds);
     if (seasonNow != currentSeason) {
         currentSeason = seasonNow;
         emitEvent(GameEventType::SEASON_CHANGED, 0, 0.0f, std::string(), static_cast<int>(currentSeason));
@@ -245,7 +266,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     // 2. Process Energy Grid for Player 1 (West) and Player 2 (East)
     // Battery energy uses ONE unit for charge and discharge: MW x game-hours (MWh)
     // -------------------------------------------------------------------------
-    const float stepHours = Balance::gameSecondsToHours(dt);
+    const float stepHours = Balance::gameSecondsToHours(dt, config.daySeconds);
     auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
         float rawGen = 0.0f;
         std::vector<PlacedBuilding*> playerLamps;
@@ -358,16 +379,20 @@ void GameEngine::processDayEnd() {
     // The day is judged on the AVERAGE power delivered over the whole day (06:00 -> 06:00),
     // not on an instantaneous snapshot, so daytime-only sources (solar) count fully.
     // (+0.01 MW only absorbs float error, e.g. a battery covering exactly the demand all night)
-    float daySeconds = (city.dailySeconds > 0.0f) ? city.dailySeconds : Balance::SECONDS_PER_DAY;
+    float daySeconds = (city.dailySeconds > 0.0f) ? city.dailySeconds : config.daySeconds;
     int p1AvgMW = static_cast<int>(std::floor(city.p1DailyDelivered / daySeconds + 0.01f));
     int p2AvgMW = static_cast<int>(std::floor(city.p2DailyDelivered / daySeconds + 0.01f));
 
-    if (endedDay <= Balance::GRACE_PERIOD_DAYS) {
-        // Grace period for the first 2 days: 0 energy demanded, no penalties or cuts
-        if (endedDay == 1) {
-            city.lastCutMessage = "ДЕН 1 ПРИКЛЮЧИ [ГРАТИСЕН ПЕРИОД]: ГРАДЪТ ИСКАШЕ 0 MW. ОЩЕ 1 ДЕН ЗА РАЗВИТИЕ!";
+    if (endedDay <= config.graceDays) {
+        // Grace period (first 2 days by default): 0 energy demanded, no penalties or cuts
+        const std::string dayStr = std::to_string(endedDay);
+        const int daysLeft = config.graceDays - endedDay;
+        if (daysLeft > 0) {
+            city.lastCutMessage = "ДЕН " + dayStr + " ПРИКЛЮЧИ [ГРАТИСЕН ПЕРИОД]: ГРАДЪТ ИСКАШЕ 0 MW. ОЩЕ " +
+                                  std::to_string(daysLeft) + (daysLeft == 1 ? " ДЕН" : " ДНИ") + " ЗА РАЗВИТИЕ!";
         } else {
-            city.lastCutMessage = "ДЕН 2 ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД! ОТ ДЕН 3 ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ!";
+            city.lastCutMessage = "ДЕН " + dayStr + " ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД! ОТ ДЕН " + std::to_string(endedDay + 1) +
+                                  " ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ!";
         }
     } else {
         bool p1Succeeded = (p1AvgMW >= city.cityEnergyDemand);
@@ -392,21 +417,25 @@ void GameEngine::processDayEnd() {
                                   std::to_string(city.cityEnergyDemand) + " MW)! НЯМА ПРОМЯНА В ТЕРИТОРИЯТА!";
         }
 
-        // Check Victory Conditions only at day end
+        // Check Victory Conditions only at day end (never in a sandbox match)
         const float eps = 1e-4f; // tolerate float error from summed daily shifts
         float p1Share = city.p1CityShare;
         float p2Share = 1.0f - p1Share;
         int p1Pct = static_cast<int>(std::lround(p1Share * 100.0f));
         int p2Pct = 100 - p1Pct;
-        if (p1Share >= Balance::VICTORY_SHARE - eps) {
+        const float victoryShare = config.victoryShare;
+        const std::string victoryPctStr = std::to_string(static_cast<int>(std::lround(victoryShare * 100.0f)));
+        if (config.sandbox) {
+            // Sandbox: free play, the city share still moves but nobody wins
+        } else if (p1Share >= victoryShare - eps) {
             city.winner = 1;
             city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! КОНТРОЛИРА " + std::to_string(p1Pct) + "% ОТ ГРАДА (НУЖНИ СА " +
-                                  std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%)!";
-        } else if (p2Share >= Balance::VICTORY_SHARE - eps) {
+                                  victoryPctStr + "%)!";
+        } else if (p2Share >= victoryShare - eps) {
             city.winner = 2;
             city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! КОНТРОЛИРА " + std::to_string(p2Pct) + "% ОТ ГРАДА (НУЖНИ СА " +
-                                  std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%)!";
-        } else if (endedDay >= Balance::FINAL_DAY) {
+                                  victoryPctStr + "%)!";
+        } else if (endedDay >= config.finalDay) {
             std::string head = "КРАЙ НА ДЕН " + std::to_string(endedDay) + "! ";
             if (std::abs(p1Share - 0.5f) < Balance::DRAW_SHARE_TOLERANCE) {
                 city.winner = 3;
@@ -432,9 +461,9 @@ void GameEngine::processDayEnd() {
     p2.cityInfluence = 1.0f - city.p1CityShare;
 
     // City expands and demands power next day (0 MW for first 2 days grace, 30 MW Day 3, +15 MW daily)
-    if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
+    if (currentDay <= config.graceDays) {
         city.cityEnergyDemand = 0;
-    } else if (currentDay == Balance::GRACE_PERIOD_DAYS + 1) {
+    } else if (currentDay == config.graceDays + 1) {
         city.cityEnergyDemand = Balance::STARTING_CITY_DEMAND_MW;
     } else {
         city.cityEnergyDemand += Balance::DAILY_DEMAND_INCREASE_MW;

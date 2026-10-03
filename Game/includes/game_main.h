@@ -9,6 +9,7 @@
 #include "game_random.h"
 #include "game_balance.h"
 #include "game_events.h"
+#include "game_config.h"
 
 // -----------------------------------------------------------------------------
 // Resource Types
@@ -140,6 +141,7 @@ private:
     std::vector<PlacedBuilding> buildings;
     std::vector<LandPlot> landPlots;
     std::vector<GameEvent> events; // pending events, drained by pollEvents()
+    MatchConfig config;            // rules of the current match
 
     void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
@@ -152,7 +154,11 @@ private:
 
 public:
     GameEngine();
+    // Starts a new match with the standard rules (MatchConfig defaults)
     void init(float screenWidth, float screenHeight);
+    // Starts a new match with the given rules (out-of-range values are clamped, see MatchConfig)
+    void init(const MatchConfig& cfg);
+    const MatchConfig& getConfig() const { return config; }
     void update(float dt);
 
     // Events since the last call (oldest first); the queue is cleared. Call once per frame.
@@ -172,7 +178,8 @@ public:
 
     bool buyLandPlot(int player, int plotId, std::string& outMsg);
     bool buyNextLandTier(int player, std::string& outMsg);
-    void restartGame() { init(1600.0f, 900.0f); }
+    // New match with the same rules (a fixed config seed replays the same weather)
+    void restartGame() { MatchConfig same = config; init(same); }
 
     void cycleBuildingSelection(int player);
     void cycleBuildingSelectionPrev(int player);
@@ -217,7 +224,7 @@ public:
     bool isDaylight() const { return Balance::isDaylightAt(hour24, currentSeason); }
     float getSunriseHour() const { return Balance::getSunriseHour(currentSeason); }
     float getSunsetHour() const { return Balance::getSunsetHour(currentSeason); }
-    bool isGracePeriod() const { return currentDay <= Balance::GRACE_PERIOD_DAYS; }
+    bool isGracePeriod() const { return currentDay <= config.graceDays; }
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
     SeasonType getSeason() const { return currentSeason; }

@@ -218,6 +218,111 @@ void testEvents() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// MatchConfig
+// ---------------------------------------------------------------------------
+void buildWindFarm(GameEngine& e, int player) {
+    giveResources(e, player, 1000);
+    for (int i = 0; i < 6; ++i) place(e, player, BuildingType::WIND_TURBINE, slotOf(e, player, startPlotId(player), i));
+}
+
+void testMatchConfig() {
+    beginGroup("MatchConfig");
+    {
+        // Defaults are today's rules
+        MatchConfig def;
+        CHECK(def.finalDay == Balance::FINAL_DAY && def.victoryShare == Balance::VICTORY_SHARE &&
+                  def.daySeconds == Balance::SECONDS_PER_DAY && def.graceDays == Balance::GRACE_PERIOD_DAYS &&
+                  def.seed == 0u && def.mutators.empty() && def.mapPreset == 0 && !def.sandbox,
+              "MatchConfig defaults differ from Balance");
+        GameEngine e;
+        e.init(1600.0f, 900.0f);
+        const MatchConfig& c = e.getConfig();
+        CHECK(c.finalDay == Balance::FINAL_DAY && c.victoryShare == Balance::VICTORY_SHARE &&
+                  c.daySeconds == Balance::SECONDS_PER_DAY && c.graceDays == Balance::GRACE_PERIOD_DAYS && !c.sandbox,
+              "init(w, h) does not use the default rules");
+        CHECK(e.getCurrentDay() == 1 && std::abs(e.getHour24() - Balance::MATCH_START_HOUR) < 1e-4f, "start time");
+        CHECK(e.getCityState().cityEnergyDemand == 0 && e.isGracePeriod(), "day 1 is a grace day by default");
+    }
+    {
+        // Short match without grace: nothing built -> draw when day 3 ends
+        MatchConfig cfg;
+        cfg.finalDay = 3;
+        cfg.graceDays = 0;
+        GameEngine e;
+        e.init(cfg);
+        CHECK(e.getCityState().cityEnergyDemand == Balance::STARTING_CITY_DEMAND_MW && !e.isGracePeriod(), "no grace day 1");
+        int guard = 0;
+        while (e.getCityState().winner == 0 && ++guard < 100) e.update(10.0f);
+        CHECK(e.getCurrentDay() == 4 && e.getCityState().winner == 3, "day " << e.getCurrentDay() << " winner " << e.getCityState().winner);
+    }
+    {
+        // Lower victory share: one won day (+15%) is enough
+        MatchConfig cfg;
+        cfg.victoryShare = 0.6f;
+        cfg.graceDays = 0;
+        GameEngine e;
+        e.init(cfg);
+        buildWindFarm(e, 1);
+        runToNextDay(e, 0.25f);
+        CHECK(e.getCityState().winner == 1 && e.getCurrentDay() == 2, "winner " << e.getCityState().winner << " day " << e.getCurrentDay());
+        CHECK(e.getCityState().lastCutMessage.find("60%") != std::string::npos, "message: " << e.getCityState().lastCutMessage);
+    }
+    {
+        // Half-length days: day 1 (08:00 -> 06:00 = 22 h) lasts 41.25 game-seconds
+        MatchConfig cfg;
+        cfg.daySeconds = 45.0f;
+        GameEngine e;
+        e.init(cfg);
+        CHECK(std::abs(e.getHour24() - Balance::MATCH_START_HOUR) < 1e-3f, "start hour " << e.getHour24());
+        for (int i = 0; i < 165; ++i) e.update(0.25f); // 41.25 s
+        CHECK(e.getCurrentDay() == 2, "day " << e.getCurrentDay() << " at hour " << e.getHour24());
+        CHECK(std::abs(e.getHour24() - Balance::CLOCK_HOUR_AT_ZERO) < 0.2f, "hour " << e.getHour24());
+        e.update(45.0f / 4.0f); // 6 game-hours later
+        CHECK(std::abs(e.getHour24() - 12.0f) < 0.2f, "hour " << e.getHour24());
+    }
+    {
+        // Sandbox: the share moves but nobody wins, even after the final day
+        MatchConfig cfg;
+        cfg.sandbox = true;
+        cfg.mutators = { "test_mutator" };
+        GameEngine e;
+        e.init(cfg);
+        buildWindFarm(e, 1);
+        for (int day = 0; day < 25; ++day) e.update(Balance::SECONDS_PER_DAY);
+        CHECK(e.getCityState().winner == 0, "sandbox winner " << e.getCityState().winner);
+        CHECK(e.getCurrentDay() == 26, "sandbox day " << e.getCurrentDay());
+        CHECK(e.getCityState().p1CityShare > 0.99f, "sandbox share " << e.getCityState().p1CityShare);
+        CHECK(e.getConfig().hasMutator("test_mutator") && !e.getConfig().hasMutator("other"), "mutators not kept");
+
+        // Restart keeps the rules
+        e.restartGame();
+        CHECK(e.getConfig().sandbox && e.getConfig().hasMutator("test_mutator"), "restart lost the config");
+        CHECK(e.getCurrentDay() == 1 && e.getBuildings().empty(), "restart did not reset the match");
+    }
+    {
+        // Out-of-range values are clamped
+        MatchConfig cfg;
+        cfg.finalDay = 0;
+        cfg.victoryShare = 0.2f;
+        cfg.daySeconds = -5.0f;
+        cfg.graceDays = 7;
+        GameEngine e;
+        e.init(cfg);
+        const MatchConfig& c = e.getConfig();
+        CHECK(c.finalDay == MatchConfig::MIN_FINAL_DAY, "finalDay " << c.finalDay);
+        CHECK(c.victoryShare == MatchConfig::MIN_VICTORY_SHARE, "victoryShare " << c.victoryShare);
+        CHECK(c.daySeconds == MatchConfig::MIN_DAY_SECONDS, "daySeconds " << c.daySeconds);
+        CHECK(c.graceDays == 0, "graceDays " << c.graceDays);
+        cfg.victoryShare = std::nanf("");
+        cfg.daySeconds = std::nanf("");
+        e.init(cfg);
+        CHECK(e.getConfig().victoryShare == Balance::VICTORY_SHARE && e.getConfig().daySeconds == Balance::SECONDS_PER_DAY,
+              "NaN values not replaced by defaults");
+    }
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -226,6 +331,7 @@ int main() {
     std::cout << "========================================================\n";
 
     testEvents();
+    testMatchConfig();
 
     std::cout << "\n========================================================\n";
     if (g_failures == 0) {
