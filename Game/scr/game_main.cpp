@@ -67,6 +67,16 @@ float windSpeedOf(const std::vector<std::string>& report) {
     return static_cast<float>(std::atof(report[3].c_str()));
 }
 
+// Base output (MW) of a building type, read from Balance without building a BuildingCost (no strings)
+constexpr int basePowerOf(BuildingType type) {
+    return (type == BuildingType::SOLAR_PANEL)    ? Balance::SOLAR_PANEL.basePowerMW
+           : (type == BuildingType::WIND_TURBINE) ? Balance::WIND_TURBINE.basePowerMW
+           : (type == BuildingType::HYDRO_PLANT)  ? Balance::HYDRO_PLANT.basePowerMW
+           : (type == BuildingType::BATTERY)      ? Balance::BATTERY.basePowerMW
+           : (type == BuildingType::LAMP)         ? Balance::STREET_LAMP.basePowerMW
+                                                  : 0;
+}
+
 } // namespace
 
 GameEngine::GameEngine()
@@ -323,99 +333,102 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     // -------------------------------------------------------------------------
     // 2. Process Energy Grid for Player 1 (West) and Player 2 (East)
     // Battery energy uses ONE unit for charge and discharge: MW x game-hours (MWh)
+    // Two passes over the buildings, no allocations: pass 1 sums generation and battery limits,
+    // pass 2 applies battery power and lamp states in building order.
     // -------------------------------------------------------------------------
     const float stepHours = Balance::gameSecondsToHours(dt, config.daySeconds);
     auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
-        float rawGen = 0.0f;
-        std::vector<PlacedBuilding*> playerLamps;
-        std::vector<PlacedBuilding*> playerBatteries;
+        // Weather multipliers are the same for every building of the sector this step
+        const float solarMult = WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
+        const float windMult = WeatherSystem::getWindMultiplier(w, hour24);
+        const float hydroMult = WeatherSystem::getHydroMultiplier(w);
 
-        // Step A: Calculate pure generation from Solar, Wind, and Hydro
+        // Step A: pure generation from Solar, Wind and Hydro; count lamps; battery charge/discharge limits
+        float rawGen = 0.0f;
+        int lampCount = 0;
+        int batteryCount = 0;
+        float canGive = 0.0f; // MW all batteries could discharge this step
+        float canTake = 0.0f; // MW all batteries could absorb this step
         for (auto& b : buildings) {
             if (b.playerOwner != player) continue;
-            BuildingCost cost = getBuildingCost(b.type);
-
-            if (b.type == BuildingType::SOLAR_PANEL) {
-                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
-                b.currentOutputMW = out;
-                rawGen += out;
-            } else if (b.type == BuildingType::WIND_TURBINE) {
-                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24);
-                b.currentOutputMW = out;
-                rawGen += out;
-            } else if (b.type == BuildingType::HYDRO_PLANT) {
-                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
-                b.currentOutputMW = out;
-                rawGen += out;
-            } else if (b.type == BuildingType::LAMP) {
-                playerLamps.push_back(&b);
-            } else if (b.type == BuildingType::BATTERY) {
-                playerBatteries.push_back(&b);
+            switch (b.type) {
+                case BuildingType::SOLAR_PANEL:
+                case BuildingType::WIND_TURBINE:
+                case BuildingType::HYDRO_PLANT: {
+                    const float mult = (b.type == BuildingType::SOLAR_PANEL) ? solarMult
+                                       : (b.type == BuildingType::WIND_TURBINE) ? windMult : hydroMult;
+                    float out = basePowerOf(b.type) * mult;
+                    b.currentOutputMW = out;
+                    rawGen += out;
+                    break;
+                }
+                case BuildingType::LAMP:
+                    ++lampCount;
+                    break;
+                case BuildingType::BATTERY:
+                    ++batteryCount;
+                    b.currentOutputMW = 0.0f;
+                    if (stepHours > 0.0f) {
+                        canGive += std::min(Balance::BATTERY_MAX_POWER_MW, b.energyStored / stepHours);
+                        canTake += std::min(Balance::BATTERY_MAX_POWER_MW,
+                                            std::max(0.0f, b.maxCapacity - b.energyStored) / stepHours);
+                    }
+                    break;
+                default:
+                    break;
             }
         }
 
         // Step B: Load the player is trying to serve: own lamps first (10 MW each), then the city demand
-        float lampDemand = playerLamps.size() * LAMP_POWER_MW;
+        float lampDemand = lampCount * LAMP_POWER_MW;
         float cityTarget = static_cast<float>(std::max(0, city.cityEnergyDemand));
         float loadTarget = lampDemand + cityTarget;
 
-        for (auto* bat : playerBatteries) {
-            bat->currentOutputMW = 0.0f;
-        }
-
         float batteryDischarge = 0.0f; // MW taken out of batteries this step
         float batteryCharge = 0.0f;    // MW put into batteries this step (NOT delivered to the city)
-
-        if (stepHours > 0.0f && !playerBatteries.empty()) {
+        if (stepHours > 0.0f && batteryCount > 0) {
             if (rawGen < loadTarget) {
                 // Step C: Shortfall -> batteries discharge to cover it (never more than needed,
                 // never more than BATTERY_MAX_POWER_MW each, never more than they hold)
-                float deficit = loadTarget - rawGen;
-                float canGive = 0.0f;
-                for (auto* bat : playerBatteries) {
-                    canGive += std::min(Balance::BATTERY_MAX_POWER_MW, bat->energyStored / stepHours);
-                }
-                batteryDischarge = std::min(deficit, canGive);
-                if (batteryDischarge > 0.0f) {
-                    float fraction = batteryDischarge / canGive;
-                    for (auto* bat : playerBatteries) {
-                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, bat->energyStored / stepHours) * fraction;
-                        bat->currentOutputMW = power;
-                        bat->energyStored = std::max(0.0f, bat->energyStored - power * stepHours);
-                    }
-                }
+                batteryDischarge = std::min(loadTarget - rawGen, canGive);
             } else if (rawGen > loadTarget) {
                 // Step D: Real surplus only -> batteries charge (never from thin air)
-                float surplus = rawGen - loadTarget;
-                float canTake = 0.0f;
-                for (auto* bat : playerBatteries) {
-                    canTake += std::min(Balance::BATTERY_MAX_POWER_MW,
-                                        std::max(0.0f, bat->maxCapacity - bat->energyStored) / stepHours);
-                }
-                batteryCharge = std::min(surplus, canTake);
-                if (batteryCharge > 0.0f) {
-                    float fraction = batteryCharge / canTake;
-                    for (auto* bat : playerBatteries) {
-                        float room = std::max(0.0f, bat->maxCapacity - bat->energyStored);
-                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, room / stepHours) * fraction;
-                        bat->energyStored = std::min(bat->maxCapacity, bat->energyStored + power * stepHours);
-                    }
-                }
+                batteryCharge = std::min(rawGen - loadTarget, canTake);
             }
         }
 
         // Step E: Power lamps first from generation + discharge (minus what went into storage)
         float totalAvailable = std::max(0.0f, rawGen + batteryDischarge - batteryCharge);
         int poweredCount = static_cast<int>((totalAvailable + 0.001f) / LAMP_POWER_MW);
-        poweredCount = std::min(static_cast<int>(playerLamps.size()), poweredCount);
-        for (size_t i = 0; i < playerLamps.size(); i++) {
-            if (static_cast<int>(i) < poweredCount) {
-                playerLamps[i]->lightRadius = Balance::STREET_LAMP.lightRadius;
-                playerLamps[i]->currentOutputMW = -LAMP_POWER_MW;
-            } else {
-                // UNPOWERED LAMP! Shuts down, dark lantern head, no light circle
-                playerLamps[i]->lightRadius = 0.0f;
-                playerLamps[i]->currentOutputMW = 0.0f;
+        poweredCount = std::min(lampCount, poweredCount);
+
+        if (lampCount > 0 || batteryDischarge > 0.0f || batteryCharge > 0.0f) {
+            const float dischargeFraction = (batteryDischarge > 0.0f) ? batteryDischarge / canGive : 0.0f;
+            const float chargeFraction = (batteryCharge > 0.0f) ? batteryCharge / canTake : 0.0f;
+            int lampIndex = 0;
+            for (auto& b : buildings) {
+                if (b.playerOwner != player) continue;
+                if (b.type == BuildingType::BATTERY) {
+                    if (batteryDischarge > 0.0f) {
+                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, b.energyStored / stepHours) * dischargeFraction;
+                        b.currentOutputMW = power;
+                        b.energyStored = std::max(0.0f, b.energyStored - power * stepHours);
+                    } else if (batteryCharge > 0.0f) {
+                        float room = std::max(0.0f, b.maxCapacity - b.energyStored);
+                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, room / stepHours) * chargeFraction;
+                        b.energyStored = std::min(b.maxCapacity, b.energyStored + power * stepHours);
+                    }
+                } else if (b.type == BuildingType::LAMP) {
+                    if (lampIndex < poweredCount) {
+                        b.lightRadius = Balance::STREET_LAMP.lightRadius;
+                        b.currentOutputMW = -LAMP_POWER_MW;
+                    } else {
+                        // UNPOWERED LAMP! Shuts down, dark lantern head, no light circle
+                        b.lightRadius = 0.0f;
+                        b.currentOutputMW = 0.0f;
+                    }
+                    ++lampIndex;
+                }
             }
         }
 
