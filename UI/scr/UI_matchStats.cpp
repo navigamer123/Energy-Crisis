@@ -213,6 +213,9 @@ void UI_matchStats::afterEngineUpdate(const GameEngine& engine, std::vector<Info
         ev.value = endedDay;
         ev.value2 = static_cast<int>(rec.outcome);
         ev.share = rec.shareAfter;
+        ev.demand = rec.demand;
+        ev.avgMW[0] = rec.avgMW[0];
+        ev.avgMW[1] = rec.avgMW[1];
         out.push_back(ev);
 
         if (endedDay == Balance::GRACE_PERIOD_DAYS) {

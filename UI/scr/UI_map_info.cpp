@@ -7,24 +7,22 @@
 
 void UI_map::onInfoEvent(const InfoEvent& ev) {
     stats.onInfoEvent(ev);
-    if (ev.type == InfoEventType::LOST_LIGHTNING) {
-        triggerPlayerPopup(ev.player, "МЪЛНИЯ!", "Унищожено съоръжение!",
-                           "Мълния унищожи " + engine.getBuildingCost(ev.building).nameBg +
-                               "!\nКлетката се освободи за нов строеж (ВЕЦ/друг).",
-                           "[SPACE/Клик]: Постройте ново съоръжение", sf::Color(255, 230, 80));
-    }
+    notifications.onInfoEvent(ev, engine, bot.isActive());
 }
 
 void UI_map::updateInfoUI(float dt) {
-    (void)dt;
     pendingInfoEvents.clear();
     stats.afterEngineUpdate(engine, pendingInfoEvents);
     for (const InfoEvent& ev : pendingInfoEvents) {
         if (ev.type != InfoEventType::LOST_LIGHTNING) onInfoEvent(ev); // lightning arrives via its own hook
     }
+    // Toast timers and alerts only run while the match itself runs
+    const bool running = !isPaused && !showHelpOverlay && engine.getCityState().winner == 0;
+    notifications.update(running ? dt : 0.0f, engine, bot.isActive());
 }
 
 void UI_map::resetInfoUI() {
     stats.reset();
+    notifications.reset();
     pendingInfoEvents.clear();
 }

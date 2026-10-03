@@ -33,88 +33,29 @@ void UI_map::drawFloatingNotices(sf::RenderWindow& window) {
     }
 }
 
+// team info: player popups are toasts of the notification system (UX-06). The badge decides the
+// priority and the channel (a newer hint replaces the older one on the same channel). Routine
+// mining results are not toasts any more: the floating "+12 Дърво" notice already shows them.
 void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std::string& title,
                                 const std::string& detail, const std::string& action, sf::Color accent) {
-    PlayerPopup& pop = (player == 1) ? p1Popup : p2Popup;
-    pop.badge = badge;
-    pop.title = title;
-    pop.detail = detail;
-    pop.action = action;
-    pop.accentColor = accent;
-    pop.timer = 4.0f;
-    pop.maxTimer = 4.0f;
-    pop.active = true;
+    if (badge == "ДОБИВ") return;
+    ToastPriority prio = ToastPriority::INFO;
+    std::string channel = badge;
+    if (badge == "МЪЛНИЯ!") {
+        prio = ToastPriority::CRITICAL;
+        channel.clear();
+    } else if (badge == "ГРЕШКА" || badge.rfind("НЕДОСТИГ", 0) == 0 || badge.rfind("ГРЕШКА", 0) == 0) {
+        prio = ToastPriority::WARNING;
+        channel = "error";
+    } else if (badge == "СТРОЕЖ" || badge == "ПРЕМАХВАНЕ" || badge == "ОСВЕТЛЕНИЕ" || badge == "ОТКАЗ") {
+        channel = "select";
+    }
+    notifications.push(player, prio, channel, badge, title, detail, action, accent, false);
 }
 
 void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
     if (!resourcesLoaded) return;
-
-    auto drawOnePopup = [&](const PlayerPopup& pop, float x, float y) {
-        if (!pop.active) return;
-
-        float alphaRatio = std::min(1.0f, pop.timer / 0.8f);
-        std::uint8_t alpha = static_cast<std::uint8_t>(alphaRatio * 245);
-
-        // Glassmorphic container box
-        sf::RectangleShape box({ 225.0f, 132.0f });
-        box.setPosition({ x, y });
-        box.setFillColor(sf::Color(16, 22, 34, alpha));
-        box.setOutlineThickness(1.5f);
-        sf::Color outColor = pop.accentColor;
-        outColor.a = alpha;
-        box.setOutlineColor(outColor);
-        window.draw(box);
-
-        // Badge pill
-        sf::RectangleShape badgeBox({ 65.0f, 18.0f });
-        badgeBox.setPosition({ x + 8.0f, y + 8.0f });
-        sf::Color bColor = pop.accentColor;
-        bColor.a = static_cast<std::uint8_t>(alpha * 0.65f);
-        badgeBox.setFillColor(bColor);
-        window.draw(badgeBox);
-
-        sf::Text tBadge(font, toUtf8(pop.badge), 10);
-        tBadge.setFillColor(sf::Color(255, 255, 255, alpha));
-        sf::FloatRect bb = tBadge.getLocalBounds();
-        tBadge.setPosition({ x + 8.0f + (65.0f - bb.size.x) / 2.0f, y + 9.0f });
-        window.draw(tBadge);
-
-        // Title
-        sf::Text tTitle(font, toUtf8(pop.title), 12);
-        tTitle.setFillColor(sf::Color(255, 255, 255, alpha));
-        tTitle.setPosition({ x + 78.0f, y + 9.0f });
-        window.draw(tTitle);
-
-        // Separator
-        sf::RectangleShape sep({ 209.0f, 1.0f });
-        sep.setPosition({ x + 8.0f, y + 31.0f });
-        sep.setFillColor(sf::Color(60, 85, 120, alpha));
-        window.draw(sep);
-
-        // Detailed Explanation
-        sf::Text tDetail(font, toUtf8(pop.detail), 11);
-        tDetail.setFillColor(sf::Color(195, 225, 255, alpha));
-        tDetail.setPosition({ x + 8.0f, y + 36.0f });
-        window.draw(tDetail);
-
-        // Action instructions
-        if (!pop.action.empty()) {
-            sf::Text tAct(font, toUtf8(pop.action), 10);
-            tAct.setFillColor(sf::Color(255, 215, 80, alpha));
-            tAct.setPosition({ x + 8.0f, y + 92.0f });
-            window.draw(tAct);
-        }
-
-        // Timer progress bar at the bottom
-        float pWidth = 209.0f * (pop.timer / pop.maxTimer);
-        sf::RectangleShape prog({ std::max(0.0f, pWidth), 2.5f });
-        prog.setPosition({ x + 8.0f, y + 122.0f });
-        prog.setFillColor(outColor);
-        window.draw(prog);
-    };
-
-    drawOnePopup(p1Popup, 20.0f, 520.0f);
-    drawOnePopup(p2Popup, 1600.0f - 245.0f, 520.0f);
+    notifications.draw(window, font); // team info
 }
 
 void UI_map::triggerPlayerModal(int player, const std::string& badge, const std::string& title,

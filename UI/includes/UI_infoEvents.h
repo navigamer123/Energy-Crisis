@@ -29,6 +29,8 @@ struct InfoEvent {
     int value = 0;
     int value2 = 0;
     float share = 0.0f;
+    int demand = 0;                         // DAY_SETTLED: the day's city demand (MW)
+    int avgMW[2] = { 0, 0 };                // DAY_SETTLED: average MW delivered by P1 / P2 that day
     BuildingType building = BuildingType::NONE;
     ResourceType resource = ResourceType::NONE;
 };

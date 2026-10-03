@@ -14,6 +14,7 @@
 #include "UI_tutorial.h"
 #include "UI_infoEvents.h"   // team info
 #include "UI_matchStats.h"   // team info
+#include "UI_notifications.h" // team info
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -197,6 +198,7 @@ private:
 
     // team info: information UI (UI_map_info.cpp) - telemetry, notifications, dashboard, report, dev overlay
     UI_matchStats stats;
+    UI_notifications notifications;
     std::vector<InfoEvent> pendingInfoEvents;
     void updateInfoUI(float dt);
     void resetInfoUI();
