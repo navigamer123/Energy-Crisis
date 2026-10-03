@@ -29,6 +29,22 @@ void UI_map::resetInfoUI() {
 }
 
 // -----------------------------------------------------------------------------
+// Energy dashboard: shown while [Tab] is held during the running match
+// -----------------------------------------------------------------------------
+
+void UI_map::drawDashboardIfHeld(sf::RenderWindow& window) {
+    const bool held = resourcesLoaded && window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Tab) &&
+                      !isPaused && !showHelpOverlay && engine.getCityState().winner == 0;
+    const float now = animClock.getElapsedTime().asSeconds();
+    if (!held) {
+        dashboardOpenedAt = -1.0f;
+        return;
+    }
+    if (dashboardOpenedAt < 0.0f) dashboardOpenedAt = now;
+    dashboard.draw(window, font, engine, stats, now - dashboardOpenedAt, now);
+}
+
+// -----------------------------------------------------------------------------
 // Event log overlay (on top of the pause menu)
 // -----------------------------------------------------------------------------
 

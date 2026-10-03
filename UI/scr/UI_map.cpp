@@ -371,6 +371,9 @@ void UI_map::render(sf::RenderWindow& window) {
     // 19. Floating Notices
     drawFloatingNotices(window);
 
+    // 19.5 team info: energy dashboard while [Tab] is held
+    drawDashboardIfHeld(window);
+
     // 20. Pause Menu (drawn before help so help is layered on top)
     if (engine.getCityState().winner != 0) {
         drawVictoryScreen(window);

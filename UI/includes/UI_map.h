@@ -15,6 +15,7 @@
 #include "UI_infoEvents.h"   // team info
 #include "UI_matchStats.h"   // team info
 #include "UI_notifications.h" // team info
+#include "UI_dashboard.h"     // team info
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -206,6 +207,9 @@ private:
     void resetInfoUI();
     void handleEventLogInput(const sf::Event& event);
     void openEventLog();
+    UI_dashboard dashboard;             // Energy dashboard while [Tab] is held
+    float dashboardOpenedAt = -1.0f;    // animClock time when Tab went down (-1 = closed)
+    void drawDashboardIfHeld(sf::RenderWindow& window);
 
 public:
     UI_map();
