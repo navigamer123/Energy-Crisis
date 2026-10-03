@@ -88,25 +88,8 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     p1 = PlayerEconomy();
     p2 = PlayerEconomy();
 
-    // -------------------------------------------------------------------------
-    // Starter Solar Panels (1 for Player 1, 1 for Player 2)
-    // Ensures fair 50/50 baseline so that first placement does not give monopoly
-    // -------------------------------------------------------------------------
-    PlacedBuilding starterP1;
-    starterP1.type = BuildingType::SOLAR_PANEL;
-    starterP1.position = getGridSlot(1, 0, 0); // Slot 0,0 in P1 starting plot
-    starterP1.playerOwner = 1;
-    starterP1.currentOutputMW = static_cast<float>(Balance::SOLAR_PANEL.basePowerMW);
-    starterP1.animTimer = 0.0f;
-    buildings.push_back(starterP1);
-
-    PlacedBuilding starterP2;
-    starterP2.type = BuildingType::SOLAR_PANEL;
-    starterP2.position = getGridSlot(2, 8, 0); // Slot 8,0 in P2 starting plot (r=0, c=2)
-    starterP2.playerOwner = 2;
-    starterP2.currentOutputMW = static_cast<float>(Balance::SOLAR_PANEL.basePowerMW);
-    starterP2.animTimer = 0.0f;
-    buildings.push_back(starterP2);
+    // Players start with 0 buildings and 0 MW (buildings must be earned and constructed)
+    buildings.clear();
 
     // Initialize day 1 weather with weather_report from weatherF
     auto rep1 = weather_report("spring");

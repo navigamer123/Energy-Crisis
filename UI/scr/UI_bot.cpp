@@ -15,14 +15,14 @@ void UIBot::init(BotDifficulty diff) {
             mineHitInterval = 1.15f;
             break;
         case BotDifficulty::MEDIUM:
-            moveSpeed = 460.0f;
-            decisionInterval = 0.22f;
-            mineHitInterval = 1.04f;
+            moveSpeed = 480.0f;
+            decisionInterval = 0.18f;
+            mineHitInterval = 1.03f;
             break;
         case BotDifficulty::HARD:
-            moveSpeed = 660.0f;
-            decisionInterval = 0.08f;
-            mineHitInterval = 1.01f;
+            moveSpeed = 700.0f;
+            decisionInterval = 0.04f;
+            mineHitInterval = 1.00f;
             break;
         case BotDifficulty::NONE:
         default:
@@ -206,21 +206,21 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     std::vector<CandidateChoice> candidateList;
 
     // Hydro Plant: 110 MW base, 24/7 continuous output, rain boost
-    float hydroScore = (difficulty == BotDifficulty::HARD ? 120.0f : (difficulty == BotDifficulty::MEDIUM ? 95.0f : 65.0f));
-    if (weather == WeatherType::RAINY) hydroScore += 40.0f;
+    float hydroScore = (difficulty == BotDifficulty::HARD ? 135.0f : (difficulty == BotDifficulty::MEDIUM ? 105.0f : 70.0f));
+    if (weather == WeatherType::RAINY) hydroScore += 45.0f;
     candidateList.push_back({ BuildingType::HYDRO_PLANT, hydroScore });
 
     // Wind Turbine: 85 MW base, 24/7 output, massive windy/stormy boost
-    float windScore = (difficulty == BotDifficulty::HARD ? 100.0f : (difficulty == BotDifficulty::MEDIUM ? 90.0f : 75.0f));
+    float windScore = (difficulty == BotDifficulty::HARD ? 120.0f : (difficulty == BotDifficulty::MEDIUM ? 100.0f : 80.0f));
     if (weather == WeatherType::WINDY) windScore += 60.0f;
     if (weather == WeatherType::STORMY) windScore += 90.0f;
-    if (!isDay) windScore += 25.0f;
+    if (!isDay) windScore += 35.0f;
     candidateList.push_back({ BuildingType::WIND_TURBINE, windScore });
 
     // Solar Panel: 60 MW base during day, 0 at night
     float solarScore = 0.0f;
     if (isDay) {
-        solarScore = (difficulty == BotDifficulty::EASY ? 105.0f : (difficulty == BotDifficulty::MEDIUM ? 70.0f : 50.0f));
+        solarScore = (difficulty == BotDifficulty::EASY ? 110.0f : (difficulty == BotDifficulty::MEDIUM ? 80.0f : 60.0f));
     } else {
         solarScore = -999.0f; // Never build solar at night
     }
@@ -229,16 +229,18 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     // Battery: Stores excess daytime generation for night stability
     float batteryScore = 0.0f;
     if (batteryCount < 2 && curEnergy >= 95 && difficulty != BotDifficulty::EASY) {
-        batteryScore = (difficulty == BotDifficulty::HARD ? 105.0f : 65.0f);
+        batteryScore = (difficulty == BotDifficulty::HARD ? 110.0f : 65.0f);
     }
     candidateList.push_back({ BuildingType::BATTERY, batteryScore });
 
     // Street Lamp: Illuminates night darkness (allows night construction)
-    float lampScore = 0.0f;
-    if (!isDay && illuminatedFreeSlots.empty() && lampCount < 2 && !freeSlots.empty()) {
-        lampScore = 300.0f; // Urgent: plots are dark at night!
-    } else if (lampCount == 0 && !freeSlots.empty()) {
-        lampScore = 40.0f;
+    // CRITICAL FIX: NEVER build a lamp if power is under 35 MW (unpowered lamp gives 0 light and wastes resources!)
+    // HARD CAP: Maximum 1 lamp in total for the bot on the entire match!
+    float lampScore = -999.0f;
+    if (lampCount == 0 && curEnergy >= 35 && !freeSlots.empty()) {
+        if (!isDay && illuminatedFreeSlots.empty()) {
+            lampScore = 45.0f; // Modest score, only if generation is already high and stable!
+        }
     }
     candidateList.push_back({ BuildingType::LAMP, lampScore });
 

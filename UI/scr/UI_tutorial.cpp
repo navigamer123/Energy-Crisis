@@ -6,12 +6,13 @@
 UI_tutorial::UI_tutorial()
     : step(TutorialStep::WELCOME),
       active(true),
+      isCoop(false),
       animTimer(0.0f),
       stepDelayTimer(0.0f),
-      initialP1BuildingCount(1) {
-    cardBounds = sf::FloatRect({ 240.0f, 756.0f }, { 540.0f, 126.0f });
-    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 148.0f, cardBounds.position.y + 8.0f }, { 140.0f, 24.0f });
-    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 190.0f, cardBounds.position.y + cardBounds.size.y - 36.0f }, { 180.0f, 28.0f });
+      initialP1BuildingCount(0) {
+    cardBounds = sf::FloatRect({ 240.0f, 752.0f }, { 540.0f, 130.0f });
+    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 150.0f, cardBounds.position.y + 8.0f }, { 142.0f, 24.0f });
+    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 195.0f, cardBounds.position.y + cardBounds.size.y - 36.0f }, { 185.0f, 28.0f });
 }
 
 void UI_tutorial::reset() {
@@ -19,7 +20,7 @@ void UI_tutorial::reset() {
     active = true;
     animTimer = 0.0f;
     stepDelayTimer = 0.0f;
-    initialP1BuildingCount = 1;
+    initialP1BuildingCount = 0;
 }
 
 void UI_tutorial::start() {
@@ -37,15 +38,6 @@ void UI_tutorial::update(float dt, const GameEngine& engine) {
     animTimer += dt;
 
     const auto& econ = engine.getPlayerEconomy(1);
-
-    // Initial building count tracking (starts with 1 starter solar panel)
-    if (initialP1BuildingCount <= 1) {
-        int count = 0;
-        for (const auto& b : engine.getBuildings()) {
-            if (b.playerOwner == 1) count++;
-        }
-        if (count > 0) initialP1BuildingCount = count;
-    }
 
     if (stepDelayTimer > 0.0f) {
         stepDelayTimer -= dt;
@@ -100,6 +92,75 @@ void UI_tutorial::update(float dt, const GameEngine& engine) {
     }
 }
 
+void UI_tutorial::drawSpotlight(sf::RenderWindow& window, sf::FloatRect targetRect, float animTime) {
+    float sw = 1600.0f;
+    float sh = 900.0f;
+    sf::Color dimColor(0, 0, 0, 195);
+
+    // 1. Top rect
+    if (targetRect.position.y > 0.0f) {
+        sf::RectangleShape top({ sw, targetRect.position.y });
+        top.setPosition({ 0.0f, 0.0f });
+        top.setFillColor(dimColor);
+        window.draw(top);
+    }
+
+    // 2. Bottom rect
+    float bY = targetRect.position.y + targetRect.size.y;
+    if (bY < sh) {
+        sf::RectangleShape bot({ sw, sh - bY });
+        bot.setPosition({ 0.0f, bY });
+        bot.setFillColor(dimColor);
+        window.draw(bot);
+    }
+
+    // 3. Left rect
+    if (targetRect.position.x > 0.0f) {
+        sf::RectangleShape left({ targetRect.position.x, targetRect.size.y });
+        left.setPosition({ 0.0f, targetRect.position.y });
+        left.setFillColor(dimColor);
+        window.draw(left);
+    }
+
+    // 4. Right rect
+    float rX = targetRect.position.x + targetRect.size.x;
+    if (rX < sw) {
+        sf::RectangleShape right({ sw - rX, targetRect.size.y });
+        right.setPosition({ rX, targetRect.position.y });
+        right.setFillColor(dimColor);
+        window.draw(right);
+    }
+
+    // Glowing Neon Highlight Border around target
+    sf::RectangleShape border(targetRect.size);
+    border.setPosition(targetRect.position);
+    border.setFillColor(sf::Color::Transparent);
+    border.setOutlineThickness(2.5f);
+    border.setOutlineColor(sf::Color(0, 255, 200, 210 + static_cast<std::uint8_t>(std::sin(animTime * 6.0f) * 45.0f)));
+    window.draw(border);
+
+    // Corner bracket accents
+    float cornerLen = 14.0f;
+    float ct = 2.5f;
+    sf::Color cColor(255, 215, 0);
+
+    // Top-left
+    sf::RectangleShape tlH({ cornerLen, ct }); tlH.setPosition(targetRect.position + sf::Vector2f(-2.0f, -2.0f)); tlH.setFillColor(cColor); window.draw(tlH);
+    sf::RectangleShape tlV({ ct, cornerLen }); tlV.setPosition(targetRect.position + sf::Vector2f(-2.0f, -2.0f)); tlV.setFillColor(cColor); window.draw(tlV);
+
+    // Top-right
+    sf::RectangleShape trH({ cornerLen, ct }); trH.setPosition({ targetRect.position.x + targetRect.size.x - cornerLen + 2.0f, targetRect.position.y - 2.0f }); trH.setFillColor(cColor); window.draw(trH);
+    sf::RectangleShape trV({ ct, cornerLen }); trV.setPosition({ targetRect.position.x + targetRect.size.x - 1.0f, targetRect.position.y - 2.0f }); trV.setFillColor(cColor); window.draw(trV);
+
+    // Bottom-left
+    sf::RectangleShape blH({ cornerLen, ct }); blH.setPosition({ targetRect.position.x - 2.0f, targetRect.position.y + targetRect.size.y - 1.0f }); blH.setFillColor(cColor); window.draw(blH);
+    sf::RectangleShape blV({ ct, cornerLen }); blV.setPosition({ targetRect.position.x - 2.0f, targetRect.position.y + targetRect.size.y - cornerLen + 2.0f }); blV.setFillColor(cColor); window.draw(blV);
+
+    // Bottom-right
+    sf::RectangleShape brH({ cornerLen, ct }); brH.setPosition({ targetRect.position.x + targetRect.size.x - cornerLen + 2.0f, targetRect.position.y + targetRect.size.y - 1.0f }); brH.setFillColor(cColor); window.draw(brH);
+    sf::RectangleShape brV({ ct, cornerLen }); brV.setPosition({ targetRect.position.x + targetRect.size.x - 1.0f, targetRect.position.y + targetRect.size.y - cornerLen + 2.0f }); brV.setFillColor(cColor); window.draw(brV);
+}
+
 void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, const std::string& label,
                             const sf::Font& font, float animTime, bool pointUp) {
     float bounce = std::sin(animTime * 6.0f) * 6.0f;
@@ -117,13 +178,11 @@ void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, co
     // Chevron / Arrow Triangle
     sf::ConvexShape arrow(3);
     if (!pointUp) {
-        // Arrow pointing DOWN at targetPos
         sf::Vector2f tip(targetPos.x, targetPos.y - 12.0f + bounce);
         arrow.setPoint(0, tip);
         arrow.setPoint(1, sf::Vector2f(tip.x - 14.0f, tip.y - 24.0f));
         arrow.setPoint(2, sf::Vector2f(tip.x + 14.0f, tip.y - 24.0f));
     } else {
-        // Arrow pointing UP at targetPos
         sf::Vector2f tip(targetPos.x, targetPos.y + 12.0f + bounce);
         arrow.setPoint(0, tip);
         arrow.setPoint(1, sf::Vector2f(tip.x - 14.0f, tip.y + 24.0f));
@@ -156,75 +215,97 @@ void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, co
 }
 
 void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                       const GameEngine& engine, const UI_resourceNodes& nodes, float animTime, sf::Vector2f mousePos) {
+                       const GameEngine& engine, const UI_resourceNodes& nodes, float animTime,
+                       sf::Vector2f mousePos, sf::Vector2f p1Pos, sf::Vector2f p2Pos) {
     if (!active || step == TutorialStep::INACTIVE || !fontLoaded) return;
 
     const auto& econ = engine.getPlayerEconomy(1);
 
     // -------------------------------------------------------------------------
-    // 1. Draw Visual Focus Arrows & Highlights on Targets
+    // 1. Draw Spotlight Darkness + Focus Hole around current Objective
     // -------------------------------------------------------------------------
+    sf::FloatRect spotlightRect;
+    sf::Vector2f arrowTarget;
+    std::string arrowLabel = "";
+
     switch (step) {
         case TutorialStep::WELCOME: {
-            const auto* st = nodes.getStation(1, ResourceType::WOOD);
-            if (st) {
-                sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                drawArrow(window, center, "СТАНЦИЯ ГОРА (ДЪРВО)", font, animTime, false);
-            }
+            // Soft overall dimming for introduction
+            sf::RectangleShape softDim({ 1600.0f, 900.0f });
+            softDim.setFillColor(sf::Color(0, 0, 0, 140));
+            window.draw(softDim);
             break;
         }
         case TutorialStep::GATHER_WOOD: {
             const auto* st = nodes.getStation(1, ResourceType::WOOD);
             if (st) {
-                sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                drawArrow(window, center, "ДОБИВ: ДЪРВЕСИНА [SPACE]", font, animTime, false);
+                spotlightRect = sf::FloatRect({ st->bounds.position.x - 5.0f, st->bounds.position.y - 5.0f },
+                                             { st->bounds.size.x + 10.0f, st->bounds.size.y + 10.0f });
+                drawSpotlight(window, spotlightRect, animTime);
+                arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
+                arrowLabel = "СТАНЦИЯ ГОРА [SPACE]";
+                drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
             }
             break;
         }
         case TutorialStep::GATHER_IRON: {
             const auto* st = nodes.getStation(1, ResourceType::IRON);
             if (st) {
-                sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                drawArrow(window, center, "ДОБИВ: ЖЕЛЯЗО [SPACE]", font, animTime, false);
+                spotlightRect = sf::FloatRect({ st->bounds.position.x - 5.0f, st->bounds.position.y - 5.0f },
+                                             { st->bounds.size.x + 10.0f, st->bounds.size.y + 10.0f });
+                drawSpotlight(window, spotlightRect, animTime);
+                arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
+                arrowLabel = "ДОБИВ: ЖЕЛЯЗО [SPACE]";
+                drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
             }
             break;
         }
         case TutorialStep::GATHER_COPPER: {
             const auto* st = nodes.getStation(1, ResourceType::COPPER);
             if (st) {
-                sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                drawArrow(window, center, "ДОБИВ: МЕД [SPACE]", font, animTime, false);
+                spotlightRect = sf::FloatRect({ st->bounds.position.x - 5.0f, st->bounds.position.y - 5.0f },
+                                             { st->bounds.size.x + 10.0f, st->bounds.size.y + 10.0f });
+                drawSpotlight(window, spotlightRect, animTime);
+                arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
+                arrowLabel = "ДОБИВ: МЕД [SPACE]";
+                drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
             }
             break;
         }
         case TutorialStep::GATHER_SILICON: {
             const auto* st = nodes.getStation(1, ResourceType::SILICON);
             if (st) {
-                sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                drawArrow(window, center, "ДОБИВ: СИЛИЦИЙ [SPACE]", font, animTime, false);
+                spotlightRect = sf::FloatRect({ st->bounds.position.x - 5.0f, st->bounds.position.y - 5.0f },
+                                             { st->bounds.size.x + 10.0f, st->bounds.size.y + 10.0f });
+                drawSpotlight(window, spotlightRect, animTime);
+                arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
+                arrowLabel = "ДОБИВ: СИЛИЦИЙ [SPACE]";
+                drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
             }
             break;
         }
         case TutorialStep::SELECT_SOLAR: {
-            // Point towards Player 1 Building menu on left
-            sf::Vector2f menuSlot(95.0f, 440.0f);
-            drawArrow(window, menuSlot, "ИЗБЕРЕТЕ: [1] СЛЪНЧЕВ ПАНЕЛ", font, animTime, false);
+            // Spotlight on Player 1 Building Bar (Solar Panel card)
+            spotlightRect = sf::FloatRect({ 14.0f, 395.0f }, { 190.0f, 65.0f });
+            drawSpotlight(window, spotlightRect, animTime);
+            arrowTarget = sf::Vector2f(109.0f, 395.0f);
+            arrowLabel = "ИЗБЕРЕТЕ: [1] СЛЪНЧЕВ ПАНЕЛ";
+            drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
             break;
         }
         case TutorialStep::PLACE_SOLAR: {
             // Highlight free slot on Player 1's starting plot (r=0, c=0, slot index 1,0)
-            sf::Vector2f targetSlot = engine.getGridSlot(1, 1, 0);
-
-            // Pulsing highlight box on plot slot
-            sf::RectangleShape slotBox({ 32.0f, 30.0f });
-            slotBox.setOrigin({ 16.0f, 15.0f });
-            slotBox.setPosition(targetSlot);
-            slotBox.setFillColor(sf::Color(0, 255, 180, 50 + static_cast<std::uint8_t>(std::sin(animTime * 5.0f) * 35.0f)));
-            slotBox.setOutlineThickness(2.0f);
-            slotBox.setOutlineColor(sf::Color(0, 255, 180, 220));
-            window.draw(slotBox);
-
-            drawArrow(window, targetSlot, "ПОСТАВЕТЕ ТУК [SPACE]", font, animTime, false);
+            sf::Vector2f slot = engine.getGridSlot(1, 1, 0);
+            spotlightRect = sf::FloatRect({ slot.x - 20.0f, slot.y - 20.0f }, { 40.0f, 40.0f });
+            drawSpotlight(window, spotlightRect, animTime);
+            arrowLabel = "ПОСТАВЕТЕ ТУК [SPACE]";
+            drawArrow(window, slot, arrowLabel, font, animTime, false);
+            break;
+        }
+        case TutorialStep::COMPLETED: {
+            sf::RectangleShape softDim({ 1600.0f, 900.0f });
+            softDim.setFillColor(sf::Color(0, 0, 0, 140));
+            window.draw(softDim);
             break;
         }
         default:
@@ -232,13 +313,57 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     }
 
     // -------------------------------------------------------------------------
-    // 2. Tutorial Glassmorphic Banner Card (Bottom Left Area)
+    // 2. Under-Hero Floating Control Badges
+    // -------------------------------------------------------------------------
+    if (step != TutorialStep::INACTIVE) {
+        // Player 1 Cursor hint
+        std::string p1Hint = isCoop ? "P1: [W/A/S/D] - Движение  |  [SPACE] - Действие"
+                                    : "[W/A/S/D] или [СТРЕЛКИ] - Движение  |  [SPACE] или [ENTER] - Действие";
+        sf::Text p1Tag(font, toUtf8(p1Hint), 11);
+        p1Tag.setFillColor(sf::Color(0, 255, 230));
+        sf::FloatRect p1b = p1Tag.getLocalBounds();
+
+        sf::RectangleShape p1Pill({ p1b.size.x + 14.0f, 20.0f });
+        p1Pill.setOrigin({ (p1b.size.x + 14.0f) / 2.0f, 10.0f });
+        p1Pill.setPosition({ p1Pos.x, p1Pos.y + 28.0f });
+        p1Pill.setFillColor(sf::Color(10, 16, 26, 235));
+        p1Pill.setOutlineThickness(1.2f);
+        p1Pill.setOutlineColor(sf::Color(0, 229, 255, 200));
+        window.draw(p1Pill);
+
+        p1Tag.setOrigin({ p1b.size.x / 2.0f, p1b.size.y / 2.0f });
+        p1Tag.setPosition({ p1Pos.x, p1Pos.y + 26.0f });
+        window.draw(p1Tag);
+
+        // Player 2 Cursor hint in Co-op mode
+        if (isCoop) {
+            std::string p2Hint = "P2: [СТРЕЛКИ] - Движение  |  [ENTER] - Действие";
+            sf::Text p2Tag(font, toUtf8(p2Hint), 11);
+            p2Tag.setFillColor(sf::Color(255, 140, 220));
+            sf::FloatRect p2b = p2Tag.getLocalBounds();
+
+            sf::RectangleShape p2Pill({ p2b.size.x + 14.0f, 20.0f });
+            p2Pill.setOrigin({ (p2b.size.x + 14.0f) / 2.0f, 10.0f });
+            p2Pill.setPosition({ p2Pos.x, p2Pos.y + 28.0f });
+            p2Pill.setFillColor(sf::Color(20, 14, 26, 235));
+            p2Pill.setOutlineThickness(1.2f);
+            p2Pill.setOutlineColor(sf::Color(255, 120, 200, 200));
+            window.draw(p2Pill);
+
+            p2Tag.setOrigin({ p2b.size.x / 2.0f, p2b.size.y / 2.0f });
+            p2Tag.setPosition({ p2Pos.x, p2Pos.y + 26.0f });
+            window.draw(p2Tag);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Tutorial Glassmorphic Banner Card (Bottom Area)
     // -------------------------------------------------------------------------
     sf::RectangleShape card(cardBounds.size);
     card.setPosition(cardBounds.position);
-    card.setFillColor(sf::Color(10, 16, 26, 245));
+    card.setFillColor(sf::Color(10, 16, 26, 248));
     card.setOutlineThickness(2.0f);
-    card.setOutlineColor(sf::Color(0, 229, 255, 220));
+    card.setOutlineColor(sf::Color(0, 229, 255, 230));
     window.draw(card);
 
     // Cyan glowing top accent bar
@@ -276,72 +401,72 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         case TutorialStep::WELCOME:
             badgeText = "ОСНОВИ НА ИГРАТА";
             titleText = "ДОБРЕ ДОШЛИ В ENERGY CRISIS!";
-            descText = "Целта е да захраните мегаполиса с чиста енергия преди противника!\n"
-                       "Движете курсора си с [W/A/S/D] (или мишката).\n"
-                       "За да построите първия си Соларен панел, са ви нужни ресурси!";
+            descText = "Целта е да захраните града с чиста електроенергия!\n"
+                       "Започвате от нулата — първо трябва да добиете нужните суровини за Слънчев панел.\n"
+                       "Движете се с [W/A/S/D] или [СТРЕЛКИ]. Действие: [SPACE] или [ENTER].";
             showNextBtn = true;
             nextBtnLabel = "ЗАПОЧНИ [SPACE]";
             break;
 
         case TutorialStep::GATHER_WOOD:
-            badgeText = "СТЪПКА 1 / 6: ДОБИВ";
-            titleText = "СЪБЕРЕТЕ ДЪРВЕСИНА ЗА КОНСТРУКЦИЯТА";
-            descText = "Застанете върху станция 'ГОРА' и натиснете [SPACE] (или ляв клик).\n"
-                       "Всеки удар добива дърво за складовете ви. Нужно: 6 Дърво.";
+            badgeText = "СТЪПКА 1 / 6: СЪБИРАНЕ НА РЕСУРСИ";
+            titleText = "ДОБИЙТЕ ДЪРВЕСИНА ОТ СТАНЦИЯ 'ГОРА'";
+            descText = "Застанете върху осветената станция ГОРА и натиснете [SPACE] (или Enter / Ляв клик).\n"
+                       "Всеки удар добива дърво за склада ви. Нужно за панел: 6 Дърво.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.wood) / 6.0f);
             progressText = "Дървесина: " + std::to_string(econ.wood) + " / 6" + (econ.wood >= 6 ? "  [ГОТОВО!]" : "");
             break;
 
         case TutorialStep::GATHER_IRON:
-            badgeText = "СТЪПКА 2 / 6: ДОБИВ";
-            titleText = "СЪБЕРЕТЕ ЖЕЛЯЗО ЗА МЕТАЛНИТЕ РАМКИ";
-            descText = "Отлично! Сега отидете върху станция 'ЖЕЛЯЗО' и натиснете [SPACE].\n"
-                       "Желязото е основата за тежки конструкции. Нужно: 4 Желязо.";
+            badgeText = "СТЪПКА 2 / 6: СЪБИРАНЕ НА РЕСУРСИ";
+            titleText = "ДОБИЙТЕ ЖЕЛЯЗО ЗА РАМКАТА";
+            descText = "Отлично! Преместете се върху станция ЖЕЛЯЗО и натиснете [SPACE].\n"
+                       "Желязото осигурява стабилна носеща конструкция. Нужно: 4 Желязо.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.iron) / 4.0f);
             progressText = "Желязо: " + std::to_string(econ.iron) + " / 4" + (econ.iron >= 4 ? "  [ГОТОВО!]" : "");
             break;
 
         case TutorialStep::GATHER_COPPER:
-            badgeText = "СТЪПКА 3 / 6: ДОБИВ";
-            titleText = "СЪБЕРЕТЕ МЕД ЗА ПРОВОДНИЦИТЕ";
-            descText = "Чудесно! Отидете върху станция 'МЕД' и натиснете [SPACE].\n"
-                       "Медта се използва за кабели и енергопренос. Нужно: 6 Мед.";
+            badgeText = "СТЪПКА 3 / 6: СЪБИРАНЕ НА РЕСУРСИ";
+            titleText = "ДОБИЙТЕ МЕД ЗА ЕЛЕКТРОПРОВОДИТЕ";
+            descText = "Чудесно! Отидете върху станция МЕД и натиснете [SPACE] за добив.\n"
+                       "Медта провежда изработения ток към централната мрежа. Нужно: 6 Мед.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.copper) / 6.0f);
             progressText = "Мед: " + std::to_string(econ.copper) + " / 6" + (econ.copper >= 6 ? "  [ГОТОВО!]" : "");
             break;
 
         case TutorialStep::GATHER_SILICON:
-            badgeText = "СТЪПКА 4 / 6: ДОБИВ";
-            titleText = "СЪБЕРЕТЕ СИЛИЦИЙ ЗА ФОТОВОЛТАИЧНИТЕ КЛЕТКИ";
-            descText = "Силицият се намира на втория ред в кариерата. Отидете на 'СИЛИЦИЙ'.\n"
-                       "Натиснете [SPACE], за да го добиете. Нужно: 8 Силиций.";
+            badgeText = "СТЪПКА 4 / 6: СЪБИРАНЕ НА РЕСУРСИ";
+            titleText = "ДОБИЙТЕ СИЛИЦИЙ ЗА СОЛАРНИТЕ КЛЕТКИ";
+            descText = "Силицият е на втория ред. Отидете върху станция СИЛИЦИЙ и натиснете [SPACE].\n"
+                       "Той преобразува слънчевата светлина в електричество. Нужно: 8 Силиций.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.silicon) / 8.0f);
             progressText = "Силиций: " + std::to_string(econ.silicon) + " / 8" + (econ.silicon >= 8 ? "  [ГОТОВО!]" : "");
             break;
 
         case TutorialStep::SELECT_SOLAR:
-            badgeText = "СТЪПКА 5 / 6: СЕЛЕКЦИЯ";
+            badgeText = "СТЪПКА 5 / 6: ИЗБОР И ОТКАЗ";
             titleText = "ИЗБЕРЕТЕ СЛЪНЧЕВ ПАНЕЛ ЗА СТРОЕЖ";
-            descText = "Всички материали са налице! Натиснете клавиш [1] (или [E]),\n"
-                       "за да активирате режима за строеж на Слънчев панел.";
+            descText = "Натиснете клавиш [1] (или [E] / [PgDn]), за да изберете Слънчев панел.\n"
+                       "СЪВЕТ: Ако решите да се откажете от строеж, натиснете [X] (или Десен клик / Delete)!";
             progressRatio = 1.0f;
-            progressText = "Ресурси: ГОТОВИ!  [Натиснете 1]";
+            progressText = "Ресурси: ГОТОВИ!  [Натиснете 1 за избор]";
             break;
 
         case TutorialStep::PLACE_SOLAR:
             badgeText = "СТЪПКА 6 / 6: СТРОИТЕЛСТВО";
-            titleText = "ПОСТАВЕТЕ ПАНЕЛА ВЪРХУ ВАШИЯ ПАРЦЕЛ";
-            descText = "Преместете курсора си върху маркираната клетка на парцела.\n"
-                       "Натиснете [SPACE] (или ляв клик), за да завършите строежа!";
+            titleText = "ПОСТАВЕТЕ ПАНЕЛА ВЪРХУ ВАШАТА ЗЕМЯ";
+            descText = "Преместете курсора си върху маркираната свободна клетка от вашия парцел.\n"
+                       "Натиснете [SPACE] (или Enter / Ляв клик), за да завършите строежа!";
             progressRatio = 0.5f;
-            progressText = "Позиционирайте курсора и натиснете [SPACE]";
+            progressText = "Позиционирайте курсора и натиснете [SPACE] / [ENTER]";
             break;
 
         case TutorialStep::COMPLETED:
-            badgeText = "УСПЕХ!";
-            titleText = "БРАВО! ВАШИЯТ СЛЪНЧЕВ ПАНЕЛ РАБОТИ!";
-            descText = "Панелът генерира +60 MW чист ток за града през деня!\n"
-                       "Доставката на ток ви носи пари, злато и градско влияние.\n"
+            badgeText = "УСПЕХ! ПЪРВИЯТ ВИ ПАНЕЛ РАБОТИ!";
+            titleText = "ПОЗДРАВЛЕНИЯ! ВЕЧЕ ПРОИЗВЕЖДАТЕ ТОК!";
+            descText = "Панелът ви дава +60 MW чиста мощност през деня!\n"
+                       "Снабдяването на града ви носи пари ($) и злато за нови земи и надграждане на мините.\n"
                        "Стройте още панели, вятърни мелници и батерии за победа!";
             showNextBtn = true;
             nextBtnLabel = "КЪМ ИГРАТА [SPACE]";

@@ -336,21 +336,23 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     // 3. Player 1 Movement (Precision Grid during placement, smooth analog otherwise)
     bool p1BuildingMode = (engine.getSelectedBuilding(1) != BuildingType::NONE);
+    bool allowArrowsForP1 = bot.isActive(); // In Single Player, player can use WASD OR Arrow keys!
+
     if (p1BuildingMode) {
-        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE) {
+        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || allowArrowsForP1) {
             if (p1GridStepCooldown <= 0.0f) {
                 bool moved = false;
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) {
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) {
                     p1GridRow = std::max(0, p1GridRow - 1);
                     moved = true;
-                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) {
+                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) {
                     p1GridRow = std::min(11, p1GridRow + 1);
                     moved = true;
                 }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) {
                     p1GridCol = std::max(0, p1GridCol - 1);
                     moved = true;
-                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
+                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) {
                     p1GridCol = std::min(8, p1GridCol + 1);
                     moved = true;
                 }
@@ -364,11 +366,11 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
         }
     } else {
-        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) p1Pos.y -= speed * dt;
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) p1Pos.y += speed * dt;
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) p1Pos.x -= speed * dt;
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) p1Pos.x += speed * dt;
+        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || allowArrowsForP1) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) p1Pos.y -= speed * dt;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) p1Pos.y += speed * dt;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) p1Pos.x -= speed * dt;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) p1Pos.x += speed * dt;
         } else if (controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
             p1Pos = mPos;
         } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
@@ -457,7 +459,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     if (p2SelectCooldown > 0.0f) p2SelectCooldown -= dt;
 
     // 6. Player 1 Action Input (Single Press only, NO continuous hold-to-mine!)
-    bool p1PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
+    bool p1PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) ||
+                            (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter));
     bool p1JustPressed = p1PressingAction && !p1PrevAction;
     p1PrevAction = p1PressingAction;
 
@@ -466,16 +469,18 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p1ActionCooldown = 0.20f;
     }
 
-    // P1 Upgrade Mine with Gold: [F]
-    bool p1PressingUpgrade = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
+    // P1 Upgrade Mine with Gold: [F] or [RShift / End in Single Player]
+    bool p1PressingUpgrade = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F) ||
+                             (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End)));
     static bool p1PrevUpgrade = false;
     if (p1PressingUpgrade && !p1PrevUpgrade && !p1Modal.active && !showHelpOverlay) {
         executeP1Upgrade();
     }
     p1PrevUpgrade = p1PressingUpgrade;
 
-    // P1: [E] Cycle Forward
-    bool curE = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
+    // P1: [E] Cycle Forward (or PgDn in Single Player)
+    bool curE = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E) ||
+                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown));
     if (curE && !p1PrevE && p1SelectCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         engine.cycleBuildingSelection(1);
         p1SelectCooldown = 0.16f;
@@ -483,19 +488,20 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         BuildingCost c = engine.getBuildingCost(newSel);
         p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
         if (newSel == BuildingType::DEMOLISH) {
-            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE]: Премахни | [E]: Следваща | [Q]: Предишна", sf::Color(255, 80, 80));
+            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE/ENTER]: Премахни | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(255, 80, 80));
         } else if (newSel == BuildingType::LAMP) {
-            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE]: Постави | [E]: Следваща | [Q]: Предишна", sf::Color(255, 220, 100));
+            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE/ENTER]: Постави | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(255, 220, 100));
         } else {
             triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               "[SPACE]: Постави в грида | [E]: Следваща | [Q]: Предишна", sf::Color(0, 229, 255));
+                               "[SPACE/ENTER]: Постави в грида | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(0, 229, 255));
         }
     }
     p1PrevE = curE;
 
-    // P1: [Q] Cycle Backward / Cancel
-    bool curQ = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q);
+    // P1: [Q] Cycle Backward / Cancel (or PgUp in Single Player)
+    bool curQ = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q) ||
+                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp));
     if (curQ && !p1PrevQ && p1SelectCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
             engine.cycleBuildingSelectionPrev(1);
@@ -504,27 +510,28 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             BuildingCost c = engine.getBuildingCost(newSel);
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
             if (newSel == BuildingType::DEMOLISH) {
-                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE]: Премахни | [E]: Следваща | [Q]: Предишна", sf::Color(255, 80, 80));
+                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE/ENTER]: Премахни | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(255, 80, 80));
             } else if (newSel == BuildingType::LAMP) {
-                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE]: Постави | [E]: Следваща | [Q]: Предишна", sf::Color(255, 220, 100));
+                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE/ENTER]: Постави | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(255, 220, 100));
             } else {
                 triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                    formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                                   "[SPACE]: Постави в грида | [E]: Следваща | [Q]: Предишна", sf::Color(0, 229, 255));
+                                   "[SPACE/ENTER]: Постави в грида | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(0, 229, 255));
             }
         }
     }
     p1PrevQ = curQ;
 
-    bool curX = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::X);
+    bool curX = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::X) ||
+                (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Backspace)));
     if (curX && !p1PrevX) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
             engine.clearBuildingSelection(1);
-            triggerPlayerPopup(1, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[E]: Избери сграда", sf::Color(180, 180, 180));
+            triggerPlayerPopup(1, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[E/PgDn]: Избери сграда", sf::Color(180, 180, 180));
         } else {
             engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
-            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", "[SPACE]: Премахни | [X]: Отказ", sf::Color(255, 80, 80));
+            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", "[SPACE/ENTER]: Премахни | [X/Del]: Отказ", sf::Color(255, 80, 80));
         }
     }
     p1PrevX = curX;

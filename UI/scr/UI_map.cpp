@@ -61,6 +61,15 @@ void UI_map::setControlScheme(ControlScheme scheme) {
 
 void UI_map::setBotDifficulty(BotDifficulty diff) {
     bot.init(diff);
+    if (diff == BotDifficulty::HARD) {
+        tutorial.skip(); // Hard mode: skip tutorial for advanced players
+    } else if (diff == BotDifficulty::NONE) {
+        tutorial.setCoop(true);
+        tutorial.start(); // Co-op mode: show tutorial for 2 players
+    } else {
+        tutorial.setCoop(false);
+        tutorial.start(); // Easy / Medium: show single player tutorial
+    }
     std::cout << "[UI_map] Bot difficulty set to: " << static_cast<int>(diff) << "\n";
 }
 
@@ -298,7 +307,7 @@ void UI_map::render(sf::RenderWindow& window) {
     drawPlayerModals(window);
 
     // 17.5 Interactive Beginner Tutorial Prompts and Guide Arrows
-    tutorial.draw(window, font, resourcesLoaded, engine, nodes, animTime, mousePos);
+    tutorial.draw(window, font, resourcesLoaded, engine, nodes, animTime, mousePos, p1Pos, p2Pos);
 
     // 18. Player targeting cursors (RENDERED ON TOP OF EVERYTHING!)
     drawPlayerCursors(window);
