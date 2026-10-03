@@ -1,6 +1,7 @@
 #include "../includes/UI_main.h"
 #include "../includes/UI_types.h"
 #include "../includes/UI_text.h"
+#include "../includes/UI_theme.h"
 #include <algorithm>
 #include <iostream>
 
@@ -189,7 +190,7 @@ int UI_main::render() {
         }
 
         window.setView(gameView);
-        window.clear(sf::Color(10, 14, 22));
+        window.clear(theme::Window);
 
         if (currentState == UIState::MAIN_MENU) {
             mainMenu.render(window);

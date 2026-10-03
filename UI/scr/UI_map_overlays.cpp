@@ -1,6 +1,7 @@
 #include "../includes/UI_map.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
 #include <cmath>
 #include <algorithm>
 #include <vector>
@@ -18,9 +19,9 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     bool hoverMenu = menuBtn.contains(mousePos);
     sf::RectangleShape mBox(menuBtn.size);
     mBox.setPosition(menuBtn.position);
-    mBox.setFillColor(hoverMenu ? sf::Color(55, 75, 105) : sf::Color(32, 42, 58));
+    mBox.setFillColor(hoverMenu ? theme::ButtonHover : theme::Button);
     mBox.setOutlineThickness(hoverMenu ? 1.5f : 1.0f);
-    mBox.setOutlineColor(hoverMenu ? sf::Color(255, 204, 0) : sf::Color(80, 110, 150));
+    mBox.setOutlineColor(hoverMenu ? theme::Focus : theme::LineStrong);
     window.draw(mBox);
 
     // 2. Fullscreen Button [ ⛶ ЦЯЛ ЕКРАН (F11) ]
@@ -28,9 +29,9 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     bool hoverFs = fsBtn.contains(mousePos);
     sf::RectangleShape fsBox(fsBtn.size);
     fsBox.setPosition(fsBtn.position);
-    fsBox.setFillColor(hoverFs ? sf::Color(0, 120, 180) : sf::Color(22, 48, 75));
+    fsBox.setFillColor(hoverFs ? theme::ButtonHover : theme::Button);
     fsBox.setOutlineThickness(hoverFs ? 1.5f : 1.0f);
-    fsBox.setOutlineColor(hoverFs ? sf::Color(0, 229, 255) : sf::Color(60, 100, 145));
+    fsBox.setOutlineColor(hoverFs ? theme::Focus : theme::LineStrong);
     window.draw(fsBox);
 
     // 3. Help Button [ ? ПОМОЩ (H) ]
@@ -38,26 +39,29 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     bool hoverHelp = helpBtn.contains(mousePos);
     sf::RectangleShape hBox(helpBtn.size);
     hBox.setPosition(helpBtn.position);
-    hBox.setFillColor(hoverHelp ? sf::Color(100, 70, 150) : sf::Color(40, 32, 65));
+    hBox.setFillColor(hoverHelp ? theme::ButtonHover : theme::Button);
     hBox.setOutlineThickness(hoverHelp ? 1.5f : 1.0f);
-    hBox.setOutlineColor(hoverHelp ? sf::Color(220, 150, 255) : sf::Color(90, 75, 130));
+    hBox.setOutlineColor(hoverHelp ? theme::Focus : theme::LineStrong);
     window.draw(hBox);
 
     if (resourcesLoaded) {
-        sf::Text mt(font, toUtf8("ESC / МЕНЮ"), 12);
-        mt.setFillColor(hoverMenu ? sf::Color(255, 240, 150) : sf::Color::White);
+        sf::Text mt(font, toUtf8("ESC / МЕНЮ"), fontsize::Label);
+        mt.setStyle(sf::Text::Bold);
+        mt.setFillColor(theme::TextPrimary);
         sf::FloatRect mb = mt.getLocalBounds();
         mt.setPosition({ menuBtn.position.x + (menuBtn.size.x - mb.size.x) / 2.0f, menuBtn.position.y + 5.0f });
         ui::drawText(window, mt, menuBtn);
 
-        sf::Text fst(font, toUtf8("ЦЯЛ ЕКРАН (F11)"), 11);
-        fst.setFillColor(hoverFs ? sf::Color::White : sf::Color(180, 235, 255));
+        sf::Text fst(font, toUtf8("ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
+        fst.setStyle(sf::Text::Bold);
+        fst.setFillColor(theme::TextPrimary);
         sf::FloatRect fsb = fst.getLocalBounds();
         fst.setPosition({ fsBtn.position.x + (fsBtn.size.x - fsb.size.x) / 2.0f, fsBtn.position.y + 6.0f });
         ui::drawText(window, fst, fsBtn);
 
-        sf::Text htBtn(font, toUtf8("? ПОМОЩ (H)"), 12);
-        htBtn.setFillColor(hoverHelp ? sf::Color::White : sf::Color(230, 200, 255));
+        sf::Text htBtn(font, toUtf8("? ПОМОЩ (H)"), fontsize::Label);
+        htBtn.setStyle(sf::Text::Bold);
+        htBtn.setFillColor(theme::TextPrimary);
         sf::FloatRect htbBtn = htBtn.getLocalBounds();
         htBtn.setPosition({ helpBtn.position.x + (helpBtn.size.x - htbBtn.size.x) / 2.0f, helpBtn.position.y + 5.0f });
         ui::drawText(window, htBtn, helpBtn);
@@ -65,15 +69,15 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
         // Persistent Controls Reminder Bar
         sf::RectangleShape helpBar({ 930.0f, 26.0f });
         helpBar.setPosition({ 250.0f, 900.0f - 30.0f });
-        helpBar.setFillColor(sf::Color(15, 20, 30, 220));
+        helpBar.setFillColor(theme::withAlpha(theme::Panel, 225));
         helpBar.setOutlineThickness(1.0f);
-        helpBar.setOutlineColor(sf::Color(60, 85, 120));
+        helpBar.setOutlineColor(theme::Line);
         window.draw(helpBar);
 
         // Q / PgUp step back through buildings; X / Del cancel a selection (or enter demolish mode)
         std::string helpText = "P1: [E]/[Q] Сграда | [X] Разруши/Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn]/[PgUp] Сграда | [Del] Разруши/Отказ | [ENTER] Действие";
-        sf::Text ht(font, toUtf8(helpText), 11);
-        ht.setFillColor(sf::Color(210, 230, 255));
+        sf::Text ht(font, toUtf8(helpText), fontsize::Caption);
+        ht.setFillColor(theme::TextSecondary);
         sf::FloatRect htb = ht.getLocalBounds();
         ht.setPosition({ 250.0f + (930.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
         ui::drawText(window, ht, sf::FloatRect(helpBar.getPosition(), helpBar.getSize()));
@@ -86,7 +90,7 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
     // Dim backdrop
     sf::RectangleShape backdrop({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
     backdrop.setPosition({ 0.0f, 0.0f });
-    backdrop.setFillColor(sf::Color(5, 10, 18, 205));
+    backdrop.setFillColor(theme::withAlpha(theme::Dim, 215));
     window.draw(backdrop);
     ui::lint::occlude(sf::FloatRect({ 0.0f, 0.0f }, { VIRTUAL_WIDTH, VIRTUAL_HEIGHT }));
 
@@ -94,23 +98,23 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
     sf::FloatRect card({ 220.0f, 80.0f }, { 1160.0f, 740.0f });
     sf::RectangleShape cardBox(card.size);
     cardBox.setPosition(card.position);
-    cardBox.setFillColor(sf::Color(14, 22, 36, 250));
+    cardBox.setFillColor(theme::withAlpha(theme::Panel, 250));
     cardBox.setOutlineThickness(2.5f);
-    cardBox.setOutlineColor(sf::Color(0, 229, 255, 200));
+    cardBox.setOutlineColor(theme::LineStrong);
     window.draw(cardBox);
     ui::lint::ContainerScope cardScope(card);
 
     // Header strip
     sf::RectangleShape headerStrip({ card.size.x, 52.0f });
     headerStrip.setPosition(card.position);
-    headerStrip.setFillColor(sf::Color(22, 35, 58));
+    headerStrip.setFillColor(theme::PanelHeader);
     window.draw(headerStrip);
 
     if (resourcesLoaded) {
         // Title
-        sf::Text title(font, toUtf8("НАСТОЛЕН НАРЪЧНИК: ENERGY CRISIS"), 20);
+        sf::Text title(font, toUtf8("НАРЪЧНИК: ПРАВИЛА И УПРАВЛЕНИЕ"), fontsize::H1);
         title.setStyle(sf::Text::Bold);
-        title.setFillColor(sf::Color(0, 229, 255));
+        title.setFillColor(theme::TextPrimary);
         title.setPosition({ card.position.x + 25.0f, card.position.y + 12.0f });
         ui::drawText(window, title);
 
@@ -121,13 +125,14 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
 
         sf::RectangleShape cb(closeBtn.size);
         cb.setPosition(closeBtn.position);
-        cb.setFillColor(hClose ? sf::Color(255, 75, 75) : sf::Color(180, 50, 50));
-        cb.setOutlineThickness(1.0f);
-        cb.setOutlineColor(sf::Color::White);
+        cb.setFillColor(theme::BadFill);
+        cb.setOutlineThickness(hClose ? 2.0f : 1.0f);
+        cb.setOutlineColor(hClose ? theme::Focus : theme::Bad);
         window.draw(cb);
 
-        sf::Text cbText(font, toUtf8("[X] ЗАТВОРИ (H)"), 12);
-        cbText.setFillColor(sf::Color::White);
+        sf::Text cbText(font, toUtf8("ЗАТВОРИ [H]"), fontsize::Label);
+        cbText.setStyle(sf::Text::Bold);
+        cbText.setFillColor(theme::TextPrimary);
         sf::FloatRect cbb = cbText.getLocalBounds();
         cbText.setPosition({ closeBtn.position.x + (closeBtn.size.x - cbb.size.x) / 2.0f, closeBtn.position.y + 6.0f });
         ui::drawText(window, cbText, closeBtn);
@@ -135,15 +140,15 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         // Content Sections
         float y = card.position.y + 70.0f;
         auto drawSection = [&](const std::string& h, const std::string& body, sf::Color accent) {
-            sf::Text st(font, toUtf8(h), 15);
+            sf::Text st(font, toUtf8(h), fontsize::H2);
             st.setStyle(sf::Text::Bold);
             st.setFillColor(accent);
             st.setPosition({ card.position.x + 35.0f, y });
             ui::drawText(window, st);
             y += 24.0f;
 
-            sf::Text bt(font, toUtf8(body), 12);
-            bt.setFillColor(sf::Color(220, 235, 255));
+            sf::Text bt(font, toUtf8(body), fontsize::Label);
+            bt.setFillColor(theme::TextPrimary);
             bt.setLineSpacing(1.25f);
             bt.setPosition({ card.position.x + 45.0f, y });
             ui::drawText(window, bt);
@@ -157,11 +162,11 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         drawSection("1. ЦЕЛ НА ИГРАТА И ДОМИНИРАНЕ НА ГРАДА",
                     "- Всеки играч започва с начален свободен парцел и 50% териториален дял в града.\n"
                     "- Първите 2 дена са ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n"
-                    "- Захранването на града носи пари ($) от договори и златен дивидент (Gold, лимитиран до нуждите на града!).\n"
+                    "- Захранването на града носи пари ($) от договори и златен дивидент (злато, ограничено до нуждите на града!).\n"
                     "- В края на всеки ден се отчита средната доставена мощност (MW) за целия ден: превесът носи 10-15% дневно завладяване!\n"
                     "- Победител е първият играч с поне " + victoryPctStr + "% от града в края на ден. След края на ден " + finalDayStr +
                     " печели по-големият дял (равен дял = равенство).",
-                    sf::Color(255, 215, 0));
+                    theme::Energy);
 
         drawSection("2. СЕЗОНЕН ДЕН/НОЩ ЦИКЪЛ И СЛЪНЧЕВ ГРАФИК",
                     "- Пролет: 06:00 - 19:00 (13ч ден) | Лято: 05:00 - 21:00 (16ч ден, +15% соларна мощност!)\n"
@@ -169,21 +174,21 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
                     "- Соларните панели работят единствено между изгрева и залеза на слънцето за съответния сезон.\n"
                     "- Нощем строежът изисква Осветителна лампа, а батериите отдават събраната през деня енергия.\n"
                     "- Бурно време носи мълнии: те падат само в бурния сектор и могат да унищожат съоръжение там (не и в гратисния период).",
-                    sf::Color(0, 229, 255));
+                    theme::Info);
 
         drawSection("3. РЕСУРСИ И ЪПГРЕЙД НА МИНИ С ЗЛАТО",
                     "- 7 суровини: Дърво, Желязо, Мед, Въглища, Силиций, Сребро и Злато (парите са само от ток!).\n"
                     "- Добивните станции се надграждат до Ниво 6 със Злато (30G, 300G, 500G, 800G, 1500G) за +75% добив на ниво!\n"
-                    "- Ъпгрейдвайте с бутона [+1 НИВО] на мината или клавиш [F] (Играч 1) / [RShift] (Играч 2).\n"
+                    "- Надграждайте с бутона за ниво под мината или клавиш [F] (Играч 1) / [RShift] (Играч 2).\n"
                     "- Когато ВСИЧКИ играчи-хора стоят върху ресурсни станции, денонощието тече " + speedupStr +
                     " пъти по-бързо (ботът не ускорява времето).",
-                    sf::Color(255, 140, 220));
+                    theme::Gold);
 
         drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
                     "- ИГРАЧ 1 (Запад/Син): [W/A/S/D] - Движение  |  [SPACE/Клик] - Строеж/Добив  |  [E]/[Q] или [1-6] - Сграда  |  [F] - Ъпгрейд мина  |  [X] - Разруши\n"
                     "- ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] или [Num1-6] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n"
                     "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран",
-                    sf::Color(100, 255, 150));
+                    theme::Good);
     }
 }
 
@@ -192,7 +197,7 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
 
     // 1. Dark frosted backdrop
     sf::RectangleShape backdrop({ 1600.0f, 900.0f });
-    backdrop.setFillColor(sf::Color(10, 14, 24, 235));
+    backdrop.setFillColor(theme::withAlpha(theme::Dim, 235));
     window.draw(backdrop);
     ui::lint::occlude(sf::FloatRect({ 0.0f, 0.0f }, { VIRTUAL_WIDTH, VIRTUAL_HEIGHT }));
 
@@ -212,8 +217,7 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
     // The deciding settlement runs at the 06:00 rollover, so the settled day is the previous one
     int decidedDay = std::max(1, std::min(engine.getCurrentDay() - 1, finalDay));
 
-    sf::Color winColor = isDraw ? sf::Color(255, 215, 0)
-                       : ((winner == 1) ? sf::Color(0, 229, 255) : sf::Color(255, 120, 200));
+    sf::Color winColor = isDraw ? theme::TextPrimary : theme::player(winner);
     std::string winPlayerStr = isDraw ? "РАВЕНСТВО!"
                              : ((winner == 1) ? "ИГРАЧ 1 (ЗАПАД) СПЕЧЕЛИ!" : "ИГРАЧ 2 (ИЗТОК) СПЕЧЕЛИ!");
     std::string headerStr = wonByShare
@@ -239,7 +243,7 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
 
     sf::RectangleShape box({ boxW, boxH });
     box.setPosition({ boxX, boxY });
-    box.setFillColor(sf::Color(18, 24, 38, 252));
+    box.setFillColor(theme::withAlpha(theme::Panel, 252));
     box.setOutlineThickness(3.0f);
     box.setOutlineColor(winColor);
     window.draw(box);
@@ -248,7 +252,7 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
     // Top Header Banner
     sf::RectangleShape header({ boxW, 52.0f });
     header.setPosition({ boxX, boxY });
-    header.setFillColor(sf::Color(26, 36, 56));
+    header.setFillColor(theme::PanelHeader);
     window.draw(header);
 
     // Glowing accent line
@@ -264,37 +268,39 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
     bool hoverRestart = victoryRestartBtn.contains(mousePos);
     sf::RectangleShape btnR(victoryRestartBtn.size);
     btnR.setPosition(victoryRestartBtn.position);
-    btnR.setFillColor(hoverRestart ? sf::Color(0, 200, 130) : sf::Color(0, 150, 95));
-    btnR.setOutlineThickness(1.5f);
-    btnR.setOutlineColor(sf::Color(100, 255, 180));
+    btnR.setFillColor(theme::GoodFill);
+    btnR.setOutlineThickness(hoverRestart ? 2.5f : 1.5f);
+    btnR.setOutlineColor(hoverRestart ? theme::Focus : theme::Good);
     window.draw(btnR);
 
     bool hoverMenu = victoryMenuBtn.contains(mousePos);
     sf::RectangleShape btnM(victoryMenuBtn.size);
     btnM.setPosition(victoryMenuBtn.position);
-    btnM.setFillColor(hoverMenu ? sf::Color(70, 90, 120) : sf::Color(45, 60, 85));
-    btnM.setOutlineThickness(1.5f);
-    btnM.setOutlineColor(sf::Color(130, 160, 205));
+    btnM.setFillColor(hoverMenu ? theme::ButtonHover : theme::Button);
+    btnM.setOutlineThickness(hoverMenu ? 2.5f : 1.5f);
+    btnM.setOutlineColor(hoverMenu ? theme::Focus : theme::LineStrong);
     window.draw(btnM);
 
     if (resourcesLoaded) {
         // Header Text
-        sf::Text tHeader(font, toUtf8(headerStr), 16);
-        tHeader.setFillColor(sf::Color(255, 215, 0));
+        sf::Text tHeader(font, toUtf8(headerStr), fontsize::H2);
+        tHeader.setStyle(sf::Text::Bold);
+        tHeader.setFillColor(theme::TextPrimary);
         sf::FloatRect hb = tHeader.getLocalBounds();
         tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 14.0f });
         ui::drawText(window, tHeader);
 
         // Huge Winner Title
-        sf::Text tWinner(font, toUtf8(winPlayerStr), 26);
+        sf::Text tWinner(font, toUtf8(winPlayerStr), fontsize::H1);
+        tWinner.setStyle(sf::Text::Bold);
         tWinner.setFillColor(winColor);
         sf::FloatRect wb = tWinner.getLocalBounds();
         tWinner.setPosition({ boxX + (boxW - wb.size.x) / 2.0f, boxY + 80.0f });
         ui::drawText(window, tWinner);
 
         // Subtitle
-        sf::Text tSub(font, toUtf8(subStr), 13);
-        tSub.setFillColor(sf::Color(200, 220, 245));
+        sf::Text tSub(font, toUtf8(subStr), fontsize::Body);
+        tSub.setFillColor(theme::TextSecondary);
         sf::FloatRect sb = tSub.getLocalBounds();
         tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f, boxY + 125.0f });
         ui::drawText(window, tSub);
@@ -302,9 +308,9 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
         // Stats Box
         sf::RectangleShape statsBox({ boxW - 60.0f, 180.0f });
         statsBox.setPosition({ boxX + 30.0f, boxY + 165.0f });
-        statsBox.setFillColor(sf::Color(24, 32, 48, 230));
+        statsBox.setFillColor(theme::withAlpha(theme::Card, 230));
         statsBox.setOutlineThickness(1.0f);
-        statsBox.setOutlineColor(sf::Color(60, 80, 115));
+        statsBox.setOutlineColor(theme::Line);
         window.draw(statsBox);
 
         auto countPlots = [&](int player, bool purchasedOnly) {
@@ -347,21 +353,23 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
         }
 
         for (size_t i = 0; i < statLines.size(); i++) {
-            sf::Text tStat(font, toUtf8(statLines[i]), 13);
-            tStat.setFillColor(sf::Color(220, 235, 255));
+            sf::Text tStat(font, toUtf8(statLines[i]), fontsize::Body);
+            tStat.setFillColor(theme::TextPrimary);
             tStat.setPosition({ boxX + 50.0f, boxY + 180.0f + i * 28.0f });
             ui::drawText(window, tStat);
         }
 
-        sf::Text tR(font, toUtf8("[ R ]  НОВА ИГРА"), 13);
-        tR.setFillColor(sf::Color::White);
+        sf::Text tR(font, toUtf8("НОВА ИГРА [R]"), fontsize::Body);
+        tR.setStyle(sf::Text::Bold);
+        tR.setFillColor(theme::TextPrimary);
         sf::FloatRect rb = tR.getLocalBounds();
         tR.setPosition({ victoryRestartBtn.position.x + (victoryRestartBtn.size.x - rb.size.x) / 2.0f,
                          victoryRestartBtn.position.y + (victoryRestartBtn.size.y - rb.size.y) / 2.0f - 2.0f });
         ui::drawText(window, tR, victoryRestartBtn);
 
-        sf::Text tM(font, toUtf8("[ ESC / M ]  ГЛАВНО МЕНЮ"), 13);
-        tM.setFillColor(sf::Color::White);
+        sf::Text tM(font, toUtf8("ГЛАВНО МЕНЮ [ESC / M]"), fontsize::Body);
+        tM.setStyle(sf::Text::Bold);
+        tM.setFillColor(theme::TextPrimary);
         sf::FloatRect mb = tM.getLocalBounds();
         tM.setPosition({ victoryMenuBtn.position.x + (victoryMenuBtn.size.x - mb.size.x) / 2.0f,
                          victoryMenuBtn.position.y + (victoryMenuBtn.size.y - mb.size.y) / 2.0f - 2.0f });
@@ -380,7 +388,7 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
 
     // 1. Frosted dim backdrop
     sf::RectangleShape backdrop({ 1600.0f, 900.0f });
-    backdrop.setFillColor(sf::Color(8, 12, 20, 215));
+    backdrop.setFillColor(theme::withAlpha(theme::Dim, 215));
     window.draw(backdrop);
     ui::lint::occlude(sf::FloatRect({ 0.0f, 0.0f }, { VIRTUAL_WIDTH, VIRTUAL_HEIGHT }));
 
@@ -392,32 +400,33 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
 
     sf::RectangleShape box({ boxW, boxH });
     box.setPosition({ boxX, boxY });
-    box.setFillColor(sf::Color(16, 22, 34, 252));
+    box.setFillColor(theme::withAlpha(theme::Panel, 252));
     box.setOutlineThickness(3.0f);
-    box.setOutlineColor(sf::Color(0, 229, 255));
+    box.setOutlineColor(theme::LineStrong);
     window.draw(box);
     ui::lint::ContainerScope boxScope(sf::FloatRect({ boxX, boxY }, { boxW, boxH }));
 
     // Header banner
     sf::RectangleShape header({ boxW, 56.0f });
     header.setPosition({ boxX, boxY });
-    header.setFillColor(sf::Color(24, 34, 52));
+    header.setFillColor(theme::PanelHeader);
     window.draw(header);
 
     sf::RectangleShape glowLine({ boxW, 3.0f });
     glowLine.setPosition({ boxX, boxY + 56.0f });
-    glowLine.setFillColor(sf::Color(0, 229, 255));
+    glowLine.setFillColor(theme::LineStrong);
     window.draw(glowLine);
 
     if (resourcesLoaded) {
-        sf::Text tHeader(font, toUtf8("[ ПАУЗА ]  ИГРАТА Е НА ПАУЗА"), 18);
-        tHeader.setFillColor(sf::Color(255, 215, 0));
+        sf::Text tHeader(font, toUtf8("ПАУЗА"), fontsize::H1);
+        tHeader.setStyle(sf::Text::Bold);
+        tHeader.setFillColor(theme::TextPrimary);
         sf::FloatRect hb = tHeader.getLocalBounds();
         tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 16.0f });
         ui::drawText(window, tHeader);
 
-        sf::Text tSub(font, toUtf8("Използвайте [Стрелки] / [Enter] или мишката за избор"), 12);
-        tSub.setFillColor(sf::Color(150, 185, 220));
+        sf::Text tSub(font, toUtf8("Използвайте [Стрелки] / [Enter] или мишката за избор"), fontsize::Label);
+        tSub.setFillColor(theme::TextSecondary);
         sf::FloatRect sb = tSub.getLocalBounds();
         tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f, boxY + 70.0f });
         ui::drawText(window, tSub);
@@ -444,10 +453,10 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     };
 
     PauseOption opts[4] = {
-        { pauseResumeBtn,  "ПРОДЪЛЖИ  [ ESC / ENTER ]", sf::Color(20, 120, 85),  sf::Color(30, 175, 120), sf::Color(0, 255, 180) },
-        { pauseRestartBtn, "НОВА ИГРА  [ R ]",          sf::Color(45, 90, 130),  sf::Color(65, 130, 185), sf::Color(0, 229, 255) },
-        { pauseHelpBtn,    "ПОМОЩ И ПРАВИЛА  [ H ]",    sf::Color(80, 75, 45),   sf::Color(135, 125, 60), sf::Color(255, 215, 0) },
-        { pauseMenuBtn,    "ГЛАВНО МЕНЮ  [ M ]",        sf::Color(70, 45, 55),   sf::Color(120, 65, 80),  sf::Color(255, 120, 140) }
+        { pauseResumeBtn,  "ПРОДЪЛЖИ  [ESC / ENTER]", theme::GoodFill, theme::GoodFill, theme::Good },
+        { pauseRestartBtn, "НОВА ИГРА  [R]",          theme::InfoFill, theme::InfoFill, theme::Info },
+        { pauseHelpBtn,    "ПОМОЩ И ПРАВИЛА  [H]",    theme::Button, theme::ButtonHover, theme::LineStrong },
+        { pauseMenuBtn,    "ГЛАВНО МЕНЮ  [M]",        theme::BadFill, theme::BadFill, theme::Bad }
     };
 
     for (int i = 0; i < 4; i++) {
@@ -460,12 +469,13 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         bShape.setPosition(opts[i].bounds.position);
         bShape.setFillColor(isSel ? opts[i].hoverColor : opts[i].normalColor);
         bShape.setOutlineThickness(isSel ? 2.5f : 1.0f);
-        bShape.setOutlineColor(isSel ? sf::Color::White : opts[i].outlineColor);
+        bShape.setOutlineColor(isSel ? theme::Focus : opts[i].outlineColor);
         window.draw(bShape);
 
         if (resourcesLoaded) {
-            sf::Text tBtn(font, toUtf8(opts[i].label), 14);
-            tBtn.setFillColor(isSel ? sf::Color::White : sf::Color(225, 240, 255));
+            sf::Text tBtn(font, toUtf8(opts[i].label), fontsize::Body);
+            tBtn.setStyle(sf::Text::Bold);
+            tBtn.setFillColor(theme::TextPrimary);
             sf::FloatRect bb = tBtn.getLocalBounds();
             tBtn.setPosition({ opts[i].bounds.position.x + (opts[i].bounds.size.x - bb.size.x) / 2.0f,
                                opts[i].bounds.position.y + (opts[i].bounds.size.y - bb.size.y) / 2.0f - 2.0f });

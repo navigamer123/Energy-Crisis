@@ -1,5 +1,6 @@
 #include "../includes/UI_map.h"
 #include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -188,7 +189,7 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::WIND_TURBINE);
         BuildingCost c = engine.getBuildingCost(BuildingType::WIND_TURBINE);
         triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Добив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                           "[SPACE]: Постави в грида | [X]: Отказ", sf::Color(0, 229, 255));
+                           "[SPACE]: Постави в грида | [X]: Отказ", theme::P1);
     } else if (scene == "mining") {
         // P1 mines wood: prompt over the station, cooldown on the card, 6x time badges, a notice
         if (const auto* st = nodes.getStation(1, ResourceType::WOOD)) {
@@ -196,7 +197,7 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         }
         p1ResourceCooldown = 0.6f;
         engine.setTimeScale(Balance::MINE_SPEEDUP_MULT);
-        spawnNotice("+12 Дърво", p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(75, 210, 110));
+        spawnNotice("+12 Дърво", p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Wood);
     } else if (scene == "pause") {
         isPaused = true;
         pauseSelectedIdx = 0;
