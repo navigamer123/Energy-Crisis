@@ -12,6 +12,7 @@
 #include "UI_buildings.h"
 #include "UI_bot.h"
 #include "UI_tutorial.h"
+#include "UI_economyHUD.h" // [b-economy] city economy dashboard, districts, grid alerts, Day Report
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -38,6 +39,7 @@ private:
     UI_resourceNodes nodes;
     UIBot bot;
     UI_tutorial tutorial;
+    UI_economyHUD economyHUD; // [b-economy]
 
     // Player cursor / drone positions and pulse animations
     sf::Vector2f p1Pos;

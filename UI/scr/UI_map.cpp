@@ -215,6 +215,7 @@ void UI_map::restartMatch() {
     p2Popup.active = false;
     notices.clear();
     miningParticles.clear();
+    economyHUD.reset(); // [b-economy]
 
     // Lightning
     activeLightnings.clear();
@@ -235,7 +236,8 @@ void UI_map::restartMatch() {
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
 
-    spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
+    // [b-economy] shown over the city: the free column under it now holds the grid dashboard
+    spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 222.0f }, sf::Color(0, 255, 180));
 }
 
 bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
@@ -258,6 +260,8 @@ void UI_map::render(sf::RenderWindow& window) {
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
     }
+    // [b-economy] Day Report timer, hourly history, day-cut consumption (frozen while paused)
+    economyHUD.update(engine, (!isPaused && engine.getCityState().winner == 0) ? dt : 0.0f);
 
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible
     // dialog/tutorial blocking input (or freezing the bot).
@@ -316,14 +320,21 @@ void UI_map::render(sf::RenderWindow& window) {
         }
     }
 
+    // [b-economy] F-37 brownout / blackout banners and darkened sectors
+    economyHUD.drawGridAlerts(window, font, resourcesLoaded, engine, animTime);
+
     // 8. Compact Metropolis City Center with territorial slicing & conquest
+    // [b-economy] the day result moved from the city footer to the Day Report card and the dashboard
     city.drawCity(window, font, resourcesLoaded, animTime, engine.getCityState().p1CityShare,
-                  engine.getCityState().lastCutMessage, engine.isDaylight(), engine.getHour24(), engine.getSeason());
+                  std::string(), engine.isDaylight(), engine.getHour24(), engine.getSeason());
+    economyHUD.drawDistricts(window, font, resourcesLoaded, engine, animTime); // [b-economy] F-36 district strip
 
     // 9. City Demand & Influence Tug-of-War Bar (Above City)
     city.drawInfluenceBar(window, font, resourcesLoaded, engine.getCityState().cityEnergyDemand,
                           engine.getPlayerEconomy(1).energyMW, engine.getPlayerEconomy(2).energyMW,
                           engine.getCityState().p1CityShare, engine.getCurrentDay());
+    // [b-economy] grid control dashboard under the city (forecast, demand curve, frequency, CO2)
+    economyHUD.drawDashboard(window, font, resourcesLoaded, engine, animTime);
 
     // 10. Resource Mines & Timber Forests
     nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
@@ -348,6 +359,7 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 15. Menu button & persistent HUD
     drawHUD(window);
+    economyHUD.drawDayReport(window, font, resourcesLoaded); // [b-economy] UX-01 non-modal Day Report
 
     // 16. Dynamic Weather Particles (rain, snow, wind leaves, night stars/fireflies) & Lightning
     drawWeatherParticles(window);
