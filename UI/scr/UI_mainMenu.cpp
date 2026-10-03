@@ -95,7 +95,7 @@ void UI_mainMenu::drawHeader(sf::RenderWindow& window, bool large) {
         sf::Vector2f center(screenWidth / 2.0f, logoTop + logoH / 2.0f);
 
         // Subtle breathing glow: two slightly larger, warm additive copies whose strength pulses
-        float t = animClock.getElapsedTime().asSeconds();
+        float t = ui::shot::clockSeconds(animClock.getElapsedTime().asSeconds());
         float pulse = 0.5f + 0.5f * std::sin(t * 2.0f);
         for (int layer = 0; layer < 2; ++layer) {
             float grow = (layer == 0 ? 1.03f : 1.07f) + 0.012f * pulse;

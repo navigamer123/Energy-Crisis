@@ -4,6 +4,8 @@
 
 namespace {
 bool g_shotActive = false;
+int g_shotFrames = 0; // frames rendered so far in screenshot mode
+constexpr float SHOT_STEP = 1.0f / 60.0f;
 
 const char* const MENU_SCENES[] = { "menu", "modes", "bots", "controls", "settings" };
 const char* const GAME_SCENES[] = { "game", "mining", "night", "winter", "storm", "victory", "pause", "help", "modal", "tutorial" };
@@ -14,6 +16,10 @@ namespace shot {
 
 void setActive(bool on) { g_shotActive = on; }
 bool isActive() { return g_shotActive; }
+
+float frameDt(float realDt) { return g_shotActive ? SHOT_STEP : realDt; }
+float clockSeconds(float realSeconds) { return g_shotActive ? g_shotFrames * SHOT_STEP : realSeconds; }
+void tickFrame() { if (g_shotActive) ++g_shotFrames; }
 
 const char* sceneNames() {
     return "menu, modes, bots, controls, settings, game, mining, night, winter, storm, victory, pause, help, modal, tutorial";
