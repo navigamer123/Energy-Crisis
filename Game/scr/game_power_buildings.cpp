@@ -244,6 +244,7 @@ void GameEngine::onAdvancedPlaced(PlacedBuilding& b) {
         fx.kind = PowerFxKind::MEGA_STARTED;
         fx.player = 0; // both players see it
         fx.buildingType = static_cast<int>(b.type);
+        fx.owner = b.playerOwner;
         fx.pos = b.position;
         fx.title = "МЕГАПРОЕКТ: " + getBuildingCost(b.type).nameBg;
         fx.detail = "Играч " + std::to_string(b.playerOwner) + " започна строеж (" +
@@ -291,13 +292,16 @@ float GameEngine::rollUnit() {
 void GameEngine::updateAdvancedSystems(float dt) {
     if (dt <= 0.0f) return;
     updateReactors(dt);
+    updateHazards(dt);
 }
 
 void GameEngine::advancedDayEnd() {
     payReactorFuel();
+    updateWeatherStreaks();
 }
 
 void GameEngine::advancedNewDay() {
+    scheduleDailyHazards();
     if (!world.megaUnlockAnnounced && currentDay >= PowerBalance::MEGA_UNLOCK_DAY) {
         world.megaUnlockAnnounced = true;
         PowerFx fx;

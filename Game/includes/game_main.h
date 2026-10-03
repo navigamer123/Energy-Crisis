@@ -187,6 +187,7 @@ private:
     // ---- Team b-power: map layout, terrain, nuclear, hazards, mega-projects (game_power*.cpp) ----
     MapPreset mapPreset = MapPreset::CLASSIC; // Survives init(): chosen in the menu before a match
     unsigned mapSeedOverride = 0;             // 0 = use the match seed for the map
+    bool hazardsEnabled = false;              // Random hazards (F-34): the game UI turns them on; tests stay deterministic
     MapLayout layout;
     PowerWorldState world;
     void setupPowerWorld(unsigned matchSeed);         // game_map_layout.cpp: layout + land plots + RNG
@@ -312,6 +313,9 @@ public:
     const std::vector<HazardPlan>& getHazardPlans() const { return world.plans; }
     int getRainStreak(int player) const { return world.rainStreak[player == 2 ? 2 : 1]; }
     int getDryStreak(int player) const { return world.dryStreak[player == 2 ? 2 : 1]; }
+    // Random daily hazards on/off (survives init(); off by default so engine tests are deterministic)
+    void setHazardsEnabled(bool on) { hazardsEnabled = on; }
+    bool areHazardsEnabled() const { return hazardsEnabled; }
     // Test / demo hook: trigger a hazard now (quake: westCol/row = epicentre, -1 = random)
     void triggerHazardNow(HazardKind kind, int player, int westCol = -1, int row = -1);
     // UI event queue (HazardFx): returns and clears the pending events

@@ -50,9 +50,11 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     // Team b-power: the map chosen in the menu survives the reset
     const MapPreset keepPreset = mapPreset;
     const unsigned keepMapSeed = mapSeedOverride;
+    const bool keepHazards = hazardsEnabled;
     *this = GameEngine();
     mapPreset = keepPreset;
     mapSeedOverride = keepMapSeed;
+    hazardsEnabled = keepHazards;
 
     // Seed both the weather RNG and std::rand (lightning, bot, particles) once per match
     bool seedFromEnv = false;

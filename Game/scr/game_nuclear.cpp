@@ -18,6 +18,7 @@ void GameEngine::scramReactor(PlacedBuilding& b, const std::string& cause) {
     fx.kind = PowerFxKind::REACTOR_SCRAM;
     fx.player = b.playerOwner;
     fx.buildingType = static_cast<int>(b.type);
+    fx.owner = b.playerOwner;
     fx.pos = b.position;
     fx.radius = 60.0f;
     fx.title = "SCRAM! АВАРИЙНО СПИРАНЕ НА АЕЦ";
@@ -41,6 +42,7 @@ void GameEngine::updateReactors(float dt) {
                     fx.kind = PowerFxKind::REACTOR_RESTART;
                     fx.player = b.playerOwner;
                     fx.buildingType = static_cast<int>(b.type);
+                    fx.owner = b.playerOwner;
                     fx.pos = b.position;
                     fx.title = "АЕЦ: РЕСТАРТ";
                     fx.detail = "Реакторът отново набира мощност (1 ден до 100%).";
@@ -61,6 +63,7 @@ void GameEngine::updateReactors(float dt) {
                 fx.kind = PowerFxKind::REACTOR_RESTART;
                 fx.player = b.playerOwner;
                 fx.buildingType = static_cast<int>(b.type);
+                fx.owner = b.playerOwner;
                 fx.pos = b.position;
                 fx.title = "АЕЦ Е ЗАРЕДЕН С ГОРИВО";
                 fx.detail = "-" + std::to_string(fuel) + " сребро. Реакторът отново набира мощност.";
@@ -76,6 +79,7 @@ void GameEngine::updateReactors(float dt) {
             fx.kind = PowerFxKind::REACTOR_FULL;
             fx.player = b.playerOwner;
             fx.buildingType = static_cast<int>(b.type);
+            fx.owner = b.playerOwner;
             fx.pos = b.position;
             fx.title = "АЕЦ НА ПЪЛНА МОЩНОСТ";
             fx.detail = "+" + std::to_string(PowerBalance::NUCLEAR.basePowerMW) + " MW базова мощност, независимо от времето.";
@@ -101,6 +105,7 @@ void GameEngine::payReactorFuel() {
         fx.kind = PowerFxKind::REACTOR_NO_FUEL;
         fx.player = b.playerOwner;
         fx.buildingType = static_cast<int>(b.type);
+        fx.owner = b.playerOwner;
         fx.pos = b.position;
         fx.radius = 60.0f;
         fx.title = "SCRAM: АЕЦ НЯМА ГОРИВО!";
@@ -121,6 +126,7 @@ bool GameEngine::absorbLightningAt(sf::Vector2f pos) {
             PowerFx fx;
             fx.player = b.playerOwner;
             fx.buildingType = static_cast<int>(b.type);
+            fx.owner = b.playerOwner;
             fx.pos = b.position;
             if (b.constructionLeft > 0.0f) {
                 float lost = b.constructionTotal * PowerBalance::MEGA_LIGHTNING_SETBACK;

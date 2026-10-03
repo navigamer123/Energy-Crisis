@@ -119,7 +119,8 @@ enum class PowerFxKind {
 struct PowerFx {
     PowerFxKind kind = PowerFxKind::HAZARD_HIT;
     HazardKind hazard = HazardKind::NONE;
-    int player = 0;                 // 0 = both players
+    int player = 0;                 // Who should see it: 0 = both players
+    int owner = 0;                  // Owner of the building involved (0 = none)
     int buildingType = 0;           // BuildingType as int (0 = none)
     sf::Vector2f pos;               // Centre of the effect
     float radius = 0.0f;            // Area of the effect (px)
@@ -210,13 +211,14 @@ constexpr float MEGA_LIGHTNING_SETBACK = 0.15f;    // Fraction of the build time
 constexpr int HAZARD_MAX_HITS = 4;              // Buildings one hazard may damage at most
 constexpr float HAIL_BREAK_CHANCE = 0.30f;      // Per solar panel and burst (turbines: half)
 constexpr int FLOOD_RAIN_STREAK = 2;            // Wet days before a 3rd wet day may flood
-constexpr float FLOOD_CHANCE = 0.65f;
+constexpr float FLOOD_CHANCE = 0.30f;
 constexpr float FLOOD_BREAK_CHANCE = 0.45f;     // Per building on a river plot (hydro: half)
-constexpr int WILDFIRE_DRY_STREAK = 3;          // Dry days before fire risk
-constexpr float WILDFIRE_CHANCE = 0.35f;        // Summer: x1.6
+constexpr int WILDFIRE_DRY_STREAK = 1;          // Dry days before fire risk (rain is common in this climate)
+constexpr float WILDFIRE_CHANCE = 0.15f;        // On a dry day after a dry day (summer x1.5)
+constexpr float WILDFIRE_CHANCE_PER_DRY_DAY = 0.10f; // Extra risk per day of the dry streak
 constexpr float WILDFIRE_BREAK_CHANCE = 0.60f;
 constexpr float WILDFIRE_SPREAD_CHANCE = 0.35f;
-constexpr float QUAKE_DAILY_CHANCE = 0.06f;
+constexpr float QUAKE_DAILY_CHANCE = 0.04f;
 constexpr float QUAKE_BREAK_CHANCE = 0.40f;     // Epicentre plot (neighbours: half, geothermal: +0.2)
 constexpr size_t POWER_FX_QUEUE_MAX = 48;
 
