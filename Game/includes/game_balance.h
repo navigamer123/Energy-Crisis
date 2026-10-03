@@ -147,31 +147,37 @@ inline int calculateGoldDividend(int playerMW, int cityDemand) {
 // Maximum percentage of city territory that can be won or lost in a single day (10% - 15%)
 // Prevents sudden total takeover in a single day (e.g. 0 MW vs 1200 MW gives at most 15% shift)
 constexpr float MAX_DAILY_CITY_SHIFT = 0.15f; // 15% maximum per day
-constexpr float MIN_DAILY_CITY_SHIFT = 0.05f; // 5% minimum shift if there is a clear winner
+constexpr float MIN_DAILY_CITY_SHIFT = 0.10f; // 10% minimum shift when a player powers the city
 
 inline float calculateDailyCityShift(int p1PowerMW, int p2PowerMW, int cityDemand) {
     if (cityDemand <= 0) return 0.0f;
 
-    float p1Delivered = static_cast<float>(p1PowerMW);
-    float p2Delivered = static_cast<float>(p2PowerMW);
-    float totalDelivered = p1Delivered + p2Delivered;
+    bool p1Succeeded = (p1PowerMW >= cityDemand);
+    bool p2Succeeded = (p2PowerMW >= cityDemand);
 
-    if (totalDelivered <= 0.0f) {
-        return 0.0f; // Neither delivered anything, balance remains unchanged
+    // Rule: Territory shifts ONLY if a player manages to generate the energy for the city!
+    // Otherwise ("иначе нищо да не се случва"), no territory changes hands.
+    if (p1Succeeded && !p2Succeeded) {
+        // Player 1 powered the city, Player 2 failed -> P2 gives 10% - 15% territory to P1
+        float failureRatio = 1.0f - std::clamp(static_cast<float>(p2PowerMW) / static_cast<float>(cityDemand), 0.0f, 1.0f);
+        return MIN_DAILY_CITY_SHIFT + (MAX_DAILY_CITY_SHIFT - MIN_DAILY_CITY_SHIFT) * failureRatio;
+    } else if (p2Succeeded && !p1Succeeded) {
+        // Player 2 powered the city, Player 1 failed -> P1 gives 10% - 15% territory to P2
+        float failureRatio = 1.0f - std::clamp(static_cast<float>(p1PowerMW) / static_cast<float>(cityDemand), 0.0f, 1.0f);
+        return -(MIN_DAILY_CITY_SHIFT + (MAX_DAILY_CITY_SHIFT - MIN_DAILY_CITY_SHIFT) * failureRatio);
+    } else if (p1Succeeded && p2Succeeded) {
+        // Both players successfully produced enough energy for the city!
+        int diff = p1PowerMW - p2PowerMW;
+        if (std::abs(diff) > 20) {
+            float edge = std::clamp(static_cast<float>(diff) / static_cast<float>(p1PowerMW + p2PowerMW) * 0.05f, -0.05f, 0.05f);
+            return edge;
+        }
+        return 0.0f; // Parity
     }
 
-    // Relative performance differential between -1.0 and +1.0
-    float shareDiff = (p1Delivered - p2Delivered) / totalDelivered;
-
-    // Shift is strictly bounded to max 10-15% per day
-    float rawShift = shareDiff * MAX_DAILY_CITY_SHIFT;
-
-    if (std::abs(shareDiff) > 0.10f) {
-        if (rawShift > 0.0f) rawShift = std::max(rawShift, MIN_DAILY_CITY_SHIFT);
-        else if (rawShift < 0.0f) rawShift = std::min(rawShift, -MIN_DAILY_CITY_SHIFT);
-    }
-
-    return std::clamp(rawShift, -MAX_DAILY_CITY_SHIFT, MAX_DAILY_CITY_SHIFT);
+    // Neither player produced enough energy for the city!
+    // "иначе нищо да не се случва" -> No territory changes hands!
+    return 0.0f;
 }
 
 // Victory Condition: 100% (1.0) influence threshold

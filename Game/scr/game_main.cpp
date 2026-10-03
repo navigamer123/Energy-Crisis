@@ -305,20 +305,33 @@ void GameEngine::processDayEnd() {
             city.lastCutMessage = "ДЕН 2 ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД! ОТ ДЕН 3 ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ!";
         }
     } else {
-        // End-of-day territorial influence calculation strictly capped at 10-15% maximum
-        // (Even if P1 gives 1200 MW and P2 gives 0 MW, shift is capped at max 15%, preventing instant takeover!)
+        bool p1Succeeded = (p1.energyMW >= city.cityEnergyDemand);
+        bool p2Succeeded = (p2.energyMW >= city.cityEnergyDemand);
         float shift = Balance::calculateDailyCityShift(p1.energyMW, p2.energyMW, city.cityEnergyDemand);
         city.p1CityShare = std::clamp(city.p1CityShare + shift, 0.0f, 1.0f);
         int shiftPct = static_cast<int>(std::round(std::abs(shift) * 100.0f));
 
-        if (shift > 0.005f) {
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 1 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА +" +
-                                  std::to_string(shiftPct) + "% ОТ ГРАДА!";
-        } else if (shift < -0.005f) {
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 2 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА +" +
-                                  std::to_string(shiftPct) + "% ОТ ГРАДА!";
+        if (p1Succeeded && !p2Succeeded) {
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 1 ЗАХРАНИ ГРАДА (" +
+                                  std::to_string(p1.energyMW) + "/" + std::to_string(city.cityEnergyDemand) + " MW) И ВЗЕ +" +
+                                  std::to_string(shiftPct) + "% ТЕРИТОРИЯ!";
+        } else if (p2Succeeded && !p1Succeeded) {
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 2 ЗАХРАНИ ГРАДА (" +
+                                  std::to_string(p2.energyMW) + "/" + std::to_string(city.cityEnergyDemand) + " MW) И ВЗЕ +" +
+                                  std::to_string(shiftPct) + "% ТЕРИТОРИЯ!";
+        } else if (p1Succeeded && p2Succeeded) {
+            if (shift > 0.005f) {
+                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА! ИГРАЧ 1 ИМА ПРЕВЕС (+" +
+                                      std::to_string(shiftPct) + "%)!";
+            } else if (shift < -0.005f) {
+                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА! ИГРАЧ 2 ИМА ПРЕВЕС (+" +
+                                      std::to_string(shiftPct) + "%)!";
+            } else {
+                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА! ПАРИТЕТ (0% ПРОМЯНА)!";
+            }
         } else {
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ПАРИТЕТ В ГРАДСКАТА МРЕЖА (0% ПРОМЯНА)!";
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": НИТО ЕДИН НЕ ЗАХРАНИ ГРАДА (" +
+                                  std::to_string(city.cityEnergyDemand) + " MW)! НЯМА ПРОМЯНА В ТЕРИТОРИЯТА!";
         }
 
         // Check Victory Condition only at day end

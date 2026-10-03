@@ -145,65 +145,129 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
         { 944.0f, 150.0f, 38.0f, 240.0f, false },
     };
 
+    // Predefined colors for Player 1 (Blue/Cyan) and Player 2 (Magenta/Red)
+    const sf::Color p1Outline(0, 200, 255);
+    const sf::Color p2Outline(255, 120, 200);
+    const sf::Color p1Roof(80, 230, 255);
+    const sf::Color p2Roof(255, 160, 220);
+    const sf::Color p1ColorDay(32, 44, 62);
+    const sf::Color p2ColorDay(48, 34, 52);
+    const sf::Color p1ColorNight(18, 26, 38);
+    const sf::Color p2ColorNight(30, 20, 32);
+
+    const sf::Color p1Fill = isDaylight ? p1ColorDay : p1ColorNight;
+    const sf::Color p2Fill = isDaylight ? p2ColorDay : p2ColorNight;
+
     for (const auto& b : buildings) {
-        // Building belongs to whichever player controls its coordinate
-        bool controlledByP1 = (b.x + b.w / 2.0f < captureX);
-        bool isCutOff = (b.originalWest && !controlledByP1) || (!b.originalWest && controlledByP1);
+        float bLeft = b.x;
+        float bRight = b.x + b.w;
 
-        sf::Color outlineColor = controlledByP1 ? sf::Color(0, 200, 255) : sf::Color(255, 120, 200);
-        sf::Color roofColor = controlledByP1 ? sf::Color(80, 230, 255) : sf::Color(255, 160, 220);
+        // 1. Building Body: Sliced if captureX divides this building!
+        if (captureX <= bLeft) {
+            // Entirely in Player 2 territory
+            sf::RectangleShape bShape({ b.w, b.h });
+            bShape.setPosition({ b.x, b.y });
+            bShape.setFillColor(p2Fill);
+            bShape.setOutlineThickness(1.5f);
+            bShape.setOutlineColor(p2Outline);
+            window.draw(bShape);
+        } else if (captureX >= bRight) {
+            // Entirely in Player 1 territory
+            sf::RectangleShape bShape({ b.w, b.h });
+            bShape.setPosition({ b.x, b.y });
+            bShape.setFillColor(p1Fill);
+            bShape.setOutlineThickness(1.5f);
+            bShape.setOutlineColor(p1Outline);
+            window.draw(bShape);
+        } else {
+            // Sliced Building: Left portion is Player 1 (Blue), Right portion is Player 2 (Red)
+            float w1 = captureX - bLeft;
+            float w2 = bRight - captureX;
 
-        sf::RectangleShape bShape({ b.w, b.h });
-        bShape.setPosition({ b.x, b.y });
-        sf::Color bColorDay = controlledByP1 ? sf::Color(32, 44, 62) : sf::Color(48, 34, 52);
-        sf::Color bColorNight = controlledByP1 ? sf::Color(18, 26, 38) : sf::Color(30, 20, 32);
-        bShape.setFillColor(isDaylight ? bColorDay : bColorNight);
-        bShape.setOutlineThickness(1.5f);
-        bShape.setOutlineColor(outlineColor);
-        window.draw(bShape);
+            sf::RectangleShape p1Slice({ w1, b.h });
+            p1Slice.setPosition({ bLeft, b.y });
+            p1Slice.setFillColor(p1Fill);
+            p1Slice.setOutlineThickness(1.5f);
+            p1Slice.setOutlineColor(p1Outline);
+            window.draw(p1Slice);
 
-        // Rooftop structure
-        sf::RectangleShape roof({ b.w - 8.0f, 6.0f });
-        roof.setPosition({ b.x + 4.0f, b.y - 6.0f });
-        roof.setFillColor(roofColor);
-        window.draw(roof);
+            sf::RectangleShape p2Slice({ w2, b.h });
+            p2Slice.setPosition({ captureX, b.y });
+            p2Slice.setFillColor(p2Fill);
+            p2Slice.setOutlineThickness(1.5f);
+            p2Slice.setOutlineColor(p2Outline);
+            window.draw(p2Slice);
+        }
 
-        // Spire & Blinking Beacon
+        // 2. Rooftop Structure (Sliced)
+        float rLeft = b.x + 4.0f;
+        float rRight = b.x + b.w - 4.0f;
+        if (captureX <= rLeft) {
+            sf::RectangleShape roof({ rRight - rLeft, 6.0f });
+            roof.setPosition({ rLeft, b.y - 6.0f });
+            roof.setFillColor(p2Roof);
+            window.draw(roof);
+        } else if (captureX >= rRight) {
+            sf::RectangleShape roof({ rRight - rLeft, 6.0f });
+            roof.setPosition({ rLeft, b.y - 6.0f });
+            roof.setFillColor(p1Roof);
+            window.draw(roof);
+        } else {
+            // Roof cut right at captureX
+            sf::RectangleShape roof1({ captureX - rLeft, 6.0f });
+            roof1.setPosition({ rLeft, b.y - 6.0f });
+            roof1.setFillColor(p1Roof);
+            window.draw(roof1);
+
+            sf::RectangleShape roof2({ rRight - captureX, 6.0f });
+            roof2.setPosition({ captureX, b.y - 6.0f });
+            roof2.setFillColor(p2Roof);
+            window.draw(roof2);
+        }
+
+        // 3. Spire & Blinking Beacon
         if (b.h > 250.0f) {
+            float spireX = b.x + b.w / 2.0f;
+            bool spireInP1 = (spireX < captureX);
+            sf::Color beaconColor = spireInP1 ? p1Outline : p2Outline;
+
             sf::RectangleShape spire({ 2.5f, 16.0f });
-            spire.setPosition({ b.x + b.w / 2.0f - 1.25f, b.y - 22.0f });
+            spire.setPosition({ spireX - 1.25f, b.y - 22.0f });
             spire.setFillColor(sf::Color(200, 215, 230));
             window.draw(spire);
 
             bool blink = (std::sin(animTime * 5.0f + b.x) > 0.0f);
             sf::CircleShape beacon(3.0f);
-            beacon.setPosition({ b.x + b.w / 2.0f - 3.0f, b.y - 25.0f });
-            beacon.setFillColor(blink ? outlineColor : sf::Color(60, 20, 30));
+            beacon.setPosition({ spireX - 3.0f, b.y - 25.0f });
+            beacon.setFillColor(blink ? beaconColor : sf::Color(60, 20, 30));
             window.draw(beacon);
         }
 
-        // Window matrix: adapts to day (reflective glass) vs night (electric neon glow)
+        // 4. Window Matrix: adapts to day (reflective glass) vs night (electric neon glow)
+        // Each individual window receives its owner's color depending on which side of captureX it sits on!
         int rows = static_cast<int>(b.h / 16.0f);
         int cols = static_cast<int>(b.w / 11.0f);
         for (int r = 2; r < rows; r++) {
             for (int c = 1; c < cols; c++) {
+                float winX = b.x + c * 10.0f;
+                float winY = b.y + r * 15.0f;
+                bool winInP1 = (winX + 2.5f < captureX);
+                bool winCutOff = (b.originalWest && !winInP1) || (!b.originalWest && winInP1);
+
                 int hash = (r * 11 + c * 17 + static_cast<int>(b.x * 3)) % 100;
                 bool isPowered = hash < 65;
-                // If building is cut off / conquered, windows flicker with blackout alert
-                if (isCutOff) {
+                if (winCutOff) {
                     isPowered = (std::sin(animTime * 4.0f + r) > 0.0f) && (hash < 35);
                 }
 
                 sf::RectangleShape win({ 5.0f, 7.0f });
-                win.setPosition({ b.x + c * 10.0f, b.y + r * 15.0f });
+                win.setPosition({ winX, winY });
 
                 if (isPowered) {
                     if (isDaylight) {
-                        // Daytime reflection
-                        win.setFillColor(controlledByP1 ? sf::Color(90, 160, 200, 190) : sf::Color(210, 180, 130, 190));
+                        win.setFillColor(winInP1 ? sf::Color(90, 160, 200, 190) : sf::Color(210, 180, 130, 190));
                     } else {
-                        // Nighttime electric glow!
-                        win.setFillColor(controlledByP1 ? sf::Color(0, 235, 255, 245) : sf::Color(255, 220, 110, 245));
+                        win.setFillColor(winInP1 ? sf::Color(0, 235, 255, 245) : sf::Color(255, 130, 190, 245));
                     }
                 } else {
                     win.setFillColor(sf::Color(14, 18, 26, 240));
@@ -212,13 +276,32 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
             }
         }
 
-        // Visual Cutoff / Hazard Striping if this building was severed from its original owner
-        if (isCutOff) {
-            for (float hy = b.y + 10.0f; hy < b.y + b.h - 10.0f; hy += 24.0f) {
-                sf::RectangleShape stripe({ b.w - 4.0f, 3.0f });
-                stripe.setPosition({ b.x + 2.0f, hy });
-                stripe.setFillColor(sf::Color(255, 215, 0, 160));
-                window.draw(stripe);
+        // 5. Visual Cutoff / Hazard Striping only on the captured portion of this building
+        float stripMinX = b.x + 2.0f;
+        float stripMaxX = b.x + b.w - 2.0f;
+        if (b.originalWest) {
+            // Conquered part of West building is x >= captureX
+            float startX = std::max(stripMinX, captureX);
+            float endX = stripMaxX;
+            if (endX > startX + 2.0f) {
+                for (float hy = b.y + 10.0f; hy < b.y + b.h - 10.0f; hy += 24.0f) {
+                    sf::RectangleShape stripe({ endX - startX, 3.0f });
+                    stripe.setPosition({ startX, hy });
+                    stripe.setFillColor(sf::Color(255, 215, 0, 160));
+                    window.draw(stripe);
+                }
+            }
+        } else {
+            // Conquered part of East building is x <= captureX
+            float startX = stripMinX;
+            float endX = std::min(stripMaxX, captureX);
+            if (endX > startX + 2.0f) {
+                for (float hy = b.y + 10.0f; hy < b.y + b.h - 10.0f; hy += 24.0f) {
+                    sf::RectangleShape stripe({ endX - startX, 3.0f });
+                    stripe.setPosition({ startX, hy });
+                    stripe.setFillColor(sf::Color(255, 215, 0, 160));
+                    window.draw(stripe);
+                }
             }
         }
     }
