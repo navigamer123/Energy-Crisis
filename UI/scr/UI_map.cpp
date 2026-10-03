@@ -252,11 +252,15 @@ void UI_map::render(sf::RenderWindow& window) {
     if (dt > 0.05f) dt = 0.05f;
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
-    if (!isPaused && engine.getCityState().winner == 0) {
+    if (!isPaused && !demoDriven && engine.getCityState().winner == 0) {
         engine.update(dt);
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
+    }
+    // [Team Demo / HX-02] Judge demo: UI_demo already stepped the engine; only animate the weather here
+    if (demoDriven) {
+        updateWeatherParticles(dt);
     }
 
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible

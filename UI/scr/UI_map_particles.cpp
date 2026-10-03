@@ -107,7 +107,8 @@ void UI_map::updateWeatherParticles(float dt) {
             }
         }
 
-        if (!sectorBuildings.empty() && !engine.isGracePeriod() && (rand() % 12 == 0)) {
+        // [Team Demo / HX-02] The judge demo destroys only what its script says (identical show every run)
+        if (!demoDriven && !sectorBuildings.empty() && !engine.isGracePeriod() && (rand() % 12 == 0)) {
             size_t chosen = sectorBuildings[static_cast<size_t>(rand()) % sectorBuildings.size()];
             sf::Vector2f strikePos = allBuildings[chosen].position;
             BuildingCost cost = engine.getBuildingCost(allBuildings[chosen].type);

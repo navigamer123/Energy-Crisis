@@ -15,6 +15,10 @@
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
+    // [Team Demo / HX-02] The judge demo (UI/scr/UI_demo.cpp) drives this map: it steps the engine with a
+    // fixed tick and triggers the effects itself; demoDriven makes render() skip input, bot, tutorial and sim.
+    friend class UI_demo;
+    bool demoDriven = false;
 private:
     sf::Texture grassTexture;
     sf::Font font;

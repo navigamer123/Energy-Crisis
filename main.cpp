@@ -64,8 +64,15 @@ int main(int argc, char* argv[]) {
 
     selectAssetDirectory(argc > 0 ? argv[0] : nullptr);
 
+    // [Team Demo / HX-02] --demo starts the judge demo right away (any key then returns to the menu)
+    bool startDemo = false;
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--demo") startDemo = true;
+    }
+
     std::cout << "[Main] Initializing UI_main...\n";
     UI_main ui;
+    if (startDemo) ui.startDemo();
 
     std::cout << "[Main] Calling main UI function render()...\n";
     ui.render();

@@ -88,6 +88,18 @@ void UI_main::render() {
                 }
             }
 
+            // [Team Demo / HX-02] F9 in the main menu starts the judge demo; inside it any key goes back
+            if (currentState == UIState::MAIN_MENU) {
+                const auto* demoKey = event->getIf<sf::Event::KeyPressed>();
+                if (demoKey && demoKey->code == sf::Keyboard::Key::F9) {
+                    startDemo();
+                    continue;
+                }
+            } else if (currentState == UIState::DEMO) {
+                demo.handleEvent(*event);
+                continue;
+            }
+
             if (currentState == UIState::MAIN_MENU) {
                 mainMenu.handleEvent(*event, window);
             } else if (currentState == UIState::PLAYING) {
@@ -119,6 +131,15 @@ void UI_main::render() {
                 toggleFullscreen();
                 map.primeInputEdges();
             }
+        } else if (currentState == UIState::DEMO) {
+            // [Team Demo / HX-02] Judge demo: step the script before the map draws, leave on any key
+            if (demo.isExitRequested()) {
+                demo.stop(map);
+                mainMenu.returnToMain();
+                currentState = UIState::MAIN_MENU;
+            } else {
+                demo.update(map);
+            }
         }
 
         window.setView(gameView);
@@ -126,10 +147,20 @@ void UI_main::render() {
 
         if (currentState == UIState::MAIN_MENU) {
             mainMenu.render(window);
+            demo.drawMenuHint(window, map); // [Team Demo / HX-02] "[F9] ДЕМО ЗА ЖУРИТО"
         } else if (currentState == UIState::PLAYING) {
             map.render(window);
+        } else if (currentState == UIState::DEMO) {
+            map.render(window);              // [Team Demo / HX-02]
+            demo.drawOverlay(window, map);
         }
 
         window.display();
     }
+}
+
+// [Team Demo / HX-02] Judge demo: a seeded, scripted match on the real map (UI/scr/UI_demo.cpp)
+void UI_main::startDemo() {
+    demo.start(map);
+    currentState = UIState::DEMO;
 }
