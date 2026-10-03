@@ -2,6 +2,7 @@
 // ENERGY CRISIS - SHOWCASE TESTS [b-showcase]
 //   - engine: the day-end verdict record used by the blackout set piece (HX-04)
 //   - presentation model: living skyline plan (HX-03) and blackout timeline (HX-04)
+//   - tutorial chapters 2-3 (F-07) and their clock policy (UX-08)
 // Headless: this file + Game/scr/*.cpp, no SFML ("make test" or build_headless.sh).
 // =============================================================================
 #ifdef NDEBUG
@@ -15,6 +16,9 @@
 #include <vector>
 #include "../Game/includes/game_main.h"
 #include "../UI/includes/UI_showcaseModel.h"
+// The chapter logic is engine-only code that lives in UI/scr; it is compiled into this test
+// directly so "make test" (which links only the engine objects) builds it too
+#include "../UI/scr/UI_tutorialChapters.cpp"
 
 namespace {
 
@@ -244,6 +248,196 @@ void testBlackoutTimeline() {
     endGroup();
 }
 
+// -----------------------------------------------------------------------------
+// Tutorial chapters 2-3 (F-07) driven through a real engine
+// -----------------------------------------------------------------------------
+struct Totals {
+    int wood, iron, copper, coal, silicon, silver, gold;
+};
+
+Totals totalsOf(const GameEngine& e, int player) {
+    const auto& p = e.getPlayerEconomy(player);
+    return { p.wood, p.iron, p.copper, p.coal, p.silicon, p.silver, p.gold };
+}
+
+// One UI frame, as UI_map::render runs it: the tutorial decides how fast the clock runs,
+// then reacts to the new engine state and hands out pending grants
+void tutorialFrame(GameEngine& e, TutorialChapters& ch, float dt = kFrame) {
+    float scale = ch.clockScale(e);
+    if (scale > 0.0f) e.update(dt * scale);
+    ch.update(dt, e);
+    ch.applyPending(e);
+}
+
+void waitForStep(GameEngine& e, TutorialChapters& ch, ChapterStep target, int maxFrames, const char* what) {
+    for (int i = 0; i < maxFrames && ch.getStep() != target; ++i) tutorialFrame(e, ch);
+    REQUIRE(ch.getStep() == target, what << ": stuck at step " << static_cast<int>(ch.getStep()));
+}
+
+void selectP1(GameEngine& e, BuildingType type) {
+    e.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(type);
+}
+
+void placeP1(GameEngine& e, sf::Vector2f pos) {
+    std::string msg;
+    BuildingType type = e.getSelectedBuilding(1);
+    bool ok = e.placeBuilding(1, type, pos, msg);
+    REQUIRE(ok, "tutorial placement failed: " << msg);
+    e.clearBuildingSelection(1); // UI_map clears the selection after a successful placement
+}
+
+void testTutorialChapters() {
+    beginGroup("Tutorial chapters 2-3 run end to end with fair grants and the clock policy (F-07, UX-08)");
+    GameEngine e;
+    e.init(1600.0f, 900.0f);
+    TutorialChapters ch;
+    const Totals p2Start = totalsOf(e, 2);
+
+    // --- Chapter 2: night and storage ---
+    ch.startChapter(2);
+    CHECK(ch.getStep() == ChapterStep::C2_INTRO && ch.isDialog(), "chapter 2 opens with its card");
+    CHECK(ch.clockScale(e) == 0.0f, "the intro card holds the clock");
+    const float hourAtIntro = e.getHour24();
+    for (int i = 0; i < 120; ++i) tutorialFrame(e, ch);
+    CHECK(std::abs(e.getHour24() - hourAtIntro) < 1e-4f, "clock moved while the card waited");
+    CHECK(ch.getStep() == ChapterStep::C2_INTRO, "the card waits for [SPACE]");
+
+    ch.requestConfirm();
+    tutorialFrame(e, ch);
+    REQUIRE(ch.getStep() == ChapterStep::C2_SELECT_BATTERY, "step " << static_cast<int>(ch.getStep()));
+    const ResourceGrant g2 = TutorialChapters::chapter2Grant();
+    CHECK(e.getPlayerEconomy(1).wood == g2.wood && e.getPlayerEconomy(2).wood == p2Start.wood + g2.wood,
+          "both players get the chapter-2 materials");
+    CHECK(ch.clockScale(e) == 0.0f, "selection step holds the clock by day");
+
+    // Picking something else keeps the selection step; cancelling the placement goes back to it
+    selectP1(e, BuildingType::SOLAR_PANEL);
+    tutorialFrame(e, ch);
+    CHECK(ch.getStep() == ChapterStep::C2_SELECT_BATTERY, "solar does not count as the battery");
+    selectP1(e, BuildingType::BATTERY);
+    tutorialFrame(e, ch);
+    REQUIRE(ch.getStep() == ChapterStep::C2_PLACE_BATTERY, "battery selected");
+    e.clearBuildingSelection(1);
+    tutorialFrame(e, ch);
+    CHECK(ch.getStep() == ChapterStep::C2_SELECT_BATTERY, "cancelling goes back to the selection step");
+    selectP1(e, BuildingType::BATTERY);
+    tutorialFrame(e, ch);
+    sf::Vector2f slot;
+    REQUIRE(TutorialChapters::findFreeSlot(e, 1, 1, false, false, slot), "free slot on the start plot");
+    placeP1(e, slot);
+    tutorialFrame(e, ch);
+    CHECK(ch.stepDelayLeft() > 0.0f, "finished steps pause briefly");
+    waitForStep(e, ch, ChapterStep::C2_DUSK, 120, "battery placed");
+    CHECK(ch.clockScale(e) == TutorialChapters::TIMELAPSE_SCALE, "dusk runs as a time-lapse");
+
+    // A solar panel (chapter 1 builds one) charges the battery during the time-lapse to night
+    {
+        auto& p = e.getPlayerEconomyMut(1);
+        p.wood += 6; p.iron += 4; p.copper += 6; p.silicon += 8;
+        REQUIRE(TutorialChapters::findFreeSlot(e, 1, 1, false, false, slot), "slot for a panel");
+        std::string msg;
+        REQUIRE(e.placeBuilding(1, BuildingType::SOLAR_PANEL, slot, msg), msg);
+    }
+    waitForStep(e, ch, ChapterStep::C2_SELECT_LAMP, 60 * 60, "time-lapse to dusk");
+    CHECK(!e.isDaylight(), "it is night when the lamp step starts");
+    CHECK(TutorialChapters::batteryCharge(e, 1) > 0.5f, "battery charged during the day: " << TutorialChapters::batteryCharge(e, 1));
+    CHECK(e.getCurrentDay() == 1, "still day 1");
+
+    selectP1(e, BuildingType::LAMP);
+    tutorialFrame(e, ch);
+    REQUIRE(ch.getStep() == ChapterStep::C2_PLACE_LAMP, "lamp selected");
+    REQUIRE(TutorialChapters::findFreeSlot(e, 1, 1, false, false, slot), "slot for the lamp");
+    placeP1(e, slot);
+    waitForStep(e, ch, ChapterStep::C2_BUILD_IN_LIGHT, 120, "lamp placed");
+
+    REQUIRE(TutorialChapters::findFreeSlot(e, 1, 1, true, false, slot), "a lit slot next to the lamp");
+    {
+        std::string reason;
+        CHECK(e.canPlaceBuilding(1, BuildingType::SOLAR_PANEL, slot, reason), "lit slot accepts a panel at night: " << reason);
+    }
+    selectP1(e, BuildingType::SOLAR_PANEL);
+    placeP1(e, slot);
+    waitForStep(e, ch, ChapterStep::C2_WATCH_NIGHT, 120, "panel in the light");
+    const float chargeAtDusk = TutorialChapters::batteryCharge(e, 1);
+    waitForStep(e, ch, ChapterStep::C2_DONE, 60 * 60, "night time-lapse");
+    CHECK(e.getCurrentDay() == 2, "the watched night ends with the day-1 settlement, day " << e.getCurrentDay());
+    CHECK(!ch.getWatchedSettlement().empty(), "settlement message kept for the card");
+    CHECK(TutorialChapters::batteryCharge(e, 1) < chargeAtDusk, "the battery powered the lamp overnight");
+    CHECK(ch.clockScale(e) == 0.0f, "the result card holds the clock");
+
+    // --- Chapter 3: land and mines ---
+    ch.requestConfirm();
+    tutorialFrame(e, ch);
+    REQUIRE(ch.getStep() == ChapterStep::C3_INTRO, "chapter 3 card");
+    ch.requestConfirm();
+    tutorialFrame(e, ch);
+    REQUIRE(ch.getStep() == ChapterStep::C3_EARN_GOLD, "gold step");
+    CHECK(ch.clockScale(e) == 1.0f || e.getPlayerEconomy(1).gold >= TutorialChapters::GOLD_TARGET,
+          "the gold step runs in real time");
+    for (int i = 0; i < 60 * 120 && ch.getStep() == ChapterStep::C3_EARN_GOLD; ++i) {
+        if (i % 60 == 0) {
+            std::string msg;
+            e.mineResource(1, ResourceType::GOLD, msg);
+        }
+        tutorialFrame(e, ch);
+    }
+    waitForStep(e, ch, ChapterStep::C3_UPGRADE_MINE, 120, "30 gold");
+    {
+        std::string msg;
+        REQUIRE(e.upgradeMine(1, ResourceType::WOOD, msg), msg);
+    }
+    waitForStep(e, ch, ChapterStep::C3_BUY_PLOT, 120, "mine upgraded");
+    tutorialFrame(e, ch); // the plot grant lands
+    const int riverPlot = TutorialChapters::riverPlotId(1);
+    const LandPlot* plot = TutorialChapters::findPlot(e, riverPlot);
+    REQUIRE(plot != nullptr && !plot->isPurchased, "river plot " << riverPlot);
+    CHECK(e.getPlayerEconomy(1).gold >= plot->costGold, "the grant covers the river plot");
+    {
+        std::string msg;
+        REQUIRE(e.buyLandPlot(1, riverPlot, msg), msg);
+    }
+    waitForStep(e, ch, ChapterStep::C3_SELECT_HYDRO, 120, "plot bought");
+    tutorialFrame(e, ch);
+    selectP1(e, BuildingType::HYDRO_PLANT);
+    waitForStep(e, ch, ChapterStep::C3_PLACE_HYDRO, 60 * 60, "hydro selected");
+    REQUIRE(TutorialChapters::findFreeSlot(e, 1, riverPlot, false, true, slot), "river-bank slot");
+    CHECK(e.isRiverBankSlot(1, slot), "suggested hydro slot is on the river bank");
+    placeP1(e, slot);
+    waitForStep(e, ch, ChapterStep::C3_DONE, 120, "hydro placed");
+    ch.requestConfirm();
+    tutorialFrame(e, ch);
+    CHECK(!ch.isRunning(), "the last card ends the chapters");
+
+    // Fairness: the opponent (who did nothing) received exactly the same packages
+    const ResourceGrant gp = TutorialChapters::plotGrant();
+    const ResourceGrant gh = TutorialChapters::hydroGrant();
+    const Totals p2 = totalsOf(e, 2);
+    CHECK(p2.wood == p2Start.wood + g2.wood + gh.wood && p2.iron == p2Start.iron + g2.iron + gh.iron &&
+          p2.copper == p2Start.copper + g2.copper + gh.copper && p2.silver == p2Start.silver + g2.silver + gh.silver,
+          "P2 materials " << p2.wood << "/" << p2.iron << "/" << p2.copper << "/" << p2.silver);
+    CHECK(p2.gold == p2Start.gold + gp.gold, "P2 gold " << p2.gold);
+    CHECK(gp.gold == plot->costGold, "plot grant equals the river plot price");
+    endGroup();
+}
+
+void testTutorialNightStart() {
+    beginGroup("Chapter steps that build wait for the morning in a time-lapse (F-07)");
+    GameEngine e;
+    e.init(1600.0f, 900.0f);
+    while (e.isDaylight()) e.update(0.25f);
+    TutorialChapters ch;
+    ch.startChapter(2);
+    ch.requestConfirm();
+    tutorialFrame(e, ch);
+    REQUIRE(ch.getStep() == ChapterStep::C2_SELECT_BATTERY, "battery step");
+    CHECK(ch.clockScale(e) == TutorialChapters::TIMELAPSE_SCALE, "night: time-lapse until sunrise");
+    for (int i = 0; i < 60 * 60 && !e.isDaylight(); ++i) tutorialFrame(e, ch);
+    CHECK(e.isDaylight() && ch.clockScale(e) == 0.0f, "morning: the clock waits again");
+    ch.startChapter(7);
+    CHECK(!ch.isRunning(), "an unknown chapter ends the chapters");
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -254,6 +448,8 @@ int main() {
     testSettlementRecord();
     testSkylinePlan();
     testBlackoutTimeline();
+    testTutorialChapters();
+    testTutorialNightStart();
 
     std::cout << "\n========================================================\n";
     if (g_failures == 0) {

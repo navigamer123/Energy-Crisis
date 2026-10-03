@@ -25,6 +25,7 @@ UI_tutorial::UI_tutorial()
 
 void UI_tutorial::reset() {
     step = TutorialStep::WELCOME;
+    chapters.reset(); // [b-showcase] F-07
     active = true;
     animTimer = 0.0f;
     stepDelayTimer = 0.0f;
@@ -33,6 +34,7 @@ void UI_tutorial::reset() {
 
 void UI_tutorial::start() {
     step = TutorialStep::WELCOME;
+    chapters.reset(); // [b-showcase] F-07
     active = true;
     stepDelayTimer = 0.0f;
     initialP1BuildingCount = 0;
@@ -40,6 +42,7 @@ void UI_tutorial::start() {
 
 void UI_tutorial::skip() {
     step = TutorialStep::INACTIVE;
+    chapters.reset(); // [b-showcase] F-07
     active = false;
 }
 
@@ -55,6 +58,13 @@ static int countP1SolarPanels(const GameEngine& engine) {
 void UI_tutorial::update(float dt, const GameEngine& engine) {
     if (!active || step == TutorialStep::INACTIVE) return;
     animTimer += dt;
+
+    // [b-showcase] F-07: chapters 2-3 drive themselves; the tutorial ends with them
+    if (step == TutorialStep::CHAPTER) {
+        chapters.update(dt, engine);
+        if (!chapters.isRunning()) skip();
+        return;
+    }
 
     const auto& econ = engine.getPlayerEconomy(1);
 
@@ -237,13 +247,18 @@ void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, co
         if (dir == ArrowDir::DOWN) {
             tagY = targetPos.y - 56.0f + bounce;
         } else if (dir == ArrowDir::UP) {
-            tagY = targetPos.y + 40.0f + bounce;
+            tagY = targetPos.y + 50.0f + bounce; // [b-showcase] clear of the arrow head
         } else if (dir == ArrowDir::LEFT) {
             tagX = tip.x + 22.0f + 6.0f + (tb.size.x + 16.0f) / 2.0f;
             tagY = targetPos.y;
         } else { // RIGHT
             tagX = tip.x - 22.0f - 6.0f - (tb.size.x + 16.0f) / 2.0f;
             tagY = targetPos.y;
+        }
+        if (dir == ArrowDir::DOWN || dir == ArrowDir::UP) {
+            // [b-showcase] Keep the tag between the two build panels (x 18-248 and 1352-1582)
+            float halfW = (tb.size.x + 16.0f) / 2.0f;
+            tagX = std::clamp(tagX, 252.0f + halfW, 1348.0f - halfW);
         }
 
         sf::RectangleShape tagBg({ tb.size.x + 16.0f, 22.0f });
@@ -264,6 +279,12 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                        const GameEngine& engine, const UI_resourceNodes& nodes, float animTime,
                        sf::Vector2f mousePos, sf::Vector2f p1Pos, sf::Vector2f p2Pos) {
     if (!active || step == TutorialStep::INACTIVE || !fontLoaded) return;
+
+    // [b-showcase] F-07: chapters 2-3 have their own cards (UI_tutorialChaptersDraw.cpp)
+    if (step == TutorialStep::CHAPTER) {
+        drawChapter(window, font, engine, nodes, animTime, mousePos, p1Pos);
+        return;
+    }
 
     const auto& econ = engine.getPlayerEconomy(1);
 
@@ -344,8 +365,9 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             sf::Vector2f slot = engine.getGridSlot(1, 1, 0);
             spotlightRect = sf::FloatRect({ slot.x - 20.0f, slot.y - 20.0f }, { 40.0f, 40.0f });
             drawSpotlight(window, spotlightRect, animTime);
-            arrowLabel = "ПОСТАВЕТЕ ТУК [SPACE]";
-            drawArrow(window, slot, arrowLabel, font, animTime, ArrowDir::DOWN);
+            arrowLabel = "ТУК [SPACE]"; // [b-showcase] short: fits inside the start plot
+            // [b-showcase] Top-row slot: label below the slot, clear of the P1 clock panel
+            drawArrow(window, slot, arrowLabel, font, animTime, slot.y < 200.0f ? ArrowDir::UP : ArrowDir::DOWN);
             break;
         }
         case TutorialStep::COMPLETED: {
@@ -462,7 +484,8 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     skipBtn.setOutlineColor(hoverSkip ? sf::Color(255, 100, 100) : sf::Color(150, 160, 180));
     window.draw(skipBtn);
 
-    sf::Text skipText(font, toUtf8("ПРОПУСНИ [ESC]"), 11);
+    // [b-showcase] F-07: on the result card Esc leaves the tutorial for the game
+    sf::Text skipText(font, toUtf8(step == TutorialStep::COMPLETED ? "КЪМ ИГРАТА [ESC]" : "ПРОПУСНИ [ESC]"), 11);
     skipText.setFillColor(hoverSkip ? sf::Color(255, 140, 140) : sf::Color(180, 190, 200));
     sf::FloatRect stb = skipText.getLocalBounds();
     skipText.setPosition({ skipBtnBounds.position.x + (skipBtnBounds.size.x - stb.size.x) / 2.0f,
@@ -542,17 +565,18 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             descText = "Преместете курсора си върху маркираната свободна клетка от вашия парцел.\n"
                        "Натиснете [SPACE]" + altActionKeys + ", за да завършите строежа!";
             progressRatio = 0.5f;
-            progressText = "Позиционирайте курсора и натиснете [SPACE] / [ENTER]";
+            progressText = "Курсор на клетката + [SPACE]"; // [b-showcase] fits the card
             break;
 
         case TutorialStep::COMPLETED:
             badgeText = "УСПЕХ! ПЪРВИЯТ ВИ ПАНЕЛ РАБОТИ!";
             titleText = "ПОЗДРАВЛЕНИЯ! ВЕЧЕ ПРОИЗВЕЖДАТЕ ТОК!";
+            // [b-showcase] F-07: offer chapter 2 (night and storage); Esc goes to the game
             descText = "Панелът ви дава +60 MW чиста мощност през деня!\n"
-                       "Снабдяването на града ви носи пари ($) и злато за нови земи и надграждане на мините.\n"
-                       "Стройте още панели, вятърни мелници и батерии за победа!";
+                       "Токът носи пари ($) и злато за нови земи и по-силни мини.\n"
+                       "Глава 2 учи нощта и батериите.";
             showNextBtn = true;
-            nextBtnLabel = "КЪМ ИГРАТА [SPACE]";
+            nextBtnLabel = "ГЛАВА 2 [SPACE]";
             break;
 
         default:
@@ -564,6 +588,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     badge.setFillColor(sf::Color(0, 229, 255));
     badge.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 9.0f });
     window.draw(badge);
+    drawClockChip(window, font, engine, badge.getGlobalBounds().position.x + badge.getGlobalBounds().size.x); // [b-showcase] UX-08
 
     // Title
     sf::Text title(font, toUtf8(titleText), 15);
@@ -639,7 +664,12 @@ bool UI_tutorial::handleClick(sf::Vector2f mousePos) {
         }
     } else if (step == TutorialStep::COMPLETED) {
         if (nextBtnBounds.contains(mousePos)) {
-            skip();
+            startChapter(2); // [b-showcase] F-07
+            return true;
+        }
+    } else if (step == TutorialStep::CHAPTER) { // [b-showcase] F-07: card button confirms dialog steps
+        if (chapters.isDialog() && nextBtnBounds.contains(mousePos)) {
+            chapters.requestConfirm();
             return true;
         }
     }
@@ -662,16 +692,15 @@ bool UI_tutorial::handleKey(sf::Keyboard::Key key) {
         }
     } else if (step == TutorialStep::COMPLETED) {
         if (key == sf::Keyboard::Key::Space || key == sf::Keyboard::Key::Enter) {
-            skip();
+            startChapter(2); // [b-showcase] F-07
+            return true;
+        }
+    } else if (step == TutorialStep::CHAPTER) { // [b-showcase] F-07: Space/Enter only confirm dialog cards
+        if (chapters.isDialog() && (key == sf::Keyboard::Key::Space || key == sf::Keyboard::Key::Enter)) {
+            chapters.requestConfirm();
             return true;
         }
     }
 
     return false;
-}
-
-// [b-showcase] UX-08: the day waits while the learner reads and tries things out
-float UI_tutorial::clockScale(const GameEngine& engine) const {
-    (void)engine;
-    return isActive() ? 0.0f : 1.0f;
 }

@@ -260,6 +260,7 @@ void UI_map::render(sf::RenderWindow& window) {
         if (tutorial.isActive()) engine.setTimeScale(1.0f); // [b-showcase] UX-08: no mining speed-up while learning
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
+        tutorial.applyEngineActions(engine); // [b-showcase] F-07: chapter material grants (both players)
         city.getSkyline().update(dt, engine); // [b-showcase] HX-03/HX-04: skyline growth + blackout set piece
     }
 

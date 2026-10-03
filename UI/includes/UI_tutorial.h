@@ -6,6 +6,7 @@
 #include "UI_types.h"
 #include "../../Game/includes/game_main.h"
 #include "UI_resourceNodes.h"
+#include "UI_tutorialChapters.h" // [b-showcase] F-07 chapters 2-3
 
 enum class TutorialStep {
     INACTIVE = 0,
@@ -16,7 +17,8 @@ enum class TutorialStep {
     GATHER_SILICON,
     SELECT_SOLAR,
     PLACE_SOLAR,
-    COMPLETED
+    COMPLETED,
+    CHAPTER     // [b-showcase] F-07: chapters 2-3 run (see TutorialChapters)
 };
 
 enum class ArrowDir {
@@ -43,6 +45,12 @@ private:
     void drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, const std::string& label,
                    const sf::Font& font, float animTime, ArrowDir dir = ArrowDir::DOWN);
 
+    // [b-showcase] F-07 chapters 2-3 and UX-08 clock hold (UI_tutorialChaptersDraw.cpp)
+    TutorialChapters chapters;
+    void drawChapter(sf::RenderWindow& window, const sf::Font& font, const GameEngine& engine,
+                     const UI_resourceNodes& nodes, float animTime, sf::Vector2f mousePos, sf::Vector2f p1Pos);
+    void drawClockChip(sf::RenderWindow& window, const sf::Font& font, const GameEngine& engine, float badgeRight);
+
 public:
     UI_tutorial();
 
@@ -65,6 +73,11 @@ public:
     // [b-showcase] UX-08: 0 = the tutorial holds the game clock, 1 = normal time, >1 = time-lapse
     float clockScale(const GameEngine& engine) const;
     bool holdsClock(const GameEngine& engine) const { return isActive() && clockScale(engine) <= 0.0f; }
+    // [b-showcase] F-07: start chapter 2 (night and storage) or 3 (land and mines) directly
+    void startChapter(int chapter);
+    // [b-showcase] F-07: hands out the chapter material grants (to both players); call once per frame
+    void applyEngineActions(GameEngine& engine) { chapters.applyPending(engine); }
+    const TutorialChapters& getChapters() const { return chapters; }
 };
 
 #endif // UI_TUTORIAL_H
