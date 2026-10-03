@@ -249,6 +249,11 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     // Battery energy uses ONE unit for charge and discharge: MW x game-hours (MWh)
     // -------------------------------------------------------------------------
     const float stepHours = Balance::gameSecondsToHours(dt);
+    // [wave-c-soak] Recipes are looked up once per step, not once per building: getBuildingCost()
+    // builds two std::strings, which made a step with full sectors ~10x slower.
+    const float solarBaseMW = static_cast<float>(getBuildingCost(BuildingType::SOLAR_PANEL).basePowerMW);
+    const float windBaseMW = static_cast<float>(getBuildingCost(BuildingType::WIND_TURBINE).basePowerMW);
+    const float hydroBaseMW = static_cast<float>(getBuildingCost(BuildingType::HYDRO_PLANT).basePowerMW);
     auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
         float rawGen = 0.0f;
         std::vector<PlacedBuilding*> playerLamps;
@@ -257,18 +262,17 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         // Step A: Calculate pure generation from Solar, Wind, and Hydro
         for (auto& b : buildings) {
             if (b.playerOwner != player) continue;
-            BuildingCost cost = getBuildingCost(b.type);
 
             if (b.type == BuildingType::SOLAR_PANEL) {
-                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
+                float out = solarBaseMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::WIND_TURBINE) {
-                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24);
+                float out = windBaseMW * WeatherSystem::getWindMultiplier(w, hour24);
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::HYDRO_PLANT) {
-                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
+                float out = hydroBaseMW * WeatherSystem::getHydroMultiplier(w);
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::LAMP) {

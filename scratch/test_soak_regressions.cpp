@@ -8,6 +8,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -137,10 +138,65 @@ void testClockDoesNotDrift() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// [S2] Every simulation step looked up each building's recipe with getBuildingCost(), which
+// builds two std::strings: ~900 heap allocations per step with full sectors (216 buildings),
+// ~280 us per step unoptimised. The soak test could not finish in time because of it.
+// The check compares one step with 216 buildings against the cost of a single recipe lookup
+// measured in the same process (min of several runs), so machine load cancels out.
+// ---------------------------------------------------------------------------
+void fillSector(GameEngine& e, int player) {
+    PlayerEconomy& ec = e.getPlayerEconomyMut(player);
+    ec.gold = 1000000;
+    std::string msg;
+    for (int i = 0; i < Balance::PLOTS_PER_PLAYER; ++i) e.buyNextLandTier(player, msg);
+    ec.gold = 0;
+    ec.data.gold = 0;
+    giveResources(e, player, 1000000);
+    const BuildingType mix[] = { BuildingType::WIND_TURBINE, BuildingType::SOLAR_PANEL, BuildingType::BATTERY, BuildingType::LAMP };
+    for (int r = 0; r < 12; ++r) {
+        for (int c = 0; c < 9; ++c) {
+            bool river = (c / 3) == (player == 1 ? Balance::P1_RIVER_BANK_PLOT_COL : Balance::P2_RIVER_BANK_PLOT_COL);
+            place(e, player, river ? BuildingType::HYDRO_PLANT : mix[(r * 9 + c) % 4], c, r);
+        }
+    }
+}
+
+double secondsSince(std::chrono::steady_clock::time_point t0) {
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+}
+
+void testStepCostDoesNotScaleWithRecipeLookups() {
+    beginGroup("S2 a simulation step does not look up every building's recipe");
+    GameEngine e;
+    initEngine(e, 12);
+    e.update(Balance::SECONDS_PER_DAY * 0.1f); // daylight, so building is allowed everywhere
+    fillSector(e, 1);
+    fillSector(e, 2);
+    REQUIRE(e.getBuildings().size() == 216, "buildings " << e.getBuildings().size());
+
+    double bestStep = 1e9, bestLookup = 1e9;
+    long sink = 0;
+    for (int run = 0; run < 5; ++run) {
+        auto t0 = std::chrono::steady_clock::now();
+        for (int i = 0; i < 400; ++i) e.update(1.0f / 144.0f);
+        bestStep = std::min(bestStep, secondsSince(t0) / 400.0);
+        t0 = std::chrono::steady_clock::now();
+        for (int i = 0; i < 4000; ++i) sink += e.getBuildingCost(static_cast<BuildingType>(1 + i % 3)).basePowerMW;
+        bestLookup = std::min(bestLookup, secondsSince(t0) / 4000.0);
+    }
+    double ratio = bestStep / bestLookup;
+    std::cout << "  step with 216 buildings = " << ratio << " recipe lookups (" << bestStep * 1e6 << " us; sink " << (sink % 7) << ")\n";
+    // before the fix a step cost ~2 lookups per building (432); allow loops and scratch vectors
+    CHECK(ratio < 150.0, "one step costs as much as " << ratio << " recipe lookups");
+    endGroup();
+}
+
 } // namespace
 
 int main() {
     testClockDoesNotDrift();
+    testStepCostDoesNotScaleWithRecipeLookups();
     std::cout << "\n" << (g_failures == 0 ? "ALL PASSED" : "FAILED") << ": " << (g_checks - g_failures) << "/" << g_checks
               << " checks\n";
     return g_failures == 0 ? 0 : 1;
