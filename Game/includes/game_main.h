@@ -124,7 +124,7 @@ public:
     using MineResult = ::MineResult;
 
 private:
-    float gameSeconds;
+    double gameSeconds;         // game time since 06:00 of day 1 (double: fixed steps do not drift over a match)
     int currentDay;
     float hour24;
     float revenueTimer;         // Accumulates game-seconds towards the next 1 s city payout
@@ -133,6 +133,8 @@ private:
     WeatherType p2Weather;
     SeasonType currentSeason;
     float timeScale;
+    double stepAccumulator = 0.0;  // real seconds not yet simulated (less than one fixed step)
+    int maxStepsPerUpdate = 0;     // 0 = unlimited
 
     PlayerEconomy p1;
     PlayerEconomy p2;
@@ -154,6 +156,7 @@ private:
     int p1WindDirection = 0;       // -1 = blowing left, 0 = calm, +1 = blowing right
     int p2WindDirection = 0;
 
+    void advanceGameTime(float gameDt); // game-seconds, split at day ends and into sub-steps
     void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
     void payCityRevenue();
@@ -170,7 +173,16 @@ public:
     // Starts a new match with the given rules (out-of-range values are clamped, see MatchConfig)
     void init(const MatchConfig& cfg);
     const MatchConfig& getConfig() const { return config; }
+    // Advances the match by dt real seconds (x time scale) in fixed steps of FIXED_STEP_SECONDS.
+    // Leftover time below one step is kept for the next call, so any frame rate gives the same result.
     void update(float dt);
+    static constexpr double FIXED_STEP_SECONDS = 1.0 / 60.0;
+    // Spiral-of-death guard for real-time hosts: at most n fixed steps per update() call, a larger
+    // backlog is dropped (8 steps = 133 ms per frame). 0 (default) = unlimited, so headless runs
+    // and tests may pass whole days as one frame.
+    void setMaxStepsPerUpdate(int n) { maxStepsPerUpdate = std::max(0, n); }
+    int getMaxStepsPerUpdate() const { return maxStepsPerUpdate; }
+    static constexpr int RECOMMENDED_MAX_STEPS_PER_UPDATE = 8;
 
     // Events since the last call (oldest first); the queue is cleared. Call once per frame.
     // At most MAX_PENDING_EVENTS are kept when nobody drains the queue (the oldest are dropped).

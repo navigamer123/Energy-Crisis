@@ -447,7 +447,7 @@ void testBatteryNightWithoutLamps() {
     REQUIRE(demand == Balance::STARTING_CITY_DEMAND_MW, "demand " << demand);
 
     // (a) Day 3: energy that goes into the battery is not delivered to the city
-    const float stepSeconds = 0.1f; // a single engine sub-step
+    const float stepSeconds = static_cast<float>(GameEngine::FIXED_STEP_SECONDS); // a single fixed engine step
     const float stepHours = Balance::gameSecondsToHours(stepSeconds);
     int chargingSteps = 0;
     while (e.getCurrentDay() == 3 && e.getHour24() < 19.25f) {

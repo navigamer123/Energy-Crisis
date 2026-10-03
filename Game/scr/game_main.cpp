@@ -11,6 +11,12 @@ namespace {
 // are split so energy, batteries, payouts and day-ends do not depend on the frame size.
 constexpr float MAX_SIM_STEP_SEC = 0.25f;
 
+// Absorbs float error so a payout due after exactly 1 game-second (e.g. 60 fixed steps) is not a step late
+constexpr float REVENUE_TIMER_TOLERANCE = 1e-4f;
+
+// Frame times arrive as float: a frame of exactly n fixed steps must run n steps, not n - 1
+constexpr double FIXED_STEP_TOLERANCE = 1e-6;
+
 // Match seed: MatchConfig::seed when non-zero, else the EC_SEED environment variable when set
 // (reproducible matches / tests), else the clock. source names where it came from for the log.
 uint32_t pickMatchSeed(uint32_t configSeed, const char*& source) {
@@ -83,7 +89,9 @@ void GameEngine::init(float screenWidth, float screenHeight) {
 void GameEngine::init(const MatchConfig& cfg) {
     // Reset EVERY piece of match state (clock, season, revenue timer, city, players, buildings)
     MatchConfig rules = cfg; // cfg may alias this->config, which the reset below overwrites
+    const int hostMaxSteps = maxStepsPerUpdate; // a host setting, not match state: survives restarts
     *this = GameEngine();
+    maxStepsPerUpdate = hostMaxSteps;
     rules.finalDay = std::clamp(rules.finalDay, MatchConfig::MIN_FINAL_DAY, MatchConfig::MAX_FINAL_DAY);
     rules.victoryShare = std::isfinite(rules.victoryShare)
                              ? std::clamp(rules.victoryShare, MatchConfig::MIN_VICTORY_SHARE, MatchConfig::MAX_VICTORY_SHARE)
@@ -208,24 +216,48 @@ void GameEngine::update(float dt) {
     if (city.winner != 0) {
         return;
     }
+    if (!(dt > 0.0f) || !std::isfinite(dt)) {
+        return; // paused / bad frame time: nothing to simulate
+    }
 
-    float remaining = dt * timeScale;
+    // Fixed timestep: real time is accumulated and the simulation always advances in whole steps of
+    // FIXED_STEP_SECONDS (x time scale), so the result does not depend on the frame rate.
+    stepAccumulator += static_cast<double>(dt);
+    int steps = 0;
+    while (stepAccumulator + FIXED_STEP_TOLERANCE >= FIXED_STEP_SECONDS && city.winner == 0) {
+        stepAccumulator -= FIXED_STEP_SECONDS;
+        advanceGameTime(static_cast<float>(FIXED_STEP_SECONDS) * timeScale);
+        if (maxStepsPerUpdate > 0 && ++steps >= maxStepsPerUpdate) {
+            // Real-time host fell behind: drop the backlog instead of spiralling
+            if (stepAccumulator >= FIXED_STEP_SECONDS) {
+                stepAccumulator = 0.0;
+            }
+            break;
+        }
+    }
+    if (city.winner != 0) {
+        stepAccumulator = 0.0;
+    }
+}
+
+void GameEngine::advanceGameTime(float gameDt) {
+    float remaining = gameDt;
     while (remaining > 0.0f && city.winner == 0) {
         float step = std::min(remaining, MAX_SIM_STEP_SEC);
 
         // Never let a step cross the 06:00 day boundary: the day that ends is settled exactly once,
         // with exactly the energy delivered during that day, however large the frame is.
-        float dayEndSeconds = static_cast<float>(currentDay) * config.daySeconds;
+        double dayEndSeconds = static_cast<double>(currentDay) * config.daySeconds;
         bool reachesDayEnd = (gameSeconds + step >= dayEndSeconds);
         if (reachesDayEnd) {
-            step = std::max(0.0f, dayEndSeconds - gameSeconds);
+            step = static_cast<float>(std::max(0.0, dayEndSeconds - gameSeconds));
         }
 
         simulateStep(step);
         remaining -= step;
 
         if (reachesDayEnd) {
-            gameSeconds = dayEndSeconds; // avoid float drift at the boundary
+            gameSeconds = dayEndSeconds; // exact boundary
             ++currentDay;
             processDayEnd();
         }
@@ -234,9 +266,9 @@ void GameEngine::update(float dt) {
 
 void GameEngine::simulateStep(float dt) {
     gameSeconds += dt;
-    hour24 = std::fmod((gameSeconds / config.daySeconds) * 24.0f + Balance::CLOCK_HOUR_AT_ZERO, 24.0f);
+    hour24 = static_cast<float>(std::fmod((gameSeconds / config.daySeconds) * 24.0 + Balance::CLOCK_HOUR_AT_ZERO, 24.0));
     // Season flips at midnight (dark in every season), never at the 06:00 rollover
-    SeasonType seasonNow = Balance::getSeasonAtGameSeconds(gameSeconds, config.daySeconds);
+    SeasonType seasonNow = Balance::getSeasonAtGameSeconds(static_cast<float>(gameSeconds), config.daySeconds);
     if (seasonNow != currentSeason) {
         currentSeason = seasonNow;
         emitEvent(GameEventType::SEASON_CHANGED, 0, 0.0f, std::string(), static_cast<int>(currentSeason));
@@ -248,7 +280,7 @@ void GameEngine::simulateStep(float dt) {
 
     // Percentage-based city energy revenue, paid once per full game-second (remainder carried over)
     revenueTimer += dt;
-    while (revenueTimer >= 1.0f) {
+    while (revenueTimer >= 1.0f - REVENUE_TIMER_TOLERANCE) {
         revenueTimer -= 1.0f;
         payCityRevenue();
     }

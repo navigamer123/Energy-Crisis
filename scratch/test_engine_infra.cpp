@@ -464,6 +464,77 @@ void testDeterministicRng() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// [CD-04] Fixed 60 Hz simulation step
+// ---------------------------------------------------------------------------
+void testFixedTimestep() {
+    beginGroup("Fixed 60 Hz simulation step (CD-04)");
+    {
+        // Same seed and inputs: the frame rate does not change the match (10 days, actions every 0.5 s)
+        MatchConfig cfg;
+        cfg.seed = 4242u;
+        cfg.sandbox = true;
+        GameEngine a, b, c;
+        a.init(cfg);
+        b.init(cfg);
+        c.init(cfg);
+        const std::string at30 = playScriptedMatch(a, 10, 1.0f / 30.0f, 0.5f);
+        const std::string at144 = playScriptedMatch(b, 10, 1.0f / 144.0f, 0.5f);
+        const std::string at20 = playScriptedMatch(c, 10, 0.05f, 0.5f);
+        CHECK(at30 == at144, "dt 1/30 and dt 1/144 differ:\n" << at30 << "---\n" << at144);
+        CHECK(at30 == at20, "dt 1/30 and dt 1/20 differ:\n" << at30 << "---\n" << at20);
+        CHECK(a.getCurrentDay() == 11 && !a.getBuildings().empty(), "day " << a.getCurrentDay());
+    }
+    {
+        // Time below one step is carried over, never lost
+        GameEngine e;
+        e.init(1600.0f, 900.0f);
+        const float h0 = e.getHour24();
+        e.update(0.01f);
+        CHECK(e.getHour24() == h0, "0.01 s (less than a step) already moved the clock");
+        e.update(0.01f);
+        const float oneStepHours = Balance::gameSecondsToHours(static_cast<float>(GameEngine::FIXED_STEP_SECONDS));
+        CHECK(std::abs(e.getHour24() - h0 - oneStepHours) < 1e-4f, "after 0.02 s the clock moved " << e.getHour24() - h0 << " h");
+
+        // Time scale multiplies the game time of every step
+        e.setTimeScale(Balance::MINE_SPEEDUP_MULT);
+        const float h1 = e.getHour24();
+        e.update(static_cast<float>(GameEngine::FIXED_STEP_SECONDS));
+        CHECK(std::abs(e.getHour24() - h1 - oneStepHours * Balance::MINE_SPEEDUP_MULT) < 1e-4f,
+              "one step at x" << Balance::MINE_SPEEDUP_MULT << " moved " << e.getHour24() - h1 << " h");
+    }
+    {
+        // Optional cap for real-time hosts: at most n steps per call, the backlog is dropped
+        GameEngine e;
+        e.setMaxStepsPerUpdate(GameEngine::RECOMMENDED_MAX_STEPS_PER_UPDATE);
+        e.init(1600.0f, 900.0f);
+        CHECK(e.getMaxStepsPerUpdate() == GameEngine::RECOMMENDED_MAX_STEPS_PER_UPDATE, "init reset the step cap");
+        const float h0 = e.getHour24();
+        e.update(1.0f); // 60 steps due
+        const float eightSteps = Balance::gameSecondsToHours(8.0f * static_cast<float>(GameEngine::FIXED_STEP_SECONDS));
+        CHECK(std::abs(e.getHour24() - h0 - eightSteps) < 1e-4f, "capped frame moved " << e.getHour24() - h0 << " h");
+        const float h1 = e.getHour24();
+        e.update(0.001f);
+        CHECK(e.getHour24() == h1, "the dropped backlog was simulated later");
+        e.restartGame();
+        CHECK(e.getMaxStepsPerUpdate() == GameEngine::RECOMMENDED_MAX_STEPS_PER_UPDATE, "restart reset the step cap");
+        e.setMaxStepsPerUpdate(0);
+        e.update(Balance::SECONDS_PER_DAY);
+        CHECK(e.getCurrentDay() == 2, "uncapped: a whole day in one frame, day " << e.getCurrentDay());
+    }
+    {
+        // Paused or broken frame times do nothing
+        GameEngine e;
+        e.init(1600.0f, 900.0f);
+        const float h0 = e.getHour24();
+        e.update(0.0f);
+        e.update(-1.0f);
+        e.update(std::nanf(""));
+        CHECK(e.getHour24() == h0, "zero, negative or NaN dt moved the clock");
+    }
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -474,6 +545,7 @@ int main() {
     testEvents();
     testMatchConfig();
     testDeterministicRng();
+    testFixedTimestep();
 
     std::cout << "\n========================================================\n";
     if (g_failures == 0) {
