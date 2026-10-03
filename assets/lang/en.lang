@@ -99,7 +99,7 @@ menu.bot_hard = HARD BOT
 # UI/scr/UI_mainMenu.cpp:249
 menu.bot_easy_desc = Slower bot; builds basic solar panels and turbines (good for learning)
 # UI/scr/UI_mainMenu.cpp:251
-menu.bot_medium_desc = Balanced bot; gathers resources, builds batteries and night lamps
+menu.bot_medium_desc = Balanced bot; gathers resources, builds batteries and Work Lamps
 # UI/scr/UI_mainMenu.cpp:253
 menu.bot_hard_desc = Fast, aggressive bot; buys land, upgrades mines and maximises power output
 # UI/scr/UI_mainMenu.cpp:254
@@ -126,7 +126,7 @@ settings.bot_difficulty = Bot difficulty:
 # UI/scr/UI_mainMenu.cpp:359
 settings.diff_easy = EASY
 # UI/scr/UI_mainMenu.cpp:359
-settings.diff_normal = NORMAL
+settings.diff_normal = MEDIUM
 # UI/scr/UI_mainMenu.cpp:359
 settings.diff_hard = HARD
 # UI/scr/UI_mainMenu.cpp:367
@@ -226,7 +226,7 @@ season.winter = Winter
 # UI/scr/UI_city.cpp:98
 city.border = CENTRAL BORDER
 # UI/scr/UI_city.cpp:327 ({0} = common.day / common.night, {1} = дял P1 %, {2} = дял P2 %)
-city.title = CITY (METROPOLIS) | {0} | P1: {1}% | P2: {2}%
+city.title = CITY | {0} | P1: {1}% | P2: {2}%
 # UI/scr/UI_city.cpp:374 ({0} = ден, {1} = дни гратис, {2} = доставени MW)
 city.demand_grace = CITY DEMAND: 0 MW  * GRACE PERIOD (DAY {0}/{1}) * | SUPPLY: {2} MW
 # UI/scr/UI_city.cpp:378 ({0} = нужда MW, {1} = доставени MW, {2} = % за победа)
@@ -284,7 +284,7 @@ build.cost_item = {0} {1}
 # UI/scr/UI_buildings.cpp:210
 build.cost_lamp_draw = (10MW)
 # UI/scr/UI_buildings.cpp:243
-build.btn_selected_demolish = SELECTED - CLICK A BUILDING TO REMOVE
+build.btn_selected_demolish = SELECTED - CLICK TO DEMOLISH
 # UI/scr/UI_buildings.cpp:244
 build.btn_selected = SELECTED - CLICK TO BUILD
 # UI/scr/UI_buildings.cpp:246
