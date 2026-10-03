@@ -1,4 +1,5 @@
 #include "../includes/UI_playControls.h"
+#include "../includes/UI_input.h" // Team b-session (F-10): scheme descriptions from the real bindings
 #include <string>
 
 UI_playControls::UI_playControls()
@@ -81,28 +82,37 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
 
     struct OptionData {
         const char* title;
-        const char* p1Text;
-        const char* p2Text;
+        std::string p1Text;
+        std::string p2Text;
         const char* badgeText;
     };
 
+    // b-session (F-10): keyboard lines are generated from the current key bindings
+    inputRouter().setMatchContext(false, ControlScheme::BOTH_KEYBOARD);
+    auto keysLine = [](int p) {
+        const InputRouter& r = inputRouter();
+        return r.moveHint(p) + " Движение  |  " + r.hint(p, InputAction::Action, false, 1) + " Действие  |  " +
+               r.hint(p, InputAction::NextBuilding, false, 1) + "/" + r.hint(p, InputAction::PrevBuilding, false, 1) + " Сграда";
+    };
+    const std::string p1Keys = "Играч 1 (Запад): " + keysLine(1);
+    const std::string p2Keys = "Играч 2 (Изток): " + keysLine(2);
     OptionData options[4] = {
         {
             "1. СПОДЕЛЕНА КЛАВИАТУРА (DUAL KEYBOARD)",
-            "Играч 1 (Запад): [W][A][S][D] Движение  |  [Q] и [E] Действие",
-            "Играч 2 (Изток): [Стрелки] Движение     |  [PgUp] и [PgDn] Действие",
+            p1Keys,
+            p2Keys,
             "KB + KB"
         },
         {
             "2. ИГРАЧ 1 КЛАВИАТУРА + ИГРАЧ 2 МИШКА",
-            "Играч 1 (Запад): [W][A][S][D] Движение  |  [Q] и [E] Действие",
+            p1Keys,
             "Играч 2 (Изток): [Мишка] Позиция        |  [Ляв / Десен клик] Действие",
             "KB + MOUSE"
         },
         {
             "3. ИГРАЧ 1 МИШКА + ИГРАЧ 2 КЛАВИАТУРА (ОБРАТНО)",
             "Играч 1 (Запад): [Мишка] Позиция        |  [Ляв / Десен клик] Действие",
-            "Играч 2 (Изток): [Стрелки] Движение     |  [PgUp] и [PgDn] Действие",
+            p2Keys,
             "MOUSE + KB"
         },
         {
