@@ -1,4 +1,6 @@
 #include "../includes/UI_resourceNodes.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include "../includes/UI_types.h"
 #include <cmath>
 #include <string>
@@ -179,6 +181,7 @@ bool UI_resourceNodes::isNearP2Forest(sf::Vector2f pt) const {
 void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                                      const std::vector<LandPlot>& plots, sf::Vector2f mousePos) {
     for (const auto& plot : plots) {
+        ui::lint::ContainerScope plotScope(plot.bounds);
         bool hover = plot.bounds.contains(mousePos);
         sf::Color ownerAccent = (plot.playerOwner == 1) ? sf::Color(0, 220, 255) : sf::Color(255, 120, 200);
 
@@ -249,7 +252,7 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                 sf::Text t(font, toUtf8(tag), 10);
                 t.setFillColor(ownerAccent);
                 t.setPosition({ plot.bounds.position.x + 6.0f, plot.bounds.position.y + 4.0f });
-                window.draw(t);
+                ui::drawText(window, t);
             }
         } else {
             // Unpurchased, available for purchase!
@@ -263,14 +266,14 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                 t.setFillColor(hover ? sf::Color(255, 240, 150) : sf::Color(180, 205, 160));
                 sf::FloatRect tb = t.getLocalBounds();
                 t.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - tb.size.x) / 2.0f, plot.bounds.position.y + 28.0f });
-                window.draw(t);
+                ui::drawText(window, t);
 
                 std::string cStr = std::to_string(plot.costGold) + " G";
                 sf::Text tCost(font, toUtf8(cStr), 13);
                 tCost.setFillColor(sf::Color(255, 215, 0));
                 sf::FloatRect cb = tCost.getLocalBounds();
                 tCost.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - cb.size.x) / 2.0f, plot.bounds.position.y + 48.0f });
-                window.draw(tCost);
+                ui::drawText(window, tCost);
             }
         }
     }
@@ -384,7 +387,7 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 tPct.setFillColor(sf::Color::White);
                 sf::FloatRect tb = tPct.getLocalBounds();
                 tPct.setPosition({ b.position.x - tb.size.x / 2.0f, b.position.y - 5.0f });
-                window.draw(tPct);
+                ui::drawText(window, tPct);
             }
         } else if (b.type == BuildingType::LAMP) {
             sf::RectangleShape pole({ 3.0f, 20.0f });
@@ -447,7 +450,7 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
         t.setFillColor(tint);
         sf::FloatRect tb = t.getLocalBounds();
         t.setPosition({ pos.x - tb.size.x / 2.0f, pos.y - 38.0f });
-        window.draw(t);
+        ui::drawText(window, t);
 
         std::string costStr = "Нужно: " + std::to_string(cost.woodCost) + " Дърво";
         if (cost.ironCost > 0) costStr += ", " + std::to_string(cost.ironCost) + " Жел";
@@ -462,7 +465,7 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
         tc.setFillColor(sf::Color::White);
         sf::FloatRect tcb = tc.getLocalBounds();
         tc.setPosition({ pos.x - tcb.size.x / 2.0f, pos.y + 24.0f });
-        window.draw(tc);
+        ui::drawText(window, tc);
 
         // Cancel keys are X (P1) / Del (P2); Q / PgUp only step back through the buildings
         std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
@@ -471,14 +474,14 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
         th.setFillColor(isValidPlacement ? sf::Color(255, 230, 100) : sf::Color(255, 130, 130));
         sf::FloatRect thb = th.getLocalBounds();
         th.setPosition({ pos.x - thb.size.x / 2.0f, pos.y + 38.0f });
-        window.draw(th);
+        ui::drawText(window, th);
     }
 }
 
 void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                                  const GameEngine* engine,
                                  float p1Cooldown, float p2Cooldown) {
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
 
     for (const auto& s : stations) {
         bool hover = s.bounds.contains(mousePos);
@@ -496,6 +499,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         card.setOutlineThickness(hover ? 2.0f : (lvl > 1 ? 1.5f : 1.2f));
         card.setOutlineColor(hover ? sf::Color(255, 230, 100) : (lvl > 1 ? sf::Color(255, 215, 0, 200) : s.themeColor));
         window.draw(card);
+        ui::lint::ContainerScope cardScope(s.bounds);
 
         // Top accent line
         sf::RectangleShape topBar({ s.bounds.size.x, 3.0f });
@@ -575,7 +579,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             sf::Text nameText(font, toUtf8(s.nameBg), 11);
             nameText.setFillColor(s.themeColor);
             nameText.setPosition({ s.bounds.position.x + 28.0f, s.bounds.position.y + 6.0f });
-            window.draw(nameText);
+            ui::drawText(window, nameText);
 
             // Level Badge in Top-Right
             std::string lvlStr = "L" + std::to_string(lvl);
@@ -583,7 +587,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             tLvl.setFillColor(lvl > 1 ? sf::Color(255, 215, 0) : sf::Color(160, 180, 205));
             sf::FloatRect lb = tLvl.getLocalBounds();
             tLvl.setPosition({ s.bounds.position.x + s.bounds.size.x - lb.size.x - 6.0f, s.bounds.position.y + 6.0f });
-            window.draw(tLvl);
+            ui::drawText(window, tLvl);
 
             // Dynamic Yield Text
             int curYield = 12;
@@ -602,7 +606,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             sf::Text yieldText(font, toUtf8(curYieldStr), 11);
             yieldText.setFillColor(sf::Color::White);
             yieldText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 34.0f });
-            window.draw(yieldText);
+            ui::drawText(window, yieldText);
 
             // Status or Cooldown Bar
             if (onCooldown) {
@@ -611,7 +615,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
                 sf::Text cdText(font, toUtf8(cdbuf), 9);
                 cdText.setFillColor(sf::Color(255, 170, 70));
                 cdText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 48.0f });
-                window.draw(cdText);
+                ui::drawText(window, cdText);
 
                 float cdRatio = std::min(1.0f, std::max(0.0f, cd / 1.0f));
                 sf::RectangleShape cdBar({ (s.bounds.size.x - 16.0f) * (1.0f - cdRatio), 2.0f });
@@ -623,7 +627,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
                 sf::Text actText(font, toUtf8(hover ? actHint : "[ГОТОВО]"), 9);
                 actText.setFillColor(hover ? sf::Color(255, 235, 120) : sf::Color(140, 240, 180));
                 actText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 48.0f });
-                window.draw(actText);
+                ui::drawText(window, actText);
             }
 
             // Upgrade Button at bottom of card - snap hover when near bottom
@@ -648,7 +652,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             sf::FloatRect upb = tUp.getLocalBounds();
             tUp.setPosition({ s.upgradeBtnBounds.position.x + (s.upgradeBtnBounds.size.x - upb.size.x) / 2.0f,
                               s.upgradeBtnBounds.position.y + (s.upgradeBtnBounds.size.y - upb.size.y) / 2.0f - 1.0f });
-            window.draw(tUp);
+            ui::drawText(window, tUp, s.upgradeBtnBounds);
         }
     }
 }

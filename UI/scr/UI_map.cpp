@@ -1,4 +1,6 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include <cmath>
 #include <iostream>
 #include <algorithm>
@@ -279,7 +281,7 @@ void UI_map::render(sf::RenderWindow& window) {
     p2Clock.setSeason(engine.getSeason());
 
     float animTime = animClock.getElapsedTime().asSeconds();
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
 
     // 3. Render terrain & atmosphere
     drawGrassBackground(window);

@@ -1,4 +1,6 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -121,7 +123,7 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
         sf::Text p1Tag(font, "P1", 13);
         p1Tag.setFillColor(sf::Color(0, 255, 255));
         p1Tag.setPosition({ p1Pos.x - 8.0f, p1Pos.y - 28.0f });
-        window.draw(p1Tag);
+        ui::drawText(window, p1Tag);
     }
 
     // -------------------------------------------------------------------------
@@ -168,7 +170,7 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
         p2Tag.setFillColor(bot.isActive() ? sf::Color(255, 215, 0) : sf::Color(255, 140, 220));
         sf::FloatRect tb = p2Tag.getLocalBounds();
         p2Tag.setPosition({ p2Pos.x - tb.size.x / 2.0f, p2Pos.y - 28.0f });
-        window.draw(p2Tag);
+        ui::drawText(window, p2Tag);
     }
 }
 
@@ -369,15 +371,16 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         return;
     }
 
-    // Keyboard & mouse state is global: never read it while another window has the focus
-    if (!window.hasFocus()) {
+    // Keyboard & mouse state is global: never read it while another window has the focus.
+    // Screenshot mode never reads input either, so captures do not depend on focus or keys.
+    if (!window.hasFocus() || ui::shot::isActive()) {
         engine.setTimeScale(1.0f);
         primeInputEdges(0);
         return;
     }
 
     float speed = 360.0f;
-    sf::Vector2f mPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mPos = ui::pointerPos(window);
     // The pointer only drives mouse-scheme cursors while it is over the game canvas
     const bool mouseOnCanvas = (mPos.x >= 0.0f && mPos.x < VIRTUAL_WIDTH && mPos.y >= 0.0f && mPos.y < VIRTUAL_HEIGHT);
 

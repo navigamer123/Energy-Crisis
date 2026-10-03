@@ -1,15 +1,75 @@
 #include "../includes/UI_main.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_text.h"
+#include <algorithm>
 #include <iostream>
 
-UI_main::UI_main()
+UI_main::UI_main(const ShotOptions& shotOptions)
     : window(sf::VideoMode({ 1600, 900 }), "Energy Crisis"),
       currentState(UIState::MAIN_MENU),
-      isFullscreen(false) {
+      isFullscreen(false),
+      shot(shotOptions) {
     window.setFramerateLimit(60);
     window.setKeyRepeatEnabled(false); // A held key must not re-trigger menu/pause/hotkey events
     updateViewport();
     std::cout << "[UI_main] SFML RenderWindow (1600x900 virtual canvas) initialized.\n";
+}
+
+// Screenshot mode: open the requested scene directly, without any input
+void UI_main::setupShotScene() {
+    ui::shot::setActive(true);
+    ui::lint::setEnabled(shot.lint);
+    ui::shot::setSeedEnv(shot.seed); // every match of this run replays the same seed
+
+    if (ui::shot::isMenuScene(shot.scene)) {
+        MenuState s = MenuState::MAIN;
+        if (shot.scene == "modes") s = MenuState::MODE_SELECT;
+        else if (shot.scene == "bots") s = MenuState::BOT_DIFFICULTY;
+        else if (shot.scene == "controls") s = MenuState::PLAY_CONTROLS;
+        else if (shot.scene == "settings") s = MenuState::SETTINGS;
+        mainMenu.showState(s);
+        currentState = UIState::MAIN_MENU;
+        return;
+    }
+
+    // Game scenes: a single-player match against the bot, then the scene's state on top
+    map.restartMatch();
+    map.setControlScheme(ControlScheme::BOTH_KEYBOARD);
+    map.setBotDifficulty(BotDifficulty::MEDIUM);
+    map.resetMatchInputState();
+    map.setupDebugScene(shot.scene, shot.frames);
+    currentState = UIState::PLAYING;
+}
+
+int UI_main::finishShot() {
+    int exitCode = 0;
+    if (!shot.outPath.empty()) {
+        sf::Texture capture;
+        if (capture.resize(window.getSize())) {
+            capture.update(window);
+            if (capture.copyToImage().saveToFile(shot.outPath)) {
+                std::cout << "[Shot] Saved " << shot.outPath << " (" << window.getSize().x << "x"
+                          << window.getSize().y << ", scene " << shot.scene << ", " << shot.frames << " frames)\n";
+            } else {
+                std::cerr << "[Shot] ERROR: could not write " << shot.outPath << "\n";
+                exitCode = 1;
+            }
+        } else {
+            std::cerr << "[Shot] ERROR: could not create the capture texture\n";
+            exitCode = 1;
+        }
+        if (window.getSize() != sf::Vector2u(1600, 900)) {
+            std::cerr << "[Shot] Warning: the window is " << window.getSize().x << "x" << window.getSize().y
+                      << ", not 1600x900; the capture is scaled.\n";
+        }
+    }
+    if (shot.lint) {
+        std::vector<std::string> problems = ui::lint::report();
+        for (const auto& line : problems) std::cout << line << "\n";
+        std::cout << "[Lint] scene " << shot.scene << ": " << problems.size() << " problem(s)\n";
+        exitCode = static_cast<int>(std::min<std::size_t>(problems.size(), 255));
+    }
+    return exitCode;
 }
 
 UI_main::~UI_main() {
@@ -61,8 +121,13 @@ void UI_main::toggleFullscreen() {
               << " (" << window.getSize().x << "x" << window.getSize().y << ")\n";
 }
 
-void UI_main::render() {
+int UI_main::render() {
+    if (shot.enabled) setupShotScene();
+    int frame = 0;
+    int exitCode = 0;
+
     while (window.isOpen() && currentState != UIState::QUIT) {
+        ui::lint::beginFrame();
         while (const auto event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) {
                 window.close();
@@ -72,6 +137,8 @@ void UI_main::render() {
                 (void)resized;
                 updateViewport();
             }
+
+            if (shot.enabled) continue; // Screenshot mode: no player input, no focus auto-pause
 
             // Auto-pause the match when the window loses focus (Alt-Tab, click elsewhere)
             if (event->is<sf::Event::FocusLost>() && currentState == UIState::PLAYING) {
@@ -130,6 +197,14 @@ void UI_main::render() {
             map.render(window);
         }
 
+        // Screenshot mode: capture the finished frame before display() (the back buffer is still valid)
+        if (shot.enabled && ++frame >= shot.frames) {
+            exitCode = finishShot();
+            window.close();
+            break;
+        }
+
         window.display();
     }
+    return exitCode;
 }

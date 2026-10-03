@@ -1,4 +1,6 @@
 #include "../includes/UI_resourceHUD.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include "../includes/UI_types.h"
 #include <cmath>
 #include <string>
@@ -113,7 +115,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
         }
     };
 
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
 
     if (fontLoaded) {
         if (isWest) {
@@ -131,28 +133,28 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             sf::Text tWood(font, std::to_string(econ.wood), 14);
             tWood.setFillColor(sf::Color(140, 255, 170));
             tWood.setPosition({ col1X + 20.0f, row0Y - 2.0f });
-            window.draw(tWood);
+            ui::drawText(window, tWood);
 
             // Iron
             drawIcon(ResourceType::IRON, col1X, row1Y);
             sf::Text tIron(font, std::to_string(econ.iron), 14);
             tIron.setFillColor(sf::Color(170, 210, 245));
             tIron.setPosition({ col1X + 20.0f, row1Y - 2.0f });
-            window.draw(tIron);
+            ui::drawText(window, tIron);
 
             // Copper
             drawIcon(ResourceType::COPPER, col1X, row2Y);
             sf::Text tCopper(font, std::to_string(econ.copper), 14);
             tCopper.setFillColor(sf::Color(255, 170, 100));
             tCopper.setPosition({ col1X + 20.0f, row2Y - 2.0f });
-            window.draw(tCopper);
+            ui::drawText(window, tCopper);
 
             // Coal
             drawIcon(ResourceType::COAL, col1X, row3Y);
             sf::Text tCoal(font, std::to_string(econ.coal), 14);
             tCoal.setFillColor(sf::Color(180, 185, 195));
             tCoal.setPosition({ col1X + 20.0f, row3Y - 2.0f });
-            window.draw(tCoal);
+            ui::drawText(window, tCoal);
 
             // Right Column (Silicon, Silver, Gold, Money)
             // Silicon
@@ -160,28 +162,28 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             sf::Text tSilicon(font, std::to_string(econ.silicon), 14);
             tSilicon.setFillColor(sf::Color(0, 230, 255));
             tSilicon.setPosition({ col2X + 20.0f, row0Y - 2.0f });
-            window.draw(tSilicon);
+            ui::drawText(window, tSilicon);
 
             // Silver
             drawIcon(ResourceType::SILVER, col2X, row1Y);
             sf::Text tSilver(font, std::to_string(econ.silver), 14);
             tSilver.setFillColor(sf::Color(230, 240, 250));
             tSilver.setPosition({ col2X + 20.0f, row1Y - 2.0f });
-            window.draw(tSilver);
+            ui::drawText(window, tSilver);
 
             // Gold
             drawIcon(ResourceType::GOLD, col2X, row2Y);
             sf::Text tGold(font, std::to_string(econ.gold) + "G", 14);
             tGold.setFillColor(sf::Color(255, 215, 0));
             tGold.setPosition({ col2X + 20.0f, row2Y - 2.0f });
-            window.draw(tGold);
+            ui::drawText(window, tGold);
 
             // Money
             drawIcon(ResourceType::MONEY, col2X, row3Y);
             sf::Text tMoney(font, std::to_string(econ.money) + "$", 14);
             tMoney.setFillColor(sf::Color(80, 255, 160));
             tMoney.setPosition({ col2X + 20.0f, row3Y - 2.0f });
-            window.draw(tMoney);
+            ui::drawText(window, tMoney);
 
             // Energy & Share Banner
             sf::RectangleShape energyPlaque({ 186.0f, 26.0f });
@@ -197,7 +199,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             sf::Text tPwr(font, toUtf8(pStr), 12);
             tPwr.setFillColor(sf::Color(255, 235, 100));
             tPwr.setPosition({ 40.0f, screenHeight - 93.0f });
-            window.draw(tPwr);
+            ui::drawText(window, tPwr, sf::FloatRect(energyPlaque.getPosition(), energyPlaque.getSize()));
 
             // Land Expansion Button
             p1BuyLandBtn = sf::FloatRect({ 14.0f, screenHeight - 66.0f }, { 186.0f, 26.0f });
@@ -213,7 +215,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             tLand.setFillColor(hoverLand ? sf::Color(255, 240, 150) : sf::Color::White);
             sf::FloatRect tb = tLand.getLocalBounds();
             tLand.setPosition({ p1BuyLandBtn.position.x + (p1BuyLandBtn.size.x - tb.size.x) / 2.0f, screenHeight - 61.0f });
-            window.draw(tLand);
+            ui::drawText(window, tLand, p1BuyLandBtn);
         } else {
             // Player 2 (East Corner)
             float col1X = screenWidth - 190.0f;
@@ -228,56 +230,56 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             sf::Text tWood(font, std::to_string(econ.wood), 14);
             tWood.setFillColor(sf::Color(140, 255, 170));
             tWood.setPosition({ col1X + 20.0f, row0Y - 2.0f });
-            window.draw(tWood);
+            ui::drawText(window, tWood);
 
             // Iron
             drawIcon(ResourceType::IRON, col1X, row1Y);
             sf::Text tIron(font, std::to_string(econ.iron), 14);
             tIron.setFillColor(sf::Color(170, 210, 245));
             tIron.setPosition({ col1X + 20.0f, row1Y - 2.0f });
-            window.draw(tIron);
+            ui::drawText(window, tIron);
 
             // Copper
             drawIcon(ResourceType::COPPER, col1X, row2Y);
             sf::Text tCopper(font, std::to_string(econ.copper), 14);
             tCopper.setFillColor(sf::Color(255, 170, 100));
             tCopper.setPosition({ col1X + 20.0f, row2Y - 2.0f });
-            window.draw(tCopper);
+            ui::drawText(window, tCopper);
 
             // Coal
             drawIcon(ResourceType::COAL, col1X, row3Y);
             sf::Text tCoal(font, std::to_string(econ.coal), 14);
             tCoal.setFillColor(sf::Color(180, 185, 195));
             tCoal.setPosition({ col1X + 20.0f, row3Y - 2.0f });
-            window.draw(tCoal);
+            ui::drawText(window, tCoal);
 
             // Silicon
             drawIcon(ResourceType::SILICON, col2X, row0Y);
             sf::Text tSilicon(font, std::to_string(econ.silicon), 14);
             tSilicon.setFillColor(sf::Color(0, 230, 255));
             tSilicon.setPosition({ col2X + 20.0f, row0Y - 2.0f });
-            window.draw(tSilicon);
+            ui::drawText(window, tSilicon);
 
             // Silver
             drawIcon(ResourceType::SILVER, col2X, row1Y);
             sf::Text tSilver(font, std::to_string(econ.silver), 14);
             tSilver.setFillColor(sf::Color(230, 240, 250));
             tSilver.setPosition({ col2X + 20.0f, row1Y - 2.0f });
-            window.draw(tSilver);
+            ui::drawText(window, tSilver);
 
             // Gold
             drawIcon(ResourceType::GOLD, col2X, row2Y);
             sf::Text tGold(font, std::to_string(econ.gold) + "G", 14);
             tGold.setFillColor(sf::Color(255, 215, 0));
             tGold.setPosition({ col2X + 20.0f, row2Y - 2.0f });
-            window.draw(tGold);
+            ui::drawText(window, tGold);
 
             // Money
             drawIcon(ResourceType::MONEY, col2X, row3Y);
             sf::Text tMoney(font, std::to_string(econ.money) + "$", 14);
             tMoney.setFillColor(sf::Color(80, 255, 160));
             tMoney.setPosition({ col2X + 20.0f, row3Y - 2.0f });
-            window.draw(tMoney);
+            ui::drawText(window, tMoney);
 
             // Energy & Share Banner
             sf::RectangleShape energyPlaque({ 186.0f, 26.0f });
@@ -293,7 +295,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             sf::Text tPwr(font, toUtf8(pStr), 12);
             tPwr.setFillColor(sf::Color(255, 235, 100));
             tPwr.setPosition({ screenWidth - 174.0f, screenHeight - 93.0f });
-            window.draw(tPwr);
+            ui::drawText(window, tPwr, sf::FloatRect(energyPlaque.getPosition(), energyPlaque.getSize()));
 
             // Land Expansion Button
             p2BuyLandBtn = sf::FloatRect({ screenWidth - 200.0f, screenHeight - 66.0f }, { 186.0f, 26.0f });
@@ -309,7 +311,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             tLand.setFillColor(hoverLand ? sf::Color(255, 240, 150) : sf::Color::White);
             sf::FloatRect tb = tLand.getLocalBounds();
             tLand.setPosition({ p2BuyLandBtn.position.x + (p2BuyLandBtn.size.x - tb.size.x) / 2.0f, screenHeight - 61.0f });
-            window.draw(tLand);
+            ui::drawText(window, tLand, p2BuyLandBtn);
         }
     }
 }

@@ -221,6 +221,11 @@ public:
     void primeInputEdges(int player = 0); // Keys held right now are not fresh presses (0 = both players)
     void resetMatchInputState();          // Call after restartMatch()/setBotDifficulty() when a match starts
     void onFocusLost();                   // Auto-pause when the window loses focus
+
+    // Screenshot mode (UI_map_debug.cpp): puts the running match into a named scene
+    // (game, night, winter, storm, victory, pause, help, modal, tutorial) using only the public
+    // engine API. frames = frames the capture will render (used to time a lightning bolt).
+    void setupDebugScene(const std::string& scene, int frames);
 };
 
 #endif // UI_MAP_H

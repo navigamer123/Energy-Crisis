@@ -1,4 +1,6 @@
 #include "../includes/UI_buildings.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include "../includes/UI_types.h"
 #include "../../Game/includes/game_balance.h"
 #include <iostream>
@@ -94,6 +96,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
   panel.setOutlineThickness(2.0f);
   panel.setOutlineColor(accentColor);
   window.draw(panel);
+  ui::lint::ContainerScope panelScope(sf::FloatRect(panelPos, panelSize));
 
   if (fontLoaded) {
     std::string pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
@@ -101,7 +104,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     sf::Text tHeader(font, toUtf8(pTag), 12);
     tHeader.setFillColor(accentColor);
     tHeader.setPosition({panelPos.x + 8.0f, panelPos.y + 6.0f});
-    window.draw(tHeader);
+    ui::drawText(window, tHeader);
 
     sf::RectangleShape div({panelSize.x - 16.0f, 1.5f});
     div.setPosition({panelPos.x + 8.0f, panelPos.y + 24.0f});
@@ -154,6 +157,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
                                      : sf::Color(70, 45, 55));
     }
     window.draw(card);
+    ui::lint::ContainerScope cardScope(b.btnBounds);
 
     if (fontLoaded) {
       // Line 1: Building name (clear 11pt, never overlaps badge)
@@ -167,7 +171,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
         tName.setFillColor(hover ? sf::Color::White : sf::Color(220, 235, 250));
       }
       tName.setPosition({itemX + 6.0f, y + 3.0f});
-      window.draw(tName);
+      ui::drawText(window, tName);
 
       // Line 1 Right: Output or Type Badge
       std::string pStr;
@@ -188,7 +192,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       tPwr.setFillColor(badgeColor);
       sf::FloatRect pb = tPwr.getLocalBounds();
       tPwr.setPosition({itemX + itemW - pb.size.x - 6.0f, y + 3.0f});
-      window.draw(tPwr);
+      ui::drawText(window, tPwr);
 
       // Line 2: Cost description
       std::string cStr;
@@ -213,7 +217,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       tCost.setFillColor(canAfford ? sf::Color(140, 210, 250)
                                    : sf::Color(255, 130, 130));
       tCost.setPosition({itemX + 6.0f, y + 19.0f});
-      window.draw(tCost);
+      ui::drawText(window, tCost);
 
       // Line 3: Compact Action Button Indicator
       sf::RectangleShape bBtn({itemW - 12.0f, 16.0f});
@@ -252,7 +256,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       sf::FloatRect bb = tBtn.getLocalBounds();
       tBtn.setPosition(
           {itemX + 6.0f + (itemW - 12.0f - bb.size.x) / 2.0f, y + 36.0f});
-      window.draw(tBtn);
+      ui::drawText(window, tBtn, sf::FloatRect(bBtn.getPosition(), bBtn.getSize()));
     }
   }
 }

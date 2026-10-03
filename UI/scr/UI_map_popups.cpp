@@ -1,4 +1,6 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -29,7 +31,7 @@ void UI_map::drawFloatingNotices(sf::RenderWindow& window) {
         t.setFillColor(c);
         sf::FloatRect b = t.getLocalBounds();
         t.setPosition(sf::Vector2f(n.pos.x - b.size.x / 2.0f, n.pos.y));
-        window.draw(t);
+        ui::drawText(window, t);
     }
 }
 
@@ -64,6 +66,9 @@ void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
         outColor.a = alpha;
         box.setOutlineColor(outColor);
         window.draw(box);
+        const sf::FloatRect popupRect({ x, y }, { 225.0f, 132.0f });
+        ui::lint::occlude(popupRect);
+        ui::lint::ContainerScope popupScope(popupRect);
 
         // Badge pill
         sf::RectangleShape badgeBox({ 65.0f, 18.0f });
@@ -77,13 +82,13 @@ void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
         tBadge.setFillColor(sf::Color(255, 255, 255, alpha));
         sf::FloatRect bb = tBadge.getLocalBounds();
         tBadge.setPosition({ x + 8.0f + (65.0f - bb.size.x) / 2.0f, y + 9.0f });
-        window.draw(tBadge);
+        ui::drawText(window, tBadge, sf::FloatRect(badgeBox.getPosition(), badgeBox.getSize()));
 
         // Title
         sf::Text tTitle(font, toUtf8(pop.title), 12);
         tTitle.setFillColor(sf::Color(255, 255, 255, alpha));
         tTitle.setPosition({ x + 78.0f, y + 9.0f });
-        window.draw(tTitle);
+        ui::drawText(window, tTitle);
 
         // Separator
         sf::RectangleShape sep({ 209.0f, 1.0f });
@@ -95,14 +100,14 @@ void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
         sf::Text tDetail(font, toUtf8(pop.detail), 11);
         tDetail.setFillColor(sf::Color(195, 225, 255, alpha));
         tDetail.setPosition({ x + 8.0f, y + 36.0f });
-        window.draw(tDetail);
+        ui::drawText(window, tDetail);
 
         // Action instructions
         if (!pop.action.empty()) {
             sf::Text tAct(font, toUtf8(pop.action), 10);
             tAct.setFillColor(sf::Color(255, 215, 80, alpha));
             tAct.setPosition({ x + 8.0f, y + 92.0f });
-            window.draw(tAct);
+            ui::drawText(window, tAct);
         }
 
         // Timer progress bar at the bottom
@@ -153,7 +158,7 @@ void UI_map::closePlayerModal(int player) {
 
 void UI_map::drawPlayerModals(sf::RenderWindow& window) {
     if (!resourcesLoaded) return;
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
 
     auto drawOneModal = [&](const PlayerModalDialog& m, int pIdx) {
         if (!m.active) return;
@@ -172,6 +177,8 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         card.setOutlineThickness(2.5f);
         card.setOutlineColor(m.accentColor);
         window.draw(card);
+        ui::lint::occlude(m.box);
+        ui::lint::ContainerScope modalScope(m.box);
 
         // Header bar
         sf::RectangleShape hBar({ m.box.size.x, 30.0f });
@@ -183,26 +190,26 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         sf::Text tBadge(font, toUtf8("! " + m.badge), 12);
         tBadge.setFillColor(m.accentColor);
         tBadge.setPosition({ m.box.position.x + 10.0f, m.box.position.y + 6.0f });
-        window.draw(tBadge);
+        ui::drawText(window, tBadge);
 
         // Title
         sf::Text tTitle(font, toUtf8(m.title), 13);
         tTitle.setFillColor(sf::Color::White);
         tTitle.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 38.0f });
-        window.draw(tTitle);
+        ui::drawText(window, tTitle);
 
         // Detail explanation
         sf::Text tDetail(font, toUtf8(m.detail), 11);
         tDetail.setFillColor(sf::Color(200, 225, 250));
         tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 64.0f });
-        window.draw(tDetail);
+        ui::drawText(window, tDetail);
 
         // Tip text
         if (!m.tip.empty()) {
             sf::Text tTip(font, toUtf8("СЪВЕТ: " + m.tip), 10);
             tTip.setFillColor(sf::Color(255, 225, 110));
             tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 115.0f });
-            window.draw(tTip);
+            ui::drawText(window, tTip);
         }
 
         // [ OK - РАЗБРАХ ] Button (clickable only by the player who owns the mouse)
@@ -218,7 +225,7 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         tOk.setFillColor(sf::Color::White);
         sf::FloatRect ob = tOk.getLocalBounds();
         tOk.setPosition({ m.okBtn.position.x + (m.okBtn.size.x - ob.size.x) / 2.0f, m.okBtn.position.y + 6.0f });
-        window.draw(tOk);
+        ui::drawText(window, tOk, m.okBtn);
     };
 
     drawOneModal(p1Modal, 1);
@@ -239,6 +246,8 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         tagBox.setOutlineThickness(1.5f);
         tagBox.setOutlineColor(cd > 0.05f ? sf::Color(255, 180, 50) : col);
         window.draw(tagBox);
+        const sf::FloatRect tagRect(tagBox.getPosition(), tagBox.getSize());
+        ui::lint::occlude(tagRect);
 
         std::string promptText = title + " | " + keyStr;
         if (cd > 0.05f) {
@@ -255,7 +264,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         t.setFillColor(cd > 0.05f ? sf::Color(255, 210, 100) : col);
         sf::FloatRect tb = t.getLocalBounds();
         t.setPosition({ tagBox.getPosition().x + (260.0f - tb.size.x) / 2.0f, tagBox.getPosition().y + 5.0f });
-        window.draw(t);
+        ui::drawText(window, t, tagRect);
 
         if (cd > 0.05f) {
             float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / Balance::MINE_COOLDOWN_SEC));
@@ -291,13 +300,15 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
             badge.setOutlineThickness(1.5f);
             badge.setOutlineColor(sf::Color(255, 215, 0, glowAlpha));
             window.draw(badge);
+            const sf::FloatRect badgeRect({ x, y }, { 230.0f, 24.0f });
+            ui::lint::occlude(badgeRect);
 
             sf::Text bt(font, toUtf8("⏩ 6x СКОРОСТ НА ВРЕМЕТО (ДОБИВ)"), 10);
             bt.setStyle(sf::Text::Bold);
             bt.setFillColor(sf::Color(255, 235, 120));
             sf::FloatRect btb = bt.getLocalBounds();
             bt.setPosition({ x + (230.0f - btb.size.x) / 2.0f, y + 5.0f });
-            window.draw(bt);
+            ui::drawText(window, bt, badgeRect);
         };
 
         drawClockSpeedBadge(20.0f, 115.0f);

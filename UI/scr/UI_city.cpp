@@ -1,4 +1,6 @@
 #include "../includes/UI_city.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include "../includes/UI_types.h"
 #include "../../Game/includes/game_balance.h"
 #include <cmath>
@@ -99,7 +101,7 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
         bText.setFillColor(sf::Color(140, 255, 180));
         sf::FloatRect tb = bText.getLocalBounds();
         bText.setPosition({ midX - tb.size.x / 2.0f, 404.0f });
-        window.draw(bText);
+        ui::drawText(window, bText, sf::FloatRect(tag.getPosition(), tag.getSize()));
     }
 }
 
@@ -329,7 +331,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
         cLabel.setFillColor(sf::Color(0, 255, 180));
         sf::FloatRect lb = cLabel.getLocalBounds();
         cLabel.setPosition({ midX - lb.size.x / 2.0f, cityTop + 5.0f });
-        window.draw(cLabel);
+        ui::drawText(window, cLabel, sf::FloatRect(banner.getPosition(), banner.getSize()));
 
         // Cut notification banner at bottom of city if conquest occurred
         if (!cutMessage.empty()) {
@@ -344,7 +346,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
             cutText.setFillColor(sf::Color(255, 220, 100));
             sf::FloatRect cb = cutText.getLocalBounds();
             cutText.setPosition({ midX - cb.size.x / 2.0f, cityTop + cityHeight - 20.0f });
-            window.draw(cutText);
+            ui::drawText(window, cutText, sf::FloatRect(cutBar.getPosition(), cutBar.getSize()));
         }
     }
 }
@@ -364,6 +366,7 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
     cPanel.setOutlineThickness(1.5f);
     cPanel.setOutlineColor(sf::Color(70, 95, 130));
     window.draw(cPanel);
+    ui::lint::ContainerScope panelScope(sf::FloatRect({ panelX, panelY }, { panelW, panelH }));
 
     if (fontLoaded) {
         int totalSupplied = p1Energy + p2Energy;
@@ -384,7 +387,7 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         tDemand.setFillColor(demandColor);
         sf::FloatRect db = tDemand.getLocalBounds();
         tDemand.setPosition({ panelX + (panelW - db.size.x) / 2.0f, panelY + 4.0f });
-        window.draw(tDemand);
+        ui::drawText(window, tDemand);
 
         float barW = 440.0f;
         float barH = 10.0f;
@@ -429,11 +432,11 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         sf::Text p1Tag(font, toUtf8("P1: " + std::to_string(p1Pct) + "%"), 11);
         p1Tag.setFillColor(sf::Color(0, 229, 255));
         p1Tag.setPosition({ barX - 48.0f, barY - 2.0f });
-        window.draw(p1Tag);
+        ui::drawText(window, p1Tag);
 
         sf::Text p2Tag(font, toUtf8("P2: " + std::to_string(p2Pct) + "%"), 11);
         p2Tag.setFillColor(sf::Color(255, 140, 210));
         p2Tag.setPosition({ barX + barW + 8.0f, barY - 2.0f });
-        window.draw(p2Tag);
+        ui::drawText(window, p2Tag);
     }
 }

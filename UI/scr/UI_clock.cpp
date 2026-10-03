@@ -1,4 +1,6 @@
 #include "../includes/UI_clock.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include "../includes/UI_types.h"
 #include <cmath>
 #include <algorithm>
@@ -51,6 +53,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     card.setOutlineThickness(2.0f);
     card.setOutlineColor(accentColor);
     window.draw(card);
+    ui::lint::ContainerScope cardScope(sf::FloatRect(pos, size));
 
     // Format 12h/24h AM/PM
     int hour = static_cast<int>(currentHour);
@@ -97,7 +100,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         }
         tTitle.setFillColor(currentDay <= Balance::GRACE_PERIOD_DAYS ? sf::Color(90, 255, 190) : accentColor);
         tTitle.setPosition({ pos.x + 10.0f, pos.y + 5.0f });
-        window.draw(tTitle);
+        ui::drawText(window, tTitle);
 
         // Divider
         sf::RectangleShape div({ size.x - 20.0f, 1.5f });
@@ -114,7 +117,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
                              (weather == WeatherType::SNOWY ? sf::Color(220, 235, 255) :
                              (weather == WeatherType::CLOUDY ? sf::Color(180, 185, 200) : sf::Color(255, 160, 140))))));
         tWeather.setPosition({ pos.x + 10.0f, pos.y + 27.0f });
-        window.draw(tWeather);
+        ui::drawText(window, tWeather);
 
         // Line 2: Season (Сезон) - font size 12
         std::string sStr = "Сезон: " + std::string(getSeasonName(season)) + (daylight ? " [ДЕН]" : " [НОЩ]");
@@ -123,14 +126,14 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
                             (season == SeasonType::SUMMER ? sf::Color(255, 235, 120) :
                             (season == SeasonType::AUTUMN ? sf::Color(255, 185, 110) : sf::Color(210, 235, 255))));
         tSeason.setPosition({ pos.x + 10.0f, pos.y + 44.0f });
-        window.draw(tSeason);
+        ui::drawText(window, tSeason);
 
         // Line 3: Hour (Час) - font size 13
         std::string hStr = "Час: " + timeStr;
         sf::Text tHour(font, toUtf8(hStr), 13);
         tHour.setFillColor(daylight ? sf::Color(255, 255, 255) : sf::Color(190, 220, 255));
         tHour.setPosition({ pos.x + 10.0f, pos.y + 61.0f });
-        window.draw(tHour);
+        ui::drawText(window, tHour);
 
         // Line 4: Adaptive Sun Schedule (Sunrise & Sunset) - font size 11
         std::string riseStr = Balance::formatHourMinute(Balance::getSunriseHour(season));
@@ -142,6 +145,6 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         sf::Text tSun(font, toUtf8(sLine), 11);
         tSun.setFillColor(currentDay <= Balance::GRACE_PERIOD_DAYS ? sf::Color(90, 255, 190) : sf::Color(255, 215, 120));
         tSun.setPosition({ pos.x + 10.0f, pos.y + 79.0f });
-        window.draw(tSun);
+        ui::drawText(window, tSun);
     }
 }

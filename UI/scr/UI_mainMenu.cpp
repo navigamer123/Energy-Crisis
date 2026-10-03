@@ -1,4 +1,6 @@
 #include "../includes/UI_mainMenu.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -52,7 +54,7 @@ void UI_mainMenu::drawButton(sf::RenderWindow& window, sf::FloatRect bounds, con
             bounds.position.x + (bounds.size.x - textBounds.size.x) / 2.0f - textBounds.position.x,
             bounds.position.y + (bounds.size.y - textBounds.size.y) / 2.0f - textBounds.position.y
         });
-        window.draw(label);
+        ui::drawText(window, label, bounds);
     }
 }
 
@@ -66,20 +68,20 @@ void UI_mainMenu::drawHeader(sf::RenderWindow& window) {
         titleShadow.setFillColor(sf::Color(180, 100, 0, 180));
         sf::FloatRect sBounds = titleShadow.getLocalBounds();
         titleShadow.setPosition({ (screenWidth - sBounds.size.x) / 2.0f + 2.0f, 62.0f });
-        window.draw(titleShadow);
+        ui::drawText(window, titleShadow);
 
         // Main Title
         sf::Text title(font, "ENERGY CRISIS", 54);
         title.setFillColor(sf::Color(255, 204, 0));
         title.setPosition({ (screenWidth - sBounds.size.x) / 2.0f, 60.0f });
-        window.draw(title);
+        ui::drawText(window, title);
 
         // Subtitle
         sf::Text subtitle(font, toUtf8("УПРАВЛЕНИЕ НА ЕНЕРГИЙНАТА МРЕЖА И РЕСУРСИТЕ"), 16);
         subtitle.setFillColor(sf::Color(140, 180, 220));
         sf::FloatRect subBounds = subtitle.getLocalBounds();
         subtitle.setPosition({ (screenWidth - subBounds.size.x) / 2.0f, 124.0f });
-        window.draw(subtitle);
+        ui::drawText(window, subtitle);
 
         // Decorative line
         sf::RectangleShape line({ subBounds.size.x + 80.0f, 2.0f });
@@ -131,7 +133,7 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     float btnHeight = 54.0f;
     float btnX = (screenWidth - btnWidth) / 2.0f;
 
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
     sf::FloatRect playBtn({ btnX, 230.0f }, { btnWidth, btnHeight });
     sf::FloatRect settingsBtn({ btnX, 306.0f }, { btnWidth, btnHeight });
     sf::FloatRect quitBtn({ btnX, 382.0f }, { btnWidth, btnHeight });
@@ -156,7 +158,7 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
         hint.setFillColor(sf::Color(130, 155, 185));
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, 470.0f });
-        window.draw(hint);
+        ui::drawText(window, hint);
     }
 }
 
@@ -170,7 +172,7 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
     float startY = 220.0f;
     float spacing = 78.0f;
 
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
     sf::FloatRect coopBtn({ btnX, startY }, { btnWidth, btnHeight });
     sf::FloatRect singleBtn({ btnX, startY + spacing }, { btnWidth, btnHeight });
     sf::FloatRect backBtn({ btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 12.0f }, { 240.0f, 48.0f });
@@ -201,13 +203,13 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
         tDesc.setFillColor(sf::Color(170, 205, 240));
         sf::FloatRect db = tDesc.getLocalBounds();
         tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 2.0f * spacing + 78.0f });
-        window.draw(tDesc);
+        ui::drawText(window, tDesc);
 
         sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Space] | Отказ: [ESC]"), 13);
         hint.setFillColor(sf::Color(120, 145, 175));
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 112.0f });
-        window.draw(hint);
+        ui::drawText(window, hint);
     }
 }
 
@@ -221,7 +223,7 @@ void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
     float startY = 205.0f;
     float spacing = 66.0f;
 
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
     sf::FloatRect easyBtn({ btnX, startY }, { btnWidth, btnHeight });
     sf::FloatRect medBtn({ btnX, startY + spacing }, { btnWidth, btnHeight });
     sf::FloatRect hardBtn({ btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight });
@@ -257,13 +259,13 @@ void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
         tDesc.setFillColor(sf::Color(170, 205, 240));
         sf::FloatRect db = tDesc.getLocalBounds();
         tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 3.0f * spacing + 70.0f });
-        window.draw(tDesc);
+        ui::drawText(window, tDesc);
 
         sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Старт: [Enter / Space] | Отказ: [ESC]"), 13);
         hint.setFillColor(sf::Color(120, 145, 175));
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 3.0f * spacing + 102.0f });
-        window.draw(hint);
+        ui::drawText(window, hint);
     }
 }
 
@@ -282,15 +284,16 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     panel.setOutlineThickness(2.0f);
     panel.setOutlineColor(sf::Color(0, 200, 255, 200));
     window.draw(panel);
+    ui::lint::occlude(sf::FloatRect({ panelX, panelY }, { panelWidth, panelHeight }));
 
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
 
     if (fontLoaded) {
         sf::Text sTitle(font, toUtf8("НАСТРОЙКИ / SETTINGS"), 24);
         sTitle.setFillColor(sf::Color(0, 229, 255));
         sf::FloatRect tb = sTitle.getLocalBounds();
         sTitle.setPosition({ panelX + (panelWidth - tb.size.x) / 2.0f, panelY + 16.0f });
-        window.draw(sTitle);
+        ui::drawText(window, sTitle);
     }
 
     // Row 0: Volume
@@ -307,12 +310,12 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
         sf::Text tVol(font, toUtf8(volSelected ? "> Сила на звука:" : "  Сила на звука:"), 17);
         tVol.setFillColor(volSelected ? sf::Color(255, 240, 150) : sf::Color::White);
         tVol.setPosition({ panelX + 45.0f, panelY + 78.0f });
-        window.draw(tVol);
+        ui::drawText(window, tVol);
 
         sf::Text volVal(font, toUtf8(std::to_string(volume) + "%"), 18);
         volVal.setFillColor(sf::Color(255, 204, 0));
         volVal.setPosition({ panelX + 345.0f, panelY + 78.0f });
-        window.draw(volVal);
+        ui::drawText(window, volVal);
     }
     sf::FloatRect volDown({ panelX + 280.0f, panelY + 74.0f }, { 36.0f, 32.0f });
     sf::FloatRect volUp({ panelX + 420.0f, panelY + 74.0f }, { 36.0f, 32.0f });
@@ -333,7 +336,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
         sf::Text tSfx(font, toUtf8(sfxSelected ? "> Звукови ефекти:" : "  Звукови ефекти:"), 17);
         tSfx.setFillColor(sfxSelected ? sf::Color(255, 240, 150) : sf::Color::White);
         tSfx.setPosition({ panelX + 45.0f, panelY + 133.0f });
-        window.draw(tSfx);
+        ui::drawText(window, tSfx);
     }
     sf::FloatRect sfxBtn({ panelX + 280.0f, panelY + 129.0f }, { 180.0f, 34.0f });
     drawButton(window, sfxBtn, toUtf8(soundEffects ? "ВКЛЮЧЕНИ" : "ИЗКЛЮЧЕНИ"),
@@ -354,7 +357,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
         sf::Text tDiff(font, toUtf8(diffSelected ? "> Трудност на бота:" : "  Трудност на бота:"), 17);
         tDiff.setFillColor(diffSelected ? sf::Color(255, 240, 150) : sf::Color::White);
         tDiff.setPosition({ panelX + 45.0f, panelY + 188.0f });
-        window.draw(tDiff);
+        ui::drawText(window, tDiff);
     }
     const char* diffLabels[] = { "ЛЕСНО", "НОРМАЛНО", "ТРУДНО" };
     sf::FloatRect diffBtn({ panelX + 280.0f, panelY + 184.0f }, { 180.0f, 34.0f });
@@ -372,7 +375,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
             tNote.setFillColor(sf::Color(150, 170, 195));
             sf::FloatRect nb = tNote.getLocalBounds();
             tNote.setPosition({ panelX + (panelWidth - nb.size.x) / 2.0f, panelY + 234.0f + i * 20.0f });
-            window.draw(tNote);
+            ui::drawText(window, tNote);
         }
     }
 
@@ -387,7 +390,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
         hint.setFillColor(sf::Color(130, 155, 185));
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 14.0f });
-        window.draw(hint);
+        ui::drawText(window, hint);
     }
 }
 
@@ -620,4 +623,13 @@ void UI_mainMenu::render(sf::RenderWindow& window) {
     } else if (state == MenuState::SETTINGS) {
         drawSettingsMenu(window);
     }
+}
+
+void UI_mainMenu::showState(MenuState s) {
+    state = s;
+    selectedMainIndex = 0;
+    selectedModeIndex = 0;
+    selectedDifficultyIndex = settingsDifficultyIndex;
+    selectedSettingsIndex = 0;
+    if (s == MenuState::PLAY_CONTROLS) playControls.resetRequests();
 }

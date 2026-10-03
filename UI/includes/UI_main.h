@@ -4,6 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include "UI_mainMenu.h"
 #include "UI_map.h"
+#include "UI_shot.h"
 
 enum class UIState {
     MAIN_MENU,
@@ -19,14 +20,17 @@ private:
     UI_map map;
     UIState currentState;
     bool isFullscreen;
+    ShotOptions shot; // Screenshot / layout-lint mode (--shot / --lint)
 
     void updateViewport();
     void toggleFullscreen();
+    void setupShotScene();
+    int finishShot(); // Saves the screenshot, prints the lint report; returns the exit code
 
 public:
-    UI_main();
+    explicit UI_main(const ShotOptions& shotOptions = ShotOptions());
     ~UI_main();
-    void render();
+    int render(); // Runs until the window closes; returns the process exit code
 };
 
 #endif // UI_MAIN_H

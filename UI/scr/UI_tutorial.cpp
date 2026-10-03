@@ -1,4 +1,6 @@
 #include "../includes/UI_tutorial.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -253,10 +255,11 @@ void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, co
         tagBg.setOutlineThickness(1.5f);
         tagBg.setOutlineColor(sf::Color(255, 215, 0, 220));
         window.draw(tagBg);
+        ui::lint::occlude(tagBg.getGlobalBounds());
 
         text.setOrigin({ tb.size.x / 2.0f, tb.size.y / 2.0f });
         text.setPosition({ tagX, tagY - 2.0f });
-        window.draw(text);
+        ui::drawText(window, text, tagBg.getGlobalBounds());
     }
 }
 
@@ -403,10 +406,11 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         p1Pill.setOutlineThickness(1.2f);
         p1Pill.setOutlineColor(sf::Color(0, 229, 255, 200));
         window.draw(p1Pill);
+        ui::lint::occlude(p1Pill.getGlobalBounds());
 
         p1Tag.setOrigin({ p1b.size.x / 2.0f, p1b.size.y / 2.0f });
         p1Tag.setPosition({ pillX, pillY - 2.0f });
-        window.draw(p1Tag);
+        ui::drawText(window, p1Tag, p1Pill.getGlobalBounds());
 
         // Player 2 Cursor hint in Co-op mode
         if (isCoop) {
@@ -430,10 +434,11 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             p2Pill.setOutlineThickness(1.2f);
             p2Pill.setOutlineColor(sf::Color(255, 120, 200, 200));
             window.draw(p2Pill);
+            ui::lint::occlude(p2Pill.getGlobalBounds());
 
             p2Tag.setOrigin({ p2b.size.x / 2.0f, p2b.size.y / 2.0f });
             p2Tag.setPosition({ p2PillX, p2PillY - 2.0f });
-            window.draw(p2Tag);
+            ui::drawText(window, p2Tag, p2Pill.getGlobalBounds());
         }
     }
 
@@ -446,6 +451,8 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     card.setOutlineThickness(2.0f);
     card.setOutlineColor(sf::Color(0, 229, 255, 230));
     window.draw(card);
+    ui::lint::occlude(cardBounds);
+    ui::lint::ContainerScope cardScope(cardBounds);
 
     // Cyan glowing top accent bar
     sf::RectangleShape topBar({ cardBounds.size.x, 3.0f });
@@ -467,7 +474,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     sf::FloatRect stb = skipText.getLocalBounds();
     skipText.setPosition({ skipBtnBounds.position.x + (skipBtnBounds.size.x - stb.size.x) / 2.0f,
                            skipBtnBounds.position.y + (skipBtnBounds.size.y - stb.size.y) / 2.0f - 2.0f });
-    window.draw(skipText);
+    ui::drawText(window, skipText, skipBtnBounds);
 
     // Step Header & Descriptions
     std::string badgeText = "ТУТОРИАЛ: ОСНОВИ";
@@ -561,20 +568,20 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     sf::Text badge(font, toUtf8(badgeText), 11);
     badge.setFillColor(sf::Color(0, 229, 255));
     badge.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 9.0f });
-    window.draw(badge);
+    ui::drawText(window, badge);
 
     // Title
     sf::Text title(font, toUtf8(titleText), 15);
     title.setFillColor(sf::Color(255, 215, 0));
     title.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 24.0f });
-    window.draw(title);
+    ui::drawText(window, title);
 
     // Description
     sf::Text desc(font, toUtf8(descText), 12);
     desc.setFillColor(sf::Color(215, 225, 235));
     desc.setLineSpacing(1.15f);
     desc.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 44.0f });
-    window.draw(desc);
+    ui::drawText(window, desc);
 
     // Progress Bar (when applicable)
     if (!progressText.empty()) {
@@ -600,7 +607,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         sf::Text progTxt(font, toUtf8(progressText), 11);
         progTxt.setFillColor(progressRatio >= 1.0f ? sf::Color(100, 255, 180) : sf::Color(255, 220, 120));
         progTxt.setPosition({ barX + barW + 12.0f, barY - 2.0f });
-        window.draw(progTxt);
+        ui::drawText(window, progTxt);
     }
 
     // Action button (Welcome & Completed steps)
@@ -618,7 +625,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         sf::FloatRect ntb = nxtTxt.getLocalBounds();
         nxtTxt.setPosition({ nextBtnBounds.position.x + (nextBtnBounds.size.x - ntb.size.x) / 2.0f,
                             nextBtnBounds.position.y + (nextBtnBounds.size.y - ntb.size.y) / 2.0f - 2.0f });
-        window.draw(nxtTxt);
+        ui::drawText(window, nxtTxt, nextBtnBounds);
     }
 }
 

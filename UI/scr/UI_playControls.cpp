@@ -1,4 +1,6 @@
 #include "../includes/UI_playControls.h"
+#include "../includes/UI_text.h"
+#include "../includes/UI_shot.h"
 #include <string>
 
 UI_playControls::UI_playControls()
@@ -29,7 +31,7 @@ void UI_playControls::drawButton(sf::RenderWindow& window, const sf::Font& font,
             bounds.position.x + (bounds.size.x - textBounds.size.x) / 2.0f - textBounds.position.x,
             bounds.position.y + (bounds.size.y - textBounds.size.y) / 2.0f - textBounds.position.y
         });
-        window.draw(label);
+        ui::drawText(window, label, bounds);
     }
 }
 
@@ -47,6 +49,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
     card.setOutlineThickness(2.0f);
     card.setOutlineColor(sf::Color(0, 229, 255, 220));
     window.draw(card);
+    const sf::FloatRect cardRect({ cardX, cardY }, { cardWidth, cardHeight });
 
     if (fontLoaded) {
         // Modal title
@@ -54,14 +57,14 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
         title.setFillColor(sf::Color(255, 204, 0));
         sf::FloatRect tb = title.getLocalBounds();
         title.setPosition({ cardX + (cardWidth - tb.size.x) / 2.0f, cardY + 14.0f });
-        window.draw(title);
+        ui::drawText(window, title, cardRect);
 
         // Subtitle
         sf::Text sub(font, toUtf8("Изберете схема за Играч 1 (Западен сектор) и Играч 2 (Източен сектор)"), 14);
         sub.setFillColor(sf::Color(140, 185, 225));
         sf::FloatRect sb = sub.getLocalBounds();
         sub.setPosition({ cardX + (cardWidth - sb.size.x) / 2.0f, cardY + 44.0f });
-        window.draw(sub);
+        ui::drawText(window, sub, cardRect);
 
         // Divider
         sf::RectangleShape div({ cardWidth - 60.0f, 2.0f });
@@ -77,7 +80,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
     float optStartY = cardY + 76.0f;
     float optSpacing = 88.0f;
 
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    sf::Vector2f mousePos = ui::pointerPos(window);
 
     struct OptionData {
         const char* title;
@@ -142,6 +145,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
             optBox.setOutlineColor(isNavSelected ? sf::Color(255, 204, 0) : sf::Color(60, 80, 110));
         }
         window.draw(optBox);
+        ui::lint::ContainerScope optScope(bounds);
 
         // Radio indicator
         sf::CircleShape radio(9.0f);
@@ -155,17 +159,17 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
             sf::Text tTitle(font, toUtf8(options[i].title), 16);
             tTitle.setFillColor(isActive ? sf::Color(255, 235, 120) : (isNavSelected ? sf::Color::White : sf::Color(210, 225, 240)));
             tTitle.setPosition({ optX + 44.0f, y + 8.0f });
-            window.draw(tTitle);
+            ui::drawText(window, tTitle);
 
             sf::Text tP1(font, toUtf8(options[i].p1Text), 13);
             tP1.setFillColor(sf::Color(0, 229, 255));
             tP1.setPosition({ optX + 44.0f, y + 34.0f });
-            window.draw(tP1);
+            ui::drawText(window, tP1);
 
             sf::Text tP2(font, toUtf8(options[i].p2Text), 13);
             tP2.setFillColor(sf::Color(255, 140, 200));
             tP2.setPosition({ optX + 44.0f, y + 54.0f });
-            window.draw(tP2);
+            ui::drawText(window, tP2);
 
             // Status Badge on Right
             float badgeW = 140.0f;
@@ -184,7 +188,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
             bText.setFillColor(isActive ? sf::Color(120, 255, 180) : sf::Color(150, 180, 210));
             sf::FloatRect bb = bText.getLocalBounds();
             bText.setPosition({ badgeX + (badgeW - bb.size.x) / 2.0f, badgeY + 4.0f });
-            window.draw(bText);
+            ui::drawText(window, bText, sf::FloatRect({ badgeX, badgeY }, { badgeW, badgeH }));
         }
     }
 
@@ -212,7 +216,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
         hint.setFillColor(sf::Color(130, 160, 190));
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, cardY + cardHeight + 10.0f });
-        window.draw(hint);
+        ui::drawText(window, hint);
     }
 }
 

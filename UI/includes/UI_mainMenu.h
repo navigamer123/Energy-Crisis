@@ -67,6 +67,9 @@ public:
     // Show the top-level menu again (call when returning from a match); keys still held are ignored
     void returnToMain();
 
+    // Screenshot mode: open one menu screen directly (no input needed)
+    void showState(MenuState s);
+
     bool isPlayRequested() const { return requestPlay; }
     bool isQuitRequested() const { return requestQuit; }
     void resetPlayRequest() { requestPlay = false; }
