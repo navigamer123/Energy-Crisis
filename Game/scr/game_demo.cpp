@@ -75,6 +75,10 @@ void DemoEngineAccess::jumpToDay(GameEngine& e, int day, float hour) {
     e.city.p2DailyDelivered = 0.0f;
     e.city.dailySeconds = 0.0f;   // today's average restarts at the jump
     e.city.dayCutOccurred = false;
+    // The city banner would still show the result of the last settled day
+    e.city.lastCutMessage = (day <= Balance::GRACE_PERIOD_DAYS)
+        ? "ДЕН " + std::to_string(day) + ": ГРАТИСЕН ПЕРИОД, ГРАДЪТ ИСКА 0 MW."
+        : "ДЕН " + std::to_string(day) + " ЗАПОЧНА: ГРАДЪТ ИЗИСКВА " + std::to_string(e.city.cityEnergyDemand) + " MW.";
 
     // A new day gets new (seeded) weather; the director re-applies weather locks afterwards
     e.currentSeason = Balance::getSeasonForDay(day);

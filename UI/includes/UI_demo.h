@@ -57,6 +57,7 @@ private:
     sf::Vector2f cursorTarget[3];
     int statFrames = 0;           // console FPS log
     float statTime = 0.0f;
+    bool finishLogged = false;
 
     std::string shotDir;          // EC_DEMO_SHOTS
     int lastShotSerial = -1;

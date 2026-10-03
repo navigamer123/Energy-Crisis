@@ -103,6 +103,7 @@ void UI_demo::start(UI_map& map) {
     exitRequested = false;
     statFrames = 0;
     statTime = 0.0f;
+    finishLogged = false;
     realTime = 0.0f;
     shownSerial = -1;
     captionShownAt = 0.0f;
@@ -165,7 +166,10 @@ void UI_demo::update(UI_map& map) {
     // Presenter console: progress and frame rate every 10 s (a slow machine plays the show slower)
     ++statFrames;
     statTime += dt;
-    if (statTime >= 10.0f) {
+    if (director.isFinished()) {
+        if (!finishLogged) std::cout << "[UI_demo] Show finished: waiting for a key.\n";
+        finishLogged = true;
+    } else if (statTime >= 10.0f) {
         std::cout << "[UI_demo] " << clockString(director.getTime()) << " / " << clockString(director.getDuration())
                   << ", " << static_cast<int>(statFrames / statTime + 0.5f) << " FPS\n";
         statFrames = 0;
@@ -312,7 +316,7 @@ void UI_demo::drawCaptionPanel(sf::RenderWindow& window, const sf::Font& font, f
 
 void UI_demo::drawTitleCard(sf::RenderWindow& window, const sf::Font& font, float appear) {
     sf::RectangleShape dim({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
-    dim.setFillColor(sf::Color(4, 8, 16, static_cast<std::uint8_t>(190.0f * appear)));
+    dim.setFillColor(sf::Color(4, 8, 16, static_cast<std::uint8_t>(228.0f * appear)));
     window.draw(dim);
 
     float y = 300.0f + (1.0f - appear) * 30.0f;
