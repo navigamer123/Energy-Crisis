@@ -227,6 +227,7 @@ private:
     void setSaveStatus(const std::string& text, bool error);
     bool saveToSlot(int slot);
     bool loadFromSlot(int slot);
+    bool loadFromText(const std::string& text, const std::string& path, std::string& error); // path: for the log
     void quickSave();
     void quickLoad();
     void handleSavePanelEvent(const sf::Event& event, const sf::RenderWindow& window);

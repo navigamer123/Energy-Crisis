@@ -149,6 +149,7 @@ void UI_map::activatePauseOption(int option) {
             settingsOverlay.open(true);
             break;
         case PAUSE_RESTART:
+            writeAutosave(); // safety net: the abandoned match stays in the autosaves
             isPaused = false;
             restartMatch();
             break;
@@ -258,6 +259,10 @@ bool UI_map::loadFromFile(const std::string& path, std::string& error) {
         error = "файлът липсва";
         return false;
     }
+    return loadFromText(text, path, error);
+}
+
+bool UI_map::loadFromText(const std::string& text, const std::string& path, std::string& error) {
     std::istringstream in(text);
     std::string line;
     std::getline(in, line);
@@ -363,8 +368,13 @@ void UI_map::quickLoad() {
         setSaveStatus(info.exists ? "Бързият запис е повреден." : "Няма бърз запис (F5 записва).", true);
         return;
     }
-    std::string err;
-    if (loadFromFile(info.path, err)) {
+    std::string text, err;
+    if (!ecfs::readText(info.path, text)) {
+        setSaveStatus("Бързият запис не може да се прочете.", true);
+        return;
+    }
+    writeAutosave(); // safety net: a mistaken F9 can be undone from the autosaves
+    if (loadFromText(text, info.path, err)) {
         setSaveStatus("Зареден бърз запис: " + saves::describe(info, false), false);
         primeInputEdges(0);
     } else {
@@ -408,8 +418,11 @@ bool UI_map::loadFromSlot(int slot) {
         setSaveStatus(saves::slotName(slot) + " е празен.", true);
         return false;
     }
-    std::string err;
-    if (!info.valid || !loadFromFile(info.path, err)) {
+    // Read the file BEFORE the safety autosave: loading the oldest autosave must not overwrite it first
+    std::string text, err;
+    bool readable = info.valid && ecfs::readText(info.path, text);
+    if (readable) writeAutosave(); // safety net: the replaced match stays in the autosaves
+    if (!readable || !loadFromText(text, info.path, err)) {
         setSaveStatus("Грешка при зареждане: " + (info.valid ? err : std::string("повреден файл")), true);
         return false;
     }
