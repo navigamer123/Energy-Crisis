@@ -76,6 +76,17 @@ void drawThickPolyline(sf::RenderTarget& target, const std::vector<sf::Vector2f>
     }
 }
 
+// Fills 6 vertices (two triangles) with an axis-aligned rectangle
+void setQuad(sf::Vertex* v, const sf::FloatRect& r, sf::Color c) {
+    const sf::Vector2f p0 = r.position, p1(r.position.x + r.size.x, r.position.y);
+    const sf::Vector2f p2 = r.position + r.size, p3(r.position.x, r.position.y + r.size.y);
+    const sf::Vector2f pts[6] = { p0, p1, p2, p0, p2, p3 };
+    for (int k = 0; k < 6; ++k) {
+        v[k].position = pts[k];
+        v[k].color = c;
+    }
+}
+
 void centerText(sf::Text& text, float cx, float y) {
     sf::FloatRect lb = text.getLocalBounds();
     text.setOrigin({ lb.position.x + lb.size.x / 2.0f, lb.position.y });
@@ -287,13 +298,13 @@ void UI_intro::render(sf::RenderTarget& target) {
     target.draw(sky, states);
 
     // Stars (dimmed while the storm flashes)
-    for (const auto& st : stars) {
-        float tw = 0.55f + 0.45f * std::sin(t * 2.2f + st.z);
-        sf::CircleShape star(1.1f);
-        star.setPosition({ st.x, st.y });
-        star.setFillColor(sf::Color(200, 215, 255, toAlpha(150.0f * tw)));
-        target.draw(star, states);
+    sf::VertexArray starQuads(sf::PrimitiveType::Triangles, stars.size() * 6);
+    for (size_t i = 0; i < stars.size(); ++i) {
+        float tw = 0.55f + 0.45f * std::sin(t * 2.2f + stars[i].z);
+        setQuad(&starQuads[i * 6], sf::FloatRect({ stars[i].x, stars[i].y }, { 2.0f, 2.0f }),
+                sf::Color(200, 215, 255, toAlpha(150.0f * tw)));
     }
+    target.draw(starQuads, states);
 
     // Horizon glow in the players' colours once the city lights come on
     float lights = smooth01((t - kLightsFrom) / (kLightsTo - kLightsFrom));
@@ -419,14 +430,15 @@ void UI_intro::render(sf::RenderTarget& target) {
             target.draw(red, states);
         }
     }
-    for (const auto& w : windows) {
+    sf::VertexArray winQuads(sf::PrimitiveType::Triangles); // One draw call for every window
+    winQuads.resize(windows.size() * 6);
+    for (size_t i = 0; i < windows.size(); ++i) {
+        const CityWindow& w = windows[i];
         bool on = t >= w.onAt;
         if (!on && t >= w.onAt - 0.3f) on = ((static_cast<int>(t * 24.0f) + w.hash) % 3) == 0; // Flicker
-        sf::RectangleShape win(w.rect.size);
-        win.setPosition(w.rect.position);
-        win.setFillColor(on ? withAlpha(w.color, 230.0f) : kWindowDark);
-        target.draw(win, states);
+        setQuad(&winQuads[i * 6], w.rect, on ? withAlpha(w.color, 230.0f) : kWindowDark);
     }
+    target.draw(winQuads, states);
 
     // --- Tagline ---
     if (fontLoaded) {

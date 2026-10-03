@@ -83,6 +83,12 @@ void splitRect(sf::RenderTarget& target, float x, float y, float w, float h, flo
     }
 }
 
+// Two triangles of an axis-aligned rectangle, for batched drawing
+void appendQuad(sf::VertexArray& va, float x, float y, float w, float h, sf::Color c) {
+    const sf::Vector2f p0(x, y), p1(x + w, y), p2(x + w, y + h), p3(x, y + h);
+    for (const sf::Vector2f& p : { p0, p1, p2, p0, p2, p3 }) va.append(sf::Vertex{ p, c });
+}
+
 void line(sf::RenderTarget& target, sf::Vector2f a, sf::Vector2f b, sf::Color c) {
     sf::Vertex v[2];
     v[0].position = a;
@@ -311,6 +317,8 @@ void UI_skyline::drawPlanLayer(sf::RenderTarget& target, int layerId, float capt
         const float firstColX = frontCols ? t.x + 10.0f : t.x + pitchX * 0.6f;
         const float winTopLimit = top + scaffoldH + 5.0f;
         const float winBottomLimit = (layer == TowerLayer::FOREGROUND) ? bottom - 12.0f : bottom - 4.0f;
+        // All windows of one tower go out in a single draw call (dozens of small quads)
+        sf::VertexArray windowQuads(sf::PrimitiveType::Triangles);
         int row = 0;
         // Rows are anchored to the base, so a rising tower reveals new floors instead of sliding them
         for (float wy = t.baseY - pitchY + (layer == TowerLayer::FRONT_EXTENSION ? 3.0f : 0.0f);
@@ -326,9 +334,10 @@ void UI_skyline::drawPlanLayer(sf::RenderTarget& target, int layerId, float capt
                     c = isDaylight ? (inP1 ? kP1WinDay : kP2WinDay) : (inP1 ? kP1WinNight : kP2WinNight);
                 }
                 if (layer == TowerLayer::BACK) c.a = toAlpha(c.a * 0.78f);
-                fillRect(target, wx, wy, winW, winH, c);
+                appendQuad(windowQuads, wx, wy, winW, winH, c);
             }
         }
+        target.draw(windowQuads);
 
         // --- Foreground shop fronts glow in the district owner's colour ---
         if (layer == TowerLayer::FOREGROUND && h > 14.0f) {
