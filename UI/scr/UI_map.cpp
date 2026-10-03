@@ -257,6 +257,7 @@ void UI_map::render(sf::RenderWindow& window) {
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
+        city.getSkyline().update(dt, engine); // [b-showcase] HX-03/HX-04: skyline growth + blackout set piece
     }
 
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible

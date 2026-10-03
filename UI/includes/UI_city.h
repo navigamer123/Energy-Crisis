@@ -4,9 +4,17 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 #include "../../Game/includes/game_weather.h"
+#include "UI_skyline.h" // [b-showcase] living skyline + blackout set piece
 
 class UI_city {
+private:
+    UI_skyline skyline; // [b-showcase]
+
 public:
+    // [b-showcase] Living skyline (HX-03) and blackout set piece (HX-04) state
+    UI_skyline& getSkyline() { return skyline; }
+    const UI_skyline& getSkyline() const { return skyline; }
+
     UI_city();
     void drawCity(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime,
                   float p1Share, const std::string& cutMessage, bool isDaylight = true,

@@ -125,6 +125,9 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
     base.setOutlineColor(sf::Color(0, 220, 100, 220));
     window.draw(base);
 
+    // [b-showcase] HX-03: back row of towers that rise day by day
+    skyline.drawBackLayer(window, captureX, isDaylight, animTime);
+
     // High-rise Skyscraper Buildings
     struct CityBuilding {
         float x, y, w, h;
@@ -259,6 +262,8 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
                 if (winCutOff) {
                     isPowered = (std::sin(animTime * 4.0f + r) > 0.0f) && (hash < 35);
                 }
+                // [b-showcase] HX-03/HX-04: browned-out districts and the blackout cascade
+                isPowered = skyline.windowLit(isPowered, winX, winY, b.y, b.y + b.h, winInP1, hash, captureX);
 
                 sf::RectangleShape win({ 5.0f, 7.0f });
                 win.setPosition({ winX, winY });
@@ -305,6 +310,10 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
             }
         }
     }
+
+    // [b-showcase] HX-03/HX-04: new floors, foreground blocks, cranes, district dimming and blackout
+    skyline.drawFrontLayer(window, captureX, isDaylight, animTime);
+    skyline.drawCityOverlay(window, captureX, animTime);
 
     // Dynamic capture line through the city
     sf::RectangleShape capNeedle({ 3.0f, cityHeight });

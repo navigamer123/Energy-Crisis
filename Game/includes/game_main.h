@@ -120,6 +120,20 @@ struct CityConquestState {
     int winner = 0;             // 0 = None, 1 = P1, 2 = P2, 3 = Draw (equal shares after the final day)
 };
 
+// [b-showcase] Verdict of the most recent day-end settlement, kept for the UI (blackout set piece,
+// living skyline). A new settlement is recognised by a changed serial.
+struct DaySettlement {
+    int serial = 0;          // Increments at every day end of the match (0 = no day has ended yet)
+    int day = 0;             // The day that was settled
+    int demandMW = 0;        // City demand of that day (0 during the grace period)
+    int p1AvgMW = 0;         // Average power each player delivered over that day
+    int p2AvgMW = 0;
+    bool graceDay = true;    // Grace-period day: no verdict, nobody can fail
+    bool p1Failed = false;   // Missed the city demand (never during the grace period)
+    bool p2Failed = false;
+    float shareShift = 0.0f; // Change of P1's city share caused by this settlement
+};
+
 struct MineResult {
     ResourceType type = ResourceType::NONE;
     int amount = 0;
@@ -157,6 +171,7 @@ private:
 
     std::vector<PlacedBuilding> buildings;
     std::vector<LandPlot> landPlots;
+    DaySettlement lastSettlement; // [b-showcase] written by processDayEnd()
 
     void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
@@ -215,6 +230,8 @@ public:
     const CityConquestState& getCityState() const { return city; }
     const std::vector<PlacedBuilding>& getBuildings() const { return buildings; }
     const std::vector<LandPlot>& getLandPlots() const { return landPlots; }
+    // [b-showcase] Verdict of the last day end (serial 0 = none yet this match)
+    const DaySettlement& getLastDaySettlement() const { return lastSettlement; }
     // Average power (MW) delivered to the city so far today; the day-end result is judged on this value
     float getTodayAverageMW(int player) const {
         if (city.dailySeconds <= 0.0f) return 0.0f;

@@ -360,6 +360,17 @@ void GameEngine::processDayEnd() {
     int p1AvgMW = static_cast<int>(std::floor(city.p1DailyDelivered / daySeconds + 0.01f));
     int p2AvgMW = static_cast<int>(std::floor(city.p2DailyDelivered / daySeconds + 0.01f));
 
+    // [b-showcase] Record the verdict for the UI (blackout set piece, living skyline)
+    lastSettlement.serial++;
+    lastSettlement.day = endedDay;
+    lastSettlement.graceDay = (endedDay <= Balance::GRACE_PERIOD_DAYS);
+    lastSettlement.demandMW = lastSettlement.graceDay ? 0 : city.cityEnergyDemand;
+    lastSettlement.p1AvgMW = p1AvgMW;
+    lastSettlement.p2AvgMW = p2AvgMW;
+    lastSettlement.p1Failed = !lastSettlement.graceDay && p1AvgMW < city.cityEnergyDemand;
+    lastSettlement.p2Failed = !lastSettlement.graceDay && p2AvgMW < city.cityEnergyDemand;
+    const float shareBefore = city.p1CityShare;
+
     if (endedDay <= Balance::GRACE_PERIOD_DAYS) {
         // Grace period for the first 2 days: 0 energy demanded, no penalties or cuts
         if (endedDay == 1) {
@@ -421,6 +432,7 @@ void GameEngine::processDayEnd() {
 
     p1.cityInfluence = city.p1CityShare;
     p2.cityInfluence = 1.0f - city.p1CityShare;
+    lastSettlement.shareShift = city.p1CityShare - shareBefore; // [b-showcase]
 
     // City expands and demands power next day (0 MW for first 2 days grace, 30 MW Day 3, +15 MW daily)
     if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
