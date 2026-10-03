@@ -868,6 +868,12 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    // [wave-c-soak] NaN / infinite positions used to snap to the first grid slot and build there
+    if (!std::isfinite(pos.x) || !std::isfinite(pos.y)) {
+        reason = "НЕВАЛИДНА ПОЗИЦИЯ ЗА СТРОЕЖ!";
+        return false;
+    }
+
     if (type == BuildingType::DEMOLISH) {
         // Demolish tool checks if there is an owned building on this slot (same rule as removeBuilding)
         if (findOwnedBuildingInSlot(player, pos) >= 0) {
@@ -958,14 +964,16 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
         return removeBuilding(player, pos, outMsg);
     }
 
-    // Snap to 2x2 grid slot inside land plot
-    pos = snapToBuildingGrid(player, pos);
-
+    // [wave-c-soak] Validate the raw position (canPlaceBuilding snaps it itself), so the preview and
+    // the placement always agree, also for a NaN / infinite position
     std::string reason;
     if (!canPlaceBuilding(player, type, pos, reason)) {
         outMsg = reason;
         return false;
     }
+
+    // Snap to 2x2 grid slot inside land plot
+    pos = snapToBuildingGrid(player, pos);
 
     // canPlaceBuilding guaranteed that every resource is available: pay the full recipe
     auto& econ = (player == 1) ? p1 : p2;

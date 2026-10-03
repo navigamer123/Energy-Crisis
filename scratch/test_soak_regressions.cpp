@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <streambuf>
 #include <string>
@@ -273,6 +274,36 @@ void testUnknownBuildingTypesRefused() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// [S5] A non-finite position (NaN / infinity) was snapped to the first grid slot and the
+// building was placed there, wherever the cursor really was.
+// ---------------------------------------------------------------------------
+void testNonFinitePositionsRefused() {
+    beginGroup("S5 non-finite positions are refused");
+    GameEngine e;
+    initEngine(e, 15);
+    e.update(Balance::SECONDS_PER_DAY * 0.1f); // daylight
+    const float nan = std::numeric_limits<float>::quiet_NaN(), inf = std::numeric_limits<float>::infinity();
+    const sf::Vector2f bad[] = { sf::Vector2f(nan, 120.0f), sf::Vector2f(300.0f, nan), sf::Vector2f(inf, inf),
+                                 sf::Vector2f(-inf, 150.0f), sf::Vector2f(nan, nan) };
+    for (int p = 1; p <= 2; ++p) {
+        giveResources(e, p, 500);
+        for (const auto& pos : bad) {
+            Snapshot before(e);
+            std::string reason, msg;
+            bool preview = e.canPlaceBuilding(p, BuildingType::WIND_TURBINE, pos, reason);
+            bool ok = e.placeBuilding(p, BuildingType::WIND_TURBINE, pos, msg);
+            CHECK(!preview && !ok && Snapshot(e) == before,
+                  "P" << p << " at (" << pos.x << "; " << pos.y << "): preview " << preview << " placed " << ok);
+        }
+        // finite positions still snap and build
+        sf::Vector2f s = e.getGridSlot(p, p == 1 ? 1 : 7, 1);
+        std::string msg;
+        CHECK(e.placeBuilding(p, BuildingType::WIND_TURBINE, sf::Vector2f(s.x + 5.0f, s.y - 4.0f), msg), "P" << p << ": " << msg);
+    }
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -280,6 +311,7 @@ int main() {
     testStepCostDoesNotScaleWithRecipeLookups();
     testLandPurchaseKeepsMirror();
     testUnknownBuildingTypesRefused();
+    testNonFinitePositionsRefused();
     std::cout << "\n" << (g_failures == 0 ? "ALL PASSED" : "FAILED") << ": " << (g_checks - g_failures) << "/" << g_checks
               << " checks\n";
     return g_failures == 0 ? 0 : 1;
