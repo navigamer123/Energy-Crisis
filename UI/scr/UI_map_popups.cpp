@@ -119,6 +119,10 @@ void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
 
 void UI_map::triggerPlayerModal(int player, const std::string& badge, const std::string& title,
                                 const std::string& detail, const std::string& tip, sf::Color accent) {
+    if (player == 2 && bot.isActive()) {
+        triggerPlayerPopup(2, badge, title, detail, tip, accent);
+        return;
+    }
     PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
     m.active = true;
     m.badge = badge;

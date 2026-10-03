@@ -5,10 +5,12 @@
 #include "UI_types.h"
 #include "../../Game/includes/game_main.h"
 #include "UI_resourceNodes.h"
+#include <vector>
 
 enum class BotActionState {
     THINKING,
     MOVING_TO_MINE,
+    MINING_RESOURCE,
     MOVING_TO_BUILD,
     MOVING_TO_BUY_LAND,
     MOVING_TO_UPGRADE
@@ -22,17 +24,22 @@ private:
     sf::Vector2f targetPos = { 1150.0f, 450.0f };
     float stateTimer = 0.0f;
     float mineCooldown = 0.0f;
+    float stateWatchdog = 0.0f;
 
+    // Strategic targets
     BuildingType plannedBuilding = BuildingType::NONE;
+    sf::Vector2f plannedBuildSlot = { 0.0f, 0.0f };
     ResourceType plannedResource = ResourceType::NONE;
+    int targetResourceQuota = 0;
     int plannedPlotId = -1;
+    ResourceType plannedUpgradeRes = ResourceType::NONE;
 
     // Movement speed & decision parameters tuned per difficulty
-    float moveSpeed = 380.0f;
-    float decisionInterval = 1.0f;
-    float harvestTimeBudget = 2.0f;
-    float harvestTimer = 0.0f;
+    float moveSpeed = 420.0f;
+    float decisionInterval = 0.35f;
+    float mineHitInterval = 1.05f;
 
+    int getResourceCount(const PlayerEconomy& econ, ResourceType type) const;
     void planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf::Vector2f curPos);
 
 public:
@@ -49,3 +56,4 @@ public:
 };
 
 #endif // UI_BOT_H
+

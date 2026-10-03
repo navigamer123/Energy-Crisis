@@ -381,21 +381,21 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     // 4. Player 2 Movement (Bot AI or Human Input)
     if (bot.isActive()) {
+        p2Modal.active = false; // Never block Player 2 bot with a modal dialog
         bool botTriggerAction = false;
         bool botTriggerUpgrade = false;
         BuildingType botSel = BuildingType::NONE;
         bot.update(dt, engine, nodes, p2Pos, botTriggerAction, botTriggerUpgrade, botSel);
 
-        if (botSel != BuildingType::NONE) {
-            engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(botSel);
-        }
+        // Always sync selectedBuilding with bot's desired building state (clearing when NONE)
+        engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(botSel);
 
-        if (botTriggerAction && p2ActionCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
+        if (botTriggerAction && p2ActionCooldown <= 0.0f && !showHelpOverlay) {
             executeP2Action();
-            p2ActionCooldown = 0.20f;
+            p2ActionCooldown = 0.15f;
         }
 
-        if (botTriggerUpgrade && !p2Modal.active && !showHelpOverlay) {
+        if (botTriggerUpgrade && !showHelpOverlay) {
             executeP2Upgrade();
         }
     } else {
