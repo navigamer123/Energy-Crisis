@@ -1,5 +1,6 @@
 #include "../includes/UI_map.h"
 #include <cmath>
+#include <cstdio> // [b-economy] snprintf
 #include <algorithm>
 #include <vector>
 #include <string>
@@ -154,9 +155,9 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
                     "- Всеки играч започва с начален свободен парцел и 50% териториален дял в града.\n"
                     "- Първите 2 дена са ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n"
                     "- Захранването на града носи пари ($) от договори и златен дивидент (Gold, лимитиран до нуждите на града!).\n"
-                    "- В края на всеки ден се отчита средната доставена мощност (MW) за целия ден: превесът носи 10-15% дневно завладяване!\n"
+                    "- В 06:00 градът оценява деня: какъв дял от квотата си е покрил всеки играч и кой е доставил повече енергия - до 12% на ден!\n" // [b-economy]
                     "- Победител е първият играч с поне " + victoryPctStr + "% от града в края на ден. След края на ден " + finalDayStr +
-                    " печели по-големият дял (равен дял = равенство).",
+                    " печели по-големият дял (при равен дял - повече обслужена енергия).",
                     sf::Color(255, 215, 0));
 
         drawSection("2. СЕЗОНЕН ДЕН/НОЩ ЦИКЪЛ И СЛЪНЧЕВ ГРАФИК",
@@ -180,6 +181,15 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
                     "- ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n"
                     "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран",
                     sf::Color(100, 255, 150));
+
+        // [b-economy] City economy rules (BAL-02, BAL-03, BAL-04, F-36, F-37, F-11)
+        drawSection("5. ГРАДСКА ИКОНОМИКА И ЕЛЕКТРОМРЕЖА",
+                    "- Нуждата се мени по часове: нощем x0.7, денем x1.0, вечерен пик 17-22 ч x1.4 - тогава токът се плаща най-скъпо.\n"
+                    "- 4 квартала със собствен дял: Болница (24/7), Индустрия (база), Бизнес (08-17 ч, слънце), Домове (вечер: батерии и вятър).\n"
+                    "- Територията е товар: квотата ви е нуждата x (0.5 + вашият дял). Над 70% печалбите се половят - изоставащият може да се върне.\n"
+                    "- Честота 50 Hz: внезапен спад на мощността я сваля. Под 49.2 Hz - мощност x0.7 за 1 час, под 48 Hz - затъмнение. Батериите и ВЕЦ пазят.\n"
+                    "- Центърът под града показва отчета в 06:00, кривата на нуждата, честотата, енергийния микс и спестения CO2 (0.4 т на MWh).",
+                    sf::Color(255, 170, 60));
     }
 }
 
@@ -316,13 +326,23 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
             return n;
         };
 
+        // [b-economy] F-11: whole-match energy delivered to the city and CO2 avoided
+        auto ledgerText = [&](int player) {
+            const auto& led = engine.getCityEconomy().ledger[player - 1];
+            const double gwh = led.deliveredMWh / 1000.0;
+            const double kt = Econ::co2AvoidedT(led) / 1000.0;
+            char buf[96];
+            std::snprintf(buf, sizeof(buf), "%.1f GWh (CO2 -%.1f хил. т)", gwh, kt);
+            return std::string(buf);
+        };
+
         std::vector<std::string> statLines;
         if (isDraw) {
             const auto& e1 = engine.getPlayerEconomy(1);
             const auto& e2 = engine.getPlayerEconomy(2);
             statLines = {
                 "Край на мача: Ден " + std::to_string(decidedDay),
-                "Произведена мощност: P1 " + std::to_string(e1.energyMW) + " MW | P2 " + std::to_string(e2.energyMW) + " MW",
+                "Доставена енергия: P1 " + ledgerText(1) + " | P2 " + ledgerText(2), // [b-economy]
                 "Закупени парцели земя: P1 " + std::to_string(countPlots(1, true)) + " / " + std::to_string(countPlots(1, false)) +
                     " | P2 " + std::to_string(countPlots(2, true)) + " / " + std::to_string(countPlots(2, false)),
                 "Построени съоръжения: P1 " + std::to_string(countBuildings(1)) + " | P2 " + std::to_string(countBuildings(2)) + " сгради",
@@ -332,7 +352,7 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
             const auto& winEcon = engine.getPlayerEconomy(winner);
             statLines = {
                 "Ден на победата: Ден " + std::to_string(decidedDay),
-                "Произведена мощност: " + std::to_string(winEcon.energyMW) + " MW",
+                "Доставена енергия: " + ledgerText(winner), // [b-economy]
                 "Закупени парцели земя: " + std::to_string(countPlots(winner, true)) + " / " +
                     std::to_string(countPlots(winner, false)) + " парцела",
                 "Построени съоръжения: " + std::to_string(countBuildings(winner)) + " сгради",
