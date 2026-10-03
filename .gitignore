@@ -1,2 +1,9 @@
 test_game
 *.o
+*.d
+*.exe
+# Build folders (CMake: build/, Makefile objects: build/make/)
+build/
+out/
+cmake-build-*/
+CMakeUserPresets.json
