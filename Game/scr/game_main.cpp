@@ -103,12 +103,16 @@ void GameEngine::init(const MatchConfig& cfg) {
     const int hostMaxSteps = maxStepsPerUpdate; // a host setting, not match state: survives restarts
     *this = GameEngine();
     maxStepsPerUpdate = hostMaxSteps;
-    rules.finalDay = std::clamp(rules.finalDay, MatchConfig::MIN_FINAL_DAY, MatchConfig::MAX_FINAL_DAY);
+    // (static_cast copies: std::clamp takes references, and pre-C++17 compilers such as MinGW g++ 6.3 have no
+    // inline variables, so binding the static constexpr members directly would need out-of-line definitions)
+    rules.finalDay = std::clamp(rules.finalDay, static_cast<int>(MatchConfig::MIN_FINAL_DAY), static_cast<int>(MatchConfig::MAX_FINAL_DAY));
     rules.victoryShare = std::isfinite(rules.victoryShare)
-                             ? std::clamp(rules.victoryShare, MatchConfig::MIN_VICTORY_SHARE, MatchConfig::MAX_VICTORY_SHARE)
+                             ? std::clamp(rules.victoryShare, static_cast<float>(MatchConfig::MIN_VICTORY_SHARE),
+                                          static_cast<float>(MatchConfig::MAX_VICTORY_SHARE))
                              : Balance::VICTORY_SHARE;
     rules.daySeconds = std::isfinite(rules.daySeconds)
-                           ? std::clamp(rules.daySeconds, MatchConfig::MIN_DAY_SECONDS, MatchConfig::MAX_DAY_SECONDS)
+                           ? std::clamp(rules.daySeconds, static_cast<float>(MatchConfig::MIN_DAY_SECONDS),
+                                        static_cast<float>(MatchConfig::MAX_DAY_SECONDS))
                            : Balance::SECONDS_PER_DAY;
     rules.graceDays = std::clamp(rules.graceDays, 0, rules.finalDay - 1); // the final day is never a grace day
     config = rules;
@@ -823,7 +827,7 @@ BuildingCost GameEngine::getBuildingCost(int player, BuildingType type) const {
 
 void GameEngine::setPlayerModifiers(int player, const PlayerModifiers& mods) {
     auto cleanMult = [](float v) {
-        return std::isfinite(v) ? std::clamp(v, 0.0f, PlayerModifiers::MAX_MULT) : 1.0f;
+        return std::isfinite(v) ? std::clamp(v, 0.0f, static_cast<float>(PlayerModifiers::MAX_MULT)) : 1.0f;
     };
     PlayerModifiers m;
     m.incomeMult = cleanMult(mods.incomeMult);
@@ -831,7 +835,8 @@ void GameEngine::setPlayerModifiers(int player, const PlayerModifiers& mods) {
     m.costMult = cleanMult(mods.costMult);
     m.cooldownMult = cleanMult(mods.cooldownMult);
     m.shareBonus = std::isfinite(mods.shareBonus)
-                       ? std::clamp(mods.shareBonus, -PlayerModifiers::MAX_SHARE_BONUS, PlayerModifiers::MAX_SHARE_BONUS)
+                       ? std::clamp(mods.shareBonus, -PlayerModifiers::MAX_SHARE_BONUS,
+                                    static_cast<float>(PlayerModifiers::MAX_SHARE_BONUS))
                        : 0.0f;
     ((player == 1) ? p1Mods : p2Mods) = m;
 }
