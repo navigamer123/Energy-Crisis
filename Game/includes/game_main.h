@@ -133,6 +133,13 @@ struct MineResult {
     int money = 0;
 };
 
+// [b-effects] Last successful mining action of one player: count grows by 1 per action (reset with the match)
+struct MineActionRecord {
+    int count = 0;
+    ResourceType type = ResourceType::NONE;
+    int amount = 0;
+};
+
 // -----------------------------------------------------------------------------
 // Backend Game Engine
 // -----------------------------------------------------------------------------
@@ -157,6 +164,7 @@ private:
 
     std::vector<PlacedBuilding> buildings;
     std::vector<LandPlot> landPlots;
+    MineActionRecord lastMineAction[2]; // [b-effects] see getLastMineAction()
 
     void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
@@ -164,6 +172,8 @@ private:
     void processDayEnd();
     void rollDailyWeather();
     int findOwnedBuildingInSlot(int player, sf::Vector2f pos) const;
+    // [b-effects] Mining body; the public mineResource() wraps it and records the action
+    bool mineResourceInternal(int player, ResourceType type, MineResult& result, std::string& outMsg);
 
 public:
     GameEngine();
@@ -176,6 +186,8 @@ public:
     // Player Actions
     bool mineResource(int player, ResourceType type, std::string& outMsg);
     bool mineResource(int player, ResourceType type, MineResult& result, std::string& outMsg);
+    // [b-effects] Last successful mining action of a player (human or bot), for sound/visual feedback
+    const MineActionRecord& getLastMineAction(int player) const { return lastMineAction[(player == 1) ? 0 : 1]; }
     int getMineLevel(int player, ResourceType type) const;
     int getMineUpgradeCost(int player, ResourceType type) const;
     bool upgradeMine(int player, ResourceType type, std::string& outMsg);
