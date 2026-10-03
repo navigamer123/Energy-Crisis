@@ -8,6 +8,7 @@
 #include "game_expedition.h"
 #include "game_random.h"
 #include "game_balance.h"
+#include "game_player_modifiers.h" // [AI team] minimal PlayerModifiers (wave A ships the full one)
 
 // -----------------------------------------------------------------------------
 // PlayerData (integrated from weatherF branch)
@@ -158,6 +159,9 @@ private:
     std::vector<PlacedBuilding> buildings;
     std::vector<LandPlot> landPlots;
 
+    PlayerModifiers playerMods[2]; // [AI team] index 0 = P1, 1 = P2 (Game/scr/game_player_modifiers.cpp)
+    float dailyShareBonusShift(bool p1Met, bool p2Met) const; // [AI team] shareBonus result for P1's share
+
     void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
     void payCityRevenue();
@@ -205,6 +209,11 @@ public:
 
     // Building Data helper
     BuildingCost getBuildingCost(BuildingType type) const;
+
+    // [AI team] Per-player modifiers (minimal version, Game/scr/game_player_modifiers.cpp)
+    void setPlayerModifiers(int player, const PlayerModifiers& mods);
+    const PlayerModifiers& getPlayerModifiers(int player) const;
+    BuildingCost getBuildingCost(int player, BuildingType type) const; // recipe after the player's costMult
     sf::Vector2f snapToBuildingGrid(int player, sf::Vector2f pos) const;
     sf::Vector2f getGridSlot(int player, int col, int row) const;
     void getClosestGridIndex(int player, sf::Vector2f pos, int& outCol, int& outRow) const;

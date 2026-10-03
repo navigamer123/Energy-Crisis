@@ -212,6 +212,10 @@ void GameEngine::payCityRevenue() {
         int contractPool = Balance::calculateContractPool(totalGrid);
         int p1Payout = Balance::calculatePlayerPayout(contractPool, p1Share);
         int p2Payout = Balance::calculatePlayerPayout(contractPool, p2Share);
+        // [AI team] PlayerModifiers::incomeMult (money and gold dividend)
+        const float inc1 = playerMods[0].incomeMult, inc2 = playerMods[1].incomeMult;
+        if (inc1 != 1.0f) p1Payout = static_cast<int>(std::lround(p1Payout * inc1));
+        if (inc2 != 1.0f) p2Payout = static_cast<int>(std::lround(p2Payout * inc2));
 
         p1.money += p1Payout;
         p1.data.money = p1.money;
@@ -220,10 +224,10 @@ void GameEngine::payCityRevenue() {
         p2.data.money = p2.money;
 
         // Gold dividend for sustained power supply from Balance formula (capped by city demand)
-        p1.gold += Balance::calculateGoldDividend(p1.energyMW, city.cityEnergyDemand);
+        p1.gold += static_cast<int>(std::lround(Balance::calculateGoldDividend(p1.energyMW, city.cityEnergyDemand) * inc1));
         p1.data.gold = p1.gold;
 
-        p2.gold += Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand);
+        p2.gold += static_cast<int>(std::lround(Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand) * inc2));
         p2.data.gold = p2.gold;
     }
 
@@ -371,7 +375,8 @@ void GameEngine::processDayEnd() {
         bool p1Succeeded = (p1AvgMW >= city.cityEnergyDemand);
         bool p2Succeeded = (p2AvgMW >= city.cityEnergyDemand);
         float shift = Balance::calculateDailyCityShift(p1AvgMW, p2AvgMW, city.cityEnergyDemand);
-        city.p1CityShare = std::clamp(city.p1CityShare + shift, 0.0f, 1.0f);
+        float bonusShift = dailyShareBonusShift(p1Succeeded, p2Succeeded); // [AI team] PlayerModifiers::shareBonus
+        city.p1CityShare = std::clamp(city.p1CityShare + shift + bonusShift, 0.0f, 1.0f);
         int shiftPct = static_cast<int>(std::round(std::abs(shift) * 100.0f));
 
         if (p1Succeeded && !p2Succeeded) {
@@ -387,6 +392,17 @@ void GameEngine::processDayEnd() {
         } else {
             city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": НИТО ЕДИН НЕ ЗАХРАНИ ГРАДА (" +
                                   std::to_string(city.cityEnergyDemand) + " MW)! НЯМА ПРОМЯНА В ТЕРИТОРИЯТА!";
+        }
+        // [AI team] Name the PlayerModifiers::shareBonus in the day message
+        if (bonusShift != 0.0f) {
+            std::string who = (bonusShift > 0.0f) ? "ИГРАЧ 1" : "ИГРАЧ 2";
+            std::string pct = std::to_string(static_cast<int>(std::lround(std::abs(bonusShift) * 100.0f)));
+            if (p1Succeeded && p2Succeeded) {
+                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА, НО " + who +
+                                      " ВЗЕ +" + pct + "% БОНУС ТЕРИТОРИЯ!";
+            } else {
+                city.lastCutMessage += " БОНУС +" + pct + "% ЗА " + who + "!";
+            }
         }
 
         // Check Victory Conditions only at day end
@@ -451,7 +467,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
     result.type = type;
 
     int lvl = getMineLevel(player, type);
-    float mult = Balance::getMineYieldMultiplier(lvl);
+    float mult = Balance::getMineYieldMultiplier(lvl) * getPlayerModifiers(player).mineYieldMult; // [AI team] modifiers
     std::string lvlTag = (lvl > 1 ? " [НИВО " + std::to_string(lvl) + "]" : "");
 
     switch (type) {
@@ -818,7 +834,7 @@ bool GameEngine::removeBuilding(int player, sf::Vector2f pos, std::string& outMs
 
     // Refund a fraction of what was paid (placement always deducts the full recipe)
     PlacedBuilding b = buildings[closestIdx];
-    BuildingCost cost = getBuildingCost(b.type);
+    BuildingCost cost = getBuildingCost(player, b.type); // [AI team] refund what this player paid
     const float refund = Balance::DEMOLISH_REFUND_FRACTION;
     int refundWood = static_cast<int>(cost.woodCost * refund);
     int refundIron = static_cast<int>(cost.ironCost * refund);
@@ -866,7 +882,7 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
     pos = snapToBuildingGrid(player, pos);
 
     const auto& econ = (player == 1) ? p1 : p2;
-    BuildingCost cost = getBuildingCost(type);
+    BuildingCost cost = getBuildingCost(player, type); // [AI team] recipe after modifiers
 
     // Every resource of the recipe is required on its own (no hidden 'ore' wildcard)
     bool hasRes = econ.wood >= cost.woodCost &&
@@ -954,7 +970,7 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
 
     // canPlaceBuilding guaranteed that every resource is available: pay the full recipe
     auto& econ = (player == 1) ? p1 : p2;
-    BuildingCost cost = getBuildingCost(type);
+    BuildingCost cost = getBuildingCost(player, type); // [AI team] recipe after modifiers
     econ.wood -= cost.woodCost;
     econ.iron -= cost.ironCost;
     econ.copper -= cost.copperCost;
