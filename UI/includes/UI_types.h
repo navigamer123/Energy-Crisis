@@ -37,7 +37,8 @@ enum class BotDifficulty {
     NONE,    // Co-op 2-player local (Human vs Human)
     EASY,    // Slower AI, basic power plants
     MEDIUM,  // Balanced AI, builds batteries and expands
-    HARD     // Fast aggressive AI, optimizes power & upgrades
+    HARD,    // Fast aggressive AI, optimizes power & upgrades
+    IMPOSSIBLE // [AI team] НЕВЪЗМОЖНО: best strategy + engine advantages, cannot be beaten
 };
 
 // -----------------------------------------------------------------------------

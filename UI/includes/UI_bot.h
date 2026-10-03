@@ -5,6 +5,8 @@
 #include "UI_types.h"
 #include "../../Game/includes/game_main.h"
 #include "UI_resourceNodes.h"
+#include "UI_botProfiles.h"
+#include <string>
 #include <vector>
 
 enum class BotActionState {
@@ -20,6 +22,9 @@ class UIBot {
 private:
     BotDifficulty difficulty = BotDifficulty::NONE;
     BotActionState actionState = BotActionState::THINKING;
+    BotProfile profile;            // [AI team] skill + style (UI_botProfiles.cpp)
+    int personalityId = 0;         // chosen rival, kept across restarts
+    int playerId = 2;              // sector the bot plays (2 in the game; the simulation can drive P1)
 
     sf::Vector2f targetPos = { 1150.0f, 450.0f };
     float stateTimer = 0.0f;
@@ -33,20 +38,42 @@ private:
     int targetResourceQuota = 0;
     int plannedPlotId = -1;
     ResourceType plannedUpgradeRes = ResourceType::NONE;
+    BuildingType buildGoal = BuildingType::NONE; // generator the current mining run is for (intent text)
 
-    // Movement speed & decision parameters tuned per difficulty
-    float moveSpeed = 420.0f;
-    float decisionInterval = 0.35f;
-    float mineHitInterval = 1.05f;
+    // Governor readout (BAL-01), refreshed at every plan
+    float lastSupplyMW = 0.0f;
+    float lastTargetMW = 0.0f;
+    bool lastSatisfied = false;
+    std::string intent;            // short Bulgarian line describing the current plan
 
     int getResourceCount(const PlayerEconomy& econ, ResourceType type) const;
     void planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf::Vector2f curPos);
+    bool evaluateGovernor(const GameEngine& engine);
+    bool startMining(const UI_resourceNodes& nodes, ResourceType res, int quota);
+    void setRest(float seconds, const std::string& why);
 
 public:
     UIBot() = default;
 
-    void init(BotDifficulty diff);
+    void init(BotDifficulty diff);                         // keeps the chosen rival
+    void initWithProfile(BotDifficulty diff, const BotProfile& custom); // simulation / tests
     void reset();
+
+    // [AI team] Rival choice (0..BOT_PERSONALITY_COUNT-1); applied by the next init()
+    void setPersonality(int id) { personalityId = id; }
+    int getPersonality() const { return personalityId; }
+    void setPlayerId(int player) { playerId = (player == 1) ? 1 : 2; }
+    int getPlayerId() const { return playerId; }
+    const BotProfile& getProfile() const { return profile; }
+
+    // Engine / UI hooks
+    const PlayerModifiers& getEngineModifiers() const { return profile.engineEdge; }
+    float getActionCooldown() const { return profile.actionCooldown; }
+    const std::string& getIntentText() const { return intent; }
+    bool isGovernorSatisfied() const { return lastSatisfied; }
+    float getGovernorSupplyMW() const { return lastSupplyMW; }
+    float getGovernorTargetMW() const { return lastTargetMW; }
+    BotActionState getActionState() const { return actionState; }
 
     BotDifficulty getDifficulty() const { return difficulty; }
     bool isActive() const { return difficulty != BotDifficulty::NONE; }
@@ -56,4 +83,3 @@ public:
 };
 
 #endif // UI_BOT_H
-
