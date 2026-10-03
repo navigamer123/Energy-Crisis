@@ -386,10 +386,11 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         tDemand.setPosition({ panelX + (panelW - db.size.x) / 2.0f, panelY + 4.0f });
         window.draw(tDemand);
 
-        float barW = 440.0f;
-        float barH = 10.0f;
-        float barX = panelX + (panelW - barW) / 2.0f;
-        float barY = panelY + 24.0f;
+        const sf::FloatRect barRect = influenceBarRect(); // [b-effects] shared with the UI_fx tween overlay
+        float barW = barRect.size.x;
+        float barH = barRect.size.y;
+        float barX = barRect.position.x;
+        float barY = barRect.position.y;
 
         sf::RectangleShape baseBar({ barW, barH });
         baseBar.setPosition({ barX, barY });

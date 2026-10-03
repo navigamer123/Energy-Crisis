@@ -45,6 +45,7 @@ void UI_map::triggerLightningStrike(sf::Vector2f targetPos, bool hitBuilding) {
     activeLightnings.push_back(bolt);
 
     lightningFlashTimer = 0.32f;
+    fx.onLightning(targetPos, hitBuilding); // [b-effects] thunder (panned), light flash, screen shake
 
     // Strike sparks
     spawnMiningParticles(targetPos, sf::Color(210, 240, 255), 24);

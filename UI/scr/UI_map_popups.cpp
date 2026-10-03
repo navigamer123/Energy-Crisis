@@ -44,6 +44,8 @@ void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std:
     pop.timer = 4.0f;
     pop.maxTimer = 4.0f;
     pop.active = true;
+    // [b-effects] Error popups ("ГРЕШКА...", "НЕДОСТИГ...") buzz for that player
+    if (badge.rfind("ГРЕШКА", 0) == 0 || badge.rfind("НЕДОСТИГ", 0) == 0) fx.onPlayerError(player);
 }
 
 void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
@@ -123,6 +125,7 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
         triggerPlayerPopup(2, badge, title, detail, tip, accent);
         return;
     }
+    fx.onPlayerError(player); // [b-effects] every modal is a refusal: build denied / not enough gold
     PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
     m.active = true;
     m.badge = badge;

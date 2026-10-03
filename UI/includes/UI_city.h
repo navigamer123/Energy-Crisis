@@ -17,6 +17,8 @@ public:
                           int demand, int p1Energy, int p2Energy, float p1Share, int currentDay = 1);
 
     sf::FloatRect getCityBounds() const { return sf::FloatRect({ 610.0f, 65.0f }, { 380.0f, 330.0f }); }
+    // [b-effects] Influence bar track (used by drawInfluenceBar and the UI_fx tween overlay)
+    static sf::FloatRect influenceBarRect() { return sf::FloatRect({ 580.0f, 34.0f }, { 440.0f, 10.0f }); }
 };
 
 #endif // UI_CITY_H
