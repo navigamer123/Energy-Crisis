@@ -9,7 +9,7 @@
 
 namespace {
 
-// The UI loads its assets with relative paths ("assets/font.ttf", "assets/grass.png").
+// The UI loads its assets with relative paths ("assets/font.ttf", "assets/background.png").
 // Resolve them against the directory of the executable first, so the game also works when it
 // is started from another working directory (shortcut, IDE, build folder); fall back to the
 // current working directory when the executable directory has no assets/ folder.

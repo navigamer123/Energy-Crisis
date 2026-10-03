@@ -20,10 +20,10 @@ UI_map::UI_map()
       requestFullscreenToggle(false),
       showHelpOverlay(false),
       lightningFlashTimer(0.0f) {
-    if (grassTexture.loadFromFile("assets/grass.png")) {
-        grassTexture.setRepeated(true);
+    if (backgroundTexture.loadFromFile("assets/background.png")) {
+        backgroundTexture.setSmooth(true); // 1920x1080 artwork scaled down to the canvas
     } else {
-        std::cerr << "[UI_map] Warning: Failed to load assets/grass.png\n";
+        std::cerr << "[UI_map] Warning: Failed to load assets/background.png (plain ground colour shown instead)\n";
     }
 
     if (font.openFromFile("assets/font.ttf")) {
@@ -82,14 +82,18 @@ void UI_map::setBotDifficulty(BotDifficulty diff) {
     std::cout << "[UI_map] Bot difficulty set to: " << static_cast<int>(diff) << "\n";
 }
 
-void UI_map::drawGrassBackground(sf::RenderWindow& window) {
+void UI_map::drawBackground(sf::RenderWindow& window) {
     float screenWidth = VIRTUAL_WIDTH;
     float screenHeight = VIRTUAL_HEIGHT;
 
-    if (grassTexture.getSize().x > 0) {
-        sf::Sprite sprite(grassTexture);
-        sprite.setTextureRect(sf::IntRect({ 0, 0 }, { (int)screenWidth, (int)screenHeight }));
+    if (backgroundTexture.getSize().x > 0) {
+        // Stretch the artwork over the canvas and darken it (the source is a bright lime green)
+        // so the river, the city, the plots and their labels stay readable on top.
+        sf::Sprite sprite(backgroundTexture);
+        sf::Vector2f texSize(backgroundTexture.getSize());
+        sprite.setScale({ screenWidth / texSize.x, screenHeight / texSize.y });
         sprite.setPosition({ 0.0f, 0.0f });
+        sprite.setColor(sf::Color(100, 114, 104));
         window.draw(sprite);
     } else {
         sf::RectangleShape ground({ screenWidth, screenHeight });
@@ -290,13 +294,13 @@ void UI_map::render(sf::RenderWindow& window) {
     sf::Vector2f mousePos = ui::pointerPos(window);
 
     // 3. Render terrain & atmosphere
-    drawGrassBackground(window);
+    drawBackground(window);
 
     // 4. Central dividing line & river
     city.drawDividingRiver(window, font, resourcesLoaded, animTime, engine.isDaylight());
 
     // 5. Purchasable Land Plots Grid
-    nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos);
+    nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos, engine.getBuildings());
 
     // Dynamic glowing energy conduit lines connecting generators to metropolis
     drawEnergyConduits(window, animTime);

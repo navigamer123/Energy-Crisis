@@ -27,7 +27,8 @@ public:
                    const GameEngine* engine = nullptr,
                    float p1Cooldown = 0.0f, float p2Cooldown = 0.0f);
     void drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                       const std::vector<LandPlot>& plots, sf::Vector2f mousePos);
+                       const std::vector<LandPlot>& plots, sf::Vector2f mousePos,
+                       const std::vector<PlacedBuilding>& buildings = {});
     void drawPlacedBuildings(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                              const std::vector<PlacedBuilding>& buildings);
     void drawBuildingGhost(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,

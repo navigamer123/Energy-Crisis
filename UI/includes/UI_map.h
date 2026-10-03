@@ -16,7 +16,7 @@
 
 class UI_map {
 private:
-    sf::Texture grassTexture;
+    sf::Texture backgroundTexture; // assets/background.png, stretched over the 1600x900 canvas
     sf::Font font;
     bool resourcesLoaded;
     sf::Clock animClock;
@@ -79,7 +79,7 @@ private:
 
     std::vector<FloatingNotice> notices;
 
-    void drawGrassBackground(sf::RenderWindow& window);
+    void drawBackground(sf::RenderWindow& window);
     void drawPlayerCursors(sf::RenderWindow& window);
     void drawHUD(sf::RenderWindow& window);
     void drawFloatingNotices(sf::RenderWindow& window);

@@ -179,7 +179,8 @@ bool UI_resourceNodes::isNearP2Forest(sf::Vector2f pt) const {
 }
 
 void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                                     const std::vector<LandPlot>& plots, sf::Vector2f mousePos) {
+                                     const std::vector<LandPlot>& plots, sf::Vector2f mousePos,
+                                     const std::vector<PlacedBuilding>& buildings) {
     for (const auto& plot : plots) {
         ui::lint::ContainerScope plotScope(plot.bounds);
         bool hover = plot.bounds.contains(mousePos);
@@ -247,7 +248,10 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                 }
             }
 
-            if (fontLoaded) {
+            // Owner label only while the plot is still empty: buildings in the top row would cover it
+            bool plotEmpty = std::none_of(buildings.begin(), buildings.end(),
+                                          [&](const PlacedBuilding& b) { return plot.bounds.contains(b.position); });
+            if (fontLoaded && plotEmpty) {
                 std::string tag = (plot.playerOwner == 1) ? "КУПЕНА ЗЕМЯ (P1)" : "КУПЕНА ЗЕМЯ (P2)";
                 sf::Text t(font, toUtf8(tag), 10);
                 t.setFillColor(ownerAccent);
@@ -283,6 +287,7 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                                           const std::vector<PlacedBuilding>& buildings) {
     for (const auto& b : buildings) {
         sf::Color ownerColor = (b.playerOwner == 1) ? sf::Color(0, 229, 255) : sf::Color(255, 120, 200);
+        ui::lint::solid(sf::FloatRect({ b.position.x - 13.0f, b.position.y - 13.0f }, { 26.0f, 26.0f })); // no text may hide under it
 
         if (b.type == BuildingType::SOLAR_PANEL) {
             sf::RectangleShape frame({ 26.0f, 20.0f });
