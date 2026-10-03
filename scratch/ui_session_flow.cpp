@@ -5,7 +5,7 @@
 // table, the tutorial policy, the pause menu, save/load, autosave rotation and F5/F9.
 // Build: compile this file with every UI/scr and Game/scr object except main.o and
 // link sfml-graphics/window/system, e.g. (from the repo root, objects in BUILD):
-//   g++ -std=c++17 -IUI/includes -IGame/includes scratch/ui_session_flow.cpp \
+//   g++ -std=c++17 -IUI/includes -IGame/includes scratch/ui_session_flow.cpp
 //       $(find BUILD/UI BUILD/Game -name '*.o') -lsfml-graphics -lsfml-window -lsfml-system
 // Run with EC_USERDIR=<empty scratch folder> (it deletes the saves in that folder).
 // =============================================================================
