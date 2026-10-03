@@ -61,6 +61,10 @@ public:
 
     bool handleClick(sf::Vector2f mousePos);
     bool handleKey(sf::Keyboard::Key key);
+
+    // [b-showcase] UX-08: 0 = the tutorial holds the game clock, 1 = normal time, >1 = time-lapse
+    float clockScale(const GameEngine& engine) const;
+    bool holdsClock(const GameEngine& engine) const { return isActive() && clockScale(engine) <= 0.0f; }
 };
 
 #endif // UI_TUTORIAL_H

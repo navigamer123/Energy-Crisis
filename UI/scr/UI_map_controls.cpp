@@ -459,6 +459,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         // skipping or completing it, or running out of time, releases the bot.
         bool tutorialHoldsBot = tutorial.isActive() && tutorial.getStep() != TutorialStep::COMPLETED &&
                                 tutorialBotHoldLeft > 0.0f;
+        // [b-showcase] UX-08: while the tutorial holds the clock the whole world waits, the bot included
+        tutorialHoldsBot = tutorialHoldsBot || tutorial.holdsClock(engine);
         if (tutorialHoldsBot) {
             tutorialBotHoldLeft -= dt;
         } else {

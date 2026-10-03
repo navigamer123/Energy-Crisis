@@ -253,8 +253,11 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     if (!isPaused && engine.getCityState().winner == 0) {
-        engine.update(dt);
+        // [b-showcase] UX-08 / F-07: the tutorial holds the clock (0), lets it run (1) or time-lapses it
+        const float tutorialClock = tutorial.clockScale(engine);
+        if (tutorialClock > 0.0f) engine.update(dt * tutorialClock);
         updateControls(window, dt);
+        if (tutorial.isActive()) engine.setTimeScale(1.0f); // [b-showcase] UX-08: no mining speed-up while learning
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
         city.getSkyline().update(dt, engine); // [b-showcase] HX-03/HX-04: skyline growth + blackout set piece

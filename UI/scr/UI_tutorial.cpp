@@ -669,3 +669,9 @@ bool UI_tutorial::handleKey(sf::Keyboard::Key key) {
 
     return false;
 }
+
+// [b-showcase] UX-08: the day waits while the learner reads and tries things out
+float UI_tutorial::clockScale(const GameEngine& engine) const {
+    (void)engine;
+    return isActive() ? 0.0f : 1.0f;
+}
