@@ -137,22 +137,6 @@ void UI_map::executeP1Action() {
                                (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
         }
     } else {
-        // Check for broken facility repair first!
-        for (const auto& b : engine.getBuildings()) {
-            if (b.playerOwner == 1 && b.isBroken && std::hypot(b.position.x - p1Pos.x, b.position.y - p1Pos.y) <= 48.0f) {
-                std::string repMsg;
-                if (engine.repairBuilding(1, p1Pos, repMsg)) {
-                    triggerPlayerPopup(1, "РЕМОНТ", "Съоръжението е поправено!", repMsg, "", sf::Color(0, 255, 180));
-                    spawnNotice("ПОПРАВЕНО!", p1Pos, sf::Color(0, 255, 180));
-                    spawnMiningParticles(p1Pos, sf::Color(0, 255, 180), 22);
-                } else {
-                    triggerPlayerPopup(1, "НЕДОСТИГ", "Необходими са ресурси за ремонт!", repMsg, "", sf::Color(255, 100, 100));
-                    spawnNotice(repMsg, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 100, 100));
-                }
-                return;
-            }
-        }
-
         ResourceType resType = nodes.getP1ResourceAt(p1Pos);
         if (resType != ResourceType::NONE) {
             if (p1ResourceCooldown > 0.0f) {
@@ -231,22 +215,6 @@ void UI_map::executeP2Action() {
                                (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
         }
     } else {
-        // Check for broken facility repair first!
-        for (const auto& b : engine.getBuildings()) {
-            if (b.playerOwner == 2 && b.isBroken && std::hypot(b.position.x - p2Pos.x, b.position.y - p2Pos.y) <= 48.0f) {
-                std::string repMsg;
-                if (engine.repairBuilding(2, p2Pos, repMsg)) {
-                    triggerPlayerPopup(2, "РЕМОНТ", "Съоръжението е поправено!", repMsg, "", sf::Color(255, 120, 200));
-                    spawnNotice("ПОПРАВЕНО!", p2Pos, sf::Color(255, 120, 200));
-                    spawnMiningParticles(p2Pos, sf::Color(255, 120, 200), 22);
-                } else {
-                    triggerPlayerPopup(2, "НЕДОСТИГ", "Необходими са ресурси за ремонт!", repMsg, "", sf::Color(255, 100, 100));
-                    spawnNotice(repMsg, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 100, 100));
-                }
-                return;
-            }
-        }
-
         ResourceType resType = nodes.getP2ResourceAt(p2Pos);
         if (resType != ResourceType::NONE) {
             if (p2ResourceCooldown > 0.0f) {
@@ -936,29 +904,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
-        // 3. Click directly on broken buildings to repair!
-        for (const auto& b : engine.getBuildings()) {
-            if (b.isBroken && (b.playerOwner == 1 || (!bot.isActive() && b.playerOwner == 2))) {
-                float dist = std::hypot(b.position.x - clickPos.x, b.position.y - clickPos.y);
-                if (dist <= 26.0f) {
-                    int owner = b.playerOwner;
-                    if (engine.getSelectedBuilding(owner) != BuildingType::DEMOLISH) {
-                        std::string rMsg;
-                        if (engine.repairBuilding(owner, b.position, rMsg)) {
-                            triggerPlayerPopup(owner, "РЕМОНТ", "Съоръжението е поправено!", rMsg, "", sf::Color(0, 255, 180));
-                            spawnNotice("ПОПРАВЕНО!", b.position, sf::Color(0, 255, 180));
-                            spawnMiningParticles(b.position, sf::Color(0, 255, 180), 22);
-                        } else {
-                            triggerPlayerPopup(owner, "НЕДОСТИГ", "Необходими са ресурси за ремонт!", rMsg, "", sf::Color(255, 100, 100));
-                            spawnNotice(rMsg, b.position + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 100, 100));
-                        }
-                        return;
-                    }
-                }
-            }
-        }
-
-        // 4. Click on Land Plots directly (Buy Plot or Place Building on it)
+        // 3. Click on Land Plots directly (Buy Plot or Place Building on it)
         for (const auto& plot : engine.getLandPlots()) {
             if (plot.bounds.contains(clickPos)) {
                 int owner = plot.playerOwner;

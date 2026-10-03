@@ -93,26 +93,22 @@ void UI_map::updateWeatherParticles(float dt) {
 
         // Lightning strikes!
         // Very small chance to hit a facility ("много малък шанс да чупят съоръжението")
-        // Check for unbroken buildings
+        // "ако бъдат счупени да изчезват за да може да бъде построен друг ВЕЦ"
         const auto& allBuildings = engine.getBuildings();
-        std::vector<size_t> unbrokenIdxs;
-        for (size_t i = 0; i < allBuildings.size(); ++i) {
-            if (!allBuildings[i].isBroken) {
-                unbrokenIdxs.push_back(i);
-            }
-        }
-
-        // ~8% chance per strike to target an unbroken facility
-        if (!unbrokenIdxs.empty() && (rand() % 12 == 0)) {
-            size_t chosen = unbrokenIdxs[rand() % unbrokenIdxs.size()];
+        if (!allBuildings.empty() && (rand() % 12 == 0)) {
+            size_t chosen = rand() % allBuildings.size();
             sf::Vector2f strikePos = allBuildings[chosen].position;
+            int owner = allBuildings[chosen].playerOwner;
+            BuildingCost cost = engine.getBuildingCost(allBuildings[chosen].type);
+
+            // Destroy and remove building so it disappears immediately and frees the grid slot!
             const_cast<GameEngine&>(engine).breakBuildingAt(strikePos);
 
-            int owner = allBuildings[chosen].playerOwner;
-            triggerPlayerPopup(owner, "МЪЛНИЯ!", "Счупено съоръжение!",
-                               "Мълния порази ваше съоръжение! То спря ток (0 MW).",
-                               "[SPACE/Клик]: Поправи съоръжението", sf::Color(255, 230, 80));
+            triggerPlayerPopup(owner, "МЪЛНИЯ!", "Унищожено съоръжение!",
+                               "Мълния унищожи " + cost.nameBg + "!\nКлетката се освободи за нов строеж (ВЕЦ/друг).",
+                               "[SPACE/Клик]: Постройте ново съоръжение", sf::Color(255, 230, 80));
 
+            spawnNotice("СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!", strikePos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 80, 80));
             triggerLightningStrike(strikePos, true);
         } else {
             // Harmless strike into open ground

@@ -412,33 +412,6 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 window.draw(glow);
             }
         }
-
-        // Lightning damage / broken facility overlay
-        if (b.isBroken) {
-            sf::RectangleShape darkCover({ 34.0f, 30.0f });
-            darkCover.setOrigin({ 17.0f, 15.0f });
-            darkCover.setPosition(b.position);
-            darkCover.setFillColor(sf::Color(15, 12, 18, 160));
-            darkCover.setOutlineThickness(1.5f);
-            darkCover.setOutlineColor(sf::Color(255, 70, 70, 220));
-            window.draw(darkCover);
-
-            if (fontLoaded) {
-                sf::RectangleShape badge({ 84.0f, 18.0f });
-                badge.setOrigin({ 42.0f, 9.0f });
-                badge.setPosition({ b.position.x, b.position.y - 25.0f });
-                badge.setFillColor(sf::Color(45, 10, 15, 235));
-                badge.setOutlineThickness(1.0f);
-                badge.setOutlineColor(sf::Color(255, 75, 75));
-                window.draw(badge);
-
-                sf::Text warnText(font, toUtf8("⚡ СЧУПЕНО"), 10);
-                warnText.setFillColor(sf::Color(255, 215, 80));
-                sf::FloatRect wb = warnText.getLocalBounds();
-                warnText.setPosition({ b.position.x - wb.size.x / 2.0f, b.position.y - 32.0f });
-                window.draw(warnText);
-            }
-        }
     }
 }
 
