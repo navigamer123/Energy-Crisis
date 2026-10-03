@@ -262,8 +262,6 @@ int main() {
         CHECK(holds999 == 1, "the replaced match (gold 999) is in the autosaves: " << holds999);
         send(K::Escape, S::Escape); // resume
 
-        // Victory: no saves of a finished match, continue disappears
-        const_cast<GameEngine&>(map.getEngine());
         CHECK(map.hasMatchInProgress(), "still running");
     }
 
