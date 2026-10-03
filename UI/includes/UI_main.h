@@ -4,8 +4,10 @@
 #include <SFML/Graphics.hpp>
 #include "UI_mainMenu.h"
 #include "UI_map.h"
+#include "UI_intro.h" // [b-showcase] HX-01 cinematic intro
 
 enum class UIState {
+    INTRO,     // [b-showcase] HX-01: cinematic intro before the main menu
     MAIN_MENU,
     PLAYING,
     QUIT
@@ -17,6 +19,7 @@ private:
     sf::View gameView;
     UI_mainMenu mainMenu;
     UI_map map;
+    UI_intro intro; // [b-showcase]
     UIState currentState;
     bool isFullscreen;
 

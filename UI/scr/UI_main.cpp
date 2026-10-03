@@ -4,7 +4,7 @@
 
 UI_main::UI_main()
     : window(sf::VideoMode({ 1600, 900 }), "Energy Crisis"),
-      currentState(UIState::MAIN_MENU),
+      currentState(UI_intro::enabledByEnvironment() ? UIState::INTRO : UIState::MAIN_MENU), // [b-showcase] HX-01
       isFullscreen(false) {
     window.setFramerateLimit(60);
     window.setKeyRepeatEnabled(false); // A held key must not re-trigger menu/pause/hotkey events
@@ -88,11 +88,18 @@ void UI_main::render() {
                 }
             }
 
+            if (currentState == UIState::INTRO) { // [b-showcase] HX-01: any key, click or pad button skips
+                intro.handleEvent(*event);
+            } else
             if (currentState == UIState::MAIN_MENU) {
                 mainMenu.handleEvent(*event, window);
             } else if (currentState == UIState::PLAYING) {
                 map.handleEvent(*event, window);
             }
+        }
+
+        if (currentState == UIState::INTRO && intro.isFinished()) { // [b-showcase] HX-01
+            currentState = UIState::MAIN_MENU;
         }
 
         if (currentState == UIState::MAIN_MENU) {
@@ -124,6 +131,9 @@ void UI_main::render() {
         window.setView(gameView);
         window.clear(sf::Color(10, 14, 22));
 
+        if (currentState == UIState::INTRO) { // [b-showcase] HX-01
+            intro.render(window);
+        } else
         if (currentState == UIState::MAIN_MENU) {
             mainMenu.render(window);
         } else if (currentState == UIState::PLAYING) {
