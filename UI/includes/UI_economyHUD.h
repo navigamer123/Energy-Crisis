@@ -33,6 +33,9 @@ public:
     void drawGridAlerts(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded, const GameEngine& engine,
                         float animTime);
     void drawDayReport(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded);
+    // F-37: small "50.0 Hz" badge in the bottom-right corner of each player clock (after the grace period)
+    void drawClockFrequencyBadges(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded, const GameEngine& engine,
+                                  float animTime);
 
     bool isDayReportVisible() const { return reportTimer > 0.0f; }
     // Debug / screenshot hook: shows the engine's last report as if the day had just ended

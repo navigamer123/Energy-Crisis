@@ -51,8 +51,14 @@ const sf::FloatRect P1_LAND({ 256.0f, 103.0f }, { 343.0f, 414.0f });
 const sf::FloatRect P2_LAND({ 1001.0f, 103.0f }, { 343.0f, 414.0f });
 const float ALERT_Y = 521.0f;     // banner just under each land grid
 const float ALERT_H = 26.0f;
-const sf::FloatRect REPORT_BOX({ 622.0f, 96.0f }, { 356.0f, 248.0f }); // over the city skyline
+const sf::FloatRect REPORT_BOX({ 622.0f, 104.0f }, { 356.0f, 216.0f }); // over the city skyline
 const float REPORT_SECONDS = 5.0f;
+
+// Player clock cards (drawn by UI_clock at these rectangles in UI_map::render)
+const sf::FloatRect CLOCK_P1({ 20.0f, 10.0f }, { 230.0f, 100.0f });
+const sf::FloatRect CLOCK_P2({ 1350.0f, 10.0f }, { 230.0f, 100.0f });
+const float CLOCK_BADGE_W = 68.0f;
+const float CLOCK_BADGE_H = 18.0f;
 
 const float FREQ_MIN_HZ = 47.5f;
 const float FREQ_MAX_HZ = 50.5f;
@@ -896,7 +902,34 @@ void UI_economyHUD::drawDayReport(sf::RenderTarget& target, const sf::Font& font
     }
     if (r.damped) {
         drawText(target, font, "Лидерът е над 70%: печалбата му е наполовина", 10, withAlpha(COL_DIM, alpha), x + w / 2.0f,
-                 y + h - 15.0f, Align::Center, w - 24.0f);
+                 y + h - 19.0f, Align::Center, w - 24.0f);
+    }
+    flushQueue(target);
+}
+
+// =============================================================================
+// F-37 "50.0 Hz" badges on the player clocks
+// =============================================================================
+void UI_economyHUD::drawClockFrequencyBadges(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded,
+                                             const GameEngine& engine, float animTime) {
+    // During the grace period the clock's sun line is longer and the grid cannot fail: no badge
+    if (!fontLoaded || engine.isGracePeriod()) return;
+    beginQueue();
+    for (int player = 1; player <= 2; ++player) {
+        const sf::FloatRect clock = (player == 1) ? CLOCK_P1 : CLOCK_P2;
+        const float bx = clock.position.x + clock.size.x - CLOCK_BADGE_W - 6.0f;
+        const float by = clock.position.y + clock.size.y - CLOCK_BADGE_H - 5.0f;
+        const float hz = engine.getGridFrequencyHz(player);
+        const int state = engine.getGridState(player);
+        sf::Color c = (state == Econ::GRID_BLACKOUT || hz < Econ::BLACKOUT_HZ)
+                          ? COL_BAD
+                          : ((state == Econ::GRID_BROWNOUT || hz < Econ::BROWNOUT_HZ) ? COL_WARN : COL_OK);
+        if (state != Econ::GRID_NORMAL && std::sin(animTime * 7.0f) < -0.3f) c = withAlpha(c, 0.5f);
+        drawRect(target, bx, by, CLOCK_BADGE_W, CLOCK_BADGE_H, sf::Color(8, 12, 20, 235), withAlpha(c, 0.9f), 1.0f);
+        drawRect(target, bx + 5.0f, by + CLOCK_BADGE_H / 2.0f - 3.0f, 6.0f, 6.0f, c);
+        char buf[16];
+        std::snprintf(buf, sizeof(buf), "%.1f Hz", hz);
+        drawText(target, font, buf, 11, c, bx + CLOCK_BADGE_W - 5.0f, by + 2.0f, Align::Right, CLOCK_BADGE_W - 16.0f, 9, true);
     }
     flushQueue(target);
 }

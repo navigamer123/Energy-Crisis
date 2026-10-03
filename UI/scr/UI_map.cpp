@@ -346,6 +346,7 @@ void UI_map::render(sf::RenderWindow& window) {
     // 11. Top-Left & Top-Right Clocks (Continuous 24h cycle & weather)
     p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(0, 229, 255));
     p2Clock.draw(window, font, resourcesLoaded, { 1600.0f - 250.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(255, 120, 200));
+    economyHUD.drawClockFrequencyBadges(window, font, resourcesLoaded, engine, animTime); // [b-economy] F-37
 
     // 12. Left & Right Building Menus
     p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine.getPlayerEconomy(1), p1Sel);
