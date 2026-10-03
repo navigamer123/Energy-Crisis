@@ -56,6 +56,7 @@ void UI_map::primeInputEdges(int player) {
         p1PrevQ = true;
         p1PrevX = true;
         for (int k = 1; k <= 6; ++k) p1PrevNum[k] = true;
+        for (bool& k : p1PrevAdvKey) k = true; // Team b-power: 7 / 8 / 9
     }
     if (player != 1) {
         p2PrevAction = true;
@@ -211,6 +212,7 @@ void UI_map::executeP1Action() {
                                (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
         }
     } else {
+        if (tryRepairAt(1, p1Pos)) return; // Team b-power (F-34): repair a damaged building
         ResourceType resType = nodes.getP1ResourceAt(p1Pos);
         if (resType != ResourceType::NONE) {
             if (p1ResourceCooldown > 0.0f) {
@@ -289,6 +291,7 @@ void UI_map::executeP2Action() {
                                (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
         }
     } else {
+        if (tryRepairAt(2, p2Pos)) return; // Team b-power (F-34): repair a damaged building
         ResourceType resType = nodes.getP2ResourceAt(p2Pos);
         if (resType != ResourceType::NONE) {
             if (p2ResourceCooldown > 0.0f) {
@@ -632,6 +635,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
         p1PrevNum[k] = curNum;
     }
+    handleAdvancedHotkeys(); // Team b-power: 7 АЕЦ, 8 геотермална, 9 мегапроекти
 
     // 7. Player 2 Action Input (Human Player 2 only)
     if (!bot.isActive()) {
@@ -1036,6 +1040,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     return;
                 } else {
                     BuildingType sel = engine.getSelectedBuilding(owner);
+                    if (sel == BuildingType::NONE && tryRepairAt(owner, clickPos)) return; // Team b-power: repair
                     if (sel != BuildingType::NONE) {
                         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? clickPos : engine.snapToBuildingGrid(owner, clickPos);
                         std::string msg;

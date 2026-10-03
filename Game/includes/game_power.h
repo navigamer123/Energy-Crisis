@@ -167,7 +167,7 @@ constexpr int GEOTHERMAL_PER_VENT_PLOT = 2;
 
 // Nuclear reactor (F-32)
 constexpr Balance::BuildingDef NUCLEAR = {
-    40, 90, 60, 0, 40, 50,
+    0, 100, 60, 0, 40, 50,
     400, 0, 0.0f, 0,
     "АЕЦ (ядрен реактор)", "Nuclear Plant"
 };
@@ -178,7 +178,7 @@ constexpr float NUCLEAR_SCRAM_COOLDOWN_SEC = Balance::SECONDS_PER_DAY * 0.5f; //
 
 // Geothermal plant (F-15): steady, weather-proof, only on vent plots
 constexpr Balance::BuildingDef GEOTHERMAL = {
-    12, 22, 14, 0, 8, 6,
+    10, 24, 16, 0, 0, 6,
     70, 0, 0.0f, 0,
     "Геотермална ЦЕЦ", "Geothermal Plant"
 };
@@ -199,7 +199,7 @@ constexpr Balance::BuildingDef MEGA_SPACE_SOLAR = {
 constexpr float MEGA_SPACE_SOLAR_BUILD_DAYS = 2.0f;
 constexpr float SPACE_SOLAR_STORM_MULT = 0.6f; // Storm clouds weaken the microwave beam
 constexpr Balance::BuildingDef MEGA_PUMPED_HYDRO = {
-    120, 150, 90, 40, 30, 30,
+    140, 170, 100, 60, 0, 0,
     80, 3000, 0.0f, 0,
     "ПАВЕЦ (язовир)", "Pumped-Hydro Dam"
 };

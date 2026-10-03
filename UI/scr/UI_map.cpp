@@ -42,6 +42,7 @@ UI_map::UI_map()
     }
 
     // Initialize backend game engine at 1600x900
+    engine.setHazardsEnabled(true); // Team b-power: random hazards in real matches (engine default: off)
     engine.init(1600.0f, 900.0f);
     std::cout << "[UI_map] 1600x900 map orchestrator with backend GameEngine ready.\n";
 }
@@ -231,6 +232,7 @@ void UI_map::restartMatch() {
     // every key edge flag primed, so the Enter/Space/R that started this match (menu, pause menu or
     // victory screen) is not seen as a fresh in-game press. Idempotent, so callers may repeat it.
     resetMatchInputState();
+    resetPowerSystems(); // Team b-power: effects, bot timers, hotkey edges, stale engine events
 
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
@@ -257,6 +259,7 @@ void UI_map::render(sf::RenderWindow& window) {
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
+        updatePowerSystems(dt); // Team b-power: hazard / reactor / mega-project events, bot helpers
     }
 
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible
@@ -289,12 +292,14 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 5. Purchasable Land Plots Grid
     nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos);
+    powerLayer.drawTerrain(window, font, resourcesLoaded, engine, animTime); // Team b-power: terrain badges
 
     // Dynamic glowing energy conduit lines connecting generators to metropolis
     drawEnergyConduits(window, animTime);
 
     // 6. Placed Buildings on the Map
     nodes.drawPlacedBuildings(window, font, resourcesLoaded, engine.getBuildings());
+    powerLayer.drawBuildings(window, font, resourcesLoaded, engine, animTime); // Team b-power: new buildings, damage
 
     // 7. Holographic ghost preview if building is selected (snapped to plot grid, hidden if outside purchased land)
     BuildingType p1Sel = engine.getSelectedBuilding(1);
@@ -305,6 +310,7 @@ void UI_map::render(sf::RenderWindow& window) {
             bool valid = engine.canPlaceBuilding(1, p1Sel, targetPos, reason);
             nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, targetPos, valid, engine.getBuildingCost(p1Sel));
         }
+        powerLayer.drawPlacementHint(window, engine, 1, p1Sel, p1Pos, animTime); // Team b-power
     }
     BuildingType p2Sel = engine.getSelectedBuilding(2);
     if (p2Sel != BuildingType::NONE) {
@@ -314,6 +320,7 @@ void UI_map::render(sf::RenderWindow& window) {
             bool valid = engine.canPlaceBuilding(2, p2Sel, targetPos, reason);
             nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, targetPos, valid, engine.getBuildingCost(p2Sel));
         }
+        powerLayer.drawPlacementHint(window, engine, 2, p2Sel, p2Pos, animTime); // Team b-power
     }
 
     // 8. Compact Metropolis City Center with territorial slicing & conquest
@@ -324,6 +331,7 @@ void UI_map::render(sf::RenderWindow& window) {
     city.drawInfluenceBar(window, font, resourcesLoaded, engine.getCityState().cityEnergyDemand,
                           engine.getPlayerEconomy(1).energyMW, engine.getPlayerEconomy(2).energyMW,
                           engine.getCityState().p1CityShare, engine.getCurrentDay());
+    powerLayer.drawMegaHud(window, font, resourcesLoaded, engine, animTime); // Team b-power: shared mega-project strip
 
     // 10. Resource Mines & Timber Forests
     nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
@@ -336,6 +344,8 @@ void UI_map::render(sf::RenderWindow& window) {
     p2Clock.draw(window, font, resourcesLoaded, { 1600.0f - 250.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(255, 120, 200));
 
     // 12. Left & Right Building Menus
+    p1Buildings.setEngineView(&engine); // Team b-power: lock reasons on the advanced page
+    p2Buildings.setEngineView(&engine);
     p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine.getPlayerEconomy(1), p1Sel);
     p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine.getPlayerEconomy(2), p2Sel);
 
@@ -354,6 +364,8 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // Dynamic Mining sparks and wood chips
     drawMiningParticles(window);
+    powerLayer.drawEffects(window, animTime); // Team b-power: hail, flood, fire, quake effects
+    drawPowerOverlays(window);                // Team b-power: repair prompts
 
     // 17. Interactive Modal Dialogs (Requires player to click OK or confirm)
     drawPlayerModals(window);

@@ -72,9 +72,16 @@ void UI_buildings::setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size,
   for (size_t i = 0; i < buildings.size(); i++) {
     buildings[i].btnBounds = sf::FloatRect({itemX, itemStartY + i * spacing}, {itemW, itemH});
   }
+  setupAdvancedCards(); // Team b-power: page 2 (reactor, geothermal, mega-projects)
 }
 
 BuildingType UI_buildings::handleClick(sf::Vector2f clickPos) {
+  // Team b-power: page tab and the advanced page
+  if (pageTabBounds.contains(clickPos)) {
+    advancedPage = !advancedPage;
+    return BuildingType::NONE;
+  }
+  if (advancedPage) return handleAdvancedClick(clickPos);
   for (auto &b : buildings) {
     if (b.btnBounds.contains(clickPos)) {
       return b.type;
@@ -87,6 +94,13 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
                         bool fontLoaded, sf::Vector2f mousePos,
                         const PlayerEconomy &econ,
                         BuildingType activeSelection) {
+  // Team b-power: the page follows the selection; page 2 has its own drawing
+  syncPageWithSelection(activeSelection);
+  if (advancedPage) {
+    drawAdvancedPage(window, font, fontLoaded, mousePos, econ, activeSelection);
+    return;
+  }
+
   // Panel container
   sf::RectangleShape panel(panelSize);
   panel.setPosition(panelPos);
@@ -255,4 +269,5 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       window.draw(tBtn);
     }
   }
+  drawPageTab(window, font, fontLoaded, mousePos); // Team b-power: switch to page 2
 }

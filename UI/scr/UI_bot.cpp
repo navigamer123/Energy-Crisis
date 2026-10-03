@@ -83,6 +83,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
                     break;
                 }
             }
+            if (onPurchased && engine.isSlotReserved(2, slot)) onPurchased = false; // b-power: reactor / mega-project plot
             if (onPurchased) {
                 bool occupied = false;
                 for (const auto& b : engine.getBuildings()) {

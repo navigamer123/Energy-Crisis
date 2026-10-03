@@ -154,10 +154,10 @@ int main() {
     CHECK(e.breakBuildingAt(solar) && e.getBuildings().size() == countBefore - 1, "lightning no longer deletes ordinary buildings");
 
     // --- Demolish from any slot of the plot, no refund ---
-    int woodBefore = e.getPlayerEconomy(1).wood;
+    int ironBefore = e.getPlayerEconomy(1).iron;
     CHECK(e.removeBuilding(1, corner, msg), "demolish reactor: " << msg);
     CHECK(reactorOf(e, 1) == nullptr, "reactor still there");
-    CHECK(e.getPlayerEconomy(1).wood == woodBefore, "reactor refunded wood");
+    CHECK(e.getPlayerEconomy(1).iron == ironBefore, "reactor refunded iron");
     CHECK(e.canPlaceBuilding(1, BuildingType::NUCLEAR, centre(*site), reason), "cannot rebuild after demolish: " << reason);
 
     CHECK(e.getCityState().winner == 0, "match ended during the test");
