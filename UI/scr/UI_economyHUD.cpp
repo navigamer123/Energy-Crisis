@@ -828,8 +828,8 @@ void UI_economyHUD::drawDayReport(sf::RenderTarget& target, const sf::Font& font
     drawRect(target, x, y, w, h, withAlpha(sf::Color(10, 15, 26, 248), alpha), withAlpha(accent, alpha), 2.0f);
     drawRect(target, x, y, w, 28.0f, withAlpha(sf::Color(22, 34, 56, 250), alpha));
     drawText(target, font, "ДЕН " + std::to_string(r.day) + " · ОТЧЕТ НА ГРАДА", 14, withAlpha(COL_TEXT, alpha), x + 12.0f,
-             y + 5.0f, Align::Left, w - 120.0f, 10, true);
-    drawText(target, font, "НУЖДА " + std::to_string(r.demandMW) + " MW", 11, withAlpha(COL_DIM, alpha), x + w - 12.0f,
+             y + 5.0f, Align::Left, w - 142.0f, 10, true); // never reaches the demand label on the right
+    drawText(target, font, "СР. НУЖДА " + std::to_string(r.demandMW) + " MW", 11, withAlpha(COL_DIM, alpha), x + w - 12.0f,
              y + 8.0f, Align::Right, 110.0f);
 
     // Table: label | P1 | P2
@@ -854,7 +854,7 @@ void UI_economyHUD::drawDayReport(sf::RenderTarget& target, const sf::Font& font
     const Row rows[4] = {
         { "Обслужена нужда", pct(r.served[0]), pct(r.served[1]), r.served[0] >= r.served[1] ? COL_OK : COL_TEXT,
           r.served[1] >= r.served[0] ? COL_OK : COL_TEXT },
-        { "Доставена енергия", fmtMWh(r.deliveredMWh[0]), fmtMWh(r.deliveredMWh[1]), COL_TEXT, COL_TEXT },
+        { "Доставено", fmtMWh(r.deliveredMWh[0]), fmtMWh(r.deliveredMWh[1]), COL_TEXT, COL_TEXT },
         { "CO2 спестени", fmtTonnes(r.co2AvoidedT[0]), fmtTonnes(r.co2AvoidedT[1]), COL_CO2, COL_CO2 },
         { "Мрежа", gridText(r.brownouts[0], r.blackouts[0]), gridText(r.brownouts[1], r.blackouts[1]),
           (r.brownouts[0] + r.blackouts[0]) ? COL_WARN : COL_OK, (r.brownouts[1] + r.blackouts[1]) ? COL_WARN : COL_OK },

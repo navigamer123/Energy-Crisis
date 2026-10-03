@@ -375,7 +375,8 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
                    std::to_string(Balance::GRACE_PERIOD_DAYS) + ") * | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
             demandColor = sf::Color(90, 255, 190);
         } else {
-            dStr = "НУЖДА НА ГРАДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) +
+            // [b-economy] the daily mean; the hourly value is "НУЖДА СЕГА" in the grid dashboard
+            dStr = "СРЕДНА НУЖДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) +
                    " MW | ПОБЕДА: " + std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%";
             demandColor = sf::Color(255, 215, 0);
         }
