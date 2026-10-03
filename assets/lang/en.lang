@@ -755,7 +755,7 @@ tutorial.place.progress = Move the cursor into place and press [SPACE] / [ENTER]
 # UI/scr/UI_tutorial.cpp:549
 tutorial.done.badge = SUCCESS! YOUR FIRST PANEL IS RUNNING!
 # UI/scr/UI_tutorial.cpp:550
-tutorial.done.title = CONGRATULATIONS! YOU ARE GENERATING POWER!
+tutorial.done.title = WELL DONE! YOU ARE GENERATING POWER!
 # UI/scr/UI_tutorial.cpp:551-553
 tutorial.done.desc = Your panel adds +60 MW of clean power during the day!\nSupplying the city earns money ($) and gold for new land and mine upgrades.\nBuild more panels, wind turbines and batteries to win!
 
