@@ -69,7 +69,7 @@ void UI_map::updatePowerSystems(float dt) {
         powerLayer.addFx(fx, engine);
         showPowerFx(fx);
     }
-    if (bot.isActive()) updateBotPower(dt * engine.getTimeScale());
+    if (bot.isActive() && !tutorial.isActive()) updateBotPower(dt * engine.getTimeScale()); // the bot waits for the tutorial
 }
 
 void UI_map::showPowerFx(const PowerFx& fx) {

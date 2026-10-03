@@ -406,8 +406,9 @@ void UI_powerLayer::drawTerrain(sf::RenderWindow& w, const sf::Font& font, bool 
             if (fontLoaded) {
                 std::string label = std::string(getTerrainNameBg(t)) + ": " + getTerrainEffectBg(t);
                 sf::Text probe = makeText(font, label, 9, acc);
-                unsigned size = (probe.getLocalBounds().size.x > r.size.x - 8.0f) ? 8u : 9u;
-                plateText(w, font, label, size, acc, { r.position.x + r.size.x * 0.5f, r.position.y + r.size.y - 15.0f });
+                bool shortPlot = (r.size.y < 90.0f); // crowded / valley: keep clear of the price above
+                unsigned size = (shortPlot || probe.getLocalBounds().size.x > r.size.x - 8.0f) ? 8u : 9u;
+                plateText(w, font, label, size, acc, { r.position.x + r.size.x * 0.5f, r.position.y + r.size.y - (shortPlot ? 13.0f : 15.0f) });
             }
         } else {
             sf::Vector2f c(r.position.x + r.size.x - 10.0f, r.position.y + r.size.y - 10.0f);
@@ -607,7 +608,8 @@ void UI_powerLayer::drawPlacementHint(sf::RenderWindow& w, const GameEngine& e, 
 // -----------------------------------------------------------------------------
 // Shared mega-project HUD (HX-10): both players see both projects
 // -----------------------------------------------------------------------------
-void UI_powerLayer::drawMegaHud(sf::RenderWindow& w, const sf::Font& font, bool fontLoaded, const GameEngine& e, float animTime) {
+void UI_powerLayer::drawMegaHud(sf::RenderWindow& w, const sf::Font& font, bool fontLoaded, const GameEngine& e, float animTime,
+                                bool p2IsBot) {
     const PlacedBuilding* m1 = e.getMegaProject(1);
     const PlacedBuilding* m2 = e.getMegaProject(2);
     int day = e.getCurrentDay();
@@ -627,7 +629,8 @@ void UI_powerLayer::drawMegaHud(sf::RenderWindow& w, const sf::Font& font, bool 
         if (m == nullptr) {
             std::string msg = (day < PowerBalance::MEGA_UNLOCK_DAY)
                 ? "Отключват се от ден " + std::to_string(PowerBalance::MEGA_UNLOCK_DAY)
-                : "Няма проект (избери [9] / страница 2)";
+                : (player == 1) ? "Няма проект: [9] или страница 2"
+                                : (p2IsBot ? "Няма проект" : "Няма проект: [PgDn] до страница 2");
             textAt(w, font, msg, 11, PW_MUTED, { x + 40.0f, ry + 9.0f }, false);
             continue;
         }

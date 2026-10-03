@@ -39,7 +39,8 @@ public:
     // Hazard particles above the world
     void drawEffects(sf::RenderWindow& w, float animTime);
     // Shared mega-project progress strip under the city (visible to both players)
-    void drawMegaHud(sf::RenderWindow& w, const sf::Font& font, bool fontLoaded, const GameEngine& e, float animTime);
+    void drawMegaHud(sf::RenderWindow& w, const sf::Font& font, bool fontLoaded, const GameEngine& e, float animTime,
+                     bool p2IsBot = false);
     // "[ACTION]: repair" prompt when a cursor rests on its own broken building
     void drawRepairPrompt(sf::RenderWindow& w, const sf::Font& font, bool fontLoaded, const GameEngine& e, int player,
                           sf::Vector2f cursor, const std::string& keyLabel);

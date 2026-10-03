@@ -331,7 +331,7 @@ void UI_map::render(sf::RenderWindow& window) {
     city.drawInfluenceBar(window, font, resourcesLoaded, engine.getCityState().cityEnergyDemand,
                           engine.getPlayerEconomy(1).energyMW, engine.getPlayerEconomy(2).energyMW,
                           engine.getCityState().p1CityShare, engine.getCurrentDay());
-    powerLayer.drawMegaHud(window, font, resourcesLoaded, engine, animTime); // Team b-power: shared mega-project strip
+    powerLayer.drawMegaHud(window, font, resourcesLoaded, engine, animTime, bot.isActive()); // Team b-power: shared mega-project strip
 
     // 10. Resource Mines & Timber Forests
     nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
