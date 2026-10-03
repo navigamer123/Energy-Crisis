@@ -5,6 +5,22 @@
 #include <cmath>
 #include <algorithm>
 
+namespace {
+// Header logo layout (px on the 1600x900 canvas)
+constexpr float MAIN_LOGO_TOP = 58.0f;
+constexpr float MAIN_LOGO_HEIGHT = 280.0f;
+constexpr float SUB_LOGO_TOP = 10.0f;
+constexpr float SUB_LOGO_HEIGHT = 116.0f;
+// Top-level menu buttons (drawn and clicked with the same rectangles)
+constexpr float MAIN_BTN_W = 320.0f;
+constexpr float MAIN_BTN_H = 54.0f;
+constexpr float MAIN_BTN_Y[3] = { 404.0f, 480.0f, 556.0f };
+
+sf::FloatRect mainButtonRect(int index) {
+    return sf::FloatRect({ (VIRTUAL_WIDTH - MAIN_BTN_W) / 2.0f, MAIN_BTN_Y[index] }, { MAIN_BTN_W, MAIN_BTN_H });
+}
+} // namespace
+
 UI_mainMenu::UI_mainMenu()
     : state(MenuState::MAIN),
       requestPlay(false),
@@ -22,6 +38,12 @@ UI_mainMenu::UI_mainMenu()
         fontLoaded = true;
     } else {
         std::cerr << "[UI_mainMenu] Warning: Failed to load assets/font.ttf\n";
+    }
+    if (logoTexture.loadFromFile("assets/logo.png")) {
+        logoTexture.setSmooth(true);
+        logoLoaded = true;
+    } else {
+        std::cerr << "[UI_mainMenu] Warning: Failed to load assets/logo.png (text title shown instead)\n";
     }
     std::cout << "[UI_mainMenu] SFML Main Menu with Mode & Difficulty selection ready.\n";
 }
@@ -58,39 +80,61 @@ void UI_mainMenu::drawButton(sf::RenderWindow& window, sf::FloatRect bounds, con
     }
 }
 
-void UI_mainMenu::drawHeader(sf::RenderWindow& window) {
-    (void)window;
-    float screenWidth = VIRTUAL_WIDTH;
+void UI_mainMenu::drawHeader(sf::RenderWindow& window, bool large) {
+    const float screenWidth = VIRTUAL_WIDTH;
+    // Large logo on the top-level menu; compact on submenus (the control-scheme card starts at y = 170)
+    const float logoTop = large ? MAIN_LOGO_TOP : SUB_LOGO_TOP;
+    const float logoH = large ? MAIN_LOGO_HEIGHT : SUB_LOGO_HEIGHT;
+    float subtitleY = logoTop + logoH + 10.0f;
 
-    if (fontLoaded) {
-        // Drop shadow
-        sf::Text titleShadow(font, "ENERGY CRISIS", 54);
-        titleShadow.setFillColor(sf::Color(180, 100, 0, 180));
-        sf::FloatRect sBounds = titleShadow.getLocalBounds();
-        titleShadow.setPosition({ (screenWidth - sBounds.size.x) / 2.0f + 2.0f, 62.0f });
-        ui::drawText(window, titleShadow);
+    if (logoLoaded) {
+        sf::Vector2f texSize(logoTexture.getSize());
+        float scale = logoH / texSize.y;
+        sf::Vector2f center(screenWidth / 2.0f, logoTop + logoH / 2.0f);
 
-        // Main Title
+        // Subtle breathing glow: two slightly larger, warm additive copies whose strength pulses
+        float t = animClock.getElapsedTime().asSeconds();
+        float pulse = 0.5f + 0.5f * std::sin(t * 2.0f);
+        for (int layer = 0; layer < 2; ++layer) {
+            float grow = (layer == 0 ? 1.03f : 1.07f) + 0.012f * pulse;
+            float alpha = (layer == 0 ? 34.0f : 16.0f) + (layer == 0 ? 30.0f : 16.0f) * pulse;
+            sf::Sprite glow(logoTexture);
+            glow.setOrigin(texSize / 2.0f);
+            glow.setPosition(center);
+            glow.setScale({ scale * grow, scale * grow });
+            glow.setColor(sf::Color(255, 236, 140, static_cast<std::uint8_t>(alpha)));
+            window.draw(glow, sf::RenderStates(sf::BlendAdd));
+        }
+
+        sf::Sprite logo(logoTexture);
+        logo.setOrigin(texSize / 2.0f);
+        logo.setPosition(center);
+        logo.setScale({ scale, scale });
+        window.draw(logo);
+    } else if (fontLoaded) {
+        // Fallback when assets/logo.png is missing: the old text title
         sf::Text title(font, "ENERGY CRISIS", 54);
         title.setFillColor(sf::Color(255, 204, 0));
-        title.setPosition({ (screenWidth - sBounds.size.x) / 2.0f, 60.0f });
+        sf::FloatRect tb = title.getLocalBounds();
+        title.setPosition({ (screenWidth - tb.size.x) / 2.0f - tb.position.x, logoTop + (logoH - tb.size.y) / 2.0f - tb.position.y });
         ui::drawText(window, title);
+    }
 
+    if (fontLoaded) {
         // Subtitle
         sf::Text subtitle(font, toUtf8("УПРАВЛЕНИЕ НА ЕНЕРГИЙНАТА МРЕЖА И РЕСУРСИТЕ"), 16);
         subtitle.setFillColor(sf::Color(140, 180, 220));
         sf::FloatRect subBounds = subtitle.getLocalBounds();
-        subtitle.setPosition({ (screenWidth - subBounds.size.x) / 2.0f, 124.0f });
+        subtitle.setPosition({ (screenWidth - subBounds.size.x) / 2.0f, subtitleY });
         ui::drawText(window, subtitle);
 
         // Decorative line
         sf::RectangleShape line({ subBounds.size.x + 80.0f, 2.0f });
-        line.setPosition({ (screenWidth - (subBounds.size.x + 80.0f)) / 2.0f, 152.0f });
+        line.setPosition({ (screenWidth - (subBounds.size.x + 80.0f)) / 2.0f, subtitleY + 26.0f });
         line.setFillColor(sf::Color(60, 85, 120, 180));
         window.draw(line);
     }
 }
-
 void UI_mainMenu::onPlay() {
     std::cout << "[UI_mainMenu] Game launching with Control Scheme "
               << static_cast<int>(playControls.getSelectedScheme())
@@ -126,17 +170,14 @@ void UI_mainMenu::onQuit() {
 }
 
 void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
-    drawHeader(window);
+    drawHeader(window, true);
 
     float screenWidth = VIRTUAL_WIDTH;
-    float btnWidth = 320.0f;
-    float btnHeight = 54.0f;
-    float btnX = (screenWidth - btnWidth) / 2.0f;
 
     sf::Vector2f mousePos = ui::pointerPos(window);
-    sf::FloatRect playBtn({ btnX, 230.0f }, { btnWidth, btnHeight });
-    sf::FloatRect settingsBtn({ btnX, 306.0f }, { btnWidth, btnHeight });
-    sf::FloatRect quitBtn({ btnX, 382.0f }, { btnWidth, btnHeight });
+    sf::FloatRect playBtn = mainButtonRect(0);
+    sf::FloatRect settingsBtn = mainButtonRect(1);
+    sf::FloatRect quitBtn = mainButtonRect(2);
 
     bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
     if (mouseMoved) {
@@ -157,7 +198,7 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
         sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter]"), 14);
         hint.setFillColor(sf::Color(130, 155, 185));
         sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, 470.0f });
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, MAIN_BTN_Y[2] + MAIN_BTN_H + 34.0f });
         ui::drawText(window, hint);
     }
 }
@@ -537,16 +578,12 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             float screenWidth = VIRTUAL_WIDTH;
 
             if (state == MenuState::MAIN) {
-                float btnWidth = 320.0f;
-                float btnHeight = 54.0f;
-                float btnX = (screenWidth - btnWidth) / 2.0f;
-
-                if (isPointInside({ { btnX, 230.0f }, { btnWidth, btnHeight } }, clickPos)) {
+                if (isPointInside(mainButtonRect(0), clickPos)) {
                     state = MenuState::MODE_SELECT;
                     selectedModeIndex = 0;
-                } else if (isPointInside({ { btnX, 306.0f }, { btnWidth, btnHeight } }, clickPos)) {
+                } else if (isPointInside(mainButtonRect(1), clickPos)) {
                     onSettings();
-                } else if (isPointInside({ { btnX, 382.0f }, { btnWidth, btnHeight } }, clickPos)) {
+                } else if (isPointInside(mainButtonRect(2), clickPos)) {
                     onQuit();
                 }
             } else if (state == MenuState::MODE_SELECT) {

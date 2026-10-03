@@ -40,9 +40,14 @@ private:
     sf::Font font;
     bool fontLoaded;
 
+    sf::Texture logoTexture;     // assets/logo.png (title artwork)
+    bool logoLoaded = false;
+    sf::Clock animClock;         // Logo glow pulse
+
     UI_playControls playControls;
 
-    void drawHeader(sf::RenderWindow& window);
+    // Logo title: large on the top-level menu, compact above the submenus
+    void drawHeader(sf::RenderWindow& window, bool large = false);
     void drawMainMenu(sf::RenderWindow& window);
     void drawModeSelectMenu(sf::RenderWindow& window);
     void drawBotDifficultyMenu(sf::RenderWindow& window);
