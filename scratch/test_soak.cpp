@@ -725,6 +725,32 @@ void actLightning(GameEngine& e, Rng& rng) {
     }
 }
 
+// Legacy random strike: owner 0 = any building, otherwise only that player's (3 = nobody's)
+void actBreakRandom(GameEngine& e, int owner) {
+    int candidates = 0;
+    for (const auto& b : e.getBuildings())
+        if (owner == 0 || b.playerOwner == owner) ++candidates;
+    EconSnap before;
+    before.take(e);
+    std::vector<PlacedBuilding> old = e.getBuildings();
+    sf::Vector2f pos;
+    bool ok = e.breakRandomBuilding(owner, pos);
+    INV(INV_ACTION_CONTRACT, ok == (candidates > 0), "breakRandomBuilding(" << owner << ") ok=" << ok << " candidates " << candidates);
+    if (!ok) {
+        INV(INV_ACTION_CONTRACT, hashEngine(e) == before.hash, "refused breakRandomBuilding changed the state");
+        return;
+    }
+    INV(INV_ACTION_CONTRACT, e.getBuildings().size() + 1 == old.size(), "breakRandomBuilding removed " << (old.size() - e.getBuildings().size()));
+    // the destroyed building is the one reported, and it belonged to the requested owner
+    bool found = false;
+    for (const auto& b : old) {
+        if (b.position == pos && (owner == 0 || b.playerOwner == owner)) found = true;
+    }
+    INV(INV_ACTION_CONTRACT, found, "breakRandomBuilding reported (" << pos.x << "; " << pos.y << ") which was not a candidate");
+    INV(INV_ACTION_CONTRACT, resourcesEqual(e.getPlayerEconomy(1), before.p[1]) && resourcesEqual(e.getPlayerEconomy(2), before.p[2]),
+        "breakRandomBuilding changed an economy");
+}
+
 void actTimeScale(GameEngine& e, float scale) {
     e.setTimeScale(scale);
     float ts = e.getTimeScale();
@@ -970,7 +996,10 @@ void randomAct(GameEngine& e, int player, Rng& rng, bool allowIllegal, int build
         (void)e.getBuildingCost(static_cast<BuildingType>(rng.range(-1, 9)));
         INV(INV_ACTION_CONTRACT, hashEngine(e) == before, "a query changed the state");
     } else if (roll < 97) {
-        if (!e.isGracePeriod()) actLightning(e, rng);
+        if (!e.isGracePeriod()) {
+            if (rng.chance(0.7f)) actLightning(e, rng);
+            else actBreakRandom(e, rng.range(0, 3));
+        }
     } else {
         // the UI toggles 1x / 6x (mining speed-up); odd values are fuzz
         float scale = rng.chance(0.5f) ? Balance::MINE_SPEEDUP_MULT : 1.0f;
