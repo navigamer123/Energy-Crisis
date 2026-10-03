@@ -477,6 +477,8 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     float progressRatio = 0.0f;
     bool showNextBtn = false;
     std::string nextBtnLabel = "НАПРЕД [SPACE]";
+    // Enter and the mouse act for Player 1 only in Single Player (in co-op they belong to P2's scheme)
+    const std::string altActionKeys = isCoop ? "" : " (или Enter / Ляв клик)";
 
     switch (step) {
         case TutorialStep::WELCOME:
@@ -492,7 +494,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         case TutorialStep::GATHER_WOOD:
             badgeText = "СТЪПКА 1 / 6: СЪБИРАНЕ НА РЕСУРСИ";
             titleText = "ДОБИЙТЕ ДЪРВЕСИНА ОТ СТАНЦИЯ 'ГОРА'";
-            descText = "Застанете върху осветената станция ГОРА и натиснете [SPACE] (или Enter / Ляв клик).\n"
+            descText = "Застанете върху осветената станция ГОРА и натиснете [SPACE]" + altActionKeys + ".\n"
                        "Всеки удар добива дърво за склада ви. Нужно за панел: 6 Дърво.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.wood) / 6.0f);
             progressText = "Дървесина: " + std::to_string(econ.wood) + " / 6" + (econ.wood >= 6 ? "  [ГОТОВО!]" : "");
@@ -538,7 +540,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             badgeText = "СТЪПКА 6 / 6: СТРОИТЕЛСТВО";
             titleText = "ПОСТАВЕТЕ ПАНЕЛА ВЪРХУ ВАШАТА ЗЕМЯ";
             descText = "Преместете курсора си върху маркираната свободна клетка от вашия парцел.\n"
-                       "Натиснете [SPACE] (или Enter / Ляв клик), за да завършите строежа!";
+                       "Натиснете [SPACE]" + altActionKeys + ", за да завършите строежа!";
             progressRatio = 0.5f;
             progressText = "Позиционирайте курсора и натиснете [SPACE] / [ENTER]";
             break;

@@ -192,7 +192,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             window.draw(energyPlaque);
 
             drawIcon(ResourceType::ENERGY, 18.0f, screenHeight - 92.0f);
-            int p1SharePct = static_cast<int>(econ.cityInfluence * 100.0f);
+            int p1SharePct = static_cast<int>(std::lround(econ.cityInfluence * 100.0f));
             std::string pStr = std::to_string(econ.energyMW) + " MW (" + std::to_string(p1SharePct) + "% ток)";
             sf::Text tPwr(font, toUtf8(pStr), 12);
             tPwr.setFillColor(sf::Color(255, 235, 100));
@@ -288,7 +288,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             window.draw(energyPlaque);
 
             drawIcon(ResourceType::ENERGY, screenWidth - 196.0f, screenHeight - 92.0f);
-            int p2SharePct = static_cast<int>(econ.cityInfluence * 100.0f);
+            int p2SharePct = static_cast<int>(std::lround(econ.cityInfluence * 100.0f));
             std::string pStr = std::to_string(econ.energyMW) + " MW (" + std::to_string(p2SharePct) + "% ток)";
             sf::Text tPwr(font, toUtf8(pStr), 12);
             tPwr.setFillColor(sf::Color(255, 235, 100));
