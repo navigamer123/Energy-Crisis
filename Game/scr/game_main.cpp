@@ -862,6 +862,12 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    // [wave-c-soak] Values outside the enum got an all-zero recipe and were built for free
+    if (getBuildingCost(type).type != type) {
+        reason = "НЕПОЗНАТ ВИД СГРАДА!";
+        return false;
+    }
+
     if (type == BuildingType::DEMOLISH) {
         // Demolish tool checks if there is an owned building on this slot (same rule as removeBuilding)
         if (findOwnedBuildingInSlot(player, pos) >= 0) {

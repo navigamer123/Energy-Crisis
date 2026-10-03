@@ -222,12 +222,64 @@ void testLandPurchaseKeepsMirror() {
     endGroup();
 }
 
+// Comparable snapshot of everything a refused action must leave untouched
+struct Snapshot {
+    PlayerEconomy p1, p2;
+    size_t buildings;
+    int purchased;
+    explicit Snapshot(const GameEngine& e)
+        : p1(e.getPlayerEconomy(1)), p2(e.getPlayerEconomy(2)), buildings(e.getBuildings().size()), purchased(0) {
+        for (const auto& plot : e.getLandPlots()) purchased += plot.isPurchased ? 1 : 0;
+    }
+    static bool same(const PlayerEconomy& a, const PlayerEconomy& b) {
+        if (!(a.money == b.money && a.gold == b.gold && a.silver == b.silver && a.iron == b.iron && a.coal == b.coal &&
+              a.copper == b.copper && a.silicon == b.silicon && a.wood == b.wood && a.landTier == b.landTier &&
+              a.selectedBuilding == b.selectedBuilding && a.lastPlacedBuilding == b.lastPlacedBuilding))
+            return false;
+        for (int k = 0; k < 8; ++k)
+            if (a.mineLevels[k] != b.mineLevels[k]) return false;
+        return true;
+    }
+    bool operator==(const Snapshot& o) const {
+        return same(p1, o.p1) && same(p2, o.p2) && buildings == o.buildings && purchased == o.purchased;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// [S4] placeBuilding() accepted building types outside the enum (e.g. 7, 9, 100): the recipe
+// lookup fell back to an all-zero cost, so a free building of no known kind was placed and
+// blocked the slot for the rest of the match.
+// ---------------------------------------------------------------------------
+void testUnknownBuildingTypesRefused() {
+    beginGroup("S4 unknown building types are refused");
+    GameEngine e;
+    initEngine(e, 14);
+    e.update(Balance::SECONDS_PER_DAY * 0.1f); // daylight
+    for (int p = 1; p <= 2; ++p) {
+        giveResources(e, p, 500);
+        const int bad[] = { 0, 7, 9, 100, -2 };
+        for (int t : bad) {
+            sf::Vector2f pos = e.getGridSlot(p, p == 1 ? 0 : 8, 0);
+            Snapshot before(e);
+            std::string reason, msg;
+            bool preview = e.canPlaceBuilding(p, static_cast<BuildingType>(t), pos, reason);
+            bool ok = e.placeBuilding(p, static_cast<BuildingType>(t), pos, msg);
+            CHECK(!preview && !ok && Snapshot(e) == before, "P" << p << " type " << t << ": preview " << preview << " placed " << ok);
+            CHECK(!msg.empty(), "P" << p << " type " << t << ": no message for the refusal");
+        }
+        // the real types still work
+        place(e, p, BuildingType::SOLAR_PANEL, p == 1 ? 0 : 8, 0);
+    }
+    endGroup();
+}
+
 } // namespace
 
 int main() {
     testClockDoesNotDrift();
     testStepCostDoesNotScaleWithRecipeLookups();
     testLandPurchaseKeepsMirror();
+    testUnknownBuildingTypesRefused();
     std::cout << "\n" << (g_failures == 0 ? "ALL PASSED" : "FAILED") << ": " << (g_checks - g_failures) << "/" << g_checks
               << " checks\n";
     return g_failures == 0 ? 0 : 1;
