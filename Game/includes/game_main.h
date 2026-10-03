@@ -141,7 +141,8 @@ public:
     using MineResult = ::MineResult;
 
 private:
-    float gameSeconds;
+    // [wave-c-soak] double: a float clock gained/lost up to ~3-4 s per match depending on the frame rate
+    double gameSeconds;
     int currentDay;
     float hour24;
     float revenueTimer;         // Accumulates game-seconds towards the next 1 s city payout

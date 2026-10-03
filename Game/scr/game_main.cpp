@@ -167,10 +167,10 @@ void GameEngine::update(float dt) {
 
         // Never let a step cross the 06:00 day boundary: the day that ends is settled exactly once,
         // with exactly the energy delivered during that day, however large the frame is.
-        float dayEndSeconds = static_cast<float>(currentDay) * Balance::SECONDS_PER_DAY;
+        double dayEndSeconds = static_cast<double>(currentDay) * Balance::SECONDS_PER_DAY;
         bool reachesDayEnd = (gameSeconds + step >= dayEndSeconds);
         if (reachesDayEnd) {
-            step = std::max(0.0f, dayEndSeconds - gameSeconds);
+            step = static_cast<float>(std::max(0.0, dayEndSeconds - gameSeconds));
         }
 
         simulateStep(step);
@@ -186,13 +186,17 @@ void GameEngine::update(float dt) {
 
 void GameEngine::simulateStep(float dt) {
     gameSeconds += dt;
-    hour24 = std::fmod((gameSeconds / Balance::SECONDS_PER_DAY) * 24.0f + Balance::CLOCK_HOUR_AT_ZERO, 24.0f);
+    hour24 = static_cast<float>(std::fmod((gameSeconds / Balance::SECONDS_PER_DAY) * 24.0 + Balance::CLOCK_HOUR_AT_ZERO, 24.0));
     // Season flips at midnight (dark in every season), never at the 06:00 rollover
-    currentSeason = Balance::getSeasonAtGameSeconds(gameSeconds);
+    currentSeason = Balance::getSeasonAtGameSeconds(static_cast<float>(gameSeconds));
 
     // Update building energy outputs based on real-time continuous weather & sun
     updateBuildingsEnergy(dt);
-    city.dailySeconds += dt;
+    // [wave-c-soak] Derived from the clock instead of summing frames, so a day lasts 90 s at any FPS
+    // (day 1 starts at 08:00, every later day at 06:00)
+    double dayStartSeconds = (currentDay <= 1) ? Balance::gameSecondsAtHour(Balance::MATCH_START_HOUR)
+                                               : (currentDay - 1) * static_cast<double>(Balance::SECONDS_PER_DAY);
+    city.dailySeconds = static_cast<float>(std::max(0.0, gameSeconds - dayStartSeconds));
 
     // Percentage-based city energy revenue, paid once per full game-second (remainder carried over)
     revenueTimer += dt;
