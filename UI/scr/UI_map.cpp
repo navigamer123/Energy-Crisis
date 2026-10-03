@@ -1,6 +1,7 @@
 #include "../includes/UI_map.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
 #include <cmath>
 #include <iostream>
 #include <algorithm>
@@ -11,8 +12,8 @@ UI_map::UI_map()
       requestMenu(false),
       p1Clock(1),
       p2Clock(2),
-      p1Buildings(1, { 18.0f, 115.0f }, { 230.0f, 395.0f }, sf::Color(0, 229, 255)),
-      p2Buildings(2, { 1600.0f - 248.0f, 115.0f }, { 230.0f, 395.0f }, sf::Color(255, 120, 200)),
+      p1Buildings(1, { 18.0f, 115.0f }, { 230.0f, 395.0f }, theme::P1),
+      p2Buildings(2, { 1600.0f - 248.0f, 115.0f }, { 230.0f, 395.0f }, theme::P2),
       p1Pos(450.0f, 450.0f),
       p2Pos(1150.0f, 450.0f),
       p1Pulse(0.0f),
@@ -93,12 +94,12 @@ void UI_map::drawBackground(sf::RenderWindow& window) {
         sf::Vector2f texSize(backgroundTexture.getSize());
         sprite.setScale({ screenWidth / texSize.x, screenHeight / texSize.y });
         sprite.setPosition({ 0.0f, 0.0f });
-        sprite.setColor(sf::Color(100, 114, 104));
+        sprite.setColor(theme::GroundTint);
         window.draw(sprite);
     } else {
         sf::RectangleShape ground({ screenWidth, screenHeight });
         ground.setPosition({ 0.0f, 0.0f });
-        ground.setFillColor(sf::Color(60, 115, 40));
+        ground.setFillColor(theme::GroundFallback);
         window.draw(ground);
     }
 
@@ -114,14 +115,14 @@ void UI_map::drawBackground(sf::RenderWindow& window) {
     if (hour >= (sunrise - 0.75f) && hour < (sunrise + 0.5f)) {
         float t = (hour - (sunrise - 0.75f)) / 1.25f;
         float intensity = std::sin(t * 3.14159f);
-        skyOverlay.setFillColor(sf::Color(240, 150, 80, static_cast<std::uint8_t>(50 * intensity)));
+        skyOverlay.setFillColor(theme::withAlpha(theme::Dawn, static_cast<std::uint8_t>(50 * intensity)));
         window.draw(skyOverlay);
     }
     // 2. Dusk / Sunset transition (warm amber/crimson evening glow)
     else if (hour >= (sunset - 0.75f) && hour <= (sunset + 0.85f)) {
         float t = (hour - (sunset - 0.75f)) / 1.6f;
         float intensity = std::sin(t * 3.14159f);
-        skyOverlay.setFillColor(sf::Color(215, 80, 25, static_cast<std::uint8_t>(65 * intensity)));
+        skyOverlay.setFillColor(theme::withAlpha(theme::Dusk, static_cast<std::uint8_t>(65 * intensity)));
         window.draw(skyOverlay);
     }
     // 3. Nighttime (deep midnight indigo overlay)
@@ -130,7 +131,7 @@ void UI_map::drawBackground(sf::RenderWindow& window) {
         if (engine.getSeason() == SeasonType::WINTER) {
             nightAlpha = 130; // Darker winter nights
         }
-        skyOverlay.setFillColor(sf::Color(8, 14, 28, nightAlpha));
+        skyOverlay.setFillColor(theme::withAlpha(theme::Night, nightAlpha));
         window.draw(skyOverlay);
     }
 }
@@ -139,16 +140,17 @@ void UI_map::drawEnergyConduits(sf::RenderWindow& window, float animTime) {
     const auto& bList = engine.getBuildings();
     if (bList.empty()) return;
 
-    sf::Vector2f cityEntranceP1(730.0f, 410.0f);
-    sf::Vector2f cityEntranceP2(870.0f, 410.0f);
+    // Conduits end at the city's bottom edge (not on the border tag below it)
+    sf::Vector2f cityEntranceP1(730.0f, 392.0f);
+    sf::Vector2f cityEntranceP2(870.0f, 392.0f);
 
     for (size_t i = 0; i < bList.size(); ++i) {
         const auto& b = bList[i];
         if (b.type == BuildingType::LAMP) continue;
 
         sf::Vector2f dest = (b.playerOwner == 1) ? cityEntranceP1 : cityEntranceP2;
-        sf::Color conduitColor = (b.playerOwner == 1) ? sf::Color(0, 229, 255, 90) : sf::Color(255, 120, 200, 90);
-        sf::Color packetColor = (b.playerOwner == 1) ? sf::Color(160, 250, 255, 230) : sf::Color(255, 190, 240, 230);
+        sf::Color conduitColor = theme::withAlpha(theme::player(b.playerOwner), 90);
+        sf::Color packetColor = theme::withAlpha(theme::playerLight(b.playerOwner), 230);
 
         // Draw base conduit line
         sf::Vertex conduitLine[2];
@@ -178,7 +180,7 @@ void UI_map::drawEnergyConduits(sf::RenderWindow& window, float animTime) {
                 sf::CircleShape aura(7.0f);
                 aura.setOrigin({ 7.0f, 7.0f });
                 aura.setPosition(packetPos);
-                aura.setFillColor(sf::Color(packetColor.r, packetColor.g, packetColor.b, 65));
+                aura.setFillColor(theme::withAlpha(packetColor, 65));
                 window.draw(aura);
             }
         }
@@ -241,7 +243,7 @@ void UI_map::restartMatch() {
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
 
-    spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
+    spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, theme::Good);
 }
 
 bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
@@ -284,11 +286,13 @@ void UI_map::render(sf::RenderWindow& window) {
     p1Clock.setDay(engine.getCurrentDay());
     p1Clock.setWeather(engine.getPlayerWeather(1));
     p1Clock.setSeason(engine.getSeason());
+    p1Clock.setTimeScale(engine.getTimeScale());
 
     p2Clock.setHour(engine.getHour24());
     p2Clock.setDay(engine.getCurrentDay());
     p2Clock.setWeather(engine.getPlayerWeather(2));
     p2Clock.setSeason(engine.getSeason());
+    p2Clock.setTimeScale(engine.getTimeScale());
 
     float animTime = animClock.getElapsedTime().asSeconds();
     sf::Vector2f mousePos = ui::pointerPos(window);
@@ -356,8 +360,8 @@ void UI_map::render(sf::RenderWindow& window) {
     drawWeatherParticles(window);
 
     // 11. Top-Left & Top-Right Clocks (Continuous 24h cycle & weather)
-    p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(0, 229, 255));
-    p2Clock.draw(window, font, resourcesLoaded, { 1600.0f - 250.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(255, 120, 200));
+    p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, theme::P1);
+    p2Clock.draw(window, font, resourcesLoaded, { 1600.0f - 250.0f, 10.0f }, { 230.0f, 100.0f }, theme::P2);
 
     // 12. Left & Right Building Menus
     p1Buildings.setHotkeys(BuildHotkeys::DIGITS);

@@ -13,6 +13,7 @@ private:
     float currentHour; // 0.0f to 24.0f
     WeatherType weather;
     SeasonType season;
+    float timeScale = 1.0f; // > 1 while the mining speed-up runs (shown next to the hour)
 
 public:
     UI_clock();
@@ -25,6 +26,7 @@ public:
     void setDay(int d) { currentDay = d; }
     void setWeather(WeatherType w) { weather = w; }
     void setSeason(SeasonType s) { season = s; }
+    void setTimeScale(float scale) { timeScale = scale; }
 
     int getCurrentDay() const { return currentDay; }
     float getHour24() const { return currentHour; }

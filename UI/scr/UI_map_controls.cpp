@@ -1,6 +1,7 @@
 #include "../includes/UI_map.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
+#include "../includes/UI_theme.h"
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -11,13 +12,7 @@
 
 // Real resource list of a building recipe (used by keyboard and mouse selection popups)
 static std::string formatCost(const BuildingCost& c) {
-    std::string s = "Нужно: " + std::to_string(c.woodCost) + " Дърво";
-    if (c.ironCost > 0) s += ", " + std::to_string(c.ironCost) + " Жел";
-    if (c.copperCost > 0) s += ", " + std::to_string(c.copperCost) + " Мед";
-    if (c.siliconCost > 0) s += ", " + std::to_string(c.siliconCost) + " Сил";
-    if (c.coalCost > 0) s += ", " + std::to_string(c.coalCost) + " Въгл";
-    if (c.silverCost > 0) s += ", " + std::to_string(c.silverCost) + " Среб";
-    return s;
+    return "Нужно: " + recipeText(c);
 }
 
 // -----------------------------------------------------------------------------
@@ -93,9 +88,9 @@ static void drawCursorTag(sf::RenderWindow& window, sf::Text& tag, sf::Vector2f 
     pillPos.y = std::max(2.0f, pillPos.y);
     sf::RectangleShape pill(pillSize);
     pill.setPosition(pillPos);
-    pill.setFillColor(sf::Color(10, 14, 22, 215));
+    pill.setFillColor(theme::withAlpha(theme::Window, 215));
     pill.setOutlineThickness(1.0f);
-    pill.setOutlineColor(sf::Color(accent.r, accent.g, accent.b, 170));
+    pill.setOutlineColor(theme::withAlpha(accent, 170));
     window.draw(pill);
     const sf::FloatRect pillRect(pillPos, pillSize);
     ui::lint::occlude(pillRect);
@@ -115,16 +110,16 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
         pulseCircle.setOrigin({ radius, radius });
         pulseCircle.setPosition(p1Pos);
         std::uint8_t alpha = static_cast<std::uint8_t>(p1Pulse * 220);
-        pulseCircle.setFillColor(sf::Color(0, 229, 255, alpha / 4));
+        pulseCircle.setFillColor(theme::withAlpha(theme::P1, alpha / 4));
         pulseCircle.setOutlineThickness(2.0f);
-        pulseCircle.setOutlineColor(sf::Color(0, 255, 200, alpha));
+        pulseCircle.setOutlineColor(theme::withAlpha(theme::P1Light, alpha));
         window.draw(pulseCircle);
     }
 
     sf::CircleShape p1Core(8.0f);
     p1Core.setOrigin({ 8.0f, 8.0f });
     p1Core.setPosition(p1Pos);
-    p1Core.setFillColor(sf::Color(0, 229, 255, 220));
+    p1Core.setFillColor(theme::withAlpha(theme::P1, 220));
     p1Core.setOutlineThickness(2.0f);
     p1Core.setOutlineColor(sf::Color::White);
     window.draw(p1Core);
@@ -135,14 +130,15 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
         bracket.setOrigin({ 20.0f, 1.25f });
         bracket.setPosition(p1Pos);
         bracket.setRotation(sf::degrees(rot1 + i * 90.0f));
-        bracket.setFillColor(sf::Color(0, 255, 220));
+        bracket.setFillColor(theme::P1Light);
         window.draw(bracket);
     }
 
     if (resourcesLoaded) {
-        sf::Text p1Tag(font, "P1", 13);
-        p1Tag.setFillColor(sf::Color(0, 255, 255));
-        drawCursorTag(window, p1Tag, p1Pos, sf::Color(0, 229, 255));
+        sf::Text p1Tag(font, "P1", fontsize::Label);
+        p1Tag.setStyle(sf::Text::Bold);
+        p1Tag.setFillColor(theme::P1Light);
+        drawCursorTag(window, p1Tag, p1Pos, theme::P1);
     }
 
     // -------------------------------------------------------------------------
@@ -154,16 +150,16 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
         pulseCircle.setOrigin({ radius, radius });
         pulseCircle.setPosition(p2Pos);
         std::uint8_t alpha = static_cast<std::uint8_t>(p2Pulse * 220);
-        pulseCircle.setFillColor(sf::Color(255, 120, 200, alpha / 4));
+        pulseCircle.setFillColor(theme::withAlpha(theme::P2, alpha / 4));
         pulseCircle.setOutlineThickness(2.0f);
-        pulseCircle.setOutlineColor(sf::Color(255, 215, 0, alpha));
+        pulseCircle.setOutlineColor(theme::withAlpha(theme::P2Light, alpha));
         window.draw(pulseCircle);
     }
 
     sf::CircleShape p2Core(8.0f);
     p2Core.setOrigin({ 8.0f, 8.0f });
     p2Core.setPosition(p2Pos);
-    p2Core.setFillColor(sf::Color(255, 120, 200, 220));
+    p2Core.setFillColor(theme::withAlpha(theme::P2, 220));
     p2Core.setOutlineThickness(2.0f);
     p2Core.setOutlineColor(sf::Color::White);
     window.draw(p2Core);
@@ -174,7 +170,7 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
         bracket.setOrigin({ 20.0f, 1.25f });
         bracket.setPosition(p2Pos);
         bracket.setRotation(sf::degrees(rot2 + i * 90.0f));
-        bracket.setFillColor(sf::Color(255, 204, 0));
+        bracket.setFillColor(theme::P2Light);
         window.draw(bracket);
     }
 
@@ -185,9 +181,10 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
             else if (bot.getDifficulty() == BotDifficulty::MEDIUM) p2Label = "P2 [БОТ: СРЕДЕН]";
             else if (bot.getDifficulty() == BotDifficulty::HARD) p2Label = "P2 [БОТ: ТРУДЕН]";
         }
-        sf::Text p2Tag(font, toUtf8(p2Label), 13);
-        p2Tag.setFillColor(bot.isActive() ? sf::Color(255, 215, 0) : sf::Color(255, 140, 220));
-        drawCursorTag(window, p2Tag, p2Pos, sf::Color(255, 120, 200));
+        sf::Text p2Tag(font, toUtf8(p2Label), fontsize::Label);
+        p2Tag.setStyle(sf::Text::Bold);
+        p2Tag.setFillColor(theme::P2Light);
+        drawCursorTag(window, p2Tag, p2Pos, theme::P2);
     }
 }
 
@@ -204,10 +201,10 @@ void UI_map::executeP1Action() {
                     if (!plot.isPurchased) {
                         std::string buyMsg;
                         if (engine.buyLandPlot(1, plot.id, buyMsg)) {
-                            triggerPlayerPopup(1, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак SPACE за строеж.", "[SPACE]: Постави сградата", sf::Color(255, 215, 0));
-                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, sf::Color(255, 215, 0));
+                            triggerPlayerPopup(1, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак SPACE за строеж.", "[SPACE]: Постави сградата", theme::Gold);
+                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, theme::Gold);
                         } else {
-                            triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", sf::Color(255, 180, 50));
+                            triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", theme::Warn);
                         }
                         return;
                     }
@@ -222,8 +219,8 @@ void UI_map::executeP1Action() {
         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
         std::string msg;
         if (engine.placeBuilding(1, sel, targetPos, msg)) {
-            triggerPlayerPopup(1, "УСПЕХ", "Действието е успешно!", msg, "[E]: Постави отново същата", sf::Color(0, 255, 180));
-            spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, sf::Color(0, 255, 180));
+            triggerPlayerPopup(1, "УСПЕХ", "Действието е успешно!", msg, "[E]: Постави отново същата", theme::Good);
+            spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, theme::Good);
             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(1);
         } else {
             reportBuildFailure(1, sel, msg);
@@ -234,7 +231,7 @@ void UI_map::executeP1Action() {
             if (p1ResourceCooldown > 0.0f) {
                 char buf[32];
                 std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
-                spawnNotice(buf, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                spawnNotice(buf, p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
                 return;
             }
             GameEngine::MineResult res;
@@ -242,7 +239,7 @@ void UI_map::executeP1Action() {
             if (engine.mineResource(1, resType, res, msg)) {
                 p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
                 const auto* st = nodes.getStation(1, resType);
-                sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
+                sf::Color c = st ? st->themeColor : theme::P1;
                 spawnMiningParticles(p1Pos, c, 18);
                 triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[SPACE]: Добив (на 1 сек)", c);
                 spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), c);
@@ -253,13 +250,13 @@ void UI_map::executeP1Action() {
                     if (!plot.isPurchased) {
                         std::string msg;
                         if (engine.buyLandPlot(1, plot.id, msg)) {
-                            triggerPlayerPopup(1, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете E за избор на сграда.", "[E]: Избери сграда", sf::Color(255, 215, 0));
-                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, sf::Color(255, 215, 0));
+                            triggerPlayerPopup(1, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете E за избор на сграда.", "[E]: Избери сграда", theme::Gold);
+                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, theme::Gold);
                         } else {
-                            triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари и злато!", sf::Color(255, 180, 50));
+                            triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари и злато!", theme::Warn);
                         }
                     } else {
-                        triggerPlayerPopup(1, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[E]: Изберете сграда за строеж", sf::Color(0, 229, 255));
+                        triggerPlayerPopup(1, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[E]: Изберете сграда за строеж", theme::P1);
                     }
                     break;
                 }
@@ -281,10 +278,10 @@ void UI_map::executeP2Action() {
                     if (!plot.isPurchased) {
                         std::string buyMsg;
                         if (engine.buyLandPlot(2, plot.id, buyMsg)) {
-                            triggerPlayerPopup(2, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак ENTER за строеж.", "[ENTER]: Постави сградата", sf::Color(255, 215, 0));
-                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, sf::Color(255, 215, 0));
+                            triggerPlayerPopup(2, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак ENTER за строеж.", "[ENTER]: Постави сградата", theme::Gold);
+                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, theme::Gold);
                         } else {
-                            triggerPlayerModal(2, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", sf::Color(255, 180, 50));
+                            triggerPlayerModal(2, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", theme::Warn);
                         }
                         return;
                     }
@@ -299,8 +296,8 @@ void UI_map::executeP2Action() {
         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
         std::string msg;
         if (engine.placeBuilding(2, sel, targetPos, msg)) {
-            triggerPlayerPopup(2, "УСПЕХ", "Действието е успешно!", msg, "[PgDn]: Постави отново същата", sf::Color(255, 120, 200));
-            spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, sf::Color(255, 120, 200));
+            triggerPlayerPopup(2, "УСПЕХ", "Действието е успешно!", msg, "[PgDn]: Постави отново същата", theme::P2);
+            spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, theme::P2);
             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(2);
         } else {
             reportBuildFailure(2, sel, msg);
@@ -311,7 +308,7 @@ void UI_map::executeP2Action() {
             if (p2ResourceCooldown > 0.0f) {
                 char buf[32];
                 std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
-                spawnNotice(buf, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                spawnNotice(buf, p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
                 return;
             }
             GameEngine::MineResult res;
@@ -319,7 +316,7 @@ void UI_map::executeP2Action() {
             if (engine.mineResource(2, resType, res, msg)) {
                 p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
                 const auto* st = nodes.getStation(2, resType);
-                sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);
+                sf::Color c = st ? st->themeColor : theme::P2Light;
                 spawnMiningParticles(p2Pos, c, 18);
                 triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[ENTER]: Добив (на 1 сек)", c);
                 spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), c);
@@ -330,13 +327,13 @@ void UI_map::executeP2Action() {
                     if (!plot.isPurchased) {
                         std::string msg;
                         if (engine.buyLandPlot(2, plot.id, msg)) {
-                            triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете PgDn за избор.", "[PgDn]: Избери сграда", sf::Color(255, 215, 0));
-                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, sf::Color(255, 215, 0));
+                            triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете PgDn за избор.", "[PgDn]: Избери сграда", theme::Gold);
+                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, theme::Gold);
                         } else {
-                            triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", sf::Color(255, 90, 90));
+                            triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", theme::Bad);
                         }
                     } else {
-                        triggerPlayerPopup(2, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[PgDn]: Изберете сграда за строеж", sf::Color(255, 140, 220));
+                        triggerPlayerPopup(2, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[PgDn]: Изберете сграда за строеж", theme::P2Light);
                     }
                     break;
                 }
@@ -349,17 +346,17 @@ void UI_map::executeP1Upgrade() {
     p1Pulse = 1.0f;
     ResourceType resType = nodes.getP1StationAt(p1Pos);
     if (resType == ResourceType::NONE || resType == ResourceType::MONEY) {
-        spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+        spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
         return;
     }
     std::string msg;
     if (engine.upgradeMine(1, resType, msg)) {
-        spawnMiningParticles(p1Pos, sf::Color(255, 215, 0), 28);
-        triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", sf::Color(255, 215, 0));
-        spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+        spawnMiningParticles(p1Pos, theme::Gold, 28);
+        triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", theme::Gold);
+        spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
     } else {
-        triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
-        spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+        triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
+        spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Bad);
     }
 }
 
@@ -367,17 +364,17 @@ void UI_map::executeP2Upgrade() {
     p2Pulse = 1.0f;
     ResourceType resType = nodes.getP2StationAt(p2Pos);
     if (resType == ResourceType::NONE || resType == ResourceType::MONEY) {
-        spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+        spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
         return;
     }
     std::string msg;
     if (engine.upgradeMine(2, resType, msg)) {
-        spawnMiningParticles(p2Pos, sf::Color(255, 215, 0), 28);
-        triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", sf::Color(255, 215, 0));
-        spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+        spawnMiningParticles(p2Pos, theme::Gold, 28);
+        triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", theme::Gold);
+        spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
     } else {
-        triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
-        spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+        triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
+        spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Bad);
     }
 }
 
@@ -386,9 +383,12 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         return;
     }
 
-    // Keyboard & mouse state is global: never read it while another window has the focus.
-    // Screenshot mode never reads input either, so captures do not depend on focus or keys.
-    if (!window.hasFocus() || ui::shot::isActive()) {
+    // Screenshot mode never reads input, so captures do not depend on focus or keys (the scene's
+    // time scale is kept).
+    if (ui::shot::isActive()) return;
+
+    // Keyboard & mouse state is global: never read it while another window has the focus
+    if (!window.hasFocus()) {
         engine.setTimeScale(1.0f);
         primeInputEdges(0);
         return;
@@ -588,13 +588,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         BuildingCost c = engine.getBuildingCost(newSel);
         p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
         if (newSel == BuildingType::DEMOLISH) {
-            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 80, 80));
+            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", theme::Bad);
         } else if (newSel == BuildingType::LAMP) {
-            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", p1ActKeys + ": Постави | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 220, 100));
+            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", p1ActKeys + ": Постави | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", theme::Warn);
         } else {
             triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               p1ActKeys + ": Постави в грида | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(0, 229, 255));
+                               p1ActKeys + ": Постави в грида | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", theme::P1);
         }
     }
     p1PrevE = curE;
@@ -610,13 +610,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             BuildingCost c = engine.getBuildingCost(newSel);
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
             if (newSel == BuildingType::DEMOLISH) {
-                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 80, 80));
+                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", theme::Bad);
             } else if (newSel == BuildingType::LAMP) {
-                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", p1ActKeys + ": Постави | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 220, 100));
+                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", p1ActKeys + ": Постави | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", theme::Warn);
             } else {
                 triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                    formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                                   p1ActKeys + ": Постави в грида | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(0, 229, 255));
+                                   p1ActKeys + ": Постави в грида | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", theme::P1);
             }
         }
     }
@@ -627,11 +627,11 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     if (curX && !p1PrevX && !p1Modal.active && !showHelpOverlay) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
             engine.clearBuildingSelection(1);
-            triggerPlayerPopup(1, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", p1NextKeys + ": Избери сграда", sf::Color(180, 180, 180));
+            triggerPlayerPopup(1, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", p1NextKeys + ": Избери сграда", theme::TextSecondary);
         } else {
             engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
-            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", p1ActKeys + ": Премахни | " + p1CancelKeys + ": Отказ", sf::Color(255, 80, 80));
+            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", p1ActKeys + ": Премахни | " + p1CancelKeys + ": Отказ", theme::Bad);
         }
     }
     p1PrevX = curX;
@@ -646,7 +646,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
             triggerPlayerPopup(1, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
                                (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
-                               "[SPACE]: Постави в грида | [X]: Отказ", (k == 6 ? sf::Color(255, 80, 80) : sf::Color(0, 229, 255)));
+                               "[SPACE]: Постави в грида | [X]: Отказ", (k == 6 ? theme::Bad : theme::P1));
         }
         p1PrevNum[k] = curNum;
     }
@@ -678,13 +678,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             BuildingCost c = engine.getBuildingCost(newSel);
             p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
             if (newSel == BuildingType::DEMOLISH) {
-                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
+                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", theme::Bad);
             } else if (newSel == BuildingType::LAMP) {
-                triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 220, 100));
+                triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", theme::Warn);
             } else {
                 triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                    formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                                   "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 120, 200));
+                                   "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", theme::P2);
             }
         }
         p2PrevPgDn = curPgDn;
@@ -699,13 +699,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             BuildingCost c = engine.getBuildingCost(newSel);
             p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
             if (newSel == BuildingType::DEMOLISH) {
-                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
+                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", theme::Bad);
             } else if (newSel == BuildingType::LAMP) {
-                triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 220, 100));
+                triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", theme::Warn);
             } else {
                 triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                    formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                                   "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 120, 200));
+                                   "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", theme::P2);
             }
         }
         p2PrevPgUp = curPgUp;
@@ -715,11 +715,11 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         if (curDel && !p2PrevDel && !p2Modal.active && !showHelpOverlay) {
             if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
                 engine.clearBuildingSelection(2);
-                triggerPlayerPopup(2, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
+                triggerPlayerPopup(2, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[PgDn]: Избери сграда", theme::TextSecondary);
             } else {
                 engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
                 p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
-                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", "[ENTER]: Премахни | [Del]: Отказ", sf::Color(255, 80, 80));
+                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", "[ENTER]: Премахни | [Del]: Отказ", theme::Bad);
             }
         }
         p2PrevDel = curDel;
@@ -734,7 +734,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                 p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
                 triggerPlayerPopup(2, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
                                    (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
-                                   "[ENTER]: Постави в грида | [Del]: Отказ", (k == 6 ? sf::Color(255, 80, 80) : sf::Color(255, 120, 200)));
+                                   "[ENTER]: Постави в грида | [Del]: Отказ", (k == 6 ? theme::Bad : theme::P2));
             }
             p2PrevNum[k] = curNum;
         }
@@ -970,7 +970,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         if (mb->button == sf::Mouse::Button::Right) {
             if (owner != 0 && !ownerModal->active && engine.getSelectedBuilding(owner) != BuildingType::NONE) {
                 engine.clearBuildingSelection(owner);
-                triggerPlayerPopup(owner, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "", sf::Color(180, 180, 180));
+                triggerPlayerPopup(owner, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "", theme::TextSecondary);
             }
             return;
         }
@@ -1019,7 +1019,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                    (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                         : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
-                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", sf::Color(0, 229, 255));
+                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", theme::P1);
                 return;
             }
         } else {
@@ -1031,7 +1031,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                    (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                         : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
-                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", sf::Color(255, 120, 200));
+                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", theme::P2);
                 return;
             }
         }
@@ -1040,18 +1040,18 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         if (owner == 1 && resourceHUD.getP1BuyLandButton().contains(clickPos)) {
             std::string msg;
             if (engine.buyNextLandTier(1, msg)) {
-                triggerPlayerPopup(1, "ЗЕМЯ", "Разширена земя!", msg, "[E]: Избери сграда за строеж", sf::Color(255, 215, 0));
+                triggerPlayerPopup(1, "ЗЕМЯ", "Разширена земя!", msg, "[E]: Избери сграда за строеж", theme::Gold);
             } else {
-                triggerPlayerPopup(1, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", sf::Color(255, 90, 90));
+                triggerPlayerPopup(1, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", theme::Bad);
             }
             return;
         }
         if (owner == 2 && resourceHUD.getP2BuyLandButton().contains(clickPos)) {
             std::string msg;
             if (engine.buyNextLandTier(2, msg)) {
-                triggerPlayerPopup(2, "ЗЕМЯ", "Разширена земя!", msg, "[PgDn]: Избери сграда", sf::Color(255, 215, 0));
+                triggerPlayerPopup(2, "ЗЕМЯ", "Разширена земя!", msg, "[PgDn]: Избери сграда", theme::Gold);
             } else {
-                triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", sf::Color(255, 90, 90));
+                triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", theme::Bad);
             }
             return;
         }
@@ -1062,9 +1062,9 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 if (!plot.isPurchased) {
                     std::string msg;
                     if (engine.buyLandPlot(owner, plot.id, msg)) {
-                        triggerPlayerPopup(owner, "ЗЕМЯ", "Купихте парцел!", msg + "\nВече можете да строите тук.", "[КЛИК]: Постави сграда", sf::Color(255, 215, 0));
+                        triggerPlayerPopup(owner, "ЗЕМЯ", "Купихте парцел!", msg + "\nВече можете да строите тук.", "[КЛИК]: Постави сграда", theme::Gold);
                     } else {
-                        triggerPlayerModal(owner, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите злато!", sf::Color(255, 180, 50));
+                        triggerPlayerModal(owner, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите злато!", theme::Warn);
                     }
                     return;
                 } else {
@@ -1073,7 +1073,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? clickPos : engine.snapToBuildingGrid(owner, clickPos);
                         std::string msg;
                         if (engine.placeBuilding(owner, sel, targetPos, msg)) {
-                            triggerPlayerPopup(owner, "УСПЕХ", "Действието е успешно!", msg, "", sf::Color(0, 255, 180));
+                            triggerPlayerPopup(owner, "УСПЕХ", "Действието е успешно!", msg, "", theme::Good);
                             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(owner);
                         } else {
                             reportBuildFailure(owner, sel, msg);
@@ -1090,12 +1090,12 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             if (p1Up != ResourceType::NONE) {
                 std::string msg;
                 if (engine.upgradeMine(1, p1Up, msg)) {
-                    spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 25);
-                    triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", sf::Color(255, 215, 0));
-                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+                    spawnMiningParticles(clickPos, theme::Gold, 25);
+                    triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", theme::Gold);
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
                 } else {
-                    triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
-                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+                    triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Bad);
                 }
                 return;
             }
@@ -1104,12 +1104,12 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             if (p2Up != ResourceType::NONE) {
                 std::string msg;
                 if (engine.upgradeMine(2, p2Up, msg)) {
-                    spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 25);
-                    triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", sf::Color(255, 215, 0));
-                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+                    spawnMiningParticles(clickPos, theme::Gold, 25);
+                    triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", theme::Gold);
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
                 } else {
-                    triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
-                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+                    triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Bad);
                 }
                 return;
             }
@@ -1122,7 +1122,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 if (p1ResourceCooldown > 0.0f) {
                     char buf[32];
                     std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
-                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
                     return;
                 }
                 GameEngine::MineResult res;
@@ -1131,7 +1131,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
                     p1Pulse = 1.0f;
                     const auto* st = nodes.getStation(1, p1Res);
-                    sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
+                    sf::Color c = st ? st->themeColor : theme::P1;
                     spawnMiningParticles(clickPos, c, 18);
                     triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[E]: Избери сграда", c);
                     spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
@@ -1144,7 +1144,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 if (p2ResourceCooldown > 0.0f) {
                     char buf[32];
                     std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
-                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
                     return;
                 }
                 GameEngine::MineResult res;
@@ -1153,7 +1153,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
                     p2Pulse = 1.0f;
                     const auto* st = nodes.getStation(2, p2Res);
-                    sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);
+                    sf::Color c = st ? st->themeColor : theme::P2Light;
                     spawnMiningParticles(clickPos, c, 18);
                     triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[PgDn]: Избери сграда", c);
                     spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);

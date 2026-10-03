@@ -79,6 +79,13 @@ constexpr sf::Color Coal(130, 140, 155);
 constexpr sf::Color Silicon(180, 140, 255);      // #B48CFF violet
 constexpr sf::Color Silver(215, 225, 240);
 
+// --- World and atmosphere -----------------------------------------------------
+constexpr sf::Color GroundTint(100, 114, 104);   // multiplies background.png (darkens the bright green)
+constexpr sf::Color GroundFallback(48, 92, 40);  // plain ground when background.png is missing
+constexpr sf::Color Dawn(240, 150, 80);          // sunrise glow (alpha set by the time of day)
+constexpr sf::Color Dusk(215, 80, 25);           // sunset glow
+constexpr sf::Color Night(8, 14, 28);            // night overlay
+
 } // namespace theme
 
 // =============================================================================
