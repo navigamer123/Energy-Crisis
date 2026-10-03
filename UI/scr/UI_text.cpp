@@ -14,6 +14,8 @@ struct TextRecord {
     unsigned int size = 0;
     std::vector<char32_t> missingGlyphs;
     bool occluded = false;
+    bool partlyCovered = false; // a solid() element of the same layout hides part of it
+    sf::FloatRect coveredBy;
 };
 
 bool g_enabled = false;
@@ -105,6 +107,60 @@ sf::Text makeText(const sf::Font& font, const std::string& utf8, unsigned int si
     return t;
 }
 
+float measureText(const sf::Font& font, const std::string& utf8, unsigned int size, bool bold) {
+    sf::String s = toUtf8(utf8);
+    float width = 0.0f;
+    float lineWidth = 0.0f;
+    char32_t prev = 0;
+    for (char32_t c : s) {
+        if (c == U'\n') {
+            width = std::max(width, lineWidth);
+            lineWidth = 0.0f;
+            prev = 0;
+            continue;
+        }
+        if (prev != 0) lineWidth += font.getKerning(prev, c, size, bold);
+        lineWidth += font.getGlyph(c, size, bold).advance;
+        prev = c;
+    }
+    return std::max(width, lineWidth);
+}
+
+std::string wrapText(const sf::Font& font, const std::string& utf8, unsigned int size, float maxWidth, bool bold) {
+    std::string out;
+    std::size_t start = 0;
+    while (start <= utf8.size()) {
+        std::size_t end = utf8.find('\n', start);
+        std::string para = utf8.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        std::string line;
+        std::size_t pos = 0;
+        while (pos < para.size()) {
+            std::size_t sp = para.find(' ', pos);
+            std::string word = para.substr(pos, sp == std::string::npos ? std::string::npos : sp - pos);
+            pos = (sp == std::string::npos) ? para.size() : sp + 1;
+            if (word.empty()) continue;
+            std::string candidate = line.empty() ? word : line + " " + word;
+            if (!line.empty() && measureText(font, candidate, size, bold) > maxWidth) {
+                out += line + "\n";
+                line = word;
+            } else {
+                line = candidate;
+            }
+        }
+        out += line;
+        if (end == std::string::npos) break;
+        out += "\n";
+        start = end + 1;
+    }
+    return out;
+}
+
+unsigned int fitTextSize(const sf::Font& font, const std::string& utf8, unsigned int size, unsigned int minSize,
+                         float maxWidth, bool bold) {
+    while (size > minSize && measureText(font, utf8, size, bold) > maxWidth) --size;
+    return size;
+}
+
 void drawText(sf::RenderTarget& target, const sf::Text& text) {
     target.draw(text);
     if (g_enabled) record(text, nullptr);
@@ -130,8 +186,23 @@ void occlude(const sf::FloatRect& areaRect) {
     for (auto& r : g_records) {
         if (r.occluded) continue;
         sf::FloatRect inter = intersect(r.bounds, areaRect);
-        if (inter.size.x > 0.0f && inter.size.y > 0.0f && area(inter) >= 0.5f * area(r.bounds)) {
+        if (inter.size.x > 0.0f && inter.size.y > 0.0f) {
             r.occluded = true;
+        }
+    }
+}
+
+void solid(const sf::FloatRect& areaRect) {
+    if (!g_enabled) return;
+    for (auto& r : g_records) {
+        if (r.occluded || r.partlyCovered) continue;
+        sf::FloatRect inter = intersect(r.bounds, areaRect);
+        if (inter.size.x <= TOL || inter.size.y <= TOL) continue;
+        if (area(inter) >= 0.95f * area(r.bounds)) {
+            r.occluded = true; // fully under it: e.g. a text drawn before its own background
+        } else {
+            r.partlyCovered = true;
+            r.coveredBy = areaRect;
         }
     }
 }
@@ -166,6 +237,10 @@ std::vector<std::string> report() {
         if (r.alpha < MIN_VISIBLE_ALPHA || r.occluded) continue;
         if (overhang(r.bounds, canvas) > TOL) {
             out.push_back("LINT canvas: " + quote(r.str) + " " + rectStr(r.bounds) + " is outside the 1600x900 canvas");
+        }
+        if (r.partlyCovered) {
+            out.push_back("LINT covered: " + quote(r.str) + " " + rectStr(r.bounds) + " is partly hidden under " +
+                          rectStr(r.coveredBy));
         }
         if (r.hasContainer) {
             float over = overhang(r.bounds, r.container);

@@ -20,6 +20,18 @@ namespace ui {
 sf::Text makeText(const sf::Font& font, const std::string& utf8, unsigned int size,
                   sf::Color color = sf::Color::White, sf::Vector2f pos = { 0.0f, 0.0f });
 
+// Width in px of a single line of UTF-8 text (same layout rules as sf::Text).
+float measureText(const sf::Font& font, const std::string& utf8, unsigned int size, bool bold = false);
+
+// Inserts line breaks so that no line is wider than maxWidth (existing line breaks are kept;
+// a single word wider than maxWidth stays on its own line).
+std::string wrapText(const sf::Font& font, const std::string& utf8, unsigned int size, float maxWidth,
+                     bool bold = false);
+
+// Largest character size from `size` down to `minSize` at which the text fits maxWidth.
+unsigned int fitTextSize(const sf::Font& font, const std::string& utf8, unsigned int size, unsigned int minSize,
+                         float maxWidth, bool bold = false);
+
 // Draws the text. The container (if any) is the rectangle the text must stay inside;
 // without one the innermost ui::lint::ContainerScope is used.
 void drawText(sf::RenderTarget& target, const sf::Text& text);
@@ -33,9 +45,13 @@ bool isEnabled();
 // Forget the previous frame's records (called once at the start of every frame).
 void beginFrame();
 
-// An opaque surface was just drawn over this area: texts drawn earlier underneath it
-// are hidden and no longer take part in the overlap check.
+// An opaque overlay (dialog, backdrop, tag) was just drawn over this area: texts drawn earlier
+// that it touches are (partly) hidden under it and no longer take part in the overlap check.
 void occlude(const sf::FloatRect& area);
+
+// An opaque element of the same layout (a button, a badge) was drawn: unlike occlude(), a text
+// drawn earlier that it covers only partly is reported, because part of that text is hidden.
+void solid(const sf::FloatRect& area);
 
 // Every text drawn while a scope is alive must stay inside its rectangle
 // (unless drawText gets an explicit container). Scopes nest.
