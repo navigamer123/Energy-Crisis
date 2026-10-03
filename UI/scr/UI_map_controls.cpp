@@ -729,6 +729,15 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 }
 
 void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
+    // team info: developer overlay keys work on every in-match screen ([F3], and F6/F7/F8 while it is open)
+    if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+        if (key->code == sf::Keyboard::Key::F3) {
+            devOverlay.toggle();
+            return;
+        }
+        if (devOverlay.handleKey(key->code)) return;
+    }
+
     // -------------------------------------------------------------------------
     // -1. If Victory Screen is active, handle Restart [R], Menu [ESC/M], or button clicks
     // -------------------------------------------------------------------------

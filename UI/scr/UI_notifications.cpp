@@ -369,7 +369,7 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
                 push(q, ToastPriority::WARNING, "grace", "ВНИМАНИЕ", "Край на гратисния период",
                      "От днес градът иска средно " + std::to_string(Balance::STARTING_CITY_DEMAND_MW) +
                          " MW за деня. Отчет всяка сутрин в 06:00.",
-                     "", COL_WARN, false);
+                     "Задръжте [Tab] за енергийното табло", COL_WARN, false);
             }
             break;
         case InfoEventType::SEASON_CHANGED: {

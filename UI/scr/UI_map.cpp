@@ -251,12 +251,13 @@ bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
 
 void UI_map::render(sf::RenderWindow& window) {
     float dt = deltaClock.restart().asSeconds();
+    devOverlay.recordFrame(dt); // team info: real frame time, before the clamp
     if (dt > 0.05f) dt = 0.05f;
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     if (!isPaused && engine.getCityState().winner == 0) {
         stats.beforeEngineUpdate(engine); // team info: capture the day's average before a settlement
-        engine.update(dt);
+        engine.update(dt * devOverlay.timeMultiplier()); // team info: x1 unless the [F3] panel speeds it up
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
@@ -384,4 +385,7 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 21. Help & Rules Manual Overlay — ALWAYS on top of everything (including pause menu)
     drawHelpOverlay(window);
+
+    // 22. team info: developer overlay ([F3]) above everything
+    drawDevOverlay(window);
 }

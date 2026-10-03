@@ -47,6 +47,27 @@ void UI_map::drawDashboardIfHeld(sf::RenderWindow& window) {
 }
 
 // -----------------------------------------------------------------------------
+// Developer overlay ([F3])
+// -----------------------------------------------------------------------------
+
+void UI_map::drawDevOverlay(sf::RenderWindow& window) {
+    if (!devOverlay.isVisible() || !resourcesLoaded) return;
+    UI_devOverlay::Counts c;
+    for (const auto& b : engine.getBuildings()) {
+        if (b.playerOwner == 1) ++c.buildingsP1;
+        else if (b.playerOwner == 2) ++c.buildingsP2;
+    }
+    c.weatherParticles = static_cast<int>(particles.size());
+    c.miningParticles = static_cast<int>(miningParticles.size());
+    c.notices = static_cast<int>(notices.size());
+    c.lightnings = static_cast<int>(activeLightnings.size());
+    c.toasts = notifications.toastCount();
+    c.samples = stats.getSamples().size();
+    c.logEntries = notifications.logSize();
+    devOverlay.draw(window, font, engine, c, isPaused || engine.getCityState().winner != 0);
+}
+
+// -----------------------------------------------------------------------------
 // Event log overlay (on top of the pause menu)
 // -----------------------------------------------------------------------------
 

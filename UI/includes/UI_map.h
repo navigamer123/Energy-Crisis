@@ -17,6 +17,7 @@
 #include "UI_notifications.h" // team info
 #include "UI_dashboard.h"     // team info
 #include "UI_postmatch.h"     // team info
+#include "UI_devOverlay.h"    // team info
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -212,6 +213,8 @@ private:
     float dashboardOpenedAt = -1.0f;    // animClock time when Tab went down (-1 = closed)
     void drawDashboardIfHeld(sf::RenderWindow& window);
     UI_postmatch postMatch;             // Post-match report (replaces the victory box)
+    UI_devOverlay devOverlay;           // Developer overlay ([F3])
+    void drawDevOverlay(sf::RenderWindow& window);
 
 public:
     UI_map();
