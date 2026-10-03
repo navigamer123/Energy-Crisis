@@ -241,6 +241,11 @@ void GameEngine::restoreBaseCityDemand() {
 
 void GameEngine::onCityPoliticsNewDay(int endedDay) {
     (void)endedDay;
+    // Price level for the new day: the match day and the players' average wallet (money piles up fast)
+    politics.wealthScale = std::max(1.0f, 0.5f * static_cast<float>(std::max(0, p1.money) + std::max(0, p2.money)) / WEALTH_UNIT);
+    politics.market.inflation = std::max(1.0f + 0.08f * static_cast<float>(std::max(0, currentDay - 1)), 0.5f * politics.wealthScale);
+    politics.imports.pricePerMWs = 0.5f * std::max(1.0f + 0.1f * static_cast<float>(std::max(0, currentDay - 3)), 0.6f * politics.wealthScale);
+
     // Market prices relax 20% towards normal every night; import counters restart
     for (int i = 0; i < MARKET_SLOTS; ++i) {
         politics.market.mult[i] = 1.0f + (politics.market.mult[i] - 1.0f) * 0.8f;
@@ -341,6 +346,11 @@ float GameEngine::politicsMineMult(int player, ResourceType type) const {
     return m;
 }
 
+// Money prices of the council, tenders and import: the match day or the players' wealth, whichever is higher
+float GameEngine::getPriceScale() const {
+    return std::max(priceScale(currentDay), politics.wealthScale);
+}
+
 // =============================================================================
 // F-09 public helpers
 // =============================================================================
@@ -377,7 +387,7 @@ void GameEngine::debugStartCouncilCard(int cardId) {
     c.choice[0] = c.choice[1] = -1;
     const CouncilCardDef& card = getCouncilCard(c.cardId);
     for (int i = 0; i < 3; ++i) {
-        c.cost[i] = (i < card.optionCount) ? roundCost(card.options[i].baseCost * priceScale(currentDay)) : 0;
+        c.cost[i] = (i < card.optionCount) ? roundCost(card.options[i].baseCost * getPriceScale()) : 0;
     }
     politicsNotice("ГРАДСКИЯТ СЪВЕТ РЕШАВА: " + std::string(card.titleBg), 0, Tone::NEUTRAL);
 }
@@ -538,7 +548,7 @@ int GameEngine::suggestCouncilOption(int player, int skill) const {
     const PlayerEconomy& me = (player == 1) ? p1 : p2;
     const PlayerEconomy& other = (player == 1) ? p2 : p1;
     skill = std::max(1, std::min(skill, 3));
-    float sc = priceScale(c.day);
+    float sc = getPriceScale();
     float daily = estimateDailyIncome(me, other, politicsPayoutMult(player), sc);
     float spendCap = me.money * (0.25f + 0.1f * skill);     // never bet the whole wallet
     float shareValuePct = (500.0f + 500.0f * skill) * sc;   // what +1% of the city is worth to this bot
@@ -573,7 +583,7 @@ int GameEngine::suggestCouncilOption(int player, int skill) const {
             case CouncilEffect::BOND:
                 benefit = (o.baseCost > 0 ? cost * mag / o.baseCost : 0.0f) * (me.money > 3.0f * cost ? 1.0f : 0.8f);
                 break;
-            case CouncilEffect::GOLD: benefit = mag * sc * (60.0f + 15.0f * skill); break;
+            case CouncilEffect::GOLD: benefit = mag * priceScale(c.day) * (60.0f + 15.0f * skill) * (sc / priceScale(c.day)); break;
             case CouncilEffect::AUCTION_BID: {
                 // Win chance grows with the bid; the price is paid only on a win
                 float win = (o.magnitude >= 2) ? 0.7f : 0.35f;
@@ -602,7 +612,7 @@ void GameEngine::politicsBotThink(int player, int skill) {
     PlayerEconomy& me = (player == 1) ? p1 : p2;
     const PlayerEconomy& rival = (player == 1) ? p2 : p1;
     const int idx = player - 1;
-    const float sc = priceScale(currentDay);
+    const float sc = getPriceScale();
     std::string msg;
 
     // 1. Council: answer after a human-like pause

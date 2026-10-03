@@ -656,6 +656,29 @@ void testBotsFullMatch() {
     endGroup();
 }
 
+void testWealthScaledPrices() {
+    beginGroup("Prices follow the day and the players' wealth, fixed at each day start");
+    GameEngine* e = newEngine(true, "93");
+    runToDay(*e, 5);
+    const float s5 = e->getPriceScale();
+    CHECK(std::fabs(s5 - priceScale(5)) < 1e-4f, "day-5 scale " << s5 << " (no money yet)");
+    e->debugStartCouncilCard(2);
+    const int costSmall = e->getPolitics().council.cost[0];
+    e->getPlayerEconomyMut(1).money = 600000;
+    e->getPlayerEconomyMut(2).money = 600000;
+    CHECK(e->getPriceScale() == s5, "scale changed in the middle of a day");
+    runToDay(*e, 6);
+    const float s6 = e->getPriceScale();
+    CHECK(s6 > 30.0f, "wealth scale " << s6 << " with 600k wallets");
+    e->debugStartCouncilCard(2);
+    CHECK(e->getPolitics().council.cost[0] >= costSmall * 25, "council cost " << e->getPolitics().council.cost[0]);
+    CHECK(e->getImportPricePerMWs() > 5.0f, "import price " << e->getImportPricePerMWs());
+    CHECK(e->getMarketBuyPrice(ResourceType::WOOD) >= 20 * 10 * 15, "wood lot " << e->getMarketBuyPrice(ResourceType::WOOD));
+    CHECK(e->getTenderBidStep() >= 500 * 25, "bid step " << e->getTenderBidStep());
+    delete e;
+    endGroup();
+}
+
 void testRestartKeepsSwitch() {
     beginGroup("restartGame() keeps the politics switch and clears the board");
     GameEngine* e = newEngine(true, "91");
@@ -689,6 +712,7 @@ int main() {
     testExchange();
     testImport();
     testBotsFullMatch();
+    testWealthScaledPrices();
     testRestartKeepsSwitch();
     setSeedEnv(nullptr);
     std::cout << "\n========================================================\n";

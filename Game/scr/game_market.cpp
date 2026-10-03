@@ -3,7 +3,7 @@
 // Exchange: both players trade lots of the 7 resources for money on ONE shared market.
 //   Buying pushes the price up for both players (+8% per lot, up to 3x), selling pushes it
 //   down (-6% per lot, down to 0.5x); every night prices relax 20% towards normal.
-//   Prices also follow the match inflation (+8% per day) because city income grows.
+//   Prices also follow the match inflation (+8% per day, or half the wealth index when money piles up).
 // Import: a player who cannot cover the city demand may request up to 60 MW of the rival's
 //   SURPLUS (above the demand) for money per MW per game-second. The exporter decides with a
 //   toggle: take the money, or block it and keep the rival short of the city demand.
@@ -67,8 +67,6 @@ const char* resourceNameBg(ResourceType t) {
     }
 }
 
-float inflation(int day) { return 1.0f + 0.08f * static_cast<float>(std::max(0, day - 1)); }
-
 } // namespace
 
 // =============================================================================
@@ -85,7 +83,7 @@ float GameEngine::getMarketMultiplier(ResourceType type) const {
 int GameEngine::getMarketBuyPrice(ResourceType type) const {
     if (!tradable(type)) return 0;
     int i = static_cast<int>(type);
-    float p = kBasePrice[i] * politics.market.mult[i] * inflation(currentDay) * static_cast<float>(kLotSize[i]);
+    float p = kBasePrice[i] * politics.market.mult[i] * politics.market.inflation * static_cast<float>(kLotSize[i]);
     return std::max(1, static_cast<int>(std::lround(p)));
 }
 
@@ -135,7 +133,7 @@ bool GameEngine::tradeResource(int player, ResourceType type, bool buy, std::str
 // Cross-river emergency import
 // =============================================================================
 float GameEngine::getImportPricePerMWs() const {
-    return 0.5f * (1.0f + 0.1f * static_cast<float>(std::max(0, currentDay - 3)));
+    return politics.imports.pricePerMWs; // set at each day start (game_politics.cpp)
 }
 
 int GameEngine::getImportFlowMW(int player) const {

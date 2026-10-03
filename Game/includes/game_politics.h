@@ -34,6 +34,7 @@ constexpr int FIRST_TENDER_DAY = 4;         // Sealed-bid tenders start here
 constexpr int TENDER_CHANCE_PCT = 60;       // Daily chance of a tender
 constexpr float TENDER_BID_CLOSE_HOUR = 12.0f; // Sealed bids close at 12:00
 constexpr int IMPORT_MAX_MW = 60;           // Cross-river emergency import cap
+constexpr float WEALTH_UNIT = 15000.0f;     // Prices also follow the players' money: avg wallet / this
 
 // Money prices grow with the match: city income grows with the grid, so do the stakes.
 // Day 4 = 1.0x, day 8 = 2.0x, day 12 = 3.0x, day 20 = 5.0x
@@ -189,6 +190,7 @@ struct CityContract {
     // Tender
     int bid[2] = { 0, 0 };             // money held in escrow
     float bidTime[2] = { 0.0f, 0.0f }; // day-hour of the latest raise (earlier bid wins a tie)
+    int bidStep = 0;                   // money per bid step, fixed when the tender is posted
     int tenderWinner = 0;              // 0 = none yet
     int paidBid = 0;
 };
@@ -204,11 +206,13 @@ constexpr int MARKET_SLOTS = 8;  // indexed by ResourceType 1..7 (WOOD..GOLD); 0
 
 struct MarketState {
     float mult[MARKET_SLOTS] = { 1, 1, 1, 1, 1, 1, 1, 1 }; // demand-driven price multipliers (0.5..3)
+    float inflation = 1.0f;                                // price level, fixed at each day start
     int boughtToday[MARKET_SLOTS] = { 0 };
     int soldToday[MARKET_SLOTS] = { 0 };
 };
 
 struct ImportState {
+    float pricePerMWs = 0.5f;                // money per MW per game-second, fixed at each day start
     bool request[2] = { false, false };      // player asks to import
     bool exportAllowed[2] = { true, true };  // player lets the rival import from them
     int flowMW[2] = { 0, 0 };                // MW currently imported by each player
@@ -232,6 +236,7 @@ struct PoliticsNotice {
 // Everything the engine keeps for the city politics systems
 struct CityPolitics {
     std::mt19937 rng;                        // own stream: weather sequences stay as before
+    float wealthScale = 1.0f;                // average wallet / WEALTH_UNIT at the day start
     // F-09
     Politics::EventId activeEvent = Politics::EventId::NONE;
     Politics::EventId forecastEvent = Politics::EventId::NONE;

@@ -264,7 +264,7 @@ public:
     bool isCityPoliticsEnabled() const { return cityPoliticsEnabled; }
     const CityPolitics& getPolitics() const { return politics; }
     std::vector<Politics::PoliticsNotice> drainPoliticsNotices();
-    float getPriceScale() const { return Politics::priceScale(currentDay); }
+    float getPriceScale() const; // max(day scale, average wallet / WEALTH_UNIT), fixed at each day start
 
     // F-09 City Event Deck
     const Politics::EventDef& getActiveCityEvent() const { return Politics::getEventDef(politics.activeEvent); }

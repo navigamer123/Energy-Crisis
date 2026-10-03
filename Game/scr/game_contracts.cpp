@@ -54,7 +54,10 @@ const char* tag(int player) { return player == 1 ? "ИГРАЧ 1" : "ИГРАЧ 
 } // namespace
 
 int GameEngine::getTenderBidStep() const {
-    return std::max(50, static_cast<int>(std::lround(500.0f * priceScale(currentDay) / 50.0f)) * 50);
+    for (const auto& k : politics.contracts) {
+        if (k.kind == ContractKind::TENDER_NIGHT && k.bidStep > 0) return k.bidStep; // fixed for today's tender
+    }
+    return std::max(50, static_cast<int>(std::lround(500.0f * getPriceScale() / 50.0f)) * 50);
 }
 
 int GameEngine::getPoweredLampCount(int player) const {
@@ -104,8 +107,24 @@ CityContract makeContract(ContractKind kind, int day, int demand) {
 } // namespace
 
 int GameEngine::debugPostContract(ContractKind kind) {
+    if (kind == ContractKind::TENDER_NIGHT) { // one tender per day: a forced one replaces today's (escrow back)
+        for (auto it = politics.contracts.begin(); it != politics.contracts.end();) {
+            if (it->kind == ContractKind::TENDER_NIGHT) {
+                if (it->state == ContractState::BIDDING) {
+                    p1.money += it->bid[0];
+                    p2.money += it->bid[1];
+                    p1.data.money = p1.money;
+                    p2.data.money = p2.money;
+                }
+                it = politics.contracts.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
     CityContract k = makeContract(kind, currentDay, std::max(Balance::STARTING_CITY_DEMAND_MW, city.cityEnergyDemand));
     k.id = politics.nextContractId++;
+    if (kind == ContractKind::TENDER_NIGHT) k.bidStep = getTenderBidStep();
     politics.contracts.push_back(k);
     return k.id;
 }
@@ -118,6 +137,7 @@ void GameEngine::postDailyContracts(int day) {
     auto make = [&](ContractKind kind) {
         CityContract k = makeContract(kind, day, demand);
         k.id = politics.nextContractId++;
+        if (kind == ContractKind::TENDER_NIGHT) k.bidStep = getTenderBidStep();
         return k;
     };
 
