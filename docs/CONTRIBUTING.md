@@ -78,11 +78,11 @@ git worktree remove ../ec-wt/<тема>
 ```bash
 # 1. Компилация и тестове минават (раздели 4 и 5)
 # 2. Добавяте САМО файловете на стъпката (не git add -A / git add .)
-git add Game/includes/game_balance.h Game/scr/game_main.cpp scratch/test_geothermal.cpp
+git add Game/includes/game_main.h Game/includes/game_balance.h Game/scr/game_main.cpp
 git diff --cached --stat
 # 3. Commit със заглавие, кратко обяснение и (ако сте ползвали Claude) реда за съавтор
-git commit -m "feat(engine): add geothermal plant with constant output" \
-           -m "70 MW day and night, not on river-bank plots; covered by scratch/test_geothermal.cpp." \
+git commit -m "feat(engine): add biogas plant type, balance numbers, cost and per-player limit" \
+           -m "55 MW day and night, at most 3 per player; the example from docs/HOWTO_ADD_BUILDING.md." \
            -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
