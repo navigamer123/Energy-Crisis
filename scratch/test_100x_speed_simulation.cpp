@@ -249,10 +249,13 @@ int main() {
     if (city.winner == 3) {
         assert(finalDayEnded && std::abs(finalShare - 0.5f) < Balance::DRAW_SHARE_TOLERANCE);
     } else if (city.winner == 1) {
-        assert(finalShare >= Balance::VICTORY_SHARE - 1e-4f || (finalDayEnded && finalShare > 0.5f));
+        // [b-economy] BAL-02: an equal split (within DRAW_SHARE_TOLERANCE) goes to the player who served more MWh
+        const bool tieBreak = finalDayEnded && std::abs(finalShare - 0.5f) < Balance::DRAW_SHARE_TOLERANCE;
+        assert(finalShare >= Balance::VICTORY_SHARE - 1e-4f || (finalDayEnded && finalShare > 0.5f) || tieBreak);
     } else {
         assert(city.winner == 2);
-        assert(1.0f - finalShare >= Balance::VICTORY_SHARE - 1e-4f || (finalDayEnded && finalShare < 0.5f));
+        const bool tieBreak = finalDayEnded && std::abs(finalShare - 0.5f) < Balance::DRAW_SHARE_TOLERANCE; // [b-economy]
+        assert(1.0f - finalShare >= Balance::VICTORY_SHARE - 1e-4f || (finalDayEnded && finalShare < 0.5f) || tieBreak);
     }
 
     // After the result the simulation is frozen
