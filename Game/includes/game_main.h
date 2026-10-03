@@ -79,6 +79,7 @@ struct PlacedBuilding {
     float energyStored = 0.0f;  // Current stored charge in MWh
     float maxCapacity = 200.0f; // Max capacity in MWh
     float lightRadius = 150.0f; // For Lamp light cone
+    bool isBroken = false;      // Damaged/broken by lightning strike
 };
 
 struct LandPlot {
@@ -186,6 +187,10 @@ public:
     bool canPlaceBuilding(int player, BuildingType type, sf::Vector2f pos, std::string& reason) const;
     bool placeBuilding(int player, BuildingType type, sf::Vector2f pos, std::string& outMsg);
     bool removeBuilding(int player, sf::Vector2f pos, std::string& outMsg);
+    bool repairBuilding(int player, sf::Vector2f pos, std::string& outMsg);
+    bool breakBuildingAt(sf::Vector2f pos);
+    bool breakRandomBuilding(int playerOwner, sf::Vector2f& outPos);
+    bool hasBrokenBuilding(int player) const;
     bool isAreaIlluminated(int player, sf::Vector2f pos) const;
 
     // Lamp consumption constant (MW)

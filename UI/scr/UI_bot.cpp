@@ -68,6 +68,21 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     int curEnergy = econ.energyMW;
 
     // -------------------------------------------------------------------------
+    // 0. Repair Broken Buildings First! (Restore generation immediately)
+    // -------------------------------------------------------------------------
+    for (const auto& b : engine.getBuildings()) {
+        if (b.playerOwner == 2 && b.isBroken) {
+            std::string repMsg;
+            if (const_cast<GameEngine&>(engine).repairBuilding(2, b.position, repMsg)) {
+                targetPos = b.position;
+                actionState = BotActionState::THINKING;
+                stateTimer = 0.5f;
+                return;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // 1. Gather all free buildable slots on Player 2's purchased land plots
     // -------------------------------------------------------------------------
     std::vector<sf::Vector2f> freeSlots;

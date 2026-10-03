@@ -185,6 +185,13 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         // Step A: Calculate pure generation from Solar, Wind, and Hydro
         for (auto& b : buildings) {
             if (b.playerOwner != player) continue;
+
+            if (b.isBroken) {
+                b.currentOutputMW = 0.0f;
+                if (b.type == BuildingType::LAMP) b.lightRadius = 0.0f;
+                continue;
+            }
+
             BuildingCost cost = getBuildingCost(b.type);
 
             if (b.type == BuildingType::SOLAR_PANEL) {
@@ -320,15 +327,7 @@ void GameEngine::processDayEnd() {
                                   std::to_string(p2.energyMW) + "/" + std::to_string(city.cityEnergyDemand) + " MW) И ВЗЕ +" +
                                   std::to_string(shiftPct) + "% ТЕРИТОРИЯ!";
         } else if (p1Succeeded && p2Succeeded) {
-            if (shift > 0.005f) {
-                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА! ИГРАЧ 1 ИМА ПРЕВЕС (+" +
-                                      std::to_string(shiftPct) + "%)!";
-            } else if (shift < -0.005f) {
-                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА! ИГРАЧ 2 ИМА ПРЕВЕС (+" +
-                                      std::to_string(shiftPct) + "%)!";
-            } else {
-                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА! ПАРИТЕТ (0% ПРОМЯНА)!";
-            }
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА! НИТО ЕДИН НЕ ГУБИ ТЕРИТОРИЯ (0% ПРОМЯНА)!";
         } else {
             city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": НИТО ЕДИН НЕ ЗАХРАНИ ГРАДА (" +
                                   std::to_string(city.cityEnergyDemand) + " MW)! НЯМА ПРОМЯНА В ТЕРИТОРИЯТА!";
@@ -906,4 +905,76 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
         outMsg = "ПОСТРОЕН " + cost.nameBg + "! (+" + std::to_string(cost.basePowerMW) + " MW)";
     }
     return true;
+}
+
+bool GameEngine::repairBuilding(int player, sf::Vector2f pos, std::string& outMsg) {
+    auto& econ = (player == 1) ? p1 : p2;
+
+    for (auto& b : buildings) {
+        if (b.playerOwner == player && b.isBroken) {
+            float dist = std::hypot(b.position.x - pos.x, b.position.y - pos.y);
+            if (dist <= 48.0f) {
+                if (econ.wood < Balance::REPAIR_WOOD_COST || econ.iron < Balance::REPAIR_IRON_COST) {
+                    outMsg = "Нужни са " + std::to_string(Balance::REPAIR_WOOD_COST) + " Дърво и " +
+                             std::to_string(Balance::REPAIR_IRON_COST) + " Желязо за ремонт!";
+                    return false;
+                }
+                econ.wood -= Balance::REPAIR_WOOD_COST;
+                econ.iron -= Balance::REPAIR_IRON_COST;
+                econ.data.wood = econ.wood;
+                econ.data.iron = econ.iron;
+
+                b.isBroken = false;
+                BuildingCost cost = getBuildingCost(b.type);
+                b.currentOutputMW = static_cast<float>(cost.basePowerMW);
+                if (b.type == BuildingType::LAMP) {
+                    b.lightRadius = 150.0f;
+                }
+                outMsg = "ПОПРАВЕНО СЪОРЪЖЕНИЕ: " + cost.nameBg + "! Отново работи на 100%!";
+                return true;
+            }
+        }
+    }
+    outMsg = "Няма счупено съоръжение наблизо за ремонт.";
+    return false;
+}
+
+bool GameEngine::breakBuildingAt(sf::Vector2f pos) {
+    for (auto& b : buildings) {
+        if (!b.isBroken) {
+            float dist = std::hypot(b.position.x - pos.x, b.position.y - pos.y);
+            if (dist <= 30.0f) {
+                b.isBroken = true;
+                b.currentOutputMW = 0.0f;
+                if (b.type == BuildingType::LAMP) b.lightRadius = 0.0f;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool GameEngine::breakRandomBuilding(int playerOwner, sf::Vector2f& outPos) {
+    std::vector<size_t> candidates;
+    for (size_t i = 0; i < buildings.size(); ++i) {
+        if (!buildings[i].isBroken && (playerOwner == 0 || buildings[i].playerOwner == playerOwner)) {
+            candidates.push_back(i);
+        }
+    }
+    if (candidates.empty()) return false;
+    size_t chosenIdx = candidates[rand() % candidates.size()];
+    buildings[chosenIdx].isBroken = true;
+    buildings[chosenIdx].currentOutputMW = 0.0f;
+    if (buildings[chosenIdx].type == BuildingType::LAMP) {
+        buildings[chosenIdx].lightRadius = 0.0f;
+    }
+    outPos = buildings[chosenIdx].position;
+    return true;
+}
+
+bool GameEngine::hasBrokenBuilding(int player) const {
+    for (const auto& b : buildings) {
+        if (b.playerOwner == player && b.isBroken) return true;
+    }
+    return false;
 }

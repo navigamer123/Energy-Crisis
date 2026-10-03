@@ -7,19 +7,119 @@
 // UI_map Particle Systems (Weather VFX & Mining Sparks)
 // =============================================================================
 
+void UI_map::triggerLightningStrike(sf::Vector2f targetPos, bool hitBuilding) {
+    ActiveLightning bolt;
+    bolt.startPos = sf::Vector2f(targetPos.x + static_cast<float>((rand() % 160) - 80), 0.0f);
+    bolt.targetPos = targetPos;
+    bolt.hitBuilding = hitBuilding;
+    bolt.lifetime = 0.0f;
+    bolt.maxLifetime = 0.32f;
+
+    // Generate zigzag points from sky to target
+    int segments = 12 + (rand() % 6);
+    bolt.mainBolt.push_back(bolt.startPos);
+    sf::Vector2f current = bolt.startPos;
+
+    for (int i = 1; i < segments; ++i) {
+        float t = static_cast<float>(i) / static_cast<float>(segments);
+        sf::Vector2f ideal = bolt.startPos + (targetPos - bolt.startPos) * t;
+        float jitterX = static_cast<float>((rand() % 44) - 22);
+        float jitterY = static_cast<float>((rand() % 20) - 10);
+        current = sf::Vector2f(ideal.x + jitterX, ideal.y + jitterY);
+        bolt.mainBolt.push_back(current);
+
+        // Branching fork
+        if (i > 2 && i < segments - 2 && (rand() % 3 == 0)) {
+            std::vector<sf::Vector2f> branch;
+            branch.push_back(current);
+            sf::Vector2f bCurrent = current;
+            int bSteps = 3 + (rand() % 3);
+            for (int b = 0; b < bSteps; ++b) {
+                bCurrent += sf::Vector2f(static_cast<float>((rand() % 60) - 30), static_cast<float>(18 + rand() % 24));
+                branch.push_back(bCurrent);
+            }
+            bolt.branches.push_back(branch);
+        }
+    }
+    bolt.mainBolt.push_back(targetPos);
+    activeLightnings.push_back(bolt);
+
+    lightningFlashTimer = 0.32f;
+
+    // Strike sparks
+    spawnMiningParticles(targetPos, sf::Color(210, 240, 255), 24);
+
+    if (hitBuilding) {
+        spawnMiningParticles(targetPos, sf::Color(255, 130, 60), 20);
+        spawnNotice("МЪЛНИЯ УДАРИ СЪОРЪЖЕНИЕТО!", targetPos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 230, 80));
+    }
+}
+
 void UI_map::updateWeatherParticles(float dt) {
     WeatherType w1 = engine.getPlayerWeather(1);
     WeatherType w2 = engine.getPlayerWeather(2);
     SeasonType season = engine.getSeason();
     bool isNight = !engine.isDaylight();
 
-    // Lightning strike timer for stormy conditions
-    if ((w1 == WeatherType::STORMY || w2 == WeatherType::STORMY) && (rand() % 350 == 0) && lightningFlashTimer <= 0.0f) {
-        lightningFlashTimer = 0.28f;
+    // 1. Update existing active lightnings
+    for (auto it = activeLightnings.begin(); it != activeLightnings.end();) {
+        it->lifetime += dt;
+        if (it->lifetime >= it->maxLifetime) {
+            it = activeLightnings.erase(it);
+        } else {
+            ++it;
+        }
     }
+
+    // 2. Flash timer decay
     if (lightningFlashTimer > 0.0f) {
         lightningFlashTimer -= dt;
         if (lightningFlashTimer < 0.0f) lightningFlashTimer = 0.0f;
+    }
+
+    // 3. Lightning Strike schedule & strike chance
+    lightningStrikeCooldown -= dt;
+    if (lightningStrikeCooldown <= 0.0f) {
+        bool isStormy = (w1 == WeatherType::STORMY || w2 == WeatherType::STORMY);
+        bool isRainy = (w1 == WeatherType::RAINY || w2 == WeatherType::RAINY);
+
+        if (isStormy) {
+            lightningStrikeCooldown = 6.0f + static_cast<float>(rand() % 6);
+        } else if (isRainy) {
+            lightningStrikeCooldown = 18.0f + static_cast<float>(rand() % 12);
+        } else {
+            lightningStrikeCooldown = 45.0f + static_cast<float>(rand() % 35);
+        }
+
+        // Lightning strikes!
+        // Very small chance to hit a facility ("много малък шанс да чупят съоръжението")
+        // Check for unbroken buildings
+        const auto& allBuildings = engine.getBuildings();
+        std::vector<size_t> unbrokenIdxs;
+        for (size_t i = 0; i < allBuildings.size(); ++i) {
+            if (!allBuildings[i].isBroken) {
+                unbrokenIdxs.push_back(i);
+            }
+        }
+
+        // ~8% chance per strike to target an unbroken facility
+        if (!unbrokenIdxs.empty() && (rand() % 12 == 0)) {
+            size_t chosen = unbrokenIdxs[rand() % unbrokenIdxs.size()];
+            sf::Vector2f strikePos = allBuildings[chosen].position;
+            const_cast<GameEngine&>(engine).breakBuildingAt(strikePos);
+
+            int owner = allBuildings[chosen].playerOwner;
+            triggerPlayerPopup(owner, "МЪЛНИЯ!", "Счупено съоръжение!",
+                               "Мълния порази ваше съоръжение! То спря ток (0 MW).",
+                               "[SPACE/Клик]: Поправи съоръжението", sf::Color(255, 230, 80));
+
+            triggerLightningStrike(strikePos, true);
+        } else {
+            // Harmless strike into open ground
+            float sx = 80.0f + static_cast<float>(rand() % 1440);
+            float sy = 160.0f + static_cast<float>(rand() % 650);
+            triggerLightningStrike(sf::Vector2f(sx, sy), false);
+        }
     }
 
     for (size_t i = 0; i < particles.size(); ++i) {
@@ -64,16 +164,63 @@ void UI_map::updateWeatherParticles(float dt) {
 }
 
 void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
-    // 1. Lightning flash during storms
+    // 1. Screen Lightning flash
     if (lightningFlashTimer > 0.0f) {
         sf::RectangleShape flash({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
         flash.setPosition({ 0.0f, 0.0f });
-        std::uint8_t a = static_cast<std::uint8_t>(std::min(240.0f, lightningFlashTimer * 850.0f));
+        std::uint8_t a = static_cast<std::uint8_t>(std::min(220.0f, lightningFlashTimer * 750.0f));
         flash.setFillColor(sf::Color(220, 240, 255, a));
         window.draw(flash);
     }
 
-    // 2. Particles
+    // 2. Active electrifying lightning bolts
+    for (const auto& bolt : activeLightnings) {
+        float alphaRatio = 1.0f - (bolt.lifetime / bolt.maxLifetime);
+        std::uint8_t alpha = static_cast<std::uint8_t>(std::clamp(alphaRatio * 255.0f, 0.0f, 255.0f));
+
+        if (bolt.mainBolt.size() >= 2) {
+            for (size_t i = 0; i < bolt.mainBolt.size() - 1; ++i) {
+                // Outer cyan electric glow
+                sf::Vertex glow[2];
+                glow[0].position = bolt.mainBolt[i];
+                glow[0].color = sf::Color(110, 215, 255, static_cast<std::uint8_t>(alpha * 0.65f));
+                glow[1].position = bolt.mainBolt[i + 1];
+                glow[1].color = sf::Color(110, 215, 255, static_cast<std::uint8_t>(alpha * 0.65f));
+                window.draw(glow, 2, sf::PrimitiveType::Lines);
+
+                // Core brilliant hot white bolt
+                sf::Vertex core[2];
+                core[0].position = bolt.mainBolt[i] + sf::Vector2f(1.0f, 0.0f);
+                core[0].color = sf::Color(255, 255, 255, alpha);
+                core[1].position = bolt.mainBolt[i + 1] + sf::Vector2f(1.0f, 0.0f);
+                core[1].color = sf::Color(255, 255, 255, alpha);
+                window.draw(core, 2, sf::PrimitiveType::Lines);
+            }
+        }
+
+        // Side fork branches
+        for (const auto& branch : bolt.branches) {
+            if (branch.size() >= 2) {
+                for (size_t i = 0; i < branch.size() - 1; ++i) {
+                    sf::Vertex bLine[2];
+                    bLine[0].position = branch[i];
+                    bLine[0].color = sf::Color(140, 225, 255, static_cast<std::uint8_t>(alpha * 0.55f));
+                    bLine[1].position = branch[i + 1];
+                    bLine[1].color = sf::Color(180, 240, 255, static_cast<std::uint8_t>(alpha * 0.35f));
+                    window.draw(bLine, 2, sf::PrimitiveType::Lines);
+                }
+            }
+        }
+
+        // Ground/facility impact burst
+        sf::CircleShape impact(bolt.hitBuilding ? 16.0f : 10.0f);
+        impact.setOrigin({ impact.getRadius(), impact.getRadius() });
+        impact.setPosition(bolt.targetPos);
+        impact.setFillColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(alpha * 0.75f)));
+        window.draw(impact);
+    }
+
+    // 3. Particles
     for (const auto& p : particles) {
         if (p.type == 0) {
             // Rain streak

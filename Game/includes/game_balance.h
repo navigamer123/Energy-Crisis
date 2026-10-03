@@ -167,18 +167,18 @@ inline float calculateDailyCityShift(int p1PowerMW, int p2PowerMW, int cityDeman
         return -(MIN_DAILY_CITY_SHIFT + (MAX_DAILY_CITY_SHIFT - MIN_DAILY_CITY_SHIFT) * failureRatio);
     } else if (p1Succeeded && p2Succeeded) {
         // Both players successfully produced enough energy for the city!
-        int diff = p1PowerMW - p2PowerMW;
-        if (std::abs(diff) > 20) {
-            float edge = std::clamp(static_cast<float>(diff) / static_cast<float>(p1PowerMW + p2PowerMW) * 0.05f, -0.05f, 0.05f);
-            return edge;
-        }
-        return 0.0f; // Parity
+        // "ако играч 1 и играч 2 могат да дадат нужната енергия на града нито един да не губи територия"
+        return 0.0f;
     }
 
     // Neither player produced enough energy for the city!
     // "иначе нищо да не се случва" -> No territory changes hands!
     return 0.0f;
 }
+
+// Facility Repair Costs (when broken by lightning strikes)
+constexpr int REPAIR_WOOD_COST = 5;
+constexpr int REPAIR_IRON_COST = 5;
 
 // Victory Condition: 100% (1.0) influence threshold
 constexpr float VICTORY_INFLUENCE_P1 = 0.999f;

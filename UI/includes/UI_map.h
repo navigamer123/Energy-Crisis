@@ -95,6 +95,20 @@ private:
     bool requestFullscreenToggle = false;
     bool showHelpOverlay = false;
     float lightningFlashTimer = 0.0f;
+    float lightningStrikeCooldown = 5.0f;
+
+    struct ActiveLightning {
+        sf::Vector2f startPos;
+        sf::Vector2f targetPos;
+        std::vector<sf::Vector2f> mainBolt;
+        std::vector<std::vector<sf::Vector2f>> branches;
+        float lifetime = 0.0f;
+        float maxLifetime = 0.32f;
+        bool hitBuilding = false;
+        sf::Color color = sf::Color(220, 245, 255);
+    };
+    std::vector<ActiveLightning> activeLightnings;
+    void triggerLightningStrike(sf::Vector2f targetPos, bool hitBuilding);
 
     struct WeatherParticle {
         sf::Vector2f pos;
