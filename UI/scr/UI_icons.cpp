@@ -146,8 +146,8 @@ void iconCoal(const Pen& p) {
 }
 
 void iconSilicon(const Pen& p) {
-    // Microchip: square body, cyan die and pins on every side.
-    sf::Color pin(150, 215, 235);
+    // Microchip: square body, violet die and pins on every side (silicon is never P1 cyan).
+    sf::Color pin(210, 190, 255);
     const int pins = (p.s < 22.0f) ? 2 : 3;
     for (int i = 0; i < pins; ++i) {
         float k = (pins == 2) ? (i == 0 ? -0.12f : 0.12f) : (-0.16f + 0.16f * static_cast<float>(i));
@@ -156,8 +156,8 @@ void iconSilicon(const Pen& p) {
         line(p, k, -0.44f, k, -0.26f, 0.07f, pin);
         line(p, k, 0.26f, k, 0.44f, 0.07f, pin);
     }
-    solid(p, { box(-0.28f, -0.28f, 0.28f, 0.28f) }, sf::Color(18, 44, 66), sf::Color(0, 220, 255));
-    fillPoly(p, box(-0.13f, -0.13f, 0.13f, 0.13f), sf::Color(0, 220, 255));
+    solid(p, { box(-0.28f, -0.28f, 0.28f, 0.28f) }, sf::Color(40, 26, 70), sf::Color(180, 140, 255));
+    fillPoly(p, box(-0.13f, -0.13f, 0.13f, 0.13f), sf::Color(180, 140, 255));
 }
 
 void iconSilver(const Pen& p) {
@@ -325,7 +325,7 @@ sf::Color resourceIconColor(ResourceType r) {
         case ResourceType::IRON:    return sf::Color(170, 190, 215);
         case ResourceType::COPPER:  return sf::Color(230, 140, 70);
         case ResourceType::COAL:    return sf::Color(115, 125, 140);
-        case ResourceType::SILICON: return sf::Color(0, 220, 255);
+        case ResourceType::SILICON: return sf::Color(180, 140, 255); // violet: never P1 cyan
         case ResourceType::SILVER:  return sf::Color(215, 225, 240);
         case ResourceType::GOLD:    return sf::Color(255, 215, 0);
         case ResourceType::MONEY:   return sf::Color(70, 220, 130);

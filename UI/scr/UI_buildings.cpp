@@ -2,6 +2,7 @@
 #include "../includes/UI_types.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_icons.h"
+#include "../includes/UI_theme.h"
 #include "../../Game/includes/game_balance.h"
 #include <algorithm>
 #include <cmath>
@@ -39,6 +40,15 @@ const char* resourceNameBg(ResourceType type) {
     }
 }
 
+std::string recipeText(const BuildingCost& cost) {
+    std::string list;
+    for (const auto& n : buildingNeeds(PlayerEconomy(), cost)) {
+        if (!list.empty()) list += ", ";
+        list += std::to_string(n.need) + " " + resourceNameBg(n.type);
+    }
+    return list;
+}
+
 std::string missingResourcesText(const PlayerEconomy& econ, const BuildingCost& cost) {
     std::string list;
     for (const auto& n : buildingNeeds(econ, cost)) {
@@ -68,7 +78,7 @@ std::string formatMultiplier(float m) {
 
 UI_buildings::UI_buildings()
     : playerIndex(1), panelPos(18.0f, 115.0f), panelSize(230.0f, 395.0f),
-      accentColor(sf::Color(0, 229, 255)) {
+      accentColor(theme::P1) {
   setPlayer(1, panelPos, panelSize, accentColor);
 }
 
@@ -129,23 +139,25 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
   // Panel container
   sf::RectangleShape panel(panelSize);
   panel.setPosition(panelPos);
-  panel.setFillColor(sf::Color(16, 22, 34, 252));
+  panel.setFillColor(theme::withAlpha(theme::Panel, 252));
   panel.setOutlineThickness(2.0f);
   panel.setOutlineColor(accentColor);
   window.draw(panel);
+  ui::lint::solid(sf::FloatRect(panelPos, panelSize)); // no map text may hide under the panel
   ui::lint::ContainerScope panelScope(sf::FloatRect(panelPos, panelSize));
 
   if (fontLoaded) {
     std::string pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
                                           : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
-    sf::Text tHeader(font, toUtf8(pTag), 12);
+    sf::Text tHeader(font, toUtf8(pTag), fontsize::Label);
+    tHeader.setStyle(sf::Text::Bold);
     tHeader.setFillColor(accentColor);
     tHeader.setPosition({panelPos.x + 8.0f, panelPos.y + 6.0f});
     ui::drawText(window, tHeader);
 
     sf::RectangleShape div({panelSize.x - 16.0f, 1.5f});
     div.setPosition({panelPos.x + 8.0f, panelPos.y + 24.0f});
-    div.setFillColor(sf::Color(65, 88, 120));
+    div.setFillColor(theme::Line);
     window.draw(div);
   }
 
@@ -169,17 +181,17 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     sf::RectangleShape card(r.size);
     card.setPosition(r.position);
     if (isSelected) {
-      card.setFillColor(sf::Color(40, 62, 86, 250));
+      card.setFillColor(theme::withAlpha(theme::CardSelected, 250));
       card.setOutlineThickness(2.0f);
-      card.setOutlineColor(sf::Color::White);
+      card.setOutlineColor(theme::Focus);
     } else if (hover) {
-      card.setFillColor(sf::Color(30, 46, 66, 245));
+      card.setFillColor(theme::withAlpha(theme::CardHover, 245));
       card.setOutlineThickness(1.5f);
-      card.setOutlineColor(canAfford ? sf::Color(100, 230, 160) : sf::Color(240, 110, 110));
+      card.setOutlineColor(canAfford ? theme::Good : theme::Bad);
     } else {
-      card.setFillColor(sf::Color(22, 30, 44, 230));
+      card.setFillColor(theme::withAlpha(theme::Card, 230));
       card.setOutlineThickness(1.0f);
-      card.setOutlineColor(canAfford ? sf::Color(70, 95, 125) : sf::Color(90, 55, 65));
+      card.setOutlineColor(canAfford ? theme::Line : theme::withAlpha(theme::Bad, 110));
     }
     window.draw(card);
     ui::lint::ContainerScope cardScope(r);
@@ -187,9 +199,9 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     // Building icon in a small well on the left
     sf::RectangleShape well({ICON_BOX, ICON_BOX});
     well.setPosition({x + 5.0f, y + (h - ICON_BOX) / 2.0f});
-    well.setFillColor(sf::Color(12, 18, 28, 230));
+    well.setFillColor(theme::withAlpha(theme::Well, 230));
     well.setOutlineThickness(1.0f);
-    well.setOutlineColor(isSelected ? sf::Color::White : sf::Color(55, 75, 100));
+    well.setOutlineColor(isSelected ? theme::Focus : theme::Line);
     window.draw(well);
     drawBuildingIcon(window, b.type, {x + 5.0f + ICON_BOX / 2.0f, y + h / 2.0f}, ICON_BOX - 8.0f);
 
@@ -199,27 +211,28 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     const float rightX = x + w - 6.0f;
 
     // Row 1: short name + output badge
-    sf::Text tName(font, toUtf8(b.shortName), 12);
-    tName.setFillColor(isDemolish ? sf::Color(255, 150, 150)
-                                  : (isSelected || hover ? sf::Color::White : sf::Color(220, 232, 248)));
+    sf::Text tName(font, toUtf8(b.shortName), fontsize::Label);
+    tName.setStyle(sf::Text::Bold);
+    tName.setFillColor(isDemolish ? theme::Bad : theme::TextPrimary);
     tName.setPosition({textX, y + 3.0f});
     ui::drawText(window, tName);
 
     std::string badge;
-    sf::Color badgeColor(255, 225, 90);
+    sf::Color badgeColor = theme::Energy;
     if (isDemolish) {
       badge = "-50%";
-      badgeColor = sf::Color(255, 140, 140);
+      badgeColor = theme::Bad;
     } else if (b.type == BuildingType::LAMP) {
       badge = "-" + std::to_string(static_cast<int>(GameEngine::LAMP_POWER_MW)) + " MW";
-      badgeColor = sf::Color(255, 220, 130);
+      badgeColor = theme::Warn;
     } else if (b.type == BuildingType::BATTERY) {
       badge = std::to_string(Balance::BATTERY.batteryCapacityMWh) + " MWh";
-      badgeColor = sf::Color(110, 235, 185);
+      badgeColor = theme::Good;
     } else {
       badge = "+" + std::to_string(cost.basePowerMW) + " MW";
     }
-    sf::Text tBadge(font, toUtf8(badge), 12);
+    sf::Text tBadge(font, toUtf8(badge), fontsize::Label);
+    tBadge.setStyle(sf::Text::Bold);
     tBadge.setFillColor(badgeColor);
     sf::FloatRect bb = tBadge.getLocalBounds();
     tBadge.setPosition({rightX - bb.size.x - bb.position.x, y + 3.0f});
@@ -228,15 +241,15 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     // Row 2: costs as amount + resource icon, each green (enough) or red (missing)
     const float costY = y + 20.0f;
     if (isDemolish) {
-      sf::Text tInfo(font, toUtf8("Връща половината ресурси"), 11);
-      tInfo.setFillColor(sf::Color(200, 210, 225));
+      sf::Text tInfo(font, toUtf8("Връща половината ресурси"), fontsize::Caption);
+      tInfo.setFillColor(theme::TextSecondary);
       tInfo.setPosition({textX, costY + 1.0f});
       ui::drawText(window, tInfo);
     } else {
       float cx = textX;
       for (const auto &n : needs) {
-        sf::Text tNum(font, std::to_string(n.need), 12);
-        tNum.setFillColor(n.have >= n.need ? sf::Color(110, 230, 140) : sf::Color(255, 110, 110));
+        sf::Text tNum(font, std::to_string(n.need), fontsize::Label);
+        tNum.setFillColor(n.have >= n.need ? theme::Good : theme::Bad);
         tNum.setStyle(sf::Text::Bold);
         tNum.setPosition({cx, costY});
         ui::drawText(window, tNum);
@@ -271,8 +284,8 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     float hotkeyW = 0.0f;
     const float statusY = y + 37.0f;
     if (!hotkeyStr.empty()) {
-      sf::Text tKey(font, toUtf8(hotkeyStr), 11);
-      tKey.setFillColor(sf::Color(170, 190, 215));
+      sf::Text tKey(font, toUtf8(hotkeyStr), fontsize::Caption);
+      tKey.setFillColor(theme::TextMuted);
       sf::FloatRect kb = tKey.getLocalBounds();
       hotkeyW = kb.size.x + 6.0f;
       tKey.setPosition({rightX - kb.size.x - kb.position.x, statusY});
@@ -289,12 +302,12 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       }
       if (mult >= 0.0f) {
         std::string withMult = status + " · " + formatMultiplier(mult);
-        if (ui::measureText(font, withMult, 11) <= (rightX - textX) - hotkeyW) status = withMult;
+        if (ui::measureText(font, withMult, fontsize::Caption) <= (rightX - textX) - hotkeyW) status = withMult;
       }
     }
     if (!status.empty()) {
-      sf::Text tStatus(font, toUtf8(status), 11);
-      tStatus.setFillColor(count > 0 ? sf::Color(150, 220, 255) : sf::Color(150, 165, 185));
+      sf::Text tStatus(font, toUtf8(status), fontsize::Caption);
+      tStatus.setFillColor(count > 0 ? theme::TextSecondary : theme::TextMuted);
       tStatus.setPosition({textX, statusY});
       ui::drawText(window, tStatus);
     }

@@ -47,6 +47,8 @@ public:
     ResourceType getP1StationAt(sf::Vector2f pt) const;
     ResourceType getP2StationAt(sf::Vector2f pt) const;
     const ResourceStation* getStation(int player, ResourceType type) const;
+    // Amount one mining action gives for a mine of this type at this level
+    static int mineYield(ResourceType type, int level);
 
     // Backward compatibility helpers
     bool isNearP1Forest(sf::Vector2f pt) const;

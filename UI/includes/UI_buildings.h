@@ -33,6 +33,9 @@ std::vector<ResourceNeed> buildingNeeds(const PlayerEconomy& econ, const Buildin
 // Lower-case Bulgarian resource name ("желязо") for messages
 const char* resourceNameBg(ResourceType type);
 
+// Whole recipe in one style: "6 дърво, 4 желязо, 6 мед, 8 силиций"
+std::string recipeText(const BuildingCost& cost);
+
 // "Недостигат: 3 желязо, 2 мед" listing exactly what is missing; empty when the player can pay
 std::string missingResourcesText(const PlayerEconomy& econ, const BuildingCost& cost);
 
