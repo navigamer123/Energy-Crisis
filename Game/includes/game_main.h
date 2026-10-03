@@ -8,6 +8,7 @@
 #include "game_expedition.h"
 #include "game_random.h"
 #include "game_balance.h"
+#include "game_politics.h" // [b-politics] city events, council, contracts, exchange
 
 // -----------------------------------------------------------------------------
 // PlayerData (integrated from weatherF branch)
@@ -165,6 +166,30 @@ private:
     void rollDailyWeather();
     int findOwnedBuildingInSlot(int player, sf::Vector2f pos) const;
 
+    // ---- [b-politics] City politics state & engine hooks (game_politics.cpp, game_contracts.cpp,
+    //      game_market.cpp). Off by default so headless tests keep their numbers; the UI turns it on.
+    CityPolitics politics;
+    bool cityPoliticsEnabled = false;
+    void resetCityPolitics(unsigned int seed);   // init(): fresh deck, board and market
+    void tickCityPoliticsRealTime(float realDt); // update(): council countdown in real seconds
+    void updateCityPolitics(float dt);           // simulateStep(): contracts, buffs, council timing
+    void applyPowerImport(float dt);             // updateBuildingsEnergy(): cross-river import
+    void restoreBaseCityDemand();                // processDayEnd(): undo today's event multiplier
+    void onCityPoliticsNewDay(int endedDay);     // processDayEnd(): settle the day, roll the next one
+    float politicsGenMult(int player, BuildingType type) const;
+    float politicsPayoutMult(int player) const;
+    float politicsGoldMult(int player) const;
+    float politicsMineMult(int player, ResourceType type) const;
+    // helpers shared by the politics files
+    void politicsNotice(const std::string& text, int player, Politics::Tone tone);
+    void addCityShare(int player, int tenths);   // +10 = +1% share for `player`
+    void startCouncilCard();
+    void resolveCouncil();
+    void postDailyContracts(int day);
+    void updateContracts(float dt, float prevDayHour, float dayHour);
+    void settleContractsAtDayEnd();
+    float dayHourNow() const;                    // hours since 06:00 (0..24)
+
 public:
     GameEngine();
     void init(float screenWidth, float screenHeight);
@@ -231,6 +256,48 @@ public:
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
     SeasonType getSeason() const { return currentSeason; }
+
+    // -------------------------------------------------------------------------
+    // [b-politics] City politics public API
+    // -------------------------------------------------------------------------
+    void setCityPoliticsEnabled(bool on) { cityPoliticsEnabled = on; }
+    bool isCityPoliticsEnabled() const { return cityPoliticsEnabled; }
+    const CityPolitics& getPolitics() const { return politics; }
+    std::vector<Politics::PoliticsNotice> drainPoliticsNotices();
+    float getPriceScale() const { return Politics::priceScale(currentDay); }
+
+    // F-09 City Event Deck
+    const Politics::EventDef& getActiveCityEvent() const { return Politics::getEventDef(politics.activeEvent); }
+    const Politics::EventDef& getForecastCityEvent() const { return Politics::getEventDef(politics.forecastEvent); }
+    int getNextFestivalDay() const;              // today or later; 0 when none is left
+    int getBaseCityDemand() const { return politics.baseDemandMW; }
+    void debugForceCityEvent(Politics::EventId today, Politics::EventId tomorrow); // tests / demo mode
+
+    // F-13 Council Decisions
+    bool chooseCouncilOption(int player, int option, std::string& outMsg);
+    int suggestCouncilOption(int player, int skill) const; // bot heuristic (skill 1..3)
+    void debugStartCouncilCard(int cardId);                // tests / demo mode
+
+    // F-16 City Contract Board
+    int getTenderBidStep() const;
+    int debugPostContract(Politics::ContractKind kind);    // tests / demo mode: adds one contract, returns its id
+    bool placeBid(int player, int contractId, int newTotalBid, std::string& outMsg); // escrowed
+    int getPoweredLampCount(int player) const;
+    float getStoredBatteryMWh(int player) const;
+
+    // F-31 Exchange & emergency import
+    int getMarketLotSize(ResourceType type) const;
+    int getMarketBuyPrice(ResourceType type) const;   // money per lot
+    int getMarketSellPrice(ResourceType type) const;  // money per lot
+    float getMarketMultiplier(ResourceType type) const;
+    bool tradeResource(int player, ResourceType type, bool buy, std::string& outMsg); // one lot
+    void setImportRequest(int player, bool on);
+    void setExportAllowed(int player, bool on);
+    int getImportFlowMW(int player) const;          // MW the player imports right now
+    float getImportPricePerMWs() const;             // money per MW per game-second
+
+    // Bot: council answers, tender bids, import/export and market use (skill 1..3)
+    void politicsBotThink(int player, int skill);
 };
 
 #endif // GAME_MAIN_H

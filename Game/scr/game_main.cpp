@@ -47,7 +47,9 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     (void)screenHeight;
 
     // Reset EVERY piece of match state (clock, season, revenue timer, city, players, buildings)
+    const bool keepPolitics = cityPoliticsEnabled; // [b-politics] the on/off switch survives restarts
     *this = GameEngine();
+    cityPoliticsEnabled = keepPolitics;            // [b-politics]
 
     // Seed both the weather RNG and std::rand (lightning, bot, particles) once per match
     bool seedFromEnv = false;
@@ -56,6 +58,7 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     std::srand(seed);
     std::cout << "[GameEngine] RNG seed: " << seed << (seedFromEnv ? " (from EC_SEED)" : " (from clock)")
               << ". Set EC_SEED=" << seed << " to replay this match.\n";
+    resetCityPolitics(seed); // [b-politics] own RNG stream, fresh deck / board / market
 
     landPlots.clear();
     buildings.clear();
@@ -161,6 +164,8 @@ void GameEngine::update(float dt) {
         return;
     }
 
+    tickCityPoliticsRealTime(dt); // [b-politics] council countdown runs in real seconds
+
     float remaining = dt * timeScale;
     while (remaining > 0.0f && city.winner == 0) {
         float step = std::min(remaining, MAX_SIM_STEP_SEC);
@@ -193,6 +198,7 @@ void GameEngine::simulateStep(float dt) {
     // Update building energy outputs based on real-time continuous weather & sun
     updateBuildingsEnergy(dt);
     city.dailySeconds += dt;
+    updateCityPolitics(dt); // [b-politics] contracts, council timing, buffs, bonds
 
     // Percentage-based city energy revenue, paid once per full game-second (remainder carried over)
     revenueTimer += dt;
@@ -212,6 +218,9 @@ void GameEngine::payCityRevenue() {
         int contractPool = Balance::calculateContractPool(totalGrid);
         int p1Payout = Balance::calculatePlayerPayout(contractPool, p1Share);
         int p2Payout = Balance::calculatePlayerPayout(contractPool, p2Share);
+        // [b-politics] city events and council results scale the money paid
+        p1Payout = static_cast<int>(std::lround(p1Payout * politicsPayoutMult(1)));
+        p2Payout = static_cast<int>(std::lround(p2Payout * politicsPayoutMult(2)));
 
         p1.money += p1Payout;
         p1.data.money = p1.money;
@@ -220,10 +229,10 @@ void GameEngine::payCityRevenue() {
         p2.data.money = p2.money;
 
         // Gold dividend for sustained power supply from Balance formula (capped by city demand)
-        p1.gold += Balance::calculateGoldDividend(p1.energyMW, city.cityEnergyDemand);
+        p1.gold += static_cast<int>(std::lround(Balance::calculateGoldDividend(p1.energyMW, city.cityEnergyDemand) * politicsGoldMult(1))); // [b-politics]
         p1.data.gold = p1.gold;
 
-        p2.gold += Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand);
+        p2.gold += static_cast<int>(std::lround(Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand) * politicsGoldMult(2))); // [b-politics]
         p2.data.gold = p2.gold;
     }
 
@@ -256,15 +265,15 @@ void GameEngine::updateBuildingsEnergy(float dt) {
             BuildingCost cost = getBuildingCost(b.type);
 
             if (b.type == BuildingType::SOLAR_PANEL) {
-                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
+                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason) * politicsGenMult(player, b.type);
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::WIND_TURBINE) {
-                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24);
+                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24) * politicsGenMult(player, b.type);
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::HYDRO_PLANT) {
-                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
+                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w) * politicsGenMult(player, b.type);
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::LAMP) {
@@ -347,6 +356,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
 
     processPlayerGrid(1, p1Weather, p1, city.p1DailyDelivered);
     processPlayerGrid(2, p2Weather, p2, city.p2DailyDelivered);
+    applyPowerImport(dt); // [b-politics] cross-river emergency import moves MW between the players
 }
 
 void GameEngine::processDayEnd() {
@@ -422,6 +432,8 @@ void GameEngine::processDayEnd() {
     p1.cityInfluence = city.p1CityShare;
     p2.cityInfluence = 1.0f - city.p1CityShare;
 
+    restoreBaseCityDemand(); // [b-politics] demand grows from the base, not from an event-boosted value
+
     // City expands and demands power next day (0 MW for first 2 days grace, 30 MW Day 3, +15 MW daily)
     if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
         city.cityEnergyDemand = 0;
@@ -430,6 +442,7 @@ void GameEngine::processDayEnd() {
     } else {
         city.cityEnergyDemand += Balance::DAILY_DEMAND_INCREASE_MW;
     }
+    onCityPoliticsNewDay(endedDay); // [b-politics] settle contracts, roll events / council / tenders
     city.p1DailyDelivered = 0.0f;
     city.p2DailyDelivered = 0.0f;
     city.dailySeconds = 0.0f;
@@ -451,7 +464,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
     result.type = type;
 
     int lvl = getMineLevel(player, type);
-    float mult = Balance::getMineYieldMultiplier(lvl);
+    float mult = Balance::getMineYieldMultiplier(lvl) * politicsMineMult(player, type); // [b-politics] events & council
     std::string lvlTag = (lvl > 1 ? " [НИВО " + std::to_string(lvl) + "]" : "");
 
     switch (type) {
