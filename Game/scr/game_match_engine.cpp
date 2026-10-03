@@ -75,7 +75,7 @@ SeasonType GameEngine::seasonAtGameSeconds(float seconds) const {
 
 std::string GameEngine::welcomeMessage() const {
     if (rules.sandbox) {
-        return "ПЯСЪЧНИК: БЕЗКРАЙНИ РЕСУРСИ И БЕЗ ПОБЕДА. [F2] = КОНТРОЛЕН ПАНЕЛ!";
+        return "ПЯСЪЧНИК: БЕЗКРАЙНИ РЕСУРСИ, БЕЗ ПОБЕДА. ПАНЕЛ: [F2]";
     }
     int grace = getGraceDays();
     if (grace <= 0) {

@@ -13,6 +13,7 @@
 #include "UI_bot.h"
 #include "UI_tutorial.h"
 #include "UI_research.h" // [b-options] F-33 research lab
+#include "UI_sandbox.h"  // [b-options] F-21 sandbox control panel
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -197,6 +198,7 @@ private:
     // [b-options] Match options & progression glue (UI_map_options.cpp)
     UI_research research;                // F-33 lab buildings + research panels
     OptionsTextCache optionsTexts;       // cached labels of the rules strip / sandbox panel
+    UI_sandboxPanel sandboxPanel;        // F-21 control panel over the idle East sector [F2]
     float botResearchTimer = 2.0f;       // the bot (P2) checks the lab every 2 s
     sf::Vector2f guardPos[2];            // cursor state frozen while that player's panel is open
     int guardGrid[2][2] = { { 0, 0 }, { 0, 0 } };

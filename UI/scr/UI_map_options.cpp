@@ -22,6 +22,7 @@ const sf::Color COL_CHIP_TEXT(232, 215, 255);
 const sf::Color COL_P1(0, 229, 255);
 const sf::Color COL_P2(255, 130, 205);
 const sf::Color COL_SCIENCE(150, 120, 255);
+const sf::Color COL_SANDBOX(255, 190, 70);
 
 // --- Layout: rules strip below "ЦЕНТРАЛНА ГРАНИЦА" ----------------------------------------
 constexpr float STRIP_X = 612.0f;
@@ -36,6 +37,7 @@ constexpr float BOT_RESEARCH_INTERVAL_SEC = 2.0f;
 void UI_map::setMatchRules(const MatchRules& rules) {
     engine.setMatchRules(rules); // applied by the next restartMatch() -> engine.init()
     research.closeAll();
+    sandboxPanel.setVisible(true);
     std::cout << "[UI_map] Match rules: preset " << MatchInfo::presetName(rules.preset)
               << ", mutators 0x" << std::hex << rules.mutators << std::dec
               << (rules.sandbox ? ", sandbox" : "") << "\n";
@@ -44,12 +46,18 @@ void UI_map::setMatchRules(const MatchRules& rules) {
 void UI_map::syncMatchOptionsUI(float dt) {
     p1Clock.setRules(engine.getFinalDay(), engine.getGraceDays());
     p2Clock.setRules(engine.getFinalDay(), engine.getGraceDays());
-    city.setRuleInfo(engine.getGraceDays(), engine.getVictoryShare());
+    city.setRuleInfo(engine.getGraceDays(), engine.getVictoryShare(), engine.isSandbox());
     p1Buildings.syncCosts(engine);
     p2Buildings.syncCosts(engine);
 
     // In single player only P1 is human: the bot never opens a panel
     if (bot.isActive()) research.close(2);
+
+    // F-21 sandbox: no tutorial, P2 parked off the canvas (idle sector), panel shown at the start
+    if (engine.isSandbox()) {
+        if (tutorial.isActive()) tutorial.skip();
+        p2Pos = { -200.0f, -200.0f };
+    }
 
     // F-33: the bot spends its city money in the lab (it never had another use for money)
     if (bot.isActive() && !engine.isSandbox() && !isPaused && engine.getCityState().winner == 0) {
@@ -118,6 +126,14 @@ bool UI_map::handleMatchOptionsEvent(const sf::Event& event, const sf::RenderWin
     const bool p2Human = !bot.isActive();
 
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+        // F-21 sandbox panel: [F2] show / hide, [F3]..[F8] shortcuts
+        if (engine.isSandbox()) {
+            if (key->code == K::F2) {
+                sandboxPanel.toggle();
+                return true;
+            }
+            if (sandboxPanel.handleKey(key->code, engine)) return true;
+        }
         // Open / close the research panels: P1 [R], P2 [Home]
         if (key->code == K::R) {
             research.toggle(1);
@@ -203,6 +219,7 @@ bool UI_map::handleMatchOptionsEvent(const sf::Event& event, const sf::RenderWin
     if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
         if (mb->button != sf::Mouse::Button::Left) return false;
         sf::Vector2f p = window.mapPixelToCoords(mb->position);
+        if (engine.isSandbox() && sandboxPanel.handleClick(p, engine)) return true;
         int owner = mouseOwnerAt(p);
         for (int pl = 1; pl <= 2; ++pl) {
             if (!research.isOpen(pl) || !UI_research::panelRect(pl).contains(p)) continue;
@@ -305,11 +322,28 @@ void UI_map::drawMatchOptionsWorld(sf::RenderWindow& window, float animTime) {
 
     // F-33 research lab buildings
     research.drawLab(window, font, resourcesLoaded, engine, 1, animTime, UI_research::labRect(1).contains(p1Pos), "[R]", true);
+    if (rules.sandbox) {
+        // F-21: sandbox badge instead of the rules strip; East sector (and its lab) is idle
+        if (resourcesLoaded) {
+            sf::RectangleShape bg({ STRIP_W, 46.0f });
+            bg.setPosition({ STRIP_X, STRIP_Y });
+            bg.setFillColor(COL_STRIP_BG);
+            bg.setOutlineThickness(1.5f);
+            bg.setOutlineColor(COL_SANDBOX);
+            window.draw(bg);
+            optionsTexts.draw(window, 30, font, "ПЯСЪЧНИК · безкрайни ресурси · без победа", 13, COL_SANDBOX,
+                              STRIP_X + STRIP_W / 2.0f, STRIP_Y + 14.0f, STRIP_W - 16.0f, OptionsTextCache::CENTER);
+            optionsTexts.draw(window, 31, font, sandboxPanel.isVisible() ? "[F2] скрий панела" : "[F2] покажи панела", 12,
+                              COL_STRIP_TITLE, STRIP_X + STRIP_W / 2.0f, STRIP_Y + 32.0f, STRIP_W - 16.0f, OptionsTextCache::CENTER);
+        }
+        return;
+    }
     research.drawLab(window, font, resourcesLoaded, engine, 2, animTime,
                      !bot.isActive() && UI_research::labRect(2).contains(p2Pos), bot.isActive() ? "(БОТ)" : "[Home]", !bot.isActive());
 }
 
 void UI_map::drawMatchOptionsOverlays(sf::RenderWindow& window, float animTime) {
+    if (engine.isSandbox()) sandboxPanel.draw(window, font, resourcesLoaded, engine, animTime);
     const bool singleHuman = bot.isActive();
     research.drawPanel(window, font, resourcesLoaded, engine, 1, animTime, singleHuman ? "[SPACE/ENTER]" : "[SPACE]",
                        singleHuman ? "[WASD/стрелки] избор · [R/X] затвори" : "[W/A/S/D] избор · [R/X] затвори");

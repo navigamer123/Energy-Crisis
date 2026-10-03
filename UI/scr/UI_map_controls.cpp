@@ -452,7 +452,9 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     }
 
     // 4. Player 2 Movement (Bot AI or Human Input)
-    if (bot.isActive()) {
+    if (bot.isActive() && engine.isSandbox()) {
+        p2Modal.active = false; // [b-options] F-21 practice sandbox: P2 stays idle
+    } else if (bot.isActive()) {
         p2Modal.active = false; // Never block Player 2 bot with a modal dialog
 
         // An active tutorial gives the human a head start, but only for a limited window:

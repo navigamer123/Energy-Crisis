@@ -29,6 +29,7 @@ MatchRules UI_mainMenu::getMatchRules() const {
     if (sandboxSelected) {
         MatchRules r = MatchRules::fromPreset(MatchPreset::STANDARD);
         r.sandbox = true;
+        r.graceDays = 0; // the demand set in the panel counts from day 1
         return r;
     }
     return matchSetup.getRules();

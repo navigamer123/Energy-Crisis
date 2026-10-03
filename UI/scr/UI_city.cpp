@@ -342,6 +342,10 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 
             sf::Text cutText(font, toUtf8(cutMessage), 10);
             cutText.setFillColor(sf::Color(255, 220, 100));
+            // [b-options] long day / rule messages shrink to stay inside the city bar
+            while (cutText.getCharacterSize() > 8 && cutText.getLocalBounds().size.x > cityWidth - 10.0f) {
+                cutText.setCharacterSize(cutText.getCharacterSize() - 1);
+            }
             sf::FloatRect cb = cutText.getLocalBounds();
             cutText.setPosition({ midX - cb.size.x / 2.0f, cityTop + cityHeight - 20.0f });
             window.draw(cutText);
@@ -376,7 +380,8 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
             demandColor = sf::Color(90, 255, 190);
         } else {
             dStr = "НУЖДА НА ГРАДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) +
-                   " MW | ПОБЕДА: " + std::to_string(static_cast<int>(std::lround(ruleVictoryShare * 100.0f))) + "%";
+                   (rulePractice ? std::string(" MW | ПЯСЪЧНИК") // [b-options] sandbox has no victory
+                                 : " MW | ПОБЕДА: " + std::to_string(static_cast<int>(std::lround(ruleVictoryShare * 100.0f))) + "%");
             demandColor = sf::Color(255, 215, 0);
         }
 
@@ -410,6 +415,7 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
 
         // Victory threshold ticks: P1 wins when the needle reaches the right tick, P2 at the left one
         for (float tickShare : { ruleVictoryShare, 1.0f - ruleVictoryShare }) {
+            if (rulePractice) break; // [b-options]
             sf::RectangleShape tick({ 2.0f, barH + 6.0f });
             tick.setPosition({ barX + barW * tickShare - 1.0f, barY - 3.0f });
             tick.setFillColor(sf::Color(255, 215, 0, 230));
