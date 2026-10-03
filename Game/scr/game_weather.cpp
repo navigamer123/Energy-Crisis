@@ -64,12 +64,15 @@ WeatherType WeatherSystem::reportToWeatherType(const std::vector<std::string>& r
     if (report.size() < 2) return WeatherType::SUNNY;
     const std::string& precip = report[1];
     if (precip == "thunder_storm") return WeatherType::STORMY;
-    if (precip == "rain" || precip == "snow" || precip == "hail") return WeatherType::RAINY;
+    if (precip == "rain") return WeatherType::RAINY;
+    if (precip == "snow" || precip == "hail") return WeatherType::SNOWY;
     if (report.size() >= 4 && !report[3].empty() && report[3] != "0") {
         try {
             if (std::stod(report[3]) > 18.0) return WeatherType::WINDY;
         } catch (...) {}
     }
+    // Dry but overcast days must not get the full sunny solar bonus
+    if (report[0] == "cloudy") return WeatherType::CLOUDY;
     return WeatherType::SUNNY;
 }
 
@@ -79,6 +82,8 @@ const char* getWeatherName(WeatherType w) {
         case WeatherType::WINDY:  return "Ветровито (Windy)";
         case WeatherType::RAINY:  return "Дъждовно (Rainy)";
         case WeatherType::STORMY: return "Бурно (Stormy)";
+        case WeatherType::SNOWY:  return "Снежно (Snowy)";
+        case WeatherType::CLOUDY: return "Облачно (Cloudy)";
     }
     return "Слънчево";
 }
@@ -109,6 +114,8 @@ float WeatherSystem::getSolarMultiplier(WeatherType w, float hour24, SeasonType 
         case WeatherType::WINDY:  weatherMod = 1.0f; break;
         case WeatherType::RAINY:  weatherMod = 0.5f; break;
         case WeatherType::STORMY: weatherMod = 0.1f; break;
+        case WeatherType::SNOWY:  weatherMod = 0.3f; break;
+        case WeatherType::CLOUDY: weatherMod = 0.8f; break;
     }
 
     // Seasonal solar irradiance adjustment (Summer has +15% stronger solar peak, Winter -15%)
@@ -121,13 +128,16 @@ float WeatherSystem::getSolarMultiplier(WeatherType w, float hour24, SeasonType 
 }
 
 float WeatherSystem::getWindMultiplier(WeatherType w, float hour24) {
-    float timeMod = 1.0f + 0.15f * std::sin(hour24 * 0.5f);
+    // 24 h period (continuous across midnight): strongest wind at 15:00, calmest at 03:00
+    float timeMod = 1.0f + 0.15f * std::sin((hour24 - 9.0f) * (2.0f * 3.14159265f / 24.0f));
     float weatherMod = 1.0f;
     switch (w) {
         case WeatherType::SUNNY:  weatherMod = 0.8f; break;
         case WeatherType::WINDY:  weatherMod = 1.8f; break;
         case WeatherType::RAINY:  weatherMod = 1.2f; break;
         case WeatherType::STORMY: weatherMod = 2.2f; break;
+        case WeatherType::SNOWY:  weatherMod = 1.2f; break;
+        case WeatherType::CLOUDY: weatherMod = 0.8f; break;
     }
     return timeMod * weatherMod;
 }
@@ -138,6 +148,8 @@ float WeatherSystem::getHydroMultiplier(WeatherType w) {
         case WeatherType::WINDY:  return 1.0f;
         case WeatherType::RAINY:  return 2.0f;
         case WeatherType::STORMY: return 2.5f;
+        case WeatherType::SNOWY:  return 1.0f; // Snow stays on the ground; no instant river boost
+        case WeatherType::CLOUDY: return 0.8f;
     }
     return 1.0f;
 }

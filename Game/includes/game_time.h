@@ -22,6 +22,46 @@ constexpr float DAY_END_HOUR = 18.0f;          // Fallback daylight end
 constexpr float MINE_SPEEDUP_MULT = 6.0f;      // Time advances 6x faster when actively gathering resources
 constexpr float MINE_COOLDOWN_SEC = 1.0f;      // Cooldown between resource gathering actions (1.0s)
 
+// Clock mapping: gameSeconds = 0 is 06:00 of day 1. A new day (and its single day-end
+// settlement) starts at every 06:00. Seasons switch at the preceding midnight, when it is
+// dark in every season, so daylight never toggles back at a season change.
+constexpr float CLOCK_HOUR_AT_ZERO = 6.0f;     // Hour shown at gameSeconds = 0 (= daily rollover hour)
+constexpr float MATCH_START_HOUR = 8.0f;       // A new match starts at 08:00 of day 1
+constexpr int DAYS_PER_SEASON = 5;
+
+// Converts game seconds to in-game hours (90 s = 24 h -> 1 game-hour = 3.75 s)
+inline float gameSecondsToHours(float seconds) {
+    return seconds * 24.0f / SECONDS_PER_DAY;
+}
+
+// gameSeconds value at which the given clock hour of day 1 is reached (hour >= CLOCK_HOUR_AT_ZERO)
+inline float gameSecondsAtHour(float hour24) {
+    return (hour24 - CLOCK_HOUR_AT_ZERO) / 24.0f * SECONDS_PER_DAY;
+}
+
+inline SeasonType getSeasonForDay(int day) {
+    int d = (day < 1) ? 1 : day;
+    return static_cast<SeasonType>(((d - 1) / DAYS_PER_SEASON) % 4);
+}
+
+// Season in effect at a given game time: it already belongs to the next day from midnight on
+inline SeasonType getSeasonAtGameSeconds(float gameSeconds) {
+    float secondsFromMidnightToRollover = CLOCK_HOUR_AT_ZERO / 24.0f * SECONDS_PER_DAY; // 00:00 -> 06:00
+    int calendarDay = 1 + static_cast<int>(std::floor((gameSeconds + secondsFromMidnightToRollover) / SECONDS_PER_DAY));
+    return getSeasonForDay(calendarDay);
+}
+
+// Season keyword expected by weather_report()
+inline const char* getSeasonWeatherKey(SeasonType season) {
+    switch (season) {
+        case SeasonType::SPRING: return "spring";
+        case SeasonType::SUMMER: return "summer";
+        case SeasonType::AUTUMN: return "fall";
+        case SeasonType::WINTER: return "winter";
+    }
+    return "spring";
+}
+
 // -----------------------------------------------------------------------------
 // 2. Seasonal Sunrise & Sunset Schedule (Adaptive Day-Night Cycle)
 //

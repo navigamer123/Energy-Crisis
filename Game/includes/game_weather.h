@@ -19,7 +19,9 @@ enum class WeatherType {
     SUNNY,    // Слънчево (+60% Solar energy)
     WINDY,    // Ветровито (+80% Wind energy)
     RAINY,    // Дъждовно (+100% Hydro energy, -50% Solar)
-    STORMY    // Бурно (+120% Wind, +150% Hydro, -90% Solar)
+    STORMY,   // Бурно (+120% Wind, +150% Hydro, -90% Solar)
+    SNOWY,    // Снежно (сняг/градушка: -70% Solar, +20% Wind, нормален Hydro)
+    CLOUDY    // Облачно (сухо, но облачно: -20% Solar, без +60% слънчев бонус)
 };
 
 // -----------------------------------------------------------------------------

@@ -67,6 +67,10 @@ constexpr BuildingDef STREET_LAMP = {
 
 constexpr float DEMOLISH_REFUND_FRACTION = 0.50f; // 50% resource refund when demolishing
 
+// Battery storage: one unit for charge and discharge (MW x game-hours = MWh)
+// 1 game-hour = SECONDS_PER_DAY / 24 = 3.75 s. A full 200 MWh battery gives 40 MW for 5 game-hours.
+constexpr float BATTERY_MAX_POWER_MW = 40.0f;     // Max charge / discharge power per battery
+
 // -----------------------------------------------------------------------------
 // 3. Resource Mining & Upgrades with Gold
 // -----------------------------------------------------------------------------
@@ -110,9 +114,16 @@ constexpr int TOTAL_PLOTS      = 24; // 12 West (P1) + 12 East (P2)
 constexpr int LAND_BASE_COST_GOLD = 150;
 constexpr int LAND_TIER_COST_GROWTH = 45;
 
+// row/col are counted from the player's own starting corner (col 0 = far side, col 2 = river side),
+// so both players pay the same price for mirrored plots.
 inline int getLandPlotCost(int row, int col) {
     return LAND_BASE_COST_GOLD + (row * 3 + col) * LAND_TIER_COST_GROWTH;
 }
+
+// Land plot column (0..2, West->East screen order) that borders the city river for each player.
+// Hydro plants may only be built on these river-bank plots.
+constexpr int P1_RIVER_BANK_PLOT_COL = 2;
+constexpr int P2_RIVER_BANK_PLOT_COL = 0;
 
 // -----------------------------------------------------------------------------
 // 5. City Demand, Revenue & Dynamic Tug-of-War Influence
@@ -180,8 +191,16 @@ inline float calculateDailyCityShift(int p1PowerMW, int p2PowerMW, int cityDeman
 constexpr int REPAIR_WOOD_COST = 5;
 constexpr int REPAIR_IRON_COST = 5;
 
-// Victory Condition: 100% (1.0) influence threshold
-constexpr float VICTORY_INFLUENCE_P1 = 0.999f;
-constexpr float VICTORY_INFLUENCE_P2 = 0.001f;
+// Victory Conditions (checked once per day end):
+// - a player wins as soon as their city share is >= VICTORY_SHARE (85%)
+// - when day FINAL_DAY (20) ends, the larger share wins; |share - 50%| < DRAW_SHARE_TOLERANCE is a draw
+// Winner codes in CityConquestState::winner: 0 = none, 1 = P1, 2 = P2, 3 = draw
+constexpr float VICTORY_SHARE = 0.85f;
+constexpr int FINAL_DAY = 20;
+constexpr float DRAW_SHARE_TOLERANCE = 0.005f;
+
+// Legacy names kept for compatibility (P1 share thresholds)
+constexpr float VICTORY_INFLUENCE_P1 = VICTORY_SHARE;
+constexpr float VICTORY_INFLUENCE_P2 = 1.0f - VICTORY_SHARE;
 
 } // namespace Balance

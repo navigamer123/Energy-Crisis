@@ -112,11 +112,12 @@ struct PlayerEconomy {
 struct CityConquestState {
     int cityEnergyDemand = 0;   // Starts at 0 MW for Day 1-2 Grace Period, then 30 MW from Day 3
     float p1CityShare = 0.50f;  // 0.0 to 1.0 (P1 vs P2 city control tug-of-war)
-    float p1DailyDelivered = 0.0f;
+    float p1DailyDelivered = 0.0f; // Energy delivered to the city so far today (MW x game-seconds)
     float p2DailyDelivered = 0.0f;
+    float dailySeconds = 0.0f;     // Game-seconds elapsed in the current day (06:00 -> 06:00)
     bool dayCutOccurred = false;
     std::string lastCutMessage;
-    int winner = 0;             // 0 = None, 1 = P1, 2 = P2
+    int winner = 0;             // 0 = None, 1 = P1, 2 = P2, 3 = Draw (equal shares after the final day)
 };
 
 struct MineResult {
@@ -143,7 +144,7 @@ private:
     float gameSeconds;
     int currentDay;
     float hour24;
-    float secondsPerDay;
+    float revenueTimer;         // Accumulates game-seconds towards the next 1 s city payout
 
     WeatherType p1Weather;
     WeatherType p2Weather;
@@ -157,8 +158,12 @@ private:
     std::vector<PlacedBuilding> buildings;
     std::vector<LandPlot> landPlots;
 
+    void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
+    void payCityRevenue();
     void processDayEnd();
+    void rollDailyWeather();
+    int findOwnedBuildingInSlot(int player, sf::Vector2f pos) const;
 
 public:
     GameEngine();
@@ -192,6 +197,8 @@ public:
     bool breakRandomBuilding(int playerOwner, sf::Vector2f& outPos);
     bool hasBrokenBuilding(int player) const;
     bool isAreaIlluminated(int player, sf::Vector2f pos) const;
+    // True when pos lies on one of the player's river-bank plots (the only place hydro may be built)
+    bool isRiverBankSlot(int player, sf::Vector2f pos) const;
 
     // Lamp consumption constant (MW)
     static constexpr float LAMP_POWER_MW = 10.0f;
@@ -208,6 +215,11 @@ public:
     const CityConquestState& getCityState() const { return city; }
     const std::vector<PlacedBuilding>& getBuildings() const { return buildings; }
     const std::vector<LandPlot>& getLandPlots() const { return landPlots; }
+    // Average power (MW) delivered to the city so far today; the day-end result is judged on this value
+    float getTodayAverageMW(int player) const {
+        if (city.dailySeconds <= 0.0f) return 0.0f;
+        return ((player == 1) ? city.p1DailyDelivered : city.p2DailyDelivered) / city.dailySeconds;
+    }
 
     int getCurrentDay() const { return currentDay; }
     float getHour24() const { return hour24; }
