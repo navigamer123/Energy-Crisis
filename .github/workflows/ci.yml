@@ -1,0 +1,150 @@
+# Energy Crisis - continuous integration
+#   engine   : headless engine tests (no SFML) with CMake and with the Makefile, ~1 minute
+#   linux    : full game build on Ubuntu (GCC + SFML 3.1.0 built from source), tests, playable artifact
+#   windows  : full game build on Windows (WinLibs GCC 14.2 + SFML 3.1.0 built from source), tests, playable artifact
+# SFML is compiled once and kept in the Actions cache (the whole CMake build folder), so later runs only
+# rebuild the game. Tests use a fixed EC_SEED so every run sees the same weather.
+name: CI
+
+on:
+  push:
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SFML_VERSION: 3.1.0
+  EC_SEED: 20261003
+  # Some of SFML's bundled dependencies still declare very old CMake minimums; CMake 4 needs this
+  CMAKE_POLICY_VERSION_MINIMUM: 3.5
+
+jobs:
+  engine:
+    name: Engine tests (headless, no SFML)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (EC_BUILD_GAME=OFF)
+        run: cmake -S . -B build-engine -DEC_BUILD_GAME=OFF -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-engine --parallel 4
+
+      - name: CTest
+        run: ctest --test-dir build-engine --output-on-failure
+
+      - name: make test (Makefile)
+        run: make -k test
+
+  linux:
+    name: Linux (GCC, SFML 3.1.0)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SFML build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxrandr-dev libxcursor-dev libxi-dev libudev-dev \
+            libfreetype-dev libharfbuzz-dev libflac-dev libvorbis-dev \
+            libgl1-mesa-dev libegl1-mesa-dev
+
+      - name: Cache CMake build (SFML ${{ env.SFML_VERSION }})
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-${{ runner.os }}-gcc-sfml${{ env.SFML_VERSION }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: build-${{ runner.os }}-gcc-sfml${{ env.SFML_VERSION }}-
+
+      - name: Configure (EC_FETCH_SFML=ON)
+        run: cmake -S . -B build -DEC_FETCH_SFML=ON -DEC_SFML_VERSION=${{ env.SFML_VERSION }} -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: CTest
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: cmake --install build --prefix dist/energy-crisis
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: energy-crisis-linux
+          path: dist/
+          retention-days: 14
+
+  windows:
+    name: Windows (MinGW GCC 14.2, SFML 3.1.0)
+    runs-on: windows-latest
+    env:
+      # Same compiler as the team uses (and SFML's official MinGW builds): WinLibs GCC 14.2.0 UCRT r2
+      WINLIBS_URL: https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0posix-19.1.1-12.0.0-ucrt-r2/winlibs-x86_64-posix-seh-gcc-14.2.0-mingw-w64ucrt-12.0.0-r2.7z
+      WINLIBS_DIR: C:\winlibs
+      CXX: g++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache WinLibs GCC
+        id: winlibs
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WINLIBS_DIR }}
+          key: winlibs-gcc-14.2.0-ucrt-r2
+
+      - name: Download WinLibs GCC 14.2.0
+        if: steps.winlibs.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          curl.exe -L --fail --retry 3 -o "$env:RUNNER_TEMP\winlibs.7z" "$env:WINLIBS_URL"
+          7z x "$env:RUNNER_TEMP\winlibs.7z" "-o$env:WINLIBS_DIR" -y | Out-Null
+
+      - name: Put WinLibs first on PATH
+        shell: pwsh
+        run: |
+          Add-Content -Path $env:GITHUB_PATH -Value "$env:WINLIBS_DIR\mingw64\bin"
+
+      - name: Show toolchain
+        shell: pwsh
+        run: |
+          g++ --version
+          cmake --version
+          mingw32-make --version
+
+      - name: Cache CMake build (SFML ${{ env.SFML_VERSION }})
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-${{ runner.os }}-mingw14.2-sfml${{ env.SFML_VERSION }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: build-${{ runner.os }}-mingw14.2-sfml${{ env.SFML_VERSION }}-
+
+      - name: Configure (EC_FETCH_SFML=ON)
+        shell: pwsh
+        run: >
+          cmake -S . -B build -G "MinGW Makefiles"
+          -DEC_FETCH_SFML=ON "-DEC_SFML_VERSION=${{ env.SFML_VERSION }}" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: CTest
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: cmake --install build --prefix dist/energy-crisis
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: energy-crisis-windows
+          path: dist/
+          retention-days: 14
