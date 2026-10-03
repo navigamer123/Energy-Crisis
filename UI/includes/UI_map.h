@@ -12,6 +12,8 @@
 #include "UI_buildings.h"
 #include "UI_bot.h"
 #include "UI_tutorial.h"
+#include "UI_infoEvents.h"   // team info
+#include "UI_matchStats.h"   // team info
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -193,6 +195,12 @@ private:
     int mouseOwnerAt(sf::Vector2f pos) const;                          // 0 = nobody, 1 = P1, 2 = P2
     bool isModalDismissKey(int player, sf::Keyboard::Key code) const;  // That player's own confirm/cancel keys
 
+    // team info: information UI (UI_map_info.cpp) - telemetry, notifications, dashboard, report, dev overlay
+    UI_matchStats stats;
+    std::vector<InfoEvent> pendingInfoEvents;
+    void updateInfoUI(float dt);
+    void resetInfoUI();
+
 public:
     UI_map();
     ~UI_map();
@@ -221,6 +229,9 @@ public:
     void primeInputEdges(int player = 0); // Keys held right now are not fresh presses (0 = both players)
     void resetMatchInputState();          // Call after restartMatch()/setBotDifficulty() when a match starts
     void onFocusLost();                   // Auto-pause when the window loses focus
+
+    // team info: entry point of the information-UI event hook (see UI_infoEvents.h)
+    void onInfoEvent(const InfoEvent& ev);
 };
 
 #endif // UI_MAP_H

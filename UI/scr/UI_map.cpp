@@ -235,6 +235,8 @@ void UI_map::restartMatch() {
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
 
+    resetInfoUI(); // team info: clear telemetry, toasts and the event log
+
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
 }
 
@@ -253,11 +255,13 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     if (!isPaused && engine.getCityState().winner == 0) {
+        stats.beforeEngineUpdate(engine); // team info: capture the day's average before a settlement
         engine.update(dt);
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
     }
+    updateInfoUI(dt); // team info: telemetry, notifications, alerts
 
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible
     // dialog/tutorial blocking input (or freezing the bot).

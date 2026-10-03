@@ -145,6 +145,7 @@ private:
     int currentDay;
     float hour24;
     float revenueTimer;         // Accumulates game-seconds towards the next 1 s city payout
+    unsigned int matchSeed = 0; // team info: RNG seed of the current match (shown by the developer overlay)
 
     WeatherType p1Weather;
     WeatherType p2Weather;
@@ -220,6 +221,8 @@ public:
         if (city.dailySeconds <= 0.0f) return 0.0f;
         return ((player == 1) ? city.p1DailyDelivered : city.p2DailyDelivered) / city.dailySeconds;
     }
+
+    unsigned int getMatchSeed() const { return matchSeed; } // team info: seed for EC_SEED replays
 
     int getCurrentDay() const { return currentDay; }
     float getHour24() const { return hour24; }

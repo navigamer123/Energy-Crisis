@@ -52,6 +52,7 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     // Seed both the weather RNG and std::rand (lightning, bot, particles) once per match
     bool seedFromEnv = false;
     unsigned int seed = pickMatchSeed(seedFromEnv);
+    matchSeed = seed; // team info: exposed through getMatchSeed()
     seedRandom(seed);
     std::srand(seed);
     std::cout << "[GameEngine] RNG seed: " << seed << (seedFromEnv ? " (from EC_SEED)" : " (from clock)")
