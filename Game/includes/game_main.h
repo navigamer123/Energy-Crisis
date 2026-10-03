@@ -144,6 +144,8 @@ private:
     std::vector<LandPlot> landPlots;
     std::vector<GameEvent> events; // pending events, drained by pollEvents()
     MatchConfig config;            // rules of the current match
+    PlayerModifiers p1Mods;        // neutral unless setPlayerModifiers() was called this match
+    PlayerModifiers p2Mods;
 
     // Engine-owned random numbers: one independent stream per purpose, all derived from matchSeed, so
     // UI calls to randInt() never shift the weather sequence of a seeded match
@@ -192,6 +194,13 @@ public:
     void setTimeScale(float scale) { timeScale = (scale > 0.1f ? scale : 1.0f); }
     float getTimeScale() const { return timeScale; }
 
+    // Per-player modifiers (multipliers are clamped to [0, 100], shareBonus to [-0.5, 0.5]; NaN = neutral).
+    // Applied to city income, mining yield, building costs, the mining cooldown and won days.
+    void setPlayerModifiers(int player, const PlayerModifiers& mods);
+    const PlayerModifiers& getPlayerModifiers(int player) const { return (player == 1) ? p1Mods : p2Mods; }
+    // Seconds between two mining actions of this player (Balance::MINE_COOLDOWN_SEC x cooldownMult)
+    float getMineCooldown(int player) const { return Balance::MINE_COOLDOWN_SEC * getPlayerModifiers(player).cooldownMult; }
+
     // Player Actions
     bool mineResource(int player, ResourceType type, std::string& outMsg);
     bool mineResource(int player, ResourceType type, MineResult& result, std::string& outMsg);
@@ -235,6 +244,8 @@ public:
     }
     // getBuildingCost: name, resource recipe and base MW of a type (base prices, no player modifiers)
     BuildingCost getBuildingCost(BuildingType type) const;
+    // The price this player pays (base recipe x PlayerModifiers::costMult); placement and refunds use it
+    BuildingCost getBuildingCost(int player, BuildingType type) const;
     sf::Vector2f snapToBuildingGrid(int player, sf::Vector2f pos) const;
     sf::Vector2f getGridSlot(int player, int col, int row) const;
     void getClosestGridIndex(int player, sf::Vector2f pos, int& outCol, int& outRow) const;

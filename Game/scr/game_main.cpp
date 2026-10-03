@@ -72,6 +72,12 @@ constexpr int basePowerOf(BuildingType type) {
     return GameEngine::getBuildingDef(type) ? GameEngine::getBuildingDef(type)->basePowerMW : 0;
 }
 
+// amount x multiplier rounded to an integer (>= 0); exactly amount when the multiplier is neutral
+int scaleByMult(int amount, float mult) {
+    if (mult == 1.0f) return amount;
+    return std::max(0, static_cast<int>(std::lround(static_cast<float>(amount) * mult)));
+}
+
 } // namespace
 
 GameEngine::GameEngine()
@@ -299,17 +305,17 @@ void GameEngine::payCityRevenue() {
 
         // City energy contract pool from central Balance formula
         int contractPool = Balance::calculateContractPool(totalGrid);
-        int p1Payout = Balance::calculatePlayerPayout(contractPool, p1Share);
-        int p2Payout = Balance::calculatePlayerPayout(contractPool, p2Share);
+        int p1Payout = scaleByMult(Balance::calculatePlayerPayout(contractPool, p1Share), p1Mods.incomeMult);
+        int p2Payout = scaleByMult(Balance::calculatePlayerPayout(contractPool, p2Share), p2Mods.incomeMult);
 
         p1.money += p1Payout;
 
         p2.money += p2Payout;
 
         // Gold dividend for sustained power supply from Balance formula (capped by city demand)
-        p1.gold += Balance::calculateGoldDividend(p1.energyMW, city.cityEnergyDemand);
+        p1.gold += scaleByMult(Balance::calculateGoldDividend(p1.energyMW, city.cityEnergyDemand), p1Mods.incomeMult);
 
-        p2.gold += Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand);
+        p2.gold += scaleByMult(Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand), p2Mods.incomeMult);
     }
 
     // City influence reflects established territorial division from daily outcomes
@@ -464,6 +470,12 @@ void GameEngine::processDayEnd() {
         bool p1Succeeded = (p1AvgMW >= city.cityEnergyDemand);
         bool p2Succeeded = (p2AvgMW >= city.cityEnergyDemand);
         float shift = Balance::calculateDailyCityShift(p1AvgMW, p2AvgMW, city.cityEnergyDemand);
+        // PlayerModifiers::shareBonus: extra share for the winner of the day (never flips the result)
+        if (shift > 0.0f) {
+            shift = std::max(0.0f, shift + p1Mods.shareBonus);
+        } else if (shift < 0.0f) {
+            shift = std::min(0.0f, shift - p2Mods.shareBonus);
+        }
         dayShift = shift;
         city.p1CityShare = std::clamp(city.p1CityShare + shift, 0.0f, 1.0f);
         int shiftPct = static_cast<int>(std::round(std::abs(shift) * 100.0f));
@@ -559,7 +571,8 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
     result.type = type;
 
     int lvl = getMineLevel(player, type);
-    float mult = Balance::getMineYieldMultiplier(lvl);
+    const float yieldMult = getPlayerModifiers(player).mineYieldMult;
+    float mult = Balance::getMineYieldMultiplier(lvl) * yieldMult;
     std::string lvlTag = (lvl > 1 ? " [НИВО " + std::to_string(lvl) + "]" : "");
 
     switch (type) {
@@ -625,7 +638,8 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         }
         case ResourceType::ORE: {
             // Legacy cave expedition support (grants the real minerals; the hidden ore pool is no longer used)
-            int fe = Balance::IRON_BASE_YIELD, cu = Balance::COPPER_BASE_YIELD, c = Balance::COAL_BASE_YIELD, au = Balance::GOLD_BASE_YIELD;
+            int fe = scaleByMult(Balance::IRON_BASE_YIELD, yieldMult), cu = scaleByMult(Balance::COPPER_BASE_YIELD, yieldMult);
+            int c = scaleByMult(Balance::COAL_BASE_YIELD, yieldMult), au = scaleByMult(Balance::GOLD_BASE_YIELD, yieldMult);
             econ.iron += fe;
             econ.copper += cu;
             econ.coal += c;
@@ -792,6 +806,36 @@ BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
              def->siliconCost, def->silverCost, ore, def->basePowerMW };
 }
 
+BuildingCost GameEngine::getBuildingCost(int player, BuildingType type) const {
+    BuildingCost c = getBuildingCost(type);
+    const float m = getPlayerModifiers(player).costMult;
+    if (m != 1.0f) {
+        c.woodCost = scaleByMult(c.woodCost, m);
+        c.ironCost = scaleByMult(c.ironCost, m);
+        c.copperCost = scaleByMult(c.copperCost, m);
+        c.coalCost = scaleByMult(c.coalCost, m);
+        c.siliconCost = scaleByMult(c.siliconCost, m);
+        c.silverCost = scaleByMult(c.silverCost, m);
+        c.oreCost = c.ironCost + c.copperCost + c.coalCost + c.siliconCost + c.silverCost;
+    }
+    return c;
+}
+
+void GameEngine::setPlayerModifiers(int player, const PlayerModifiers& mods) {
+    auto cleanMult = [](float v) {
+        return std::isfinite(v) ? std::clamp(v, 0.0f, PlayerModifiers::MAX_MULT) : 1.0f;
+    };
+    PlayerModifiers m;
+    m.incomeMult = cleanMult(mods.incomeMult);
+    m.mineYieldMult = cleanMult(mods.mineYieldMult);
+    m.costMult = cleanMult(mods.costMult);
+    m.cooldownMult = cleanMult(mods.cooldownMult);
+    m.shareBonus = std::isfinite(mods.shareBonus)
+                       ? std::clamp(mods.shareBonus, -PlayerModifiers::MAX_SHARE_BONUS, PlayerModifiers::MAX_SHARE_BONUS)
+                       : 0.0f;
+    ((player == 1) ? p1Mods : p2Mods) = m;
+}
+
 sf::Vector2f GameEngine::getGridSlot(int player, int col, int row) const {
     // 9 columns (0..8) and 12 rows (0..11) for 12 plots x 9 slots each
     col = std::max(0, std::min(col, Balance::GRID_COLS - 1));
@@ -895,7 +939,7 @@ bool GameEngine::removeBuilding(int player, sf::Vector2f pos, std::string& outMs
 
     // Refund a fraction of what was paid (placement always deducts the full recipe)
     PlacedBuilding b = buildings[closestIdx];
-    BuildingCost cost = getBuildingCost(b.type);
+    BuildingCost cost = getBuildingCost(player, b.type);
     const float refund = Balance::DEMOLISH_REFUND_FRACTION;
     int refundWood = static_cast<int>(cost.woodCost * refund);
     int refundIron = static_cast<int>(cost.ironCost * refund);
@@ -938,7 +982,7 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
     pos = snapToBuildingGrid(player, pos);
 
     const auto& econ = (player == 1) ? p1 : p2;
-    BuildingCost cost = getBuildingCost(type);
+    BuildingCost cost = getBuildingCost(player, type);
 
     // Every resource of the recipe is required on its own (no hidden 'ore' wildcard)
     bool hasRes = econ.wood >= cost.woodCost &&
@@ -1026,7 +1070,7 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
 
     // canPlaceBuilding guaranteed that every resource is available: pay the full recipe
     auto& econ = (player == 1) ? p1 : p2;
-    BuildingCost cost = getBuildingCost(type);
+    BuildingCost cost = getBuildingCost(player, type);
     econ.wood -= cost.woodCost;
     econ.iron -= cost.ironCost;
     econ.copper -= cost.copperCost;

@@ -34,3 +34,18 @@ struct MatchConfig {
         return false;
     }
 };
+
+// =============================================================================
+// Per-player modifiers (handicaps, charters, events). Neutral values change nothing.
+// Set them after init() / restartGame(): a new match starts with neutral modifiers.
+// =============================================================================
+struct PlayerModifiers {
+    float incomeMult = 1.0f;     // city money payout and gold dividend
+    float mineYieldMult = 1.0f;  // resources per mining action
+    float costMult = 1.0f;       // resource cost of buildings (also scales the demolition refund)
+    float cooldownMult = 1.0f;   // mining cooldown (GameEngine::getMineCooldown, enforced by the caller)
+    float shareBonus = 0.0f;     // extra city share added to a day this player wins (e.g. 0.02 = +2%)
+
+    static constexpr float MAX_MULT = 100.0f;
+    static constexpr float MAX_SHARE_BONUS = 0.5f;
+};

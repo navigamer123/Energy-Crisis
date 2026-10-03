@@ -571,6 +571,126 @@ void testBuildingCosts() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// PlayerModifiers: income, mining yield, building cost, cooldown, share bonus
+// ---------------------------------------------------------------------------
+void testPlayerModifiers() {
+    beginGroup("PlayerModifiers");
+    MatchConfig cfg;
+    cfg.seed = 555u;
+    {
+        // Neutral by default
+        GameEngine e;
+        e.init(cfg);
+        const PlayerModifiers& m = e.getPlayerModifiers(1);
+        CHECK(m.incomeMult == 1.0f && m.mineYieldMult == 1.0f && m.costMult == 1.0f && m.cooldownMult == 1.0f && m.shareBonus == 0.0f,
+              "modifiers are not neutral after init");
+        CHECK(e.getMineCooldown(2) == Balance::MINE_COOLDOWN_SEC, "cooldown " << e.getMineCooldown(2));
+    }
+    {
+        // Income: double city money and gold dividend for P1 only (same seed, same buildings)
+        GameEngine base, rich;
+        base.init(cfg);
+        rich.init(cfg);
+        PlayerModifiers m;
+        m.incomeMult = 2.0f;
+        rich.setPlayerModifiers(1, m);
+        for (GameEngine* e : { &base, &rich }) {
+            giveResources(*e, 1, 1000);
+            giveResources(*e, 2, 1000);
+            place(*e, 1, BuildingType::WIND_TURBINE, slotOf(*e, 1, 1, 0));
+            place(*e, 2, BuildingType::WIND_TURBINE, slotOf(*e, 2, 15, 0));
+            for (int i = 0; i < 600; ++i) e->update(0.25f); // 150 s, into day 3 (city demand, gold dividends)
+        }
+        const auto& b1 = base.getPlayerEconomy(1);
+        const auto& r1 = rich.getPlayerEconomy(1);
+        CHECK(b1.money > 0 && r1.money == 2 * b1.money, "P1 money " << r1.money << " vs base " << b1.money);
+        CHECK(b1.gold > 0 && r1.gold == 2 * b1.gold, "P1 gold " << r1.gold << " vs base " << b1.gold);
+        CHECK(rich.getPlayerEconomy(2).money == base.getPlayerEconomy(2).money, "P2 income changed");
+    }
+    {
+        // Costs: P1 pays half, P2 the base price; the refund follows the price paid
+        GameEngine e;
+        e.init(cfg);
+        PlayerModifiers m;
+        m.costMult = 0.5f;
+        e.setPlayerModifiers(1, m);
+        const BuildingCost cheap = e.getBuildingCost(1, BuildingType::WIND_TURBINE);
+        const BuildingCost full = e.getBuildingCost(2, BuildingType::WIND_TURBINE);
+        const BuildingCost base = e.getBuildingCost(BuildingType::WIND_TURBINE);
+        CHECK(full.woodCost == base.woodCost && full.ironCost == base.ironCost && full.coalCost == base.coalCost, "P2 price changed");
+        CHECK(cheap.woodCost == 4 && cheap.ironCost == 7 && cheap.copperCost == 4 && cheap.coalCost == 3,
+              "half price " << cheap.woodCost << "/" << cheap.ironCost << "/" << cheap.copperCost << "/" << cheap.coalCost);
+        CHECK(cheap.basePowerMW == base.basePowerMW && cheap.nameBg == base.nameBg, "costMult changed output or name");
+        giveResources(e, 1, 100);
+        const sf::Vector2f pos = slotOf(e, 1, 1, 0);
+        place(e, 1, BuildingType::WIND_TURBINE, pos);
+        const auto& p = e.getPlayerEconomy(1);
+        CHECK(p.wood == 96 && p.iron == 93 && p.copper == 96 && p.coal == 97, "P1 paid " << 100 - p.wood << " wood, " << 100 - p.iron << " iron");
+        std::string msg;
+        REQUIRE(e.removeBuilding(1, pos, msg), msg);
+        CHECK(p.wood == 98 && p.iron == 96, "refund of the half price: wood " << p.wood << ", iron " << p.iron);
+
+        // Dearer buildings: the base recipe is no longer enough
+        m.costMult = 2.0f;
+        e.setPlayerModifiers(2, m);
+        PlayerEconomy& q = e.getPlayerEconomyMut(2);
+        q.wood = base.woodCost; q.iron = base.ironCost; q.copper = base.copperCost; q.coal = base.coalCost;
+        CHECK(!e.placeBuilding(2, BuildingType::WIND_TURBINE, slotOf(e, 2, 15, 0), msg), "built at double price with the base recipe");
+        CHECK(msg.find(std::to_string(2 * base.woodCost)) != std::string::npos, "message does not show the real price: " << msg);
+    }
+    {
+        // Mining yield and cooldown
+        GameEngine e;
+        e.init(cfg);
+        PlayerModifiers m;
+        m.mineYieldMult = 2.0f;
+        m.cooldownMult = 0.5f;
+        e.setPlayerModifiers(2, m);
+        std::string msg;
+        MineResult r;
+        REQUIRE(e.mineResource(2, ResourceType::WOOD, r, msg), msg);
+        CHECK(r.amount == 2 * Balance::WOOD_BASE_YIELD && e.getPlayerEconomy(2).wood == 2 * Balance::WOOD_BASE_YIELD, "wood " << r.amount);
+        REQUIRE(e.mineResource(1, ResourceType::WOOD, r, msg), msg);
+        CHECK(r.amount == Balance::WOOD_BASE_YIELD, "P1 wood " << r.amount);
+        CHECK(std::abs(e.getMineCooldown(2) - 0.5f * Balance::MINE_COOLDOWN_SEC) < 1e-6f && e.getMineCooldown(1) == Balance::MINE_COOLDOWN_SEC,
+              "cooldowns " << e.getMineCooldown(1) << " / " << e.getMineCooldown(2));
+    }
+    {
+        // Share bonus on won days: grace, grace, then won days of +15% +5%
+        GameEngine e;
+        e.init(cfg);
+        PlayerModifiers m;
+        m.shareBonus = 0.05f;
+        e.setPlayerModifiers(1, m);
+        buildWindFarm(e, 1);
+        for (int day = 0; day < 3; ++day) runToNextDay(e, 0.25f);
+        CHECK(std::abs(e.getCityState().p1CityShare - (0.5f + Balance::MAX_DAILY_CITY_SHIFT + 0.05f)) < 1e-4f,
+              "share after one won day " << e.getCityState().p1CityShare);
+        CHECK(e.getCityState().lastCutMessage.find("+20%") != std::string::npos, "message: " << e.getCityState().lastCutMessage);
+        runToNextDay(e, 0.25f); // 90% >= 85%: the bonus brings the win one day earlier
+        CHECK(e.getCityState().winner == 1 && e.getCurrentDay() == 5, "winner " << e.getCityState().winner << " day " << e.getCurrentDay());
+    }
+    {
+        // Sanitizing and reset on restart
+        GameEngine e;
+        e.init(cfg);
+        PlayerModifiers bad;
+        bad.incomeMult = std::nanf("");
+        bad.costMult = -3.0f;
+        bad.mineYieldMult = 1000.0f;
+        bad.shareBonus = 2.0f;
+        e.setPlayerModifiers(1, bad);
+        const PlayerModifiers& m = e.getPlayerModifiers(1);
+        CHECK(m.incomeMult == 1.0f && m.costMult == 0.0f && m.mineYieldMult == PlayerModifiers::MAX_MULT &&
+                  m.shareBonus == PlayerModifiers::MAX_SHARE_BONUS,
+              "modifiers not clamped");
+        e.restartGame();
+        CHECK(e.getPlayerModifiers(1).costMult == 1.0f && e.getPlayerModifiers(1).shareBonus == 0.0f, "restart kept the modifiers");
+    }
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -583,6 +703,7 @@ int main() {
     testDeterministicRng();
     testFixedTimestep();
     testBuildingCosts();
+    testPlayerModifiers();
 
     std::cout << "\n========================================================\n";
     if (g_failures == 0) {
