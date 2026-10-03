@@ -256,7 +256,16 @@ void UI_map::render(sf::RenderWindow& window) {
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     if (!isPaused && engine.getCityState().winner == 0) {
         engine.update(dt);
+        // [b-politics] a player inside a council card / city hall panel keeps the cursor still
+        const sf::Vector2f keepP1 = p1Pos, keepP2 = p2Pos;
+        const int keepC1 = p1GridCol, keepR1 = p1GridRow, keepC2 = p2GridCol, keepR2 = p2GridRow;
         updateControls(window, dt);
+        if (resourcesLoaded && politics.blocksPlayer(1, engine, bot.isActive())) {
+            p1Pos = keepP1; p1GridCol = keepC1; p1GridRow = keepR1;
+        }
+        if (resourcesLoaded && politics.blocksPlayer(2, engine, bot.isActive())) {
+            p2Pos = keepP2; p2GridCol = keepC2; p2GridRow = keepR2;
+        }
         politics.update(dt, engine, bot.isActive(), bot.getDifficulty()); // [b-politics] bot votes/bids, news
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
@@ -360,6 +369,11 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // Dynamic Mining sparks and wood chips
     drawMiningParticles(window);
+
+    // [b-politics] Council decision cards and city hall panels over each player's land (below modals)
+    if (resourcesLoaded) {
+        politics.drawPlayerOverlays(window, font, engine, animTime, mousePos, mouseOwnerAt(mousePos), bot.isActive());
+    }
 
     // 17. Interactive Modal Dialogs (Requires player to click OK or confirm)
     drawPlayerModals(window);

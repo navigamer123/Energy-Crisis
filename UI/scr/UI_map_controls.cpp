@@ -376,6 +376,12 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         return;
     }
 
+    // [b-politics] keys of a player inside a council card / city hall panel do not act in the world
+    if (resourcesLoaded) {
+        if (politics.blocksPlayer(1, engine, bot.isActive())) primeInputEdges(1);
+        if (politics.blocksPlayer(2, engine, bot.isActive())) primeInputEdges(2);
+    }
+
     float speed = 360.0f;
     sf::Vector2f mPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
     // The pointer only drives mouse-scheme cursors while it is over the game canvas
@@ -870,6 +876,20 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
         if (p2Modal.active && isModalDismissKey(2, key->code)) {
             closePlayerModal(2);
+            return;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 2.5 [b-politics] Council cards & city hall panels own their player's keys/clicks while open
+    // -------------------------------------------------------------------------
+    if (resourcesLoaded) {
+        sf::Vector2f evPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+        if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) evPos = window.mapPixelToCoords(mb->position);
+        const bool modalOpen[2] = { p1Modal.active, p2Modal.active };
+        int used = politics.handleEvent(event, engine, evPos, mouseOwnerAt(evPos), bot.isActive(), modalOpen);
+        if (used != 0) {
+            primeInputEdges(used); // the key that voted / traded must not also act in the world
             return;
         }
     }
