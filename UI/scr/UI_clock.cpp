@@ -1,5 +1,6 @@
 #include "../includes/UI_clock.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_infoText.h" // team info (UX-03)
 #include <cmath>
 #include <algorithm>
 #include <sstream>
@@ -108,6 +109,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         // Line 1: Weather (Време) - font size 12
         std::string wStr = "Време: " + std::string(getWeatherName(weather));
         sf::Text tWeather(font, toUtf8(wStr), 12);
+        infoText::fitSize(tWeather, size.x - 20.0f, 9); // team info (UX-03): stay inside the card
         tWeather.setFillColor(weather == WeatherType::SUNNY ? sf::Color(255, 225, 110) :
                              (weather == WeatherType::WINDY ? sf::Color(130, 245, 255) :
                              (weather == WeatherType::RAINY ? sf::Color(150, 190, 255) :
@@ -119,6 +121,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         // Line 2: Season (Сезон) - font size 12
         std::string sStr = "Сезон: " + std::string(getSeasonName(season)) + (daylight ? " [ДЕН]" : " [НОЩ]");
         sf::Text tSeason(font, toUtf8(sStr), 12);
+        infoText::fitSize(tSeason, size.x - 20.0f, 9); // team info (UX-03): stay inside the card
         tSeason.setFillColor(season == SeasonType::SPRING ? sf::Color(140, 255, 160) :
                             (season == SeasonType::SUMMER ? sf::Color(255, 235, 120) :
                             (season == SeasonType::AUTUMN ? sf::Color(255, 185, 110) : sf::Color(210, 235, 255))));
@@ -128,6 +131,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         // Line 3: Hour (Час) - font size 13
         std::string hStr = "Час: " + timeStr;
         sf::Text tHour(font, toUtf8(hStr), 13);
+        infoText::fitSize(tHour, size.x - 20.0f, 9); // team info (UX-03): stay inside the card
         tHour.setFillColor(daylight ? sf::Color(255, 255, 255) : sf::Color(190, 220, 255));
         tHour.setPosition({ pos.x + 10.0f, pos.y + 61.0f });
         window.draw(tHour);
@@ -140,6 +144,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
             sLine += " (0 MW Гратис)";
         }
         sf::Text tSun(font, toUtf8(sLine), 11);
+        infoText::fitSize(tSun, size.x - 20.0f, 9); // team info (UX-03): stay inside the card
         tSun.setFillColor(currentDay <= Balance::GRACE_PERIOD_DAYS ? sf::Color(90, 255, 190) : sf::Color(255, 215, 120));
         tSun.setPosition({ pos.x + 10.0f, pos.y + 79.0f });
         window.draw(tSun);

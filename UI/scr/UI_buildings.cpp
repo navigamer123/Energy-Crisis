@@ -1,5 +1,6 @@
 #include "../includes/UI_buildings.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_infoText.h" // team info (UX-03/04)
 #include "../../Game/includes/game_balance.h"
 #include <iostream>
 
@@ -156,19 +157,6 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     window.draw(card);
 
     if (fontLoaded) {
-      // Line 1: Building name (clear 11pt, never overlaps badge)
-      sf::Text tName(font, toUtf8(b.bgName), 11);
-      if (b.type == BuildingType::DEMOLISH) {
-        tName.setFillColor(isSelected ? sf::Color(255, 215, 0)
-                                      : sf::Color(255, 140, 140));
-      } else if (isSelected) {
-        tName.setFillColor(sf::Color(255, 235, 120));
-      } else {
-        tName.setFillColor(hover ? sf::Color::White : sf::Color(220, 235, 250));
-      }
-      tName.setPosition({itemX + 6.0f, y + 3.0f});
-      window.draw(tName);
-
       // Line 1 Right: Output or Type Badge
       std::string pStr;
       sf::Color badgeColor = sf::Color(255, 215, 0);
@@ -189,6 +177,23 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       sf::FloatRect pb = tPwr.getLocalBounds();
       tPwr.setPosition({itemX + itemW - pb.size.x - 6.0f, y + 3.0f});
       window.draw(tPwr);
+
+      // Line 1: Building name. team info (UX-04): shrinks / shortens so it never runs into the badge
+      sf::Text tName(font, toUtf8(b.bgName), 11);
+      const float nameMaxW = itemW - 6.0f - (pb.position.x + pb.size.x) - 6.0f - 8.0f;
+      if (infoText::fitSize(tName, nameMaxW, 9) <= 9 && infoText::width(tName) > nameMaxW) {
+        tName.setString(infoText::ellipsize(font, toUtf8(b.bgName), 9, nameMaxW));
+      }
+      if (b.type == BuildingType::DEMOLISH) {
+        tName.setFillColor(isSelected ? sf::Color(255, 215, 0)
+                                      : sf::Color(255, 140, 140));
+      } else if (isSelected) {
+        tName.setFillColor(sf::Color(255, 235, 120));
+      } else {
+        tName.setFillColor(hover ? sf::Color::White : sf::Color(220, 235, 250));
+      }
+      tName.setPosition({itemX + 6.0f, y + 3.0f});
+      window.draw(tName);
 
       // Line 2: Cost description
       std::string cStr;

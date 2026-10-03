@@ -292,7 +292,7 @@ void UI_map::render(sf::RenderWindow& window) {
     city.drawDividingRiver(window, font, resourcesLoaded, animTime, engine.isDaylight());
 
     // 5. Purchasable Land Plots Grid
-    nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos);
+    nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos, &engine.getBuildings()); // team info
 
     // Dynamic glowing energy conduit lines connecting generators to metropolis
     drawEnergyConduits(window, animTime);

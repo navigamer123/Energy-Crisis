@@ -1,7 +1,16 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_infoText.h" // team info
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
+
+namespace {
+// team info (UX-03): modal text sizes and line limits
+constexpr unsigned MODAL_DETAIL_SIZE = 11;
+constexpr unsigned MODAL_TIP_SIZE = 10;
+constexpr int MODAL_DETAIL_MAX_LINES = 5;
+constexpr int MODAL_TIP_MAX_LINES = 3;
+} // namespace
 
 // =============================================================================
 // UI_map Popups, Notices, Interactive Modals & Mining Prompts
@@ -72,10 +81,18 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     m.tip = tip;
     m.accentColor = accent;
 
+    // team info (UX-03): the card grows with the wrapped detail and tip text instead of letting it overflow
     float w = 340.0f;
-    float h = 210.0f;
+    std::size_t detailLines = 2, tipLines = tip.empty() ? 0 : 1;
+    if (resourcesLoaded) {
+        detailLines = infoText::wrap(font, detail, MODAL_DETAIL_SIZE, w - 24.0f, MODAL_DETAIL_MAX_LINES).size();
+        tipLines = tip.empty() ? 0 : infoText::wrap(font, "СЪВЕТ: " + tip, MODAL_TIP_SIZE, w - 24.0f, MODAL_TIP_MAX_LINES).size();
+    }
+    float h = 64.0f + 14.0f * static_cast<float>(detailLines) + (tipLines ? 8.0f + 13.0f * static_cast<float>(tipLines) : 0.0f) +
+              16.0f + 32.0f + 10.0f;
+    h = std::max(h, 170.0f);
     float x = (player == 1) ? (800.0f - w) / 2.0f : 800.0f + (800.0f - w) / 2.0f;
-    float y = 250.0f;
+    float y = 355.0f - h / 2.0f; // same centre as the old fixed-size card
 
     m.box = sf::FloatRect({ x, y }, { w, h });
     m.okBtn = sf::FloatRect({ x + (w - 200.0f) / 2.0f, y + h - 42.0f }, { 200.0f, 32.0f });
@@ -126,24 +143,31 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         tBadge.setPosition({ m.box.position.x + 10.0f, m.box.position.y + 6.0f });
         window.draw(tBadge);
 
-        // Title
-        sf::Text tTitle(font, toUtf8(m.title), 13);
+        // team info (UX-03): title, detail and tip are fitted / wrapped to the card width
+        const float innerW = m.box.size.x - 24.0f;
+        sf::Text tTitle(font, infoText::ellipsize(font, toUtf8(m.title), 13, innerW), 13);
         tTitle.setFillColor(sf::Color::White);
         tTitle.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 38.0f });
         window.draw(tTitle);
 
-        // Detail explanation
-        sf::Text tDetail(font, toUtf8(m.detail), 11);
-        tDetail.setFillColor(sf::Color(200, 225, 250));
-        tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 64.0f });
-        window.draw(tDetail);
+        float ly = m.box.position.y + 64.0f;
+        for (const sf::String& line : infoText::wrap(font, m.detail, MODAL_DETAIL_SIZE, innerW, MODAL_DETAIL_MAX_LINES)) {
+            sf::Text tDetail(font, line, MODAL_DETAIL_SIZE);
+            tDetail.setFillColor(sf::Color(200, 225, 250));
+            tDetail.setPosition({ m.box.position.x + 12.0f, ly });
+            window.draw(tDetail);
+            ly += 14.0f;
+        }
 
-        // Tip text
         if (!m.tip.empty()) {
-            sf::Text tTip(font, toUtf8("СЪВЕТ: " + m.tip), 10);
-            tTip.setFillColor(sf::Color(255, 225, 110));
-            tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 115.0f });
-            window.draw(tTip);
+            ly += 8.0f;
+            for (const sf::String& line : infoText::wrap(font, "СЪВЕТ: " + m.tip, MODAL_TIP_SIZE, innerW, MODAL_TIP_MAX_LINES)) {
+                sf::Text tTip(font, line, MODAL_TIP_SIZE);
+                tTip.setFillColor(sf::Color(255, 225, 110));
+                tTip.setPosition({ m.box.position.x + 12.0f, ly });
+                window.draw(tTip);
+                ly += 13.0f;
+            }
         }
 
         // [ OK - РАЗБРАХ ] Button (clickable only by the player who owns the mouse)
@@ -193,6 +217,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         }
 
         sf::Text t(font, toUtf8(promptText), 11);
+        infoText::fitSize(t, 250.0f, 9); // team info (UX-03): long mine names stay inside the tag
         t.setFillColor(cd > 0.05f ? sf::Color(255, 210, 100) : col);
         sf::FloatRect tb = t.getLocalBounds();
         t.setPosition({ tagBox.getPosition().x + (260.0f - tb.size.x) / 2.0f, tagBox.getPosition().y + 5.0f });
@@ -225,23 +250,40 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         float pulse = (std::sin(animTime * 8.0f) + 1.0f) * 0.5f;
         std::uint8_t glowAlpha = static_cast<std::uint8_t>(180 + pulse * 75);
 
+        // team info (UX-04): the badge sits in the free strip right of / left of the clock cards
+        // (x 262-512 and 1088-1338, y 14-38) instead of on top of the building-panel headers. The
+        // "fast forward" mark is drawn as two triangles (the font has no U+23E9 glyph).
+        constexpr float BADGE_W = 250.0f;
+        constexpr float BADGE_H = 24.0f;
         auto drawClockSpeedBadge = [&](float x, float y) {
-            sf::RectangleShape badge({ 230.0f, 24.0f });
+            sf::RectangleShape badge({ BADGE_W, BADGE_H });
             badge.setPosition({ x, y });
             badge.setFillColor(sf::Color(45, 30, 8, 230));
             badge.setOutlineThickness(1.5f);
             badge.setOutlineColor(sf::Color(255, 215, 0, glowAlpha));
             window.draw(badge);
 
-            sf::Text bt(font, toUtf8("⏩ 6x СКОРОСТ НА ВРЕМЕТО (ДОБИВ)"), 10);
+            for (int k = 0; k < 2; ++k) {
+                sf::ConvexShape tri(3);
+                float tx = x + 10.0f + 8.0f * static_cast<float>(k);
+                tri.setPoint(0, { tx, y + 6.0f });
+                tri.setPoint(1, { tx + 8.0f, y + BADGE_H / 2.0f });
+                tri.setPoint(2, { tx, y + BADGE_H - 6.0f });
+                tri.setFillColor(sf::Color(255, 215, 0, glowAlpha));
+                window.draw(tri);
+            }
+
+            sf::Text bt(font, toUtf8(std::to_string(static_cast<int>(std::lround(engine.getTimeScale()))) +
+                                     "x СКОРОСТ НА ВРЕМЕТО (ДОБИВ)"), 10);
             bt.setStyle(sf::Text::Bold);
+            infoText::fitSize(bt, BADGE_W - 40.0f, 9);
             bt.setFillColor(sf::Color(255, 235, 120));
             sf::FloatRect btb = bt.getLocalBounds();
-            bt.setPosition({ x + (230.0f - btb.size.x) / 2.0f, y + 5.0f });
+            bt.setPosition({ x + 32.0f + (BADGE_W - 40.0f - btb.size.x) / 2.0f, y + 5.0f });
             window.draw(bt);
         };
 
-        drawClockSpeedBadge(20.0f, 115.0f);
-        drawClockSpeedBadge(1600.0f - 250.0f, 115.0f);
+        drawClockSpeedBadge(262.0f, 14.0f);
+        drawClockSpeedBadge(1600.0f - 262.0f - BADGE_W, 14.0f);
     }
 }

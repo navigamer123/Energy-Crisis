@@ -234,9 +234,9 @@ void UI_notifications::evaluateAlerts(const GameEngine& engine, bool botActive) 
             if (projected < demand && alertOnce(player, SETTLEMENT_RISK, day)) {
                 bool severe = projected < 0.8f * demand;
                 push(player, severe ? ToastPriority::CRITICAL : ToastPriority::WARNING, "alert-risk", "РИСК",
-                     "Отчет в 06:00: ~" + std::to_string(static_cast<int>(projected)) + " от " +
+                     "~" + std::to_string(static_cast<int>(projected)) + " от " +
                          std::to_string(city.cityEnergyDemand) + " MW",
-                     "Средната доставка за деня е под нуждата на града. Вятър, ВЕЦ и батерии помагат нощем.", "",
+                     "Отчетът е в 06:00, а средната доставка за деня е под нуждата. Вятър, ВЕЦ и батерии помагат нощем.", "",
                      severe ? COL_CRIT : COL_WARN, true);
             }
         }

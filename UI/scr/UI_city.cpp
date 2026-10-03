@@ -1,8 +1,10 @@
 #include "../includes/UI_city.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_infoText.h" // team info (UX-03)
 #include "../../Game/includes/game_balance.h"
 #include <cmath>
 #include <string>
+#include <vector>
 
 UI_city::UI_city() {
 }
@@ -333,18 +335,32 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 
         // Cut notification banner at bottom of city if conquest occurred
         if (!cutMessage.empty()) {
-            sf::RectangleShape cutBar({ cityWidth, 22.0f });
-            cutBar.setPosition({ cityLeft, cityTop + cityHeight - 24.0f });
+            // team info (UX-03): shrink the message to the city width, or wrap it onto two lines
+            const float maxW = cityWidth - 12.0f;
+            unsigned cutSize = 10;
+            std::vector<sf::String> cutLines;
+            while (true) {
+                cutLines = infoText::wrap(font, cutMessage, cutSize, maxW, 2);
+                if (cutLines.size() == 1 || cutSize <= 9) break;
+                --cutSize;
+            }
+            const float barH = (cutLines.size() > 1) ? 34.0f : 22.0f;
+            sf::RectangleShape cutBar({ cityWidth, barH });
+            cutBar.setPosition({ cityLeft, cityTop + cityHeight - barH - 2.0f });
             cutBar.setFillColor(sf::Color(45, 15, 20, 230));
             cutBar.setOutlineThickness(1.0f);
             cutBar.setOutlineColor(sf::Color(255, 100, 100));
             window.draw(cutBar);
 
-            sf::Text cutText(font, toUtf8(cutMessage), 10);
-            cutText.setFillColor(sf::Color(255, 220, 100));
-            sf::FloatRect cb = cutText.getLocalBounds();
-            cutText.setPosition({ midX - cb.size.x / 2.0f, cityTop + cityHeight - 20.0f });
-            window.draw(cutText);
+            float ly = cityTop + cityHeight - barH + 2.0f;
+            for (const sf::String& line : cutLines) {
+                sf::Text cutText(font, line, cutSize);
+                cutText.setFillColor(sf::Color(255, 220, 100));
+                sf::FloatRect cb = cutText.getLocalBounds();
+                cutText.setPosition({ midX - (cb.position.x + cb.size.x) / 2.0f, ly });
+                window.draw(cutText);
+                ly += 14.0f;
+            }
         }
     }
 }
@@ -381,6 +397,7 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         }
 
         sf::Text tDemand(font, toUtf8(dStr), 12);
+        infoText::fitSize(tDemand, panelW - 20.0f, 10); // team info (UX-03): long grace-period text stays inside
         tDemand.setFillColor(demandColor);
         sf::FloatRect db = tDemand.getLocalBounds();
         tDemand.setPosition({ panelX + (panelW - db.size.x) / 2.0f, panelY + 4.0f });

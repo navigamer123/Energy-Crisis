@@ -1,5 +1,6 @@
 #include "../includes/UI_resourceNodes.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_infoText.h" // team info (UX-04)
 #include <cmath>
 #include <string>
 #include <algorithm>
@@ -177,7 +178,8 @@ bool UI_resourceNodes::isNearP2Forest(sf::Vector2f pt) const {
 }
 
 void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                                     const std::vector<LandPlot>& plots, sf::Vector2f mousePos) {
+                                     const std::vector<LandPlot>& plots, sf::Vector2f mousePos,
+                                     const std::vector<PlacedBuilding>* placedBuildings) {
     for (const auto& plot : plots) {
         bool hover = plot.bounds.contains(mousePos);
         sf::Color ownerAccent = (plot.playerOwner == 1) ? sf::Color(0, 220, 255) : sf::Color(255, 120, 200);
@@ -244,7 +246,15 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                 }
             }
 
-            if (fontLoaded) {
+            // team info (UX-04): the label sits where the top-row buildings stand, so it is only shown
+            // while the plot is still empty (the coloured outline already marks ownership)
+            bool plotHasBuilding = false;
+            if (placedBuildings) {
+                for (const auto& b : *placedBuildings) {
+                    if (plot.bounds.contains(b.position)) { plotHasBuilding = true; break; }
+                }
+            }
+            if (fontLoaded && !plotHasBuilding) {
                 std::string tag = (plot.playerOwner == 1) ? "КУПЕНА ЗЕМЯ (P1)" : "КУПЕНА ЗЕМЯ (P2)";
                 sf::Text t(font, toUtf8(tag), 10);
                 t.setFillColor(ownerAccent);
@@ -571,19 +581,25 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
 
         // Labels & Upgrade Button
         if (fontLoaded) {
-            // Station Name
-            sf::Text nameText(font, toUtf8(s.nameBg), 11);
-            nameText.setFillColor(s.themeColor);
-            nameText.setPosition({ s.bounds.position.x + 28.0f, s.bounds.position.y + 6.0f });
-            window.draw(nameText);
-
-            // Level Badge in Top-Right
+            // team info (UX-04): the level badge moved from the name row (where it collided with long
+            // names such as ЖЕЛЯЗО / ВЪГЛИЩА) to the right end of the yield row, next to what it boosts
             std::string lvlStr = "L" + std::to_string(lvl);
             sf::Text tLvl(font, toUtf8(lvlStr), 10);
             tLvl.setFillColor(lvl > 1 ? sf::Color(255, 215, 0) : sf::Color(160, 180, 205));
             sf::FloatRect lb = tLvl.getLocalBounds();
-            tLvl.setPosition({ s.bounds.position.x + s.bounds.size.x - lb.size.x - 6.0f, s.bounds.position.y + 6.0f });
+            const float lvlW = lb.position.x + lb.size.x;
+            tLvl.setPosition({ s.bounds.position.x + s.bounds.size.x - lvlW - 6.0f, s.bounds.position.y + 35.0f });
             window.draw(tLvl);
+
+            // Station Name: the whole first row right of the icon
+            sf::Text nameText(font, toUtf8(s.nameBg), 11);
+            const float nameMaxW = s.bounds.size.x - 28.0f - 6.0f;
+            if (infoText::fitSize(nameText, nameMaxW, 9) <= 9 && infoText::width(nameText) > nameMaxW) {
+                nameText.setString(infoText::ellipsize(font, toUtf8(s.nameBg), 9, nameMaxW));
+            }
+            nameText.setFillColor(s.themeColor);
+            nameText.setPosition({ s.bounds.position.x + 28.0f, s.bounds.position.y + 6.0f });
+            window.draw(nameText);
 
             // Dynamic Yield Text
             int curYield = 12;
@@ -600,6 +616,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             }
             std::string curYieldStr = "+" + std::to_string(curYield) + " " + unit;
             sf::Text yieldText(font, toUtf8(curYieldStr), 11);
+            infoText::fitSize(yieldText, s.bounds.size.x - 8.0f - lvlW - 6.0f - 5.0f, 9); // team info: room for the level badge
             yieldText.setFillColor(sf::Color::White);
             yieldText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 34.0f });
             window.draw(yieldText);
