@@ -486,7 +486,8 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             titleText = "ДОБРЕ ДОШЛИ В ENERGY CRISIS!";
             descText = "Целта е да захраните града с чиста електроенергия!\n"
                        "Започвате от нулата — първо трябва да добиете нужните суровини за Слънчев панел.\n"
-                       "Движете се с [W/A/S/D] или [СТРЕЛКИ]. Действие: [SPACE] или [ENTER].";
+                       + std::string(isCoop ? "P1: [W/A/S/D] + [SPACE]  |  P2: [СТРЕЛКИ] + [ENTER]."
+                                            : "Движете се с [W/A/S/D] или [СТРЕЛКИ]. Действие: [SPACE] или [ENTER].");
             showNextBtn = true;
             nextBtnLabel = "ЗАПОЧНИ [SPACE]";
             break;
@@ -530,8 +531,10 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         case TutorialStep::SELECT_SOLAR:
             badgeText = "СТЪПКА 5 / 6: ИЗБОР И ОТКАЗ";
             titleText = "ИЗБЕРЕТЕ СЛЪНЧЕВ ПАНЕЛ ЗА СТРОЕЖ";
-            descText = "Натиснете клавиш [1] (или [E] / [PgDn]), за да изберете Слънчев панел.\n"
-                       "СЪВЕТ: Ако решите да се откажете от строеж, натиснете [X] (или Десен клик / Delete)!";
+            descText = isCoop ? "Натиснете клавиш [1] (или [E]), за да изберете Слънчев панел.\n"
+                                "СЪВЕТ: Ако решите да се откажете от строеж, натиснете [X]!"
+                              : "Натиснете клавиш [1] (или [E] / [PgDn]), за да изберете Слънчев панел.\n"
+                                "СЪВЕТ: Ако решите да се откажете от строеж, натиснете [X] (или Десен клик / Delete)!";
             progressRatio = 1.0f;
             progressText = "Ресурси: ГОТОВИ!  [Натиснете 1 за избор]";
             break;
@@ -542,7 +545,8 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             descText = "Преместете курсора си върху маркираната свободна клетка от вашия парцел.\n"
                        "Натиснете [SPACE]" + altActionKeys + ", за да завършите строежа!";
             progressRatio = 0.5f;
-            progressText = "Позиционирайте курсора и натиснете [SPACE] / [ENTER]";
+            progressText = isCoop ? "Позиционирайте курсора и натиснете [SPACE]"
+                                  : "Позиционирайте курсора и натиснете [SPACE] / [ENTER]";
             break;
 
         case TutorialStep::COMPLETED:
