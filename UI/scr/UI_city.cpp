@@ -2,6 +2,7 @@
 #include "../includes/UI_types.h"
 #include "../../Game/includes/game_balance.h"
 #include <cmath>
+#include <cstdlib>
 #include <string>
 
 UI_city::UI_city() {
@@ -340,15 +341,35 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
             cutBar.setOutlineColor(sf::Color(255, 100, 100));
             window.draw(cutBar);
 
-            sf::Text cutText(font, toUtf8(cutMessage), 10);
-            cutText.setFillColor(sf::Color(255, 220, 100));
-            // [b-options] long day / rule messages shrink to stay inside the city bar
-            while (cutText.getCharacterSize() > 8 && cutText.getLocalBounds().size.x > cityWidth - 10.0f) {
-                cutText.setCharacterSize(cutText.getCharacterSize() - 1);
+            // [b-options] long day / rule messages stay inside the city bar: one line at 10 px when it
+            // fits, else two lines at 9 px split at the space nearest the middle, else condensed
+            const float maxW = cityWidth - 10.0f;
+            const float barTop = cityTop + cityHeight - 24.0f;
+            auto drawCutLine = [&](const std::string& s, unsigned size, float y) {
+                sf::Text t(font, toUtf8(s), size);
+                t.setFillColor(sf::Color(255, 220, 100));
+                sf::FloatRect b = t.getLocalBounds();
+                float scale = (b.size.x > maxW) ? maxW / b.size.x : 1.0f;
+                t.setScale({ scale, 1.0f });
+                t.setPosition({ midX - (b.position.x + b.size.x / 2.0f) * scale, y });
+                window.draw(t);
+            };
+            sf::Text probe(font, toUtf8(cutMessage), 10);
+            size_t split = std::string::npos;
+            if (probe.getLocalBounds().size.x > maxW) {
+                for (size_t i = 0; i < cutMessage.size(); ++i) {
+                    if (cutMessage[i] != ' ') continue;
+                    long d = static_cast<long>(i) - static_cast<long>(cutMessage.size() / 2);
+                    long best = static_cast<long>(split) - static_cast<long>(cutMessage.size() / 2);
+                    if (split == std::string::npos || std::labs(d) < std::labs(best)) split = i;
+                }
             }
-            sf::FloatRect cb = cutText.getLocalBounds();
-            cutText.setPosition({ midX - cb.size.x / 2.0f, cityTop + cityHeight - 20.0f });
-            window.draw(cutText);
+            if (split == std::string::npos) {
+                drawCutLine(cutMessage, 10, barTop + 4.0f);
+            } else {
+                drawCutLine(cutMessage.substr(0, split), 9, barTop + 0.5f);
+                drawCutLine(cutMessage.substr(split + 1), 9, barTop + 10.5f);
+            }
         }
     }
 }
