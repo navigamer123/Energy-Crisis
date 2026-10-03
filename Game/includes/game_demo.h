@@ -29,7 +29,7 @@ namespace Demo {
 
 constexpr unsigned int DEMO_SEED = 2026u;       // RNG seed of every demo match (weather rolls, std::rand)
 constexpr float DEMO_TICK_SEC = 1.0f / 60.0f;   // Fixed director step (real seconds)
-constexpr int DEMO_MAX_TICKS_PER_FRAME = 8;     // A slow frame runs at most this many steps (then the show slows down)
+constexpr int DEMO_MAX_TICKS_PER_FRAME = 30;    // A slow frame runs at most this many steps (0.5 s; slower PCs play slower)
 
 // -----------------------------------------------------------------------------
 // Action arguments: "key=value key=value", values may be "double quoted".

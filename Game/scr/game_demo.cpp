@@ -506,7 +506,7 @@ void DemoDirector::stop() {
 void DemoDirector::advance(GameEngine& engine, float realDt) {
     if (!running) return;
     if (realDt < 0.0f) realDt = 0.0f;
-    accumulator += std::min(realDt, 0.25f);
+    accumulator += std::min(realDt, 0.75f);
     int steps = 0;
     while (accumulator >= DEMO_TICK_SEC && steps < DEMO_MAX_TICKS_PER_FRAME) {
         tick(engine);
