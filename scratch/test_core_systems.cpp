@@ -1,7 +1,8 @@
 // =============================================================================
 // ENERGY CRISIS - CORE SYSTEMS UNIT TESTS
 // Unit tests for the stable engine systems: mining and the 1 s pause between hits, mine
-// upgrades, land, the plot/slot grid, placement rules and demolition.
+// upgrades, land, the plot/slot grid, placement rules, demolition, weather, the generator
+// curves, the grace period, seasons and restart.
 // Headless: built from this file + Game/scr/*.cpp only, no SFML needed ("make test").
 //
 // Deterministic: the engine seeds its RNG from EC_SEED. When EC_SEED is not set this program
@@ -69,6 +70,12 @@ void endGroup() {
 
 bool has(const std::string& text, const char* needle) { return text.find(needle) != std::string::npos; }
 bool near(float a, float b, float eps) { return std::abs(a - b) <= eps; }
+int idx(WeatherType w) { return static_cast<int>(w); }
+int idx(SeasonType s) { return static_cast<int>(s); }
+
+const WeatherType kWeathers[6] = { WeatherType::SUNNY, WeatherType::WINDY, WeatherType::RAINY,
+                                   WeatherType::STORMY, WeatherType::SNOWY, WeatherType::CLOUDY };
+const SeasonType kSeasons[4] = { SeasonType::SPRING, SeasonType::SUMMER, SeasonType::AUTUMN, SeasonType::WINTER };
 
 // ---------------------------------------------------------------------------
 // Documented values (docs/GAMEPLAY.md)
@@ -83,6 +90,23 @@ const int kDocGoldUpgradeTotal = 4250;
 // §2 Plot price by row/column counted from the player's own starting corner; total of the 11 for sale
 const int kDocLandCost[4][3] = { { 150, 195, 240 }, { 285, 330, 375 }, { 420, 465, 510 }, { 555, 600, 645 } };
 const int kDocLandTotal = 4620;
+// §3 Sunrise, sunset and the solar season factor, indexed by SeasonType
+const float kDocSunrise[4] = { 6.0f, 5.0f, 7.0f, 8.0f };
+const float kDocSunset[4] = { 19.0f, 21.0f, 18.0f, 16.5f };
+const float kDocSolarSeason[4] = { 1.00f, 1.15f, 0.95f, 0.85f };
+// §6 Weather factors, indexed by WeatherType (SUNNY, WINDY, RAINY, STORMY, SNOWY, CLOUDY)
+const float kDocSolarWeather[6] = { 1.6f, 1.0f, 0.5f, 0.1f, 0.3f, 0.8f };
+const float kDocWindWeather[6] = { 0.8f, 1.8f, 1.2f, 2.2f, 1.2f, 0.8f };
+const float kDocHydroWeather[6] = { 0.7f, 1.0f, 2.0f, 2.5f, 1.0f, 0.8f };
+// §8 Probability of each weather per season in percent, indexed by WeatherType
+const double kDocWeatherPct[4][6] = {
+    { 12.2, 19.7, 48.0, 12.0, 0.0, 8.1 },  // spring
+    { 12.1, 6.6, 56.0, 24.0, 0.0, 1.3 },   // summer
+    { 3.7, 8.9, 50.4, 21.6, 10.0, 5.5 },   // autumn
+    { 2.6, 6.9, 10.8, 7.2, 70.0, 2.6 },    // winter
+};
+// §7 City demand: 0 MW during the 2-day grace period, then 15 x day - 15
+int docDemandForDay(int day) { return (day <= 2) ? 0 : 15 * day - 15; }
 
 // ---------------------------------------------------------------------------
 // Resources and buildings
@@ -161,11 +185,28 @@ void buyPlot(GameEngine& e, int player, int plotId) {
     econ.gold = goldBefore;
 }
 
+// Six wind turbines on the starting plot: far above the demand of days 3-5; the other player has nothing
+void buildWindFarm(GameEngine& e, int player) {
+    giveResources(e, player, 1000);
+    int startPlot = (player == 1) ? 1 : 15;
+    for (int i = 0; i < 6; ++i) place(e, player, BuildingType::WIND_TURBINE, slotOf(e, player, startPlot, i));
+}
+
 const PlacedBuilding* findBuilding(const GameEngine& e, int player, BuildingType type) {
     for (const auto& b : e.getBuildings()) {
         if (b.playerOwner == player && b.type == type) return &b;
     }
     return nullptr;
+}
+
+// Plays 0.25 s steps until the next day end has been settled
+void runToNextDay(GameEngine& e) {
+    const int day = e.getCurrentDay();
+    int steps = 0;
+    while (e.getCurrentDay() == day && e.getCityState().winner == 0) {
+        e.update(0.25f);
+        REQUIRE(++steps < 1000, "day " << day << " never ended");
+    }
 }
 
 // Advances the clock to the next time it shows `hour` (1 game-hour = 3.75 s)
@@ -191,6 +232,11 @@ void setSeedEnv(const char* value) {
         unsetenv("EC_SEED");
     }
 #endif
+}
+
+unsigned int testSeed() {
+    const char* env = std::getenv("EC_SEED");
+    return static_cast<unsigned int>(std::strtoul(env ? env : kDefaultSeed, nullptr, 10));
 }
 
 // ---------------------------------------------------------------------------
@@ -821,6 +867,544 @@ void testDemolitionRefund() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// Weather report -> weather type
+// ---------------------------------------------------------------------------
+typedef std::vector<std::string> Report;
+
+void testWeatherMapping() {
+    beginGroup("Weather report to weather type, per season");
+    struct Case {
+        Report report;
+        WeatherType expected;
+        const char* what;
+    };
+    const Case cases[] = {
+        { { "cloudy", "thunder_storm", "left", "80.0" }, WeatherType::STORMY, "storm wins over wind" },
+        { { "cloudy", "rain", "right", "95.0" }, WeatherType::RAINY, "rain wins over wind" },
+        { { "cloudy", "snow", "left", "60.8" }, WeatherType::SNOWY, "snow wins over wind" },
+        { { "cloudy", "hail", "none", "0" }, WeatherType::SNOWY, "hail counts as snow" },
+        { { "clear", "clear", "left", "19.000000" }, WeatherType::WINDY, "10 knots (19.0) is windy" },
+        { { "clear", "clear", "left", "18.000000" }, WeatherType::SUNNY, "exactly 18.0 is not above the threshold" },
+        { { "cloudy", "clear", "right", "17.100000" }, WeatherType::CLOUDY, "9 knots (17.1) is not windy" },
+        { { "cloudy", "clear", "right", "18.050000" }, WeatherType::WINDY, "just above 18.0 is windy" },
+        { { "cloudy", "clear", "none", "0" }, WeatherType::CLOUDY, "dry overcast" },
+        { { "clear", "clear", "none", "0" }, WeatherType::SUNNY, "clear sky" },
+        { { "cloudy", "clear", "left", "fast" }, WeatherType::CLOUDY, "unreadable wind speed is ignored" },
+        { { "clear" }, WeatherType::SUNNY, "short report" },
+        { {}, WeatherType::SUNNY, "empty report" },
+    };
+    for (const Case& c : cases) {
+        const WeatherType got = WeatherSystem::reportToWeatherType(c.report);
+        CHECK(got == c.expected, c.what << ": got " << idx(got) << ", expected " << idx(c.expected));
+    }
+
+    // The season keywords the report understands ("fall", not "autumn")
+    const char* keys[4] = { "spring", "summer", "fall", "winter" };
+    for (int s = 0; s < 4; ++s) {
+        CHECK(std::strcmp(Balance::getSeasonWeatherKey(kSeasons[s]), keys[s]) == 0, "season " << s << " key " << Balance::getSeasonWeatherKey(kSeasons[s]));
+    }
+    seedRandom(testSeed());
+    CHECK(weather_report("autumn") == (Report{ "clear", "clear", "none", "0" }), "unknown keyword should give the default clear report");
+
+    // Sampled reports are well formed and follow the documented probabilities of each season
+    const int samples = 6000;
+    for (int s = 0; s < 4; ++s) {
+        seedRandom(testSeed() + 101u * static_cast<unsigned int>(s));
+        int counts[6] = { 0 };
+        int malformed = 0, badGlobals = 0;
+        for (int i = 0; i < samples; ++i) {
+            const Report r = weather_report(keys[s]);
+            if (r.size() != 4u) {
+                ++malformed;
+                continue;
+            }
+            const bool cloudOk = (r[0] == "clear" || r[0] == "cloudy");
+            const bool precipOk = (r[1] == "clear" || r[1] == "rain" || r[1] == "thunder_storm" || r[1] == "snow" || r[1] == "hail");
+            const bool wetIsCloudy = (r[1] == "clear" || r[0] == "cloudy");
+            const bool dirOk = (r[2] == "none" || r[2] == "left" || r[2] == "right");
+            bool speedOk = ((r[2] == "none") == (r[3] == "0"));
+            if (speedOk && r[3] != "0") {
+                const double knots = std::atof(r[3].c_str()) / 1.9;
+                speedOk = knots > 0.99 && knots < 50.01 && std::abs(knots - std::round(knots)) < 1e-6;
+            }
+            if (!(cloudOk && precipOk && wetIsCloudy && dirOk && speedOk)) ++malformed;
+            const std::string& expectedState = (r[1] != "clear") ? r[1] : r[0];
+            if (weather_state != expectedState || wind != (r[2] != "none") || wind_direction != r[2]) ++badGlobals;
+            ++counts[idx(WeatherSystem::reportToWeatherType(r))];
+        }
+        CHECK(malformed == 0, keys[s] << ": " << malformed << " malformed reports");
+        CHECK(badGlobals == 0, keys[s] << ": weather_state / wind / wind_direction differ from the report " << badGlobals << " times");
+        for (int w = 0; w < 6; ++w) {
+            const double pct = 100.0 * counts[w] / samples;
+            const double doc = kDocWeatherPct[s][w];
+            if (doc == 0.0) {
+                CHECK(counts[w] == 0, keys[s] << ": weather " << w << " appeared " << counts[w] << " times, docs say never");
+            } else {
+                CHECK(std::abs(pct - doc) <= 2.5, keys[s] << ": weather " << w << " on " << pct << "% of days, docs say " << doc << "%");
+            }
+        }
+    }
+
+    // Same seed, same reports
+    seedRandom(4242u);
+    std::vector<Report> first;
+    for (int i = 0; i < 50; ++i) first.push_back(weather_report("winter"));
+    seedRandom(4242u);
+    std::vector<Report> second;
+    for (int i = 0; i < 50; ++i) second.push_back(weather_report("winter"));
+    CHECK(first == second, "seedRandom does not make weather_report repeatable");
+    endGroup();
+}
+
+// The engine rolls each sector's weather every day from the season of that day
+void testEngineDailyWeather() {
+    beginGroup("Daily weather in the engine follows the season");
+    GameEngine e;
+    e.init(1600.0f, 900.0f);
+    int days = 0;
+    int distinct = 0;
+    bool seen[6] = { false };
+    while (e.getCityState().winner == 0) {
+        ++days;
+        const int day = e.getCurrentDay();
+        const SeasonType season = e.getSeason();
+        CHECK(season == Balance::getSeasonForDay(day), "day " << day << " season " << idx(season));
+        CHECK(e.getSunriseHour() == kDocSunrise[idx(season)] && e.getSunsetHour() == kDocSunset[idx(season)],
+              "day " << day << " sun times " << e.getSunriseHour() << "-" << e.getSunsetHour());
+        for (int player = 1; player <= 2; ++player) {
+            const PlayerData& data = e.getPlayerEconomy(player).data;
+            const WeatherType w = e.getPlayerWeather(player);
+            // Rebuild the report from what the engine stored (precipitation or cloud, wind speed)
+            const bool wet = (data.weather == "rain" || data.weather == "thunder_storm" || data.weather == "snow" || data.weather == "hail");
+            const Report rebuilt = { wet ? "cloudy" : data.weather, wet ? data.weather : "clear", data.wind_speed == "0" ? "none" : "left", data.wind_speed };
+            CHECK(WeatherSystem::reportToWeatherType(rebuilt) == w,
+                  "day " << day << " P" << player << ": stored \"" << data.weather << "\" wind " << data.wind_speed << " but weather " << idx(w));
+            CHECK(w != WeatherType::SNOWY || season == SeasonType::AUTUMN || season == SeasonType::WINTER,
+                  "day " << day << " P" << player << ": snow in season " << idx(season));
+            if (!seen[idx(w)]) {
+                seen[idx(w)] = true;
+                ++distinct;
+            }
+        }
+        e.update(Balance::SECONDS_PER_DAY);
+        REQUIRE(days <= Balance::FINAL_DAY, "the match did not end after day " << Balance::FINAL_DAY);
+    }
+    CHECK(days == Balance::FINAL_DAY, "days played " << days);
+    CHECK(distinct >= 3, "only " << distinct << " kinds of weather in 20 days x 2 sectors: is the weather re-rolled?");
+    endGroup();
+}
+
+// ---------------------------------------------------------------------------
+// Generator curves
+// ---------------------------------------------------------------------------
+void testSolarCurve() {
+    beginGroup("Solar curve by season and hour");
+    for (SeasonType s : kSeasons) {
+        CHECK(Balance::getSunriseHour(s) == kDocSunrise[idx(s)] && Balance::getSunsetHour(s) == kDocSunset[idx(s)],
+              "season " << idx(s) << " sun " << Balance::getSunriseHour(s) << "-" << Balance::getSunsetHour(s));
+        CHECK(Balance::getDaylightDuration(s) == kDocSunset[idx(s)] - kDocSunrise[idx(s)], "season " << idx(s) << " daylight length");
+    }
+    for (SeasonType s : kSeasons) {
+        const float rise = Balance::getSunriseHour(s);
+        const float set = Balance::getSunsetHour(s);
+        const float noon = 0.5f * (rise + set);
+        for (WeatherType w : kWeathers) {
+            const float peak = WeatherSystem::getSolarMultiplier(w, noon, s);
+            const float expectedPeak = kDocSolarWeather[idx(w)] * kDocSolarSeason[idx(s)];
+            CHECK(near(peak, expectedPeak, 1e-4f), "season " << idx(s) << " weather " << idx(w) << " noon " << peak << ", expected " << expectedPeak);
+
+            int negative = 0, lightAtNight = 0, darkAtDay = 0, wrongSlope = 0;
+            float prev = 0.0f;
+            for (int i = 0; i < 24 * 40; ++i) {
+                const float h = (i + 0.5f) / 40.0f; // every 1.5 game-minutes, between the exact edges checked below
+                const float v = WeatherSystem::getSolarMultiplier(w, h, s);
+                const bool day = Balance::isDaylightAt(h, s);
+                if (v < 0.0f) ++negative;
+                if (!day && v != 0.0f) ++lightAtNight;
+                if (day && h > rise && v <= 0.0f) ++darkAtDay;
+                if (day && h > rise && ((h <= noon && v < prev) || (h > noon + 0.05f && v > prev))) ++wrongSlope;
+                prev = v;
+            }
+            CHECK(negative == 0 && lightAtNight == 0 && darkAtDay == 0 && wrongSlope == 0,
+                  "season " << idx(s) << " weather " << idx(w) << ": negative " << negative << ", light at night " << lightAtNight
+                            << ", dark by day " << darkAtDay << ", wrong slope " << wrongSlope);
+            // Symmetric around noon; the sun arc is 0 at sunrise (docs/GAMEPLAY.md §6)
+            for (float t = 0.5f; t < 4.0f; t += 0.5f) {
+                CHECK(near(WeatherSystem::getSolarMultiplier(w, rise + t, s), WeatherSystem::getSolarMultiplier(w, set - t, s), 1e-4f),
+                      "season " << idx(s) << " weather " << idx(w) << " not symmetric at " << t << " h from the edges");
+            }
+            CHECK(WeatherSystem::getSolarMultiplier(w, rise, s) == 0.0f, "season " << idx(s) << " weather " << idx(w) << " at sunrise: "
+                                                                                   << WeatherSystem::getSolarMultiplier(w, rise, s));
+        }
+    }
+
+    // Weather order at noon: sunny > windy > cloudy > rainy > snowy > stormy
+    const WeatherType order[6] = { WeatherType::SUNNY, WeatherType::WINDY, WeatherType::CLOUDY,
+                                   WeatherType::RAINY, WeatherType::SNOWY, WeatherType::STORMY };
+    for (int i = 1; i < 6; ++i) {
+        CHECK(WeatherSystem::getSolarMultiplier(order[i - 1], 12.5f, SeasonType::SPRING) > WeatherSystem::getSolarMultiplier(order[i], 12.5f, SeasonType::SPRING),
+              "solar weather order broken at " << i);
+    }
+    // Daily solar energy: summer > spring > autumn > winter (longer days and a stronger peak)
+    float energy[4] = { 0.0f };
+    for (SeasonType s : kSeasons) {
+        for (int i = 0; i < 24 * 40; ++i) energy[idx(s)] += WeatherSystem::getSolarMultiplier(WeatherType::SUNNY, (i + 0.5f) / 40.0f, s) / 40.0f;
+    }
+    CHECK(energy[1] > energy[0] && energy[0] > energy[2] && energy[2] > energy[3],
+          "daily solar energy spring " << energy[0] << " summer " << energy[1] << " autumn " << energy[2] << " winter " << energy[3]);
+    // Docs example: one panel on a sunny summer noon gives about 110 MW
+    const float summerNoonMW = Balance::SOLAR_PANEL.basePowerMW * WeatherSystem::getSolarMultiplier(WeatherType::SUNNY, 13.0f, SeasonType::SUMMER);
+    CHECK(near(summerNoonMW, 110.4f, 0.05f), "sunny summer noon panel " << summerNoonMW << " MW");
+    endGroup();
+}
+
+void testWindAndHydro() {
+    beginGroup("Wind and hydro multipliers");
+    for (WeatherType w : kWeathers) {
+        const float mod = kDocWindWeather[idx(w)];
+        CHECK(near(WeatherSystem::getWindMultiplier(w, 15.0f), 1.15f * mod, 1e-4f), "weather " << idx(w) << " wind at 15:00");
+        CHECK(near(WeatherSystem::getWindMultiplier(w, 3.0f), 0.85f * mod, 1e-4f), "weather " << idx(w) << " wind at 03:00");
+        CHECK(near(WeatherSystem::getWindMultiplier(w, 9.0f), mod, 1e-4f) && near(WeatherSystem::getWindMultiplier(w, 21.0f), mod, 1e-4f),
+              "weather " << idx(w) << " wind at 09:00 / 21:00");
+        int outOfRange = 0;
+        for (int i = 0; i < 24 * 40; ++i) {
+            const float v = WeatherSystem::getWindMultiplier(w, i / 40.0f);
+            if (v < 0.85f * mod - 1e-4f || v > 1.15f * mod + 1e-4f) ++outOfRange;
+        }
+        CHECK(outOfRange == 0, "weather " << idx(w) << ": wind leaves the 03:00-15:00 range " << outOfRange << " times");
+        CHECK(near(WeatherSystem::getWindMultiplier(w, 23.999f), WeatherSystem::getWindMultiplier(w, 0.0f), 1e-3f), "weather " << idx(w) << ": wind jumps at midnight");
+
+        // Hydro depends on the weather only
+        const float hydro = WeatherSystem::getHydroMultiplier(w);
+        CHECK(hydro == kDocHydroWeather[idx(w)], "weather " << idx(w) << " hydro " << hydro << ", docs say " << kDocHydroWeather[idx(w)]);
+    }
+    // Wind: stormy > windy > rainy = snowy > sunny = cloudy; hydro: stormy > rainy > windy = snowy > cloudy > sunny
+    const float windAtNoon[6] = { WeatherSystem::getWindMultiplier(WeatherType::SUNNY, 12.0f), WeatherSystem::getWindMultiplier(WeatherType::WINDY, 12.0f),
+                            WeatherSystem::getWindMultiplier(WeatherType::RAINY, 12.0f), WeatherSystem::getWindMultiplier(WeatherType::STORMY, 12.0f),
+                            WeatherSystem::getWindMultiplier(WeatherType::SNOWY, 12.0f), WeatherSystem::getWindMultiplier(WeatherType::CLOUDY, 12.0f) };
+    CHECK(windAtNoon[3] > windAtNoon[1] && windAtNoon[1] > windAtNoon[2] && windAtNoon[2] == windAtNoon[4] &&
+              windAtNoon[4] > windAtNoon[0] && windAtNoon[0] == windAtNoon[5],
+          "wind weather order broken");
+    CHECK(WeatherSystem::getHydroMultiplier(WeatherType::STORMY) > WeatherSystem::getHydroMultiplier(WeatherType::RAINY) &&
+              WeatherSystem::getHydroMultiplier(WeatherType::RAINY) > WeatherSystem::getHydroMultiplier(WeatherType::WINDY) &&
+              WeatherSystem::getHydroMultiplier(WeatherType::WINDY) == WeatherSystem::getHydroMultiplier(WeatherType::SNOWY) &&
+              WeatherSystem::getHydroMultiplier(WeatherType::SNOWY) > WeatherSystem::getHydroMultiplier(WeatherType::CLOUDY) &&
+              WeatherSystem::getHydroMultiplier(WeatherType::CLOUDY) > WeatherSystem::getHydroMultiplier(WeatherType::SUNNY),
+          "hydro weather order broken");
+    endGroup();
+}
+
+// Placed generators produce exactly base x curve for the sector's weather, the hour and the season
+void testEngineGeneratorOutputs() {
+    beginGroup("Generators in the engine follow the curves");
+    GameEngine e;
+    e.init(1600.0f, 900.0f);
+    buyPlot(e, 1, 3);  // P1 river bank
+    buyPlot(e, 2, 13); // P2 river bank
+    for (int player = 1; player <= 2; ++player) {
+        giveResources(e, player, 1000);
+        const int start = (player == 1) ? 1 : 15;
+        const int river = (player == 1) ? 3 : 13;
+        place(e, player, BuildingType::WIND_TURBINE, slotOf(e, player, start, 0));
+        place(e, player, BuildingType::SOLAR_PANEL, slotOf(e, player, start, 1));
+        place(e, player, BuildingType::HYDRO_PLANT, slotOf(e, player, river, 4));
+    }
+    // Samples at hh:30 for 24 h (never on the 06:00 day change, when the new weather is rolled)
+    e.update(0.5f * Balance::SECONDS_PER_DAY / 24.0f);
+    int mismatches = 0, nightSolar = 0, nightWindHydro = 0, wrongTotal = 0, samples = 0;
+    for (int hour = 0; hour < 24; ++hour) {
+        const float h = e.getHour24();
+        for (int player = 1; player <= 2; ++player) {
+            const WeatherType w = e.getPlayerWeather(player);
+            float sum = 0.0f;
+            for (const PlacedBuilding& b : e.getBuildings()) {
+                if (b.playerOwner != player) continue;
+                float expected = 0.0f;
+                if (b.type == BuildingType::SOLAR_PANEL) {
+                    expected = Balance::SOLAR_PANEL.basePowerMW * WeatherSystem::getSolarMultiplier(w, h, e.getSeason());
+                    if (!e.isDaylight() && b.currentOutputMW != 0.0f) ++nightSolar;
+                } else if (b.type == BuildingType::WIND_TURBINE) {
+                    expected = Balance::WIND_TURBINE.basePowerMW * WeatherSystem::getWindMultiplier(w, h);
+                    if (!e.isDaylight() && b.currentOutputMW <= 0.0f) ++nightWindHydro;
+                } else if (b.type == BuildingType::HYDRO_PLANT) {
+                    expected = Balance::HYDRO_PLANT.basePowerMW * WeatherSystem::getHydroMultiplier(w);
+                    if (!e.isDaylight() && b.currentOutputMW <= 0.0f) ++nightWindHydro;
+                }
+                if (!near(b.currentOutputMW, expected, 1e-3f)) ++mismatches;
+                sum += b.currentOutputMW;
+                ++samples;
+            }
+            // Grace period, no lamps or batteries: everything goes to the city
+            if (e.getPlayerEconomy(player).energyMW != static_cast<int>(std::lround(sum))) ++wrongTotal;
+        }
+        e.update(Balance::SECONDS_PER_DAY / 24.0f);
+    }
+    CHECK(samples == 24 * 6, "samples " << samples);
+    CHECK(mismatches == 0, mismatches << " generator outputs differ from base x multiplier");
+    CHECK(nightSolar == 0, "solar panels produced at night " << nightSolar << " times");
+    CHECK(nightWindHydro == 0, "wind or hydro stopped at night " << nightWindHydro << " times");
+    CHECK(wrongTotal == 0, "player power differs from the sum of the generators " << wrongTotal << " times");
+    endGroup();
+}
+
+// ---------------------------------------------------------------------------
+// Grace period and seasons
+// ---------------------------------------------------------------------------
+void testGracePeriod() {
+    beginGroup("Grace period demand");
+    CHECK(Balance::GRACE_PERIOD_DAYS == 2 && Balance::STARTING_CITY_DEMAND_MW == 30 && Balance::DAILY_DEMAND_INCREASE_MW == 15,
+          "grace " << Balance::GRACE_PERIOD_DAYS << " days, start " << Balance::STARTING_CITY_DEMAND_MW << " MW, +" << Balance::DAILY_DEMAND_INCREASE_MW);
+    {
+        GameEngine e;
+        e.init(1600.0f, 900.0f);
+        CHECK(e.isGracePeriod() && e.getCityState().cityEnergyDemand == 0, "day 1 must be a grace day with 0 MW demand");
+        buildWindFarm(e, 1);
+
+        // The gold dividend in the grace period is capped at the day-3 demand (30 MW)
+        const int gold1 = e.getPlayerEconomy(1).gold;
+        const int gold2 = e.getPlayerEconomy(2).gold;
+        e.update(10.0f);
+        const int perSecond = Balance::calculateGoldDividend(Balance::STARTING_CITY_DEMAND_MW, Balance::STARTING_CITY_DEMAND_MW);
+        CHECK(e.getPlayerEconomy(1).energyMW > Balance::STARTING_CITY_DEMAND_MW, "wind farm only gives " << e.getPlayerEconomy(1).energyMW << " MW");
+        CHECK(e.getPlayerEconomy(1).gold - gold1 == 10 * perSecond, "P1 grace dividend " << e.getPlayerEconomy(1).gold - gold1 << " G in 10 s");
+        CHECK(e.getPlayerEconomy(2).gold == gold2, "P2 got a dividend for 0 MW");
+
+        // Days 1 and 2 end without any territory change, although P1 supplies everything
+        for (int ended = 1; ended <= 2; ++ended) {
+            runToNextDay(e);
+            const CityConquestState& city = e.getCityState();
+            CHECK(e.getCurrentDay() == ended + 1, "day " << e.getCurrentDay());
+            CHECK(city.p1CityShare == 0.5f, "share after grace day " << ended << ": " << city.p1CityShare);
+            CHECK(has(city.lastCutMessage, "ГРАТИС"), "day " << ended << " message: " << city.lastCutMessage);
+        }
+        CHECK(!e.isGracePeriod() && e.getCityState().cityEnergyDemand == Balance::STARTING_CITY_DEMAND_MW,
+              "day 3 demand " << e.getCityState().cityEnergyDemand);
+
+        // Day 3 is the first judged day: P1 powered the city, P2 delivered nothing
+        runToNextDay(e);
+        CHECK(near(e.getCityState().p1CityShare, 0.5f + Balance::MAX_DAILY_CITY_SHIFT, 1e-5f), "share after day 3: " << e.getCityState().p1CityShare);
+        CHECK(e.getCityState().cityEnergyDemand == docDemandForDay(4), "day 4 demand " << e.getCityState().cityEnergyDemand);
+    }
+
+    // Demand of every day of a match (nobody builds, so it runs to the end of day 20)
+    GameEngine e;
+    e.init(1600.0f, 900.0f);
+    int days = 0;
+    while (e.getCityState().winner == 0) {
+        ++days;
+        const int day = e.getCurrentDay();
+        CHECK(e.getCityState().cityEnergyDemand == docDemandForDay(day), "day " << day << " demand " << e.getCityState().cityEnergyDemand
+                                                                                << ", docs say " << docDemandForDay(day));
+        CHECK(e.isGracePeriod() == (day <= Balance::GRACE_PERIOD_DAYS), "day " << day << " grace flag " << e.isGracePeriod());
+        e.update(Balance::SECONDS_PER_DAY);
+        REQUIRE(days <= Balance::FINAL_DAY, "the match did not end");
+    }
+    CHECK(days == Balance::FINAL_DAY, "days " << days);
+    endGroup();
+}
+
+void testSeasonRollover() {
+    beginGroup("Season rollover every 5 days");
+    CHECK(Balance::DAYS_PER_SEASON == 5, "days per season " << Balance::DAYS_PER_SEASON);
+    for (int day = 1; day <= 25; ++day) {
+        // docs: spring 1-5, summer 6-10, autumn 11-15, winter 16-20, then it starts over
+        const SeasonType expected = (day <= 5 || day >= 21) ? SeasonType::SPRING
+                                    : (day <= 10)           ? SeasonType::SUMMER
+                                    : (day <= 15)           ? SeasonType::AUTUMN
+                                                            : SeasonType::WINTER;
+        CHECK(Balance::getSeasonForDay(day) == expected, "day " << day << " season " << idx(Balance::getSeasonForDay(day)));
+    }
+    // The season changes at the midnight before the first day of the new season
+    for (int firstDay = 6; firstDay <= 21; firstDay += 5) {
+        const float midnight = (firstDay - 2) * Balance::SECONDS_PER_DAY + Balance::gameSecondsAtHour(24.0f);
+        CHECK(Balance::getSeasonAtGameSeconds(midnight - 0.01f) == Balance::getSeasonForDay(firstDay - 1) &&
+                  Balance::getSeasonAtGameSeconds(midnight + 0.01f) == Balance::getSeasonForDay(firstDay),
+              "season switch for day " << firstDay << " is not at midnight (" << midnight << " s)");
+    }
+
+    // The whole match in 0.25 s steps: when the season changes, and when the sun rises and sets
+    GameEngine e;
+    e.init(1600.0f, 900.0f);
+    SeasonType prevSeason = e.getSeason();
+    bool prevLight = e.isDaylight();
+    std::vector<int> changeDays;
+    int sunrises = 0, sunsets = 0, badSeason = 0, badSunrise = 0, badSunset = 0, steps = 0;
+    while (e.getCityState().winner == 0) {
+        e.update(0.25f);
+        REQUIRE(++steps < 10000, "the match did not end");
+        if (e.getCityState().winner != 0) break;
+        const int day = e.getCurrentDay();
+        const float h = e.getHour24();
+        const SeasonType s = e.getSeason();
+        // Before 06:00 the clock already belongs to the next calendar day
+        if (std::abs(h - 6.0f) > 0.01f) {
+            const SeasonType expected = Balance::getSeasonForDay(h < 6.0f ? day + 1 : day);
+            if (s != expected) ++badSeason;
+        }
+        if (s != prevSeason) {
+            changeDays.push_back(day);
+            CHECK(h < 0.1f || h > 23.9f, "season changed on day " << day << " at " << h << " h, not at midnight");
+        }
+        const bool light = e.isDaylight();
+        if (light && !prevLight) {
+            ++sunrises;
+            if (!(h >= Balance::getSunriseHour(s) && h < Balance::getSunriseHour(s) + 0.07f)) ++badSunrise;
+        }
+        if (!light && prevLight) {
+            ++sunsets;
+            if (!(h >= Balance::getSunsetHour(s) && h < Balance::getSunsetHour(s) + 0.07f)) ++badSunset;
+        }
+        prevSeason = s;
+        prevLight = light;
+    }
+    CHECK(badSeason == 0, badSeason << " steps with the wrong season");
+    // The last change is spring for day 21: the match ends at 06:00 that day, while it is still dark
+    CHECK(changeDays == (std::vector<int>{ 5, 10, 15, 20 }), changeDays.size() << " season changes, expected 4 (nights after days 5, 10, 15, 20)");
+    // The match starts at 08:00 (after sunrise) and ends at 06:00 of day 21 (before the winter sunrise)
+    CHECK(sunrises == Balance::FINAL_DAY - 1 && sunsets == Balance::FINAL_DAY, "sunrises " << sunrises << ", sunsets " << sunsets);
+    CHECK(badSunrise == 0 && badSunset == 0, "daylight toggled away from the season's sunrise/sunset: " << badSunrise << " / " << badSunset);
+    endGroup();
+}
+
+// ---------------------------------------------------------------------------
+// Restart
+// ---------------------------------------------------------------------------
+std::string economyDiff(const PlayerEconomy& a, const PlayerEconomy& b) {
+    std::string d;
+#define CMP(field) if (!(a.field == b.field)) d += std::string(" ") + #field
+    CMP(money); CMP(gold); CMP(silver); CMP(iron); CMP(coal); CMP(copper); CMP(silicon); CMP(wood); CMP(ore);
+    CMP(energyMW); CMP(landTier); CMP(cityInfluence); CMP(selectedBuilding); CMP(lastPlacedBuilding);
+    CMP(data.money); CMP(data.iron); CMP(data.coal); CMP(data.gold); CMP(data.copper); CMP(data.silver);
+    CMP(data.silicon); CMP(data.wood); CMP(data.sticks); CMP(data.weather); CMP(data.wind_speed);
+    for (int i = 0; i < 8; ++i) CMP(mineLevels[i]);
+    return d;
+}
+
+std::string cityDiff(const CityConquestState& a, const CityConquestState& b) {
+    std::string d;
+    CMP(cityEnergyDemand); CMP(p1CityShare); CMP(p1DailyDelivered); CMP(p2DailyDelivered); CMP(dailySeconds);
+    CMP(dayCutOccurred); CMP(lastCutMessage); CMP(winner);
+    return d;
+}
+#undef CMP
+
+void recordState(const GameEngine& e, std::vector<double>& out) {
+    out.push_back(e.getCurrentDay());
+    out.push_back(e.getHour24());
+    out.push_back(idx(e.getSeason()));
+    for (int player = 1; player <= 2; ++player) {
+        const PlayerEconomy& p = e.getPlayerEconomy(player);
+        out.push_back(idx(e.getPlayerWeather(player)));
+        for (int v : stocksOf(p)) out.push_back(v);
+        out.push_back(p.energyMW);
+        out.push_back(p.cityInfluence);
+    }
+    const CityConquestState& c = e.getCityState();
+    out.push_back(c.cityEnergyDemand);
+    out.push_back(c.p1CityShare);
+    out.push_back(c.p1DailyDelivered);
+    out.push_back(c.p2DailyDelivered);
+    out.push_back(c.winner);
+    for (const PlacedBuilding& b : e.getBuildings()) {
+        out.push_back(b.currentOutputMW);
+        out.push_back(b.energyStored);
+        out.push_back(b.lightRadius);
+    }
+}
+
+// The same actions on a restarted and on a brand-new engine must give the same match
+std::vector<double> scriptedPlay(GameEngine& e) {
+    std::vector<double> trace;
+    for (int i = 0; i < 3; ++i) trace.push_back(std::rand());
+    giveResources(e, 1, 500);
+    giveResources(e, 2, 500);
+    place(e, 1, BuildingType::WIND_TURBINE, slotOf(e, 1, 1, 0));
+    place(e, 1, BuildingType::BATTERY, slotOf(e, 1, 1, 1));
+    place(e, 1, BuildingType::LAMP, slotOf(e, 1, 1, 2));
+    place(e, 2, BuildingType::SOLAR_PANEL, slotOf(e, 2, 15, 0));
+    std::string msg;
+    e.mineResource(1, ResourceType::IRON, msg);
+    e.mineResource(2, ResourceType::GOLD, msg);
+    for (int i = 0; i < 3 * 360; ++i) {
+        e.update(0.25f);
+        if (i % 4 == 3) recordState(e, trace);
+    }
+    return trace;
+}
+
+void testRestartResetsEverything() {
+    beginGroup("Restart resets everything");
+    // Dirty every part of the state: land, mines, buildings, stored energy, selection, time scale,
+    // clock, season, city share and the winner
+    GameEngine dirty;
+    dirty.init(1600.0f, 900.0f);
+    buildWindFarm(dirty, 1);
+    buyPlot(dirty, 1, 2);
+    buyPlot(dirty, 2, 14);
+    place(dirty, 1, BuildingType::BATTERY, slotOf(dirty, 1, 2, 0));
+    giveResources(dirty, 2, 100);
+    place(dirty, 2, BuildingType::LAMP, slotOf(dirty, 2, 15, 0));
+    std::string msg;
+    dirty.getPlayerEconomyMut(1).gold = 5000;
+    dirty.getPlayerEconomyMut(2).gold = 5000;
+    REQUIRE(dirty.upgradeMine(1, ResourceType::IRON, msg) && dirty.upgradeMine(1, ResourceType::IRON, msg) &&
+                dirty.upgradeMine(2, ResourceType::GOLD, msg),
+            "upgrades failed: " << msg);
+    dirty.mineResource(1, ResourceType::WOOD, msg);
+    dirty.cycleBuildingSelection(1);
+    for (int i = 0; i < 3; ++i) dirty.cycleBuildingSelection(2);
+    int steps = 0;
+    while (dirty.getCityState().winner == 0) {
+        dirty.update(0.25f);
+        REQUIRE(++steps < 100000, "no winner");
+    }
+    dirty.setTimeScale(Balance::MINE_SPEEDUP_MULT);
+    const PlacedBuilding* battery = findBuilding(dirty, 1, BuildingType::BATTERY);
+    REQUIRE(dirty.getCityState().winner == 1 && dirty.getSeason() == SeasonType::SUMMER && battery && battery->energyStored > 0.0f,
+            "dirty state not reached: winner " << dirty.getCityState().winner << " season " << idx(dirty.getSeason()));
+
+    dirty.restartGame();
+    const GameEngine restarted = dirty; // snapshot before the scripted play
+    const std::vector<double> restartedTrace = scriptedPlay(dirty);
+
+    GameEngine fresh;
+    fresh.init(1600.0f, 900.0f); // same EC_SEED as the restart
+    const GameEngine freshSnapshot = fresh;
+    const std::vector<double> freshTrace = scriptedPlay(fresh);
+
+    CHECK(restarted.getCurrentDay() == 1 && near(restarted.getHour24(), Balance::MATCH_START_HOUR, 1e-4f) &&
+              restarted.getSeason() == SeasonType::SPRING,
+          "clock after restart: day " << restarted.getCurrentDay() << " hour " << restarted.getHour24() << " season " << idx(restarted.getSeason()));
+    CHECK(restarted.getTimeScale() == 1.0f, "time scale " << restarted.getTimeScale());
+    CHECK(restarted.getBuildings().empty(), "buildings: " << restarted.getBuildings().size());
+    CHECK(restarted.getCityState().winner == 0 && restarted.getCityState().cityEnergyDemand == 0 && restarted.getCityState().p1CityShare == 0.5f,
+          "city not reset");
+    for (int player = 1; player <= 2; ++player) {
+        const std::string d = economyDiff(restarted.getPlayerEconomy(player), freshSnapshot.getPlayerEconomy(player));
+        CHECK(d.empty(), "P" << player << " economy differs from a new match:" << d);
+        CHECK(restarted.getPlayerWeather(player) == freshSnapshot.getPlayerWeather(player), "P" << player << " weather differs from a new match");
+    }
+    const std::string cd = cityDiff(restarted.getCityState(), freshSnapshot.getCityState());
+    CHECK(cd.empty(), "city differs from a new match:" << cd);
+    const std::vector<LandPlot>& a = restarted.getLandPlots();
+    const std::vector<LandPlot>& b = freshSnapshot.getLandPlots();
+    bool samePlots = (a.size() == b.size());
+    for (size_t i = 0; samePlots && i < a.size(); ++i) {
+        samePlots = a[i].id == b[i].id && a[i].playerOwner == b[i].playerOwner && a[i].isPurchased == b[i].isPurchased &&
+                    a[i].costGold == b[i].costGold && a[i].bounds.position == b[i].bounds.position && a[i].bounds.size == b[i].bounds.size;
+    }
+    CHECK(samePlots, "land plots differ from a new match");
+    for (int t = 1; t <= 7; ++t) {
+        CHECK(restarted.getMineLevel(1, static_cast<ResourceType>(t)) == 1 && restarted.getMineLevel(2, static_cast<ResourceType>(t)) == 1,
+              "mine " << t << " level not reset");
+    }
+    // Hidden state (revenue timer, game clock, daily counters, RNG): the same script plays out identically
+    CHECK(restartedTrace.size() == freshTrace.size() && restartedTrace == freshTrace,
+          "a restarted match plays differently from a new one (trace " << restartedTrace.size() << " vs " << freshTrace.size() << ")");
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -837,6 +1421,14 @@ int main() {
     testGridMapping();
     testPlacementRules();
     testDemolitionRefund();
+    testWeatherMapping();
+    testEngineDailyWeather();
+    testSolarCurve();
+    testWindAndHydro();
+    testEngineGeneratorOutputs();
+    testGracePeriod();
+    testSeasonRollover();
+    testRestartResetsEverything();
 
     std::cout << "\n========================================================\n";
     if (g_failures == 0) {
