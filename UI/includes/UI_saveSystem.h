@@ -26,6 +26,7 @@ struct SaveInfo {
     int difficulty = 0;    // BotDifficulty as int (0 = two players)
     int scheme = 0;        // ControlScheme as int
     float p1Share = 0.5f;
+    bool finished = false;  // the match in this file is already decided (victory screen)
 };
 
 namespace saves {
@@ -44,7 +45,7 @@ std::string modeText(int difficulty);                  // "Двама играч
 std::string describe(const SaveInfo& info, bool withDate = true); // "Ден 5 · 13:30 · Срещу бот (Среден) · 03.10 14:22"
 std::string shortLabel(const SaveInfo& info);                       // "Ден 5 · 13:30 · Срещу бот (Среден)"
 int nextAutosaveSlot();             // the missing or oldest autosave slot
-std::string newestSave(SaveInfo* out = nullptr); // newest valid save of any slot, "" when none
+std::string newestSave(SaveInfo* out = nullptr); // newest valid save; "" when none or when the newest one is a finished match
 
 // The "ECSAVE 1" line and the meta.* lines (the caller appends ui.* lines, "[engine]" and the snapshot)
 std::string headerText(const SaveInfo& meta);

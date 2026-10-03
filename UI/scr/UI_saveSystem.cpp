@@ -63,6 +63,7 @@ SaveInfo readInfo(const std::string& path) {
         else if (k == "meta.difficulty") info.difficulty = std::atoi(v.c_str());
         else if (k == "meta.scheme") info.scheme = std::atoi(v.c_str());
         else if (k == "meta.p1Share") info.p1Share = static_cast<float>(std::atof(v.c_str()));
+        else if (k == "meta.finished") info.finished = (std::atoi(v.c_str()) != 0);
     }
     info.valid = sawDay && sawEngine && info.day >= 1;
     return info;
@@ -80,6 +81,7 @@ std::string modeText(int difficulty) {
 std::string describe(const SaveInfo& info, bool withDate) {
     if (!info.exists) return "Празен";
     if (!info.valid) return "Повреден файл";
+    if (info.finished) return "Завършен мач · ден " + std::to_string(info.day) + " · " + modeText(info.difficulty);
     int h = static_cast<int>(info.hour);
     int m = static_cast<int>((info.hour - static_cast<float>(h)) * 60.0f);
     char clock[16];
@@ -128,7 +130,8 @@ std::string newestSave(SaveInfo* out) {
         if (i.valid && (!best.valid || i.savedAt > best.savedAt)) best = i;
     }
     if (out != nullptr) *out = best;
-    return best.valid ? best.path : std::string();
+    // A decided match is not "continued" (its earlier saves stay loadable from the save panel)
+    return (best.valid && !best.finished) ? best.path : std::string();
 }
 
 std::string headerText(const SaveInfo& meta) {
@@ -140,6 +143,7 @@ std::string headerText(const SaveInfo& meta) {
     o << "meta.difficulty=" << meta.difficulty << "\n";
     o << "meta.scheme=" << meta.scheme << "\n";
     o << "meta.p1Share=" << meta.p1Share << "\n";
+    o << "meta.finished=" << (meta.finished ? 1 : 0) << "\n";
     return o.str();
 }
 

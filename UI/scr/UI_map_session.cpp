@@ -101,6 +101,11 @@ void UI_map::updateSession(float dt) {
         if (engine.getCityState().winner == 0 && writeAutosave()) {
             setSaveStatus("Автозапис: ден " + std::to_string(autosaveDay), false);
         }
+        // The deciding day: one final autosave marked finished, so ПРОДЪЛЖИ no longer offers this match
+        if (engine.getCityState().winner != 0 && gameSettings().autosave) {
+            std::string err;
+            saveToFile(saves::pathFor(saves::nextAutosaveSlot()), err);
+        }
     }
 
     // Overlays cannot be drawn without the font: never leave one blocking the input invisibly
@@ -232,6 +237,7 @@ bool UI_map::saveToFile(const std::string& path, std::string& error) const {
     meta.difficulty = static_cast<int>(bot.getDifficulty());
     meta.scheme = static_cast<int>(controlScheme);
     meta.p1Share = engine.getCityState().p1CityShare;
+    meta.finished = (engine.getCityState().winner != 0);
 
     std::ostringstream o;
     o << saves::headerText(meta);
