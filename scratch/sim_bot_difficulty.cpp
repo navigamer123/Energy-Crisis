@@ -17,7 +17,8 @@
 //
 // Build: make botsim   (or compile this file + UI_bot.cpp + UI_botProfiles.cpp +
 //        UI_resourceNodes.cpp + Game/scr/*.cpp and link sfml-graphics/window/system)
-// Usage: sim_bot_difficulty [seeds] [--rivals] [--lightning 0|1] [--match <diff 1-4> <p1 0-2> <seed>]
+// Usage: sim_bot_difficulty [seeds] [--rivals] [--list] [--only <diff 1-4>] [--lightning 0|1]
+//                           [--match <diff 1-4> <p1 0-2> <seed> [rival 0-4]]
 // Exit code 1 when НЕВЪЗМОЖНО lost or drew a single match, or the difficulties are out of order.
 // =============================================================================
 #include "game_main.h"
@@ -333,9 +334,11 @@ int main(int argc, char** argv) {
     bool rivals = false;
     bool lightning = true;
     bool listMatches = false;
+    int onlyDifficulty = 0; // --only 1..4 plays a single difficulty row
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "--rivals")) rivals = true;
         else if (!std::strcmp(argv[i], "--list")) listMatches = true;
+        else if (!std::strcmp(argv[i], "--only") && i + 1 < argc) onlyDifficulty = std::atoi(argv[++i]);
         else if (!std::strcmp(argv[i], "--lightning") && i + 1 < argc) lightning = std::atoi(argv[++i]) != 0;
         else if (!std::strcmp(argv[i], "--match") && i + 3 < argc) {
             int d = std::atoi(argv[i + 1]), s = std::atoi(argv[i + 2]);
@@ -357,6 +360,7 @@ int main(int argc, char** argv) {
 
     Cell cells[4][STRATEGY_COUNT];
     for (int d = 0; d < 4; ++d) {
+        if (onlyDifficulty && d != onlyDifficulty - 1) continue;
         std::printf("%-11s|", kDifficultyName[d]);
         for (int s = 0; s < STRATEGY_COUNT; ++s) {
             for (int k = 0; k < seeds; ++k) {
@@ -400,13 +404,13 @@ int main(int argc, char** argv) {
     // ---- Verdict --------------------------------------------------------------
     bool ok = true;
     for (int s = 0; s < STRATEGY_COUNT; ++s) {
-        if (cells[3][s].bot != cells[3][s].n) {
+        if (cells[3][s].n > 0 && cells[3][s].bot != cells[3][s].n) {
             std::printf("FAIL: IMPOSSIBLE won only %d of %d matches vs %s\n", cells[3][s].bot, cells[3][s].n, kStrategyName[s]);
             ok = false;
         }
     }
     // Human wins must not grow with the difficulty, and Easy must be beatable
-    for (int s = BALANCED; s < STRATEGY_COUNT; ++s) {
+    for (int s = BALANCED; s < STRATEGY_COUNT && !onlyDifficulty; ++s) {
         for (int d = 0; d < 2; ++d) {
             if (cells[d][s].p1 < cells[d + 1][s].p1) {
                 std::printf("FAIL: P1 (%s) wins more often vs %s than vs %s\n", kStrategyName[s], kDifficultyName[d + 1],
@@ -415,7 +419,7 @@ int main(int argc, char** argv) {
             }
         }
     }
-    if (cells[0][BALANCED].p1 == 0 && cells[0][OPTIMAL].p1 == 0) {
+    if (!onlyDifficulty && cells[0][BALANCED].p1 == 0 && cells[0][OPTIMAL].p1 == 0) {
         std::printf("FAIL: EASY was never beaten\n");
         ok = false;
     }
