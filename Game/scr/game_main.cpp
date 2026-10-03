@@ -152,37 +152,17 @@ void GameEngine::update(float dt) {
             p2.money += p2Payout;
             p2.data.money = p2.money;
 
-            // Gold dividend for sustained power supply from Balance formula
-            p1.gold += Balance::calculateGoldDividend(p1.energyMW);
+            // Gold dividend for sustained power supply from Balance formula (capped by city demand)
+            p1.gold += Balance::calculateGoldDividend(p1.energyMW, city.cityEnergyDemand);
             p1.data.gold = p1.gold;
 
-            p2.gold += Balance::calculateGoldDividend(p2.energyMW);
+            p2.gold += Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand);
             p2.data.gold = p2.gold;
-
-            // Gradual tug-of-war city influence progression from Balance formula (active after grace period)
-            if (city.winner == 0 && currentDay > Balance::GRACE_PERIOD_DAYS) {
-                float driftStep = Balance::calculateInfluenceDrift(p1.energyMW, p2.energyMW, city.cityEnergyDemand);
-                city.p1CityShare = std::clamp(city.p1CityShare + driftStep, 0.0f, 1.0f);
-            }
         }
 
+        // City influence reflects established territorial division from daily outcomes
         p1.cityInfluence = city.p1CityShare;
         p2.cityInfluence = 1.0f - city.p1CityShare;
-
-        // Victory condition when someone reaches 100% (1.0)
-        if (city.p1CityShare >= Balance::VICTORY_INFLUENCE_P1) {
-            city.p1CityShare = 1.0f;
-            p1.cityInfluence = 1.0f;
-            p2.cityInfluence = 0.0f;
-            city.winner = 1;
-            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
-        } else if (city.p1CityShare <= Balance::VICTORY_INFLUENCE_P2) {
-            city.p1CityShare = 0.0f;
-            p1.cityInfluence = 0.0f;
-            p2.cityInfluence = 1.0f;
-            city.winner = 2;
-            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
-        }
     }
 }
 
@@ -325,38 +305,31 @@ void GameEngine::processDayEnd() {
             city.lastCutMessage = "ДЕН 2 ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД! ОТ ДЕН 3 ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ!";
         }
     } else {
-        float quotaPerPlayer = city.cityEnergyDemand / 2.0f;
-        bool p1Success = (p1.energyMW >= quotaPerPlayer);
-        bool p2Success = (p2.energyMW >= quotaPerPlayer);
+        // End-of-day territorial influence calculation strictly capped at 10-15% maximum
+        // (Even if P1 gives 1200 MW and P2 gives 0 MW, shift is capped at max 15%, preventing instant takeover!)
+        float shift = Balance::calculateDailyCityShift(p1.energyMW, p2.energyMW, city.cityEnergyDemand);
+        city.p1CityShare = std::clamp(city.p1CityShare + shift, 0.0f, 1.0f);
+        int shiftPct = static_cast<int>(std::round(std::abs(shift) * 100.0f));
 
-        if (p1Success && !p2Success) {
-            // Player 1 supplied enough, Player 2 failed -> Player 1 cuts off and captures Player 2's city half!
-            city.p1CityShare = std::min(1.0f, city.p1CityShare + 0.15f);
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 2 НЕ ДОСТАВИ ЕНЕРГИЯ! ЧАСТ ОТ ГРАДА МУ Е ОТРЯЗАНА!";
-        } else if (p2Success && !p1Success) {
-            // Player 2 supplied enough, Player 1 failed -> Player 2 cuts off and captures Player 1's city half!
-            city.p1CityShare = std::max(0.0f, city.p1CityShare - 0.15f);
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 1 НЕ ДОСТАВИ ЕНЕРГИЯ! ЧАСТ ОТ ГРАДА МУ Е ОТРЯЗАНА!";
+        if (shift > 0.005f) {
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 1 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА +" +
+                                  std::to_string(shiftPct) + "% ОТ ГРАДА!";
+        } else if (shift < -0.005f) {
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 2 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА +" +
+                                  std::to_string(shiftPct) + "% ОТ ГРАДА!";
         } else {
-            // Both succeeded or both failed -> advantage to higher producer
-            if (p1.energyMW > p2.energyMW + 50) {
-                city.p1CityShare = std::min(1.0f, city.p1CityShare + 0.05f);
-                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 1 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА ПРЕДИМСТВО В ГРАДА!";
-            } else if (p2.energyMW > p1.energyMW + 50) {
-                city.p1CityShare = std::max(0.0f, city.p1CityShare - 0.05f);
-                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 2 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА ПРЕДИМСТВО В ГРАДА!";
-            } else {
-                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": РАВНОВЕСИЕ В ГРАДСКАТА МРЕЖА!";
-            }
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ПАРИТЕТ В ГРАДСКАТА МРЕЖА (0% ПРОМЯНА)!";
         }
 
-        // Check Victory Condition
+        // Check Victory Condition only at day end
         if (city.p1CityShare >= 0.99f) {
+            city.p1CityShare = 1.0f;
             city.winner = 1;
-            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
+            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! СЛЕД ДНИ НА ДОМИНИРАНЕ, ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
         } else if (city.p1CityShare <= 0.01f) {
+            city.p1CityShare = 0.0f;
             city.winner = 2;
-            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
+            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! СЛЕД ДНИ НА ДОМИНИРАНЕ, ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
         }
     }
 
@@ -524,7 +497,7 @@ bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg)
     }
     int lvl = econ.mineLevels[idx];
     if (lvl >= Balance::MINE_MAX_LEVEL) {
-        outMsg = "МАКСИМАЛНО НИВО НА МИНАТА (НИВО 5)!";
+        outMsg = "МАКСИМАЛНО НИВО НА МИНАТА (НИВО " + std::to_string(Balance::MINE_MAX_LEVEL) + ")!";
         return false;
     }
     int cost = getMineUpgradeCost(player, type);

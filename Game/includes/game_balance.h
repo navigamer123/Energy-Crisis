@@ -78,19 +78,26 @@ constexpr int SILICON_BASE_YIELD = 6;
 constexpr int SILVER_BASE_YIELD  = 4;
 constexpr int GOLD_BASE_YIELD    = 3;
 
-constexpr int MINE_MAX_LEVEL = 5;
-constexpr int MINE_UPGRADE_COST_BASE = 15;      // 15 G per level for normal mines
-constexpr int MINE_UPGRADE_COST_GOLD_BASE = 20; // 20 G per level for Gold mine
+constexpr int MINE_MAX_LEVEL = 6;
+constexpr int MINE_UPGRADE_COST_BASE = 30;
 
 // Upgrade multiplier formula: +75% yield per upgrade level
 inline float getMineYieldMultiplier(int level) {
     return 1.0f + std::max(0, level - 1) * 0.75f;
 }
 
-// Upgrade cost formula
+// Upgrade cost formula: Exponential progression (30 -> 300 -> 500 -> 800 -> 1500)
+// Prevents rushing max upgrades in early game and makes late-game economy deeply rewarding
 inline int getMineUpgradeCost(int level, bool isGoldMine) {
     if (level >= MINE_MAX_LEVEL) return 0;
-    return level * (isGoldMine ? MINE_UPGRADE_COST_GOLD_BASE : MINE_UPGRADE_COST_BASE);
+    switch (level) {
+        case 1: return isGoldMine ? 50   : 30;
+        case 2: return isGoldMine ? 400  : 300;
+        case 3: return isGoldMine ? 700  : 500;
+        case 4: return isGoldMine ? 1100 : 800;
+        case 5: return isGoldMine ? 2000 : 1500;
+        default: return isGoldMine ? 2500 : 2000;
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -126,21 +133,45 @@ inline int calculatePlayerPayout(int contractPool, float playerShare) {
     return static_cast<int>(std::round(contractPool * playerShare));
 }
 
-// Formula: Gold dividend earned by supplying sustained clean power
-constexpr int GOLD_DIVIDEND_MIN_MW = 30;
-inline int calculateGoldDividend(int playerMW) {
-    if (playerMW < GOLD_DIVIDEND_MIN_MW) return 0;
-    return std::max(1, static_cast<int>(playerMW * 0.03f));
+// Formula: Gold dividend earned by supplying sustained clean power.
+// CAPPED BY CITY DEMAND: If city asks for 50 MW and player supplies 1200 MW,
+// eligible generation is capped at 50 MW so players cannot exploit infinite gold!
+constexpr int GOLD_DIVIDEND_MIN_MW = 15;
+inline int calculateGoldDividend(int playerMW, int cityDemand) {
+    int cap = (cityDemand > 0) ? cityDemand : STARTING_CITY_DEMAND_MW;
+    int eligibleMW = std::min(playerMW, cap);
+    if (eligibleMW < GOLD_DIVIDEND_MIN_MW) return 0;
+    return std::max(1, static_cast<int>(eligibleMW * 0.03f));
 }
 
-// Formula: Gradual dynamic tug-of-war city influence drift step
-constexpr float TUG_OF_WAR_DRIFT_FACTOR = 0.015f;
-constexpr float TUG_OF_WAR_MAX_STEP = 0.03f;
-inline float calculateInfluenceDrift(int p1PowerMW, int p2PowerMW, int cityDemand) {
-    float powerDiff = static_cast<float>(p1PowerMW - p2PowerMW);
-    float denom = std::max(50.0f, static_cast<float>(cityDemand));
-    float step = (powerDiff / denom) * TUG_OF_WAR_DRIFT_FACTOR;
-    return std::clamp(step, -TUG_OF_WAR_MAX_STEP, TUG_OF_WAR_MAX_STEP);
+// Maximum percentage of city territory that can be won or lost in a single day (10% - 15%)
+// Prevents sudden total takeover in a single day (e.g. 0 MW vs 1200 MW gives at most 15% shift)
+constexpr float MAX_DAILY_CITY_SHIFT = 0.15f; // 15% maximum per day
+constexpr float MIN_DAILY_CITY_SHIFT = 0.05f; // 5% minimum shift if there is a clear winner
+
+inline float calculateDailyCityShift(int p1PowerMW, int p2PowerMW, int cityDemand) {
+    if (cityDemand <= 0) return 0.0f;
+
+    float p1Delivered = static_cast<float>(p1PowerMW);
+    float p2Delivered = static_cast<float>(p2PowerMW);
+    float totalDelivered = p1Delivered + p2Delivered;
+
+    if (totalDelivered <= 0.0f) {
+        return 0.0f; // Neither delivered anything, balance remains unchanged
+    }
+
+    // Relative performance differential between -1.0 and +1.0
+    float shareDiff = (p1Delivered - p2Delivered) / totalDelivered;
+
+    // Shift is strictly bounded to max 10-15% per day
+    float rawShift = shareDiff * MAX_DAILY_CITY_SHIFT;
+
+    if (std::abs(shareDiff) > 0.10f) {
+        if (rawShift > 0.0f) rawShift = std::max(rawShift, MIN_DAILY_CITY_SHIFT);
+        else if (rawShift < 0.0f) rawShift = std::min(rawShift, -MIN_DAILY_CITY_SHIFT);
+    }
+
+    return std::clamp(rawShift, -MAX_DAILY_CITY_SHIFT, MAX_DAILY_CITY_SHIFT);
 }
 
 // Victory Condition: 100% (1.0) influence threshold

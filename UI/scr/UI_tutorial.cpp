@@ -11,8 +11,16 @@ UI_tutorial::UI_tutorial()
       stepDelayTimer(0.0f),
       initialP1BuildingCount(0) {
     cardBounds = sf::FloatRect({ 240.0f, 770.0f }, { 540.0f, 118.0f });
-    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 150.0f, cardBounds.position.y + 8.0f }, { 142.0f, 24.0f });
-    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 195.0f, cardBounds.position.y + cardBounds.size.y - 34.0f }, { 185.0f, 26.0f });
+    float skipW = cardBounds.size.x * 0.26f;
+    float skipH = cardBounds.size.y * 0.20f;
+    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - skipW - cardBounds.size.x * 0.02f,
+                                   cardBounds.position.y + cardBounds.size.y * 0.07f },
+                                 { skipW, skipH });
+    float nextW = cardBounds.size.x * 0.34f;
+    float nextH = cardBounds.size.y * 0.22f;
+    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - nextW - cardBounds.size.x * 0.02f,
+                                   cardBounds.position.y + cardBounds.size.y - nextH - cardBounds.size.y * 0.07f },
+                                 { nextW, nextH });
 }
 
 void UI_tutorial::reset() {

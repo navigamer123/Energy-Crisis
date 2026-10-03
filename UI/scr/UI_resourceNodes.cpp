@@ -17,44 +17,38 @@ UI_resourceNodes::UI_resourceNodes() {
     float cardH = 80.0f;
     float gapX0 = 6.0f;
 
+    auto makeUpgradeBtn = [](const sf::FloatRect& b) {
+        float upW = b.size.x * 0.94f;
+        float upH = b.size.y * 0.25f;
+        float upX = b.position.x + (b.size.x - upW) / 2.0f;
+        float upY = b.position.y + b.size.y - upH - (b.size.y * 0.025f);
+        return sf::FloatRect({ upX, upY }, { upW, upH });
+    };
+
     // Row 0: Wood, Iron, Copper, Coal (86px cards)
-    stations.push_back({ ResourceType::WOOD, 1,
-        sf::FloatRect({ p1StartX + 0 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
-        "ГОРА", "+12 Дърво", sf::Color(75, 210, 110),
-        sf::FloatRect({ p1StartX + 0 * (cardW0 + gapX0) + 3.0f, row0Y + cardH - 22.0f }, { cardW0 - 6.0f, 20.0f }) });
+    sf::FloatRect bWood1({ p1StartX + 0 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
+    stations.push_back({ ResourceType::WOOD, 1, bWood1, "ГОРА", "+12 Дърво", sf::Color(75, 210, 110), makeUpgradeBtn(bWood1) });
 
-    stations.push_back({ ResourceType::IRON, 1,
-        sf::FloatRect({ p1StartX + 1 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
-        "ЖЕЛЯЗО", "+8 Жел", sf::Color(170, 195, 220),
-        sf::FloatRect({ p1StartX + 1 * (cardW0 + gapX0) + 3.0f, row0Y + cardH - 22.0f }, { cardW0 - 6.0f, 20.0f }) });
+    sf::FloatRect bIron1({ p1StartX + 1 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
+    stations.push_back({ ResourceType::IRON, 1, bIron1, "ЖЕЛЯЗО", "+8 Жел", sf::Color(170, 195, 220), makeUpgradeBtn(bIron1) });
 
-    stations.push_back({ ResourceType::COPPER, 1,
-        sf::FloatRect({ p1StartX + 2 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
-        "МЕД", "+6 Мед", sf::Color(230, 140, 70),
-        sf::FloatRect({ p1StartX + 2 * (cardW0 + gapX0) + 3.0f, row0Y + cardH - 22.0f }, { cardW0 - 6.0f, 20.0f }) });
+    sf::FloatRect bCop1({ p1StartX + 2 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
+    stations.push_back({ ResourceType::COPPER, 1, bCop1, "МЕД", "+6 Мед", sf::Color(230, 140, 70), makeUpgradeBtn(bCop1) });
 
-    stations.push_back({ ResourceType::COAL, 1,
-        sf::FloatRect({ p1StartX + 3 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
-        "ВЪГЛИЩА", "+6 Въгл", sf::Color(115, 125, 140),
-        sf::FloatRect({ p1StartX + 3 * (cardW0 + gapX0) + 3.0f, row0Y + cardH - 22.0f }, { cardW0 - 6.0f, 20.0f }) });
+    sf::FloatRect bCoal1({ p1StartX + 3 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
+    stations.push_back({ ResourceType::COAL, 1, bCoal1, "ВЪГЛИЩА", "+6 Въгл", sf::Color(115, 125, 140), makeUpgradeBtn(bCoal1) });
 
     // Row 1: Silicon, Silver, Gold (116px cards, perfectly centered)
     float cardW1 = 116.0f;
     float gapX1 = 8.0f;
-    stations.push_back({ ResourceType::SILICON, 1,
-        sf::FloatRect({ p1StartX + 0 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
-        "СИЛИЦИЙ", "+6 Сил", sf::Color(0, 220, 255),
-        sf::FloatRect({ p1StartX + 0 * (cardW1 + gapX1) + 3.0f, row1Y + cardH - 22.0f }, { cardW1 - 6.0f, 20.0f }) });
+    sf::FloatRect bSil1({ p1StartX + 0 * (cardW1 + gapX1), row1Y }, { cardW1, cardH });
+    stations.push_back({ ResourceType::SILICON, 1, bSil1, "СИЛИЦИЙ", "+6 Сил", sf::Color(0, 220, 255), makeUpgradeBtn(bSil1) });
 
-    stations.push_back({ ResourceType::SILVER, 1,
-        sf::FloatRect({ p1StartX + 1 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
-        "СРЕБРО", "+4 Среб", sf::Color(225, 235, 245),
-        sf::FloatRect({ p1StartX + 1 * (cardW1 + gapX1) + 3.0f, row1Y + cardH - 22.0f }, { cardW1 - 6.0f, 20.0f }) });
+    sf::FloatRect bSilv1({ p1StartX + 1 * (cardW1 + gapX1), row1Y }, { cardW1, cardH });
+    stations.push_back({ ResourceType::SILVER, 1, bSilv1, "СРЕБРО", "+4 Среб", sf::Color(225, 235, 245), makeUpgradeBtn(bSilv1) });
 
-    stations.push_back({ ResourceType::GOLD, 1,
-        sf::FloatRect({ p1StartX + 2 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
-        "ЗЛАТО", "+3 Злато", sf::Color(255, 215, 0),
-        sf::FloatRect({ p1StartX + 2 * (cardW1 + gapX1) + 3.0f, row1Y + cardH - 22.0f }, { cardW1 - 6.0f, 20.0f }) });
+    sf::FloatRect bGold1({ p1StartX + 2 * (cardW1 + gapX1), row1Y }, { cardW1, cardH });
+    stations.push_back({ ResourceType::GOLD, 1, bGold1, "ЗЛАТО", "+3 Злато", sf::Color(255, 215, 0), makeUpgradeBtn(bGold1) });
 
     // -------------------------------------------------------------------------
     // Player 2 Stations (East: 4 in Row 0, 3 in Row 1, mirrored)
@@ -62,41 +56,27 @@ UI_resourceNodes::UI_resourceNodes() {
     float p2StartX = 998.0f;
 
     // Row 0: Coal, Copper, Iron, Wood
-    stations.push_back({ ResourceType::COAL, 2,
-        sf::FloatRect({ p2StartX + 0 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
-        "ВЪГЛИЩА", "+6 Въгл", sf::Color(115, 125, 140),
-        sf::FloatRect({ p2StartX + 0 * (cardW0 + gapX0) + 3.0f, row0Y + cardH - 22.0f }, { cardW0 - 6.0f, 20.0f }) });
+    sf::FloatRect bCoal2({ p2StartX + 0 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
+    stations.push_back({ ResourceType::COAL, 2, bCoal2, "ВЪГЛИЩА", "+6 Въгл", sf::Color(115, 125, 140), makeUpgradeBtn(bCoal2) });
 
-    stations.push_back({ ResourceType::COPPER, 2,
-        sf::FloatRect({ p2StartX + 1 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
-        "МЕД", "+6 Мед", sf::Color(230, 140, 70),
-        sf::FloatRect({ p2StartX + 1 * (cardW0 + gapX0) + 3.0f, row0Y + cardH - 22.0f }, { cardW0 - 6.0f, 20.0f }) });
+    sf::FloatRect bCop2({ p2StartX + 1 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
+    stations.push_back({ ResourceType::COPPER, 2, bCop2, "МЕД", "+6 Мед", sf::Color(230, 140, 70), makeUpgradeBtn(bCop2) });
 
-    stations.push_back({ ResourceType::IRON, 2,
-        sf::FloatRect({ p2StartX + 2 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
-        "ЖЕЛЯЗО", "+8 Жел", sf::Color(170, 195, 220),
-        sf::FloatRect({ p2StartX + 2 * (cardW0 + gapX0) + 3.0f, row0Y + cardH - 22.0f }, { cardW0 - 6.0f, 20.0f }) });
+    sf::FloatRect bIron2({ p2StartX + 2 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
+    stations.push_back({ ResourceType::IRON, 2, bIron2, "ЖЕЛЯЗО", "+8 Жел", sf::Color(170, 195, 220), makeUpgradeBtn(bIron2) });
 
-    stations.push_back({ ResourceType::WOOD, 2,
-        sf::FloatRect({ p2StartX + 3 * (cardW0 + gapX0), row0Y }, { cardW0, cardH }),
-        "ГОРА", "+12 Дърво", sf::Color(75, 210, 110),
-        sf::FloatRect({ p2StartX + 3 * (cardW0 + gapX0) + 3.0f, row0Y + cardH - 22.0f }, { cardW0 - 6.0f, 20.0f }) });
+    sf::FloatRect bWood2({ p2StartX + 3 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
+    stations.push_back({ ResourceType::WOOD, 2, bWood2, "ГОРА", "+12 Дърво", sf::Color(75, 210, 110), makeUpgradeBtn(bWood2) });
 
     // Row 1: Gold, Silver, Silicon
-    stations.push_back({ ResourceType::GOLD, 2,
-        sf::FloatRect({ p2StartX + 0 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
-        "ЗЛАТО", "+3 Злато", sf::Color(255, 215, 0),
-        sf::FloatRect({ p2StartX + 0 * (cardW1 + gapX1) + 3.0f, row1Y + cardH - 22.0f }, { cardW1 - 6.0f, 20.0f }) });
+    sf::FloatRect bGold2({ p2StartX + 0 * (cardW1 + gapX1), row1Y }, { cardW1, cardH });
+    stations.push_back({ ResourceType::GOLD, 2, bGold2, "ЗЛАТО", "+3 Злато", sf::Color(255, 215, 0), makeUpgradeBtn(bGold2) });
 
-    stations.push_back({ ResourceType::SILVER, 2,
-        sf::FloatRect({ p2StartX + 1 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
-        "СРЕБРО", "+4 Среб", sf::Color(225, 235, 245),
-        sf::FloatRect({ p2StartX + 1 * (cardW1 + gapX1) + 3.0f, row1Y + cardH - 22.0f }, { cardW1 - 6.0f, 20.0f }) });
+    sf::FloatRect bSilv2({ p2StartX + 1 * (cardW1 + gapX1), row1Y }, { cardW1, cardH });
+    stations.push_back({ ResourceType::SILVER, 2, bSilv2, "СРЕБРО", "+4 Среб", sf::Color(225, 235, 245), makeUpgradeBtn(bSilv2) });
 
-    stations.push_back({ ResourceType::SILICON, 2,
-        sf::FloatRect({ p2StartX + 2 * (cardW1 + gapX1), row1Y }, { cardW1, cardH }),
-        "СИЛИЦИЙ", "+6 Сил", sf::Color(0, 220, 255),
-        sf::FloatRect({ p2StartX + 2 * (cardW1 + gapX1) + 3.0f, row1Y + cardH - 22.0f }, { cardW1 - 6.0f, 20.0f }) });
+    sf::FloatRect bSil2({ p2StartX + 2 * (cardW1 + gapX1), row1Y }, { cardW1, cardH });
+    stations.push_back({ ResourceType::SILICON, 2, bSil2, "СИЛИЦИЙ", "+6 Сил", sf::Color(0, 220, 255), makeUpgradeBtn(bSil2) });
 }
 
 ResourceType UI_resourceNodes::getP1ResourceAt(sf::Vector2f pt) const {
@@ -650,7 +630,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
                            (s.bounds.contains(mousePos) && mousePos.y >= s.bounds.position.y + s.bounds.size.y - 26.0f);
             sf::RectangleShape upBtn(s.upgradeBtnBounds.size);
             upBtn.setPosition(s.upgradeBtnBounds.position);
-            if (lvl >= 5) {
+            if (lvl >= Balance::MINE_MAX_LEVEL) {
                 upBtn.setFillColor(sf::Color(40, 45, 55, 200));
                 upBtn.setOutlineThickness(1.0f);
                 upBtn.setOutlineColor(sf::Color(100, 110, 130));
@@ -661,9 +641,9 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             }
             window.draw(upBtn);
 
-            std::string upLabel = (lvl >= 5) ? "МАКС" : ("+1 НИВО: " + std::to_string(upCost) + "G");
+            std::string upLabel = (lvl >= Balance::MINE_MAX_LEVEL) ? "МАКС" : ("+1 НИВО: " + std::to_string(upCost) + "G");
             sf::Text tUp(font, toUtf8(upLabel), 9);
-            tUp.setFillColor(lvl >= 5 ? sf::Color(160, 170, 185) : (upHover ? sf::Color(255, 250, 180) : sf::Color(255, 215, 0)));
+            tUp.setFillColor(lvl >= Balance::MINE_MAX_LEVEL ? sf::Color(160, 170, 185) : (upHover ? sf::Color(255, 250, 180) : sf::Color(255, 215, 0)));
             sf::FloatRect upb = tUp.getLocalBounds();
             tUp.setPosition({ s.upgradeBtnBounds.position.x + (s.upgradeBtnBounds.size.x - upb.size.x) / 2.0f,
                               s.upgradeBtnBounds.position.y + (s.upgradeBtnBounds.size.y - upb.size.y) / 2.0f - 1.0f });

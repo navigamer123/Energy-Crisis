@@ -59,6 +59,19 @@ void UI_buildings::setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size,
 
   buildings.push_back({BuildingType::DEMOLISH, "Demolish Tool",
                        "Премахване / Разруши", 0, 0, 0, 0, 0, 0, 0, 0, 0, {}});
+  // Pre-calculate proportional button bounds for click collision
+  float marginX = panelSize.x * 0.026f;
+  float itemX = panelPos.x + marginX;
+  float itemW = panelSize.x - 2.0f * marginX;
+  float headerH = panelSize.y * 0.071f;
+  float itemStartY = panelPos.y + headerH;
+  float availH = panelSize.y - headerH - panelSize.y * 0.018f;
+  float spacing = availH / static_cast<float>(std::max<size_t>(1, buildings.size()));
+  float itemH = spacing * 0.916f;
+
+  for (size_t i = 0; i < buildings.size(); i++) {
+    buildings[i].btnBounds = sf::FloatRect({itemX, itemStartY + i * spacing}, {itemW, itemH});
+  }
 }
 
 BuildingType UI_buildings::handleClick(sf::Vector2f clickPos) {
@@ -96,11 +109,15 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     window.draw(div);
   }
 
-  float itemX = panelPos.x + 6.0f;
-  float itemStartY = panelPos.y + 28.0f;
-  float itemW = panelSize.x - 12.0f;
-  float itemH = 55.0f;
-  float spacing = 60.0f;
+  // Proportional item spacing & sizing
+  float marginX = panelSize.x * 0.026f;
+  float itemX = panelPos.x + marginX;
+  float itemW = panelSize.x - 2.0f * marginX;
+  float headerH = panelSize.y * 0.071f;
+  float itemStartY = panelPos.y + headerH;
+  float availH = panelSize.y - headerH - panelSize.y * 0.018f;
+  float spacing = availH / static_cast<float>(std::max<size_t>(1, buildings.size()));
+  float itemH = spacing * 0.916f;
 
   for (size_t i = 0; i < buildings.size(); i++) {
     auto &b = buildings[i];

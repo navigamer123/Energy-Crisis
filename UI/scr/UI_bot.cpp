@@ -157,8 +157,8 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     // -------------------------------------------------------------------------
     // 3. Mine Upgrade Evaluation (Permanent +75% Yield Snowball)
     // -------------------------------------------------------------------------
-    if (gold >= 15) {
-        int maxAllowedLevel = (difficulty == BotDifficulty::HARD ? 5 : (difficulty == BotDifficulty::MEDIUM ? 3 : 2));
+    if (gold >= 30) {
+        int maxAllowedLevel = (difficulty == BotDifficulty::HARD ? Balance::MINE_MAX_LEVEL : (difficulty == BotDifficulty::MEDIUM ? 3 : 2));
         ResourceType upgradePriority[4] = {
             ResourceType::WOOD,
             ResourceType::IRON,
@@ -168,8 +168,8 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
 
         for (auto res : upgradePriority) {
             int currentLvl = econ.mineLevels[static_cast<int>(res)];
-            int cost = currentLvl * 15;
-            if (currentLvl < maxAllowedLevel && gold >= cost) {
+            int cost = engine.getMineUpgradeCost(2, res);
+            if (cost > 0 && currentLvl < maxAllowedLevel && gold >= cost) {
                 int upgradeRoll = rand() % 100;
                 int upgradeThreshold = (difficulty == BotDifficulty::HARD ? 85 : (difficulty == BotDifficulty::MEDIUM ? 50 : 25));
                 if (upgradeRoll < upgradeThreshold) {
