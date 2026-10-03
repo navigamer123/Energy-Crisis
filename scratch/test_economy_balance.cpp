@@ -1,3 +1,6 @@
+#ifdef NDEBUG
+#undef NDEBUG // the checks below are assert()s: never compile them away
+#endif
 #include "../Game/includes/game_main.h"
 #include <iostream>
 #include <cassert>
@@ -184,15 +187,19 @@ void testPercentageBasedEnergyRewardsAndGradualProgression() {
     p1.wood = 200; p1.iron = 200; p1.copper = 200; p1.silicon = 200; p1.coal = 200; p1.silver = 200;
     p2.wood = 200; p2.iron = 200; p2.copper = 200; p2.silicon = 200; p2.coal = 200; p2.silver = 200;
 
-    // P1 places 2 Wind Turbines (85 + 85 = 170 MW base)
+    // P1 places 2 Wind Turbines (85 + 85 = 170 MW base) on its starting plot (columns 0-2)
     std::string msg;
-    engine.placeBuilding(1, BuildingType::WIND_TURBINE, engine.getGridSlot(1, 0, 0), msg);
-    engine.placeBuilding(1, BuildingType::WIND_TURBINE, engine.getGridSlot(1, 0, 1), msg);
+    bool placed = engine.placeBuilding(1, BuildingType::WIND_TURBINE, engine.getGridSlot(1, 0, 0), msg);
+    assert(placed);
+    placed = engine.placeBuilding(1, BuildingType::WIND_TURBINE, engine.getGridSlot(1, 0, 1), msg);
+    assert(placed);
 
-    // P2 places 1 Solar Panel (60 MW base)
-    engine.placeBuilding(2, BuildingType::SOLAR_PANEL, engine.getGridSlot(2, 5, 0), msg);
+    // P2 places 1 Solar Panel (60 MW base) on ITS starting plot (columns 6-8 of the east grid)
+    placed = engine.placeBuilding(2, BuildingType::SOLAR_PANEL, engine.getGridSlot(2, 8, 0), msg);
+    if (!placed) std::cerr << "  P2 placement failed: " << msg << "\n";
+    assert(placed);
 
-    // Run 2 seconds of simulation
+    // Run 2 seconds of simulation (day 1, morning)
     engine.update(1.0f);
     engine.update(1.0f);
 
@@ -203,14 +210,47 @@ void testPercentageBasedEnergyRewardsAndGradualProgression() {
     std::cout << "  P1 Share: " << (p1After.cityInfluence * 100.0f) << "% | P2 Share: " << (p2After.cityInfluence * 100.0f) << "%\n";
     std::cout << "  P1 Money: " << p1After.money << " | P2 Money: " << p2After.money << "\n";
 
-    // P1 generates more energy -> P1 must have greater share and higher money payout!
+    // P1 generates more energy -> P1 gets the larger, percentage-based money payout
+    assert(p2After.energyMW > 0); // P2's panel really works (it stands on purchased land)
     assert(p1After.energyMW > p2After.energyMW);
-    assert(p1After.cityInfluence > 0.50f);
-    assert(p1After.cityInfluence < 0.90f); // Gradual progression: does NOT instantly jump to 100%!
-    assert(p1After.cityInfluence > p2After.cityInfluence);
     assert(p1After.money > p2After.money);
 
-    std::cout << "  -> PASS: Energy payout is percentage-based and city influence moves gradually.\n";
+    // City territory moves only at a day end, and never during the grace period
+    assert(std::abs(p1After.cityInfluence - 0.50f) < 1e-6f);
+    assert(std::abs(p2After.cityInfluence - 0.50f) < 1e-6f);
+
+    // Play until day 4 has been settled. Day 3 (30 MW) may be met by both players on a sunny day,
+    // which moves nothing. Day 4 (45 MW) is beyond one solar panel (at most ~33 MW on average on a
+    // sunny spring day) while P1's turbines always meet it, so P1 gains 10-15% that day.
+    float shareAtDayStart = engine.getCityState().p1CityShare;
+    while (engine.getCurrentDay() <= 4) {
+        const int day = engine.getCurrentDay();
+        engine.update(0.25f);
+        if (engine.getCurrentDay() == day) continue;
+
+        const float share = engine.getCityState().p1CityShare;
+        const float delta = share - shareAtDayStart;
+        const float eps = 1e-4f;
+        std::cout << "  Day " << day << " settled: P1 share " << (share * 100.0f) << "% (" << (delta >= 0.0f ? "+" : "")
+                  << (delta * 100.0f) << "%)\n";
+        if (day <= Balance::GRACE_PERIOD_DAYS) {
+            assert(std::abs(delta) < 1e-6f);
+        } else if (day == Balance::GRACE_PERIOD_DAYS + 1) {
+            assert(std::abs(delta) < 1e-6f ||
+                   (delta >= Balance::MIN_DAILY_CITY_SHIFT - eps && delta <= Balance::MAX_DAILY_CITY_SHIFT + eps));
+        } else {
+            assert(delta >= Balance::MIN_DAILY_CITY_SHIFT - eps && delta <= Balance::MAX_DAILY_CITY_SHIFT + eps);
+        }
+        shareAtDayStart = share;
+    }
+
+    const float finalShare = engine.getPlayerEconomy(1).cityInfluence;
+    assert(finalShare > 0.50f);
+    assert(finalShare <= 0.50f + 2.0f * Balance::MAX_DAILY_CITY_SHIFT + 1e-4f); // Gradual: at most 15% per day
+    assert(engine.getPlayerEconomy(1).cityInfluence > engine.getPlayerEconomy(2).cityInfluence);
+    assert(engine.getCityState().winner == 0);
+
+    std::cout << "  -> PASS: Energy payout is percentage-based and city influence moves gradually, once per day.\n";
 }
 
 void testDemolitionRefundBalance() {
@@ -254,30 +294,40 @@ void testMineUpgradesWithGold() {
     GameEngine engine;
     engine.init(1600.0f, 900.0f);
 
+    // Upgrade prices come from the central balance table (game_balance.h)
+    const int costTo2 = Balance::getMineUpgradeCost(1, false);
+    const int costTo3 = Balance::getMineUpgradeCost(2, false);
+    const int costTo4 = Balance::getMineUpgradeCost(3, false);
+    assert(costTo2 > 0 && costTo3 > costTo2 && costTo4 > costTo3);
+
     // Initial state: Level 1
     assert(engine.getMineLevel(1, ResourceType::IRON) == 1);
-    assert(engine.getMineUpgradeCost(1, ResourceType::IRON) == 15);
+    assert(engine.getMineUpgradeCost(1, ResourceType::IRON) == costTo2);
+    assert(engine.getMineUpgradeCost(1, ResourceType::GOLD) == Balance::getMineUpgradeCost(1, true));
 
-    // Give gold to Player 1
-    engine.getPlayerEconomyMut(1).gold = 50;
+    // Give Player 1 enough gold for two upgrades, but 1 Gold short of the third
+    const int startGold = costTo2 + costTo3 + costTo4 - 1;
+    engine.getPlayerEconomyMut(1).gold = startGold;
 
     std::string msg;
     bool upgraded = engine.upgradeMine(1, ResourceType::IRON, msg);
     assert(upgraded);
     assert(engine.getMineLevel(1, ResourceType::IRON) == 2);
-    assert(engine.getPlayerEconomy(1).gold == 35); // 50 - 15 = 35 Gold
+    assert(engine.getPlayerEconomy(1).gold == startGold - costTo2);
 
-    // Upgrade to Level 3 costs 30 Gold
-    assert(engine.getMineUpgradeCost(1, ResourceType::IRON) == 30);
+    // Upgrade to Level 3
+    assert(engine.getMineUpgradeCost(1, ResourceType::IRON) == costTo3);
     upgraded = engine.upgradeMine(1, ResourceType::IRON, msg);
     assert(upgraded);
     assert(engine.getMineLevel(1, ResourceType::IRON) == 3);
-    assert(engine.getPlayerEconomy(1).gold == 5); // 35 - 30 = 5 Gold
+    assert(engine.getPlayerEconomy(1).gold == costTo4 - 1);
 
-    // Cannot upgrade to Level 4 without enough gold (costs 45 Gold, has 5)
+    // Cannot upgrade to Level 4 without enough gold (1 Gold short)
+    assert(engine.getMineUpgradeCost(1, ResourceType::IRON) == costTo4);
     upgraded = engine.upgradeMine(1, ResourceType::IRON, msg);
     assert(!upgraded);
     assert(engine.getMineLevel(1, ResourceType::IRON) == 3);
+    assert(engine.getPlayerEconomy(1).gold == costTo4 - 1);
 
     // Verify upgraded yield (Level 3 Iron gives base 8 * 2.5 = 20 Iron!)
     GameEngine::MineResult res;

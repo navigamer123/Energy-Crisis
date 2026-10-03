@@ -1,3 +1,6 @@
+#ifdef NDEBUG
+#undef NDEBUG // the checks below are assert()s: never compile them away
+#endif
 #include <iostream>
 #include <cassert>
 #include <cmath>
@@ -51,8 +54,13 @@ int main() {
     // -------------------------------------------------------------------------
     std::cout << "[Test 2] Testing Battery Spawn Charge (must be 0%)...\n";
     auto& p1Econ = engine.getPlayerEconomyMut(1);
+    // Every recipe resource is needed on its own (the legacy ore pool is not a wildcard)
     p1Econ.wood = 500;
-    p1Econ.ore = 500;
+    p1Econ.iron = 500;
+    p1Econ.copper = 500;
+    p1Econ.coal = 500;
+    p1Econ.silicon = 500;
+    p1Econ.silver = 500;
 
     std::string msg;
     bool placedBat = engine.placeBuilding(1, BuildingType::BATTERY, rawPos1, msg);
@@ -116,6 +124,18 @@ int main() {
     // Test 5: Night Construction Rule
     // -------------------------------------------------------------------------
     std::cout << "[Test 5] Testing Night Construction Rules...\n";
+    // Five more solar panels (slot (1,1) stays free for the night check below), so the battery
+    // also fills up on a stormy day (one stormy panel peaks at ~6 MW, below the 10 MW lamp)
+    const sf::Vector2f extraSolarSlots[] = {
+        engine.getGridSlot(1, 2, 0), engine.getGridSlot(1, 2, 1),
+        engine.getGridSlot(1, 0, 2), engine.getGridSlot(1, 1, 2), engine.getGridSlot(1, 2, 2)
+    };
+    for (const auto& slot : extraSolarSlots) {
+        bool placedExtra = engine.placeBuilding(1, BuildingType::SOLAR_PANEL, slot, msg);
+        if (!placedExtra) std::cerr << "  Extra solar placement failed: " << msg << "\n";
+        assert(placedExtra);
+    }
+
     // Advance time until night
     while (engine.isDaylight()) {
         engine.update(1.0f);
@@ -133,7 +153,8 @@ int main() {
     // Outside illuminated area on Plot 3 (Col 2, distance > 200px), placement must be REJECTED!
     p1Econ.gold = 10000;
     std::string buyPlotMsg;
-    engine.buyLandPlot(1, 3, buyPlotMsg); // Col 2, Row 0 (x = 492px)
+    bool boughtPlot3 = engine.buyLandPlot(1, 3, buyPlotMsg); // Col 2, Row 0 (x = 492px)
+    assert(boughtPlot3);
     const LandPlot* plot3 = nullptr;
     for (const auto& p : engine.getLandPlots()) {
         if (p.id == 3) plot3 = &p;
@@ -165,7 +186,11 @@ int main() {
     while (darkEngine.isDaylight()) darkEngine.update(1.0f);
     auto& darkP1 = darkEngine.getPlayerEconomyMut(1);
     darkP1.wood = 500;
-    darkP1.ore = 500;
+    darkP1.iron = 500;
+    darkP1.copper = 500;
+    darkP1.coal = 500;
+    darkP1.silicon = 500;
+    darkP1.silver = 500;
 
     // Place lamp on starting plot
     sf::Vector2f startPlotSlot(258.0f + 20.0f, 120.0f + 20.0f);
