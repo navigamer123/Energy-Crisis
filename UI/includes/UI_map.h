@@ -202,6 +202,7 @@ private:
     void openEventLog();
     UI_dashboard dashboard;             // Energy dashboard while [Tab] is held
     float dashboardOpenedAt = -1.0f;    // animClock time when Tab went down (-1 = closed)
+    bool forceDashboard = false;        // Screenshot mode: dashboard shown without Tab, fully revealed
     void drawDashboardIfHeld(sf::RenderWindow& window);
     UI_postmatch postMatch;             // Post-match report (replaces the victory box)
     UI_devOverlay devOverlay;           // Developer overlay ([F3])
@@ -249,7 +250,8 @@ public:
     void onFocusLost();                   // Auto-pause when the window loses focus
 
     // Screenshot mode (UI_map_debug.cpp): puts the running match into a named scene
-    // (game, mining, night, winter, storm, victory, pause, help, modal, tutorial) using only the public
+    // (game, mining, night, winter, storm, victory, pause, help, modal, tutorial and the information
+    // screens dashboard, report, report-charts, report-mix, toasts, eventlog, dev) using only the public
     // engine API. frames = frames the capture will render (used to time a lightning bolt).
     void setupDebugScene(const std::string& scene, int frames);
     // After setupDebugScene: feed the setup's queued engine events to the statistics without toasts

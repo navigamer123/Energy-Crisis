@@ -30,14 +30,15 @@ void UI_map::resetInfoUI() {
 // -----------------------------------------------------------------------------
 
 void UI_map::drawDashboardIfHeld(sf::RenderWindow& window) {
-    const bool held = resourcesLoaded && window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Tab) &&
-                      !isPaused && !showHelpOverlay && engine.getCityState().winner == 0;
+    const bool tabDown = forceDashboard || (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Tab));
+    const bool held = resourcesLoaded && tabDown && !isPaused && !showHelpOverlay && engine.getCityState().winner == 0;
     const float now = animClock.getElapsedTime().asSeconds();
     if (!held) {
         dashboardOpenedAt = -1.0f;
         return;
     }
-    if (dashboardOpenedAt < 0.0f) dashboardOpenedAt = now;
+    // Screenshot mode opens it "long ago", so the reveal animation has already finished
+    if (dashboardOpenedAt < 0.0f) dashboardOpenedAt = forceDashboard ? now - 10.0f : now;
     dashboard.draw(window, font, engine, stats, now - dashboardOpenedAt, now);
 }
 

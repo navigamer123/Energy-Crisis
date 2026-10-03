@@ -37,23 +37,27 @@ void setResources(PlayerEconomy& e, int wood, int iron, int copper, int coal, in
 } // namespace
 
 void UI_map::setupDebugScene(const std::string& scene, int frames) {
-    auto advanceGameSeconds = [this](float seconds) {
+    // withStats: feed the match telemetry like render() does (before / update / after), so the
+    // dashboard, the report, the event log and the toasts see the fast-forwarded days
+    auto advanceGameSeconds = [this](float seconds, bool withStats = false) {
         engine.setTimeScale(1.0f);
         // Fast-forward steps are longer than the real-time step cap allows: lift it meanwhile
         const int hostMaxSteps = engine.getMaxStepsPerUpdate();
         engine.setMaxStepsPerUpdate(0);
         while (seconds > 0.0f && engine.getCityState().winner == 0) {
             float step = std::min(seconds, SIM_STEP);
+            if (withStats) stats.beforeEngineUpdate(engine);
             engine.update(step);
+            if (withStats) updateInfoUI(0.0f);
             seconds -= step;
         }
         engine.setMaxStepsPerUpdate(hostMaxSteps);
     };
     // Fast-forward to the given day (1-based) and clock hour
-    auto advanceTo = [&](int day, float hour) {
+    auto advanceTo = [&](int day, float hour, bool withStats = false) {
         float hoursFromNow = static_cast<float>(day - engine.getCurrentDay()) * 24.0f + (hour - engine.getHour24());
         if (engine.getHour24() < Balance::CLOCK_HOUR_AT_ZERO) hoursFromNow -= 24.0f; // after midnight: same game day
-        if (hoursFromNow > 0.0f) advanceGameSeconds(hoursFromNow * Balance::SECONDS_PER_DAY / 24.0f);
+        if (hoursFromNow > 0.0f) advanceGameSeconds(hoursFromNow * Balance::SECONDS_PER_DAY / 24.0f, withStats);
     };
     auto place = [this](int player, BuildingType type, int col, int row) {
         std::string msg;
@@ -68,7 +72,8 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
 
     // A mid-game board for both players: bought land, every building type, a few lamps.
     // Afterwards each player keeps a mixed stock, so some build cards are affordable and some not.
-    auto populate = [&]() {
+    // fullEast = false: P2 starts with a lamp, one solar panel and one wind turbine only.
+    auto populate = [&](bool fullEast = true) {
         setResources(engine.getPlayerEconomyMut(1), 400, 400, 400, 400, 400, 400, 3000, 0);
         setResources(engine.getPlayerEconomyMut(2), 400, 400, 400, 400, 400, 400, 3000, 0);
 
@@ -92,11 +97,13 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         buy(2, 0, 0);
         place(2, BuildingType::LAMP, 7, 1);
         place(2, BuildingType::SOLAR_PANEL, 8, 0);
-        place(2, BuildingType::SOLAR_PANEL, 7, 0);
+        if (fullEast) place(2, BuildingType::SOLAR_PANEL, 7, 0);
         place(2, BuildingType::WIND_TURBINE, 6, 1);
-        place(2, BuildingType::BATTERY, 8, 2);
-        place(2, BuildingType::WIND_TURBINE, 4, 1);
-        place(2, BuildingType::HYDRO_PLANT, 1, 1);
+        if (fullEast) {
+            place(2, BuildingType::BATTERY, 8, 2);
+            place(2, BuildingType::WIND_TURBINE, 4, 1);
+            place(2, BuildingType::HYDRO_PLANT, 1, 1);
+        }
 
         setResources(engine.getPlayerEconomyMut(1), 30, 12, 7, 2, 3, 0, 420, 260);
         setResources(engine.getPlayerEconomyMut(2), 22, 30, 16, 9, 12, 5, 380, 240);
@@ -154,6 +161,103 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         place(1, BuildingType::BATTERY, 1, 2);
         advanceTo(Balance::FINAL_DAY + 1, 7.0f);
         parkCursors();
+        return;
+    }
+
+    // --- Information screens (dashboard, post-match report, event log, developer overlay) ---------
+    // P1 starts from the populated board, P2 from a small one: as the city demand grows P2 falls short
+    // and loses territory, until it builds four more plants on day EXPAND_DAY and keeps up again.
+    // The telemetry takes its first snapshot after the starting board (so the granted stock is not
+    // counted as mined) and is then fed through every fast-forward step, so the charts, the report
+    // and the event log have the whole history.
+    const bool reportScene = (scene == "report" || scene == "report-charts" || scene == "report-mix");
+    if (reportScene || scene == "dashboard" || scene == "eventlog" || scene == "dev") {
+        constexpr int EXPAND_DAY = 10;
+        auto expandP2 = [&]() {
+            PlayerEconomy& e = engine.getPlayerEconomyMut(2);
+            const PlayerEconomy before = e;
+            setResources(e, 400, 400, 400, 400, 400, 400, 3000, before.money);
+            place(2, BuildingType::SOLAR_PANEL, 7, 0);
+            place(2, BuildingType::BATTERY, 8, 2);
+            place(2, BuildingType::WIND_TURBINE, 4, 1);
+            place(2, BuildingType::HYDRO_PLANT, 1, 1);
+            // the plants are a gift: the stock is put back, so the report shows no spending for them
+            setResources(e, before.wood, before.iron, before.copper, before.coal, before.silicon, before.silver,
+                         before.gold, before.money);
+        };
+        // Fast-forward to a day and hour (with P2's expansion at noon of EXPAND_DAY on the way)
+        auto playTo = [&](int day, float hour) {
+            if (day > EXPAND_DAY || (day == EXPAND_DAY && hour > 12.0f)) {
+                advanceTo(EXPAND_DAY, 12.0f, true);
+                expandP2();
+            }
+            advanceTo(day, hour, true);
+        };
+        populate(false);
+        updateInfoUI(0.0f);
+
+        if (reportScene) {
+            // Play the match to its end (the fast-forward stops as soon as there is a winner)
+            playTo(Balance::FINAL_DAY + 1, 7.0f);
+            postMatch.handleKey(scene == "report-charts" ? sf::Keyboard::Key::Num2
+                                : scene == "report-mix"  ? sf::Keyboard::Key::Num3
+                                                         : sf::Keyboard::Key::Num1);
+        } else if (scene == "dashboard") {
+            playTo(EXPAND_DAY, 18.0f);
+            forceDashboard = true; // [Tab] cannot be held in screenshot mode
+        } else if (scene == "eventlog") {
+            playTo(EXPAND_DAY, 18.0f);
+            isPaused = true;
+            pauseSelectedIdx = 3; // the pause menu entry that opens the log
+            openEventLog();
+        } else { // dev: [F3] panel with the time multiplier raised twice ([F7] [F7] = x4)
+            playTo(2, 13.0f);
+            devOverlay.toggle();
+            devOverlay.handleKey(sf::Keyboard::Key::F7);
+            devOverlay.handleKey(sf::Keyboard::Key::F7);
+        }
+        parkCursors();
+        return;
+    }
+
+    if (scene == "toasts") {
+        // Two human players, so both corners get toasts (alerts for the bot's corner are not shown)
+        setBotDifficulty(BotDifficulty::NONE);
+        tutorial.skip();
+        populate();
+        advanceTo(1, 11.0f);
+        parkCursors();
+
+        // P1: a failed purchase, then a building lost to lightning
+        triggerPlayerPopup(1, "ГРЕШКА", "Няма злато!", "НЕДОСТИГ НА ЗЛАТО! НУЖНО: 195 G",
+                           "Продавайте ток на града за злато!", theme::Bad);
+        InfoEvent lost;
+        lost.type = InfoEventType::LOST_LIGHTNING;
+        lost.player = 1;
+        lost.building = BuildingType::WIND_TURBINE;
+        onInfoEvent(lost);
+
+        // P2: choosing a building, then a storm in its sector
+        BuildingCost solar = engine.getBuildingCost(BuildingType::SOLAR_PANEL);
+        triggerPlayerPopup(2, "СТРОЕЖ", solar.nameBg,
+                           "Произвежда " + std::to_string(solar.basePowerMW) + " MW при слънце.",
+                           "[ENTER]: Постави | [PgDn]: Следваща | [Del]: Отказ", theme::P2);
+        InfoEvent storm;
+        storm.type = InfoEventType::WEATHER_CHANGED;
+        storm.player = 2;
+        storm.value = static_cast<int>(WeatherType::STORMY);
+        onInfoEvent(storm);
+
+        // Both: the 06:00 settlement of day 4, which P1 won
+        InfoEvent day;
+        day.type = InfoEventType::DAY_SETTLED;
+        day.value = 4;
+        day.value2 = static_cast<int>(UI_matchStats::DayOutcome::P1_TOOK);
+        day.share = 0.65f;
+        day.demand = 45;
+        day.avgMW[0] = 62;
+        day.avgMW[1] = 31;
+        onInfoEvent(day);
         return;
     }
 
