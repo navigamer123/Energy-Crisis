@@ -344,16 +344,26 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // Ghost tooltips (name, cost, keys) on top of the city and the mines
     for (const auto& g : ghosts) {
-        if (g.shown) nodes.drawBuildingGhostInfo(window, font, resourcesLoaded, g.type, g.pos, g.valid, engine.getBuildingCost(g.type));
+        if (!g.shown) continue;
+        int owner = (&g == &ghosts[0]) ? 1 : 2;
+        std::string missing = (g.type == BuildingType::DEMOLISH) ? std::string()
+                            : missingResourcesText(engine.getPlayerEconomy(owner), engine.getBuildingCost(g.type));
+        nodes.drawBuildingGhostInfo(window, font, resourcesLoaded, g.type, g.pos, g.valid, engine.getBuildingCost(g.type), missing);
     }
+
+    // 10.5 Dynamic Weather Particles (rain, snow, wind leaves, night stars/fireflies) & Lightning.
+    //      Drawn over the map but under the HUD panels, so no speck or flash hides panel text.
+    drawWeatherParticles(window);
 
     // 11. Top-Left & Top-Right Clocks (Continuous 24h cycle & weather)
     p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(0, 229, 255));
     p2Clock.draw(window, font, resourcesLoaded, { 1600.0f - 250.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(255, 120, 200));
 
     // 12. Left & Right Building Menus
-    p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine.getPlayerEconomy(1), p1Sel);
-    p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine.getPlayerEconomy(2), p2Sel);
+    p1Buildings.setHotkeys(BuildHotkeys::DIGITS);
+    p2Buildings.setHotkeys(bot.isActive() ? BuildHotkeys::NONE : BuildHotkeys::NUMPAD);
+    p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p1Sel);
+    p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p2Sel);
 
     // 13. Bottom Corner Quarter-Circles (Pure icons and numbers, gold at bottom)
     resourceHUD.drawQuarterCircle(window, font, resourcesLoaded, engine.getPlayerEconomy(1), true);
@@ -365,8 +375,6 @@ void UI_map::render(sf::RenderWindow& window) {
     // 15. Menu button & persistent HUD
     drawHUD(window);
 
-    // 16. Dynamic Weather Particles (rain, snow, wind leaves, night stars/fireflies) & Lightning
-    drawWeatherParticles(window);
 
     // Dynamic Mining sparks and wood chips
     drawMiningParticles(window);

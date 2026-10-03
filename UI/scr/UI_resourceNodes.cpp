@@ -455,7 +455,8 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
 
 void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                                              BuildingType type, sf::Vector2f pos, bool isValidPlacement,
-                                             const BuildingCost& cost) {
+                                             const BuildingCost& cost,
+                                             const std::string& missing) {
     if (type == BuildingType::NONE) return;
     sf::Color tint = isValidPlacement ? sf::Color(0, 255, 180, 220) : sf::Color(255, 60, 60, 220);
 
@@ -470,6 +471,7 @@ void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf:
         if (cost.silverCost > 0) costStr += ", " + std::to_string(cost.silverCost) + " Среб";
         if (type == BuildingType::LAMP) costStr += " | Консумация: 10 MW";
         else if (type == BuildingType::BATTERY) costStr += " | Заряд: 0%";
+        if (!missing.empty()) costStr = missing; // exactly what the player still has to mine
 
         // Cancel keys are X (P1) / Del (P2); Q / PgUp only step back through the buildings
         std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
@@ -478,7 +480,7 @@ void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf:
         sf::Text t(font, toUtf8(label), 12);
         t.setFillColor(tint);
         sf::Text tc(font, toUtf8(costStr), 11);
-        tc.setFillColor(sf::Color::White);
+        tc.setFillColor(missing.empty() ? sf::Color::White : sf::Color(255, 140, 140));
         sf::Text th(font, toUtf8(hint), 11);
         th.setFillColor(isValidPlacement ? sf::Color(255, 230, 100) : sf::Color(255, 130, 130));
 
