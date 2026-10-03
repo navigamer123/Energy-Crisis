@@ -325,10 +325,16 @@ bool UI_map::loadFromFile(const std::string& path, std::string& error) {
 
 bool UI_map::writeAutosave() {
     if (!gameSettings().autosave || !hasMatchInProgress()) return false;
+    if (engine.getCurrentDay() == lastAutosaveDay && std::fabs(engine.getHour24() - lastAutosaveHour) < 0.01f) return true; // already saved
     int slot = saves::nextAutosaveSlot();
     std::string err;
     bool ok = saveToFile(saves::pathFor(slot), err);
-    if (!ok) std::cerr << "[UI_map] Autosave failed: " << err << "\n";
+    if (ok) {
+        lastAutosaveDay = engine.getCurrentDay();
+        lastAutosaveHour = engine.getHour24();
+    } else {
+        std::cerr << "[UI_map] Autosave failed: " << err << "\n";
+    }
     return ok;
 }
 

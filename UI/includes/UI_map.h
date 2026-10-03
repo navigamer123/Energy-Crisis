@@ -201,6 +201,8 @@ private:
     enum PauseOption { PAUSE_RESUME = 0, PAUSE_SAVELOAD, PAUSE_SETTINGS, PAUSE_RESTART, PAUSE_HELP, PAUSE_MENU, PAUSE_COUNT };
     bool matchStarted = false;          // restartMatch()/loadFromFile() ran: a real match is in memory
     int autosaveDay = 1;                // day of the last day-end autosave
+    int lastAutosaveDay = -1;           // clock of the last autosave: leaving the match twice at the
+    float lastAutosaveHour = -1.0f;     // same moment does not push older autosaves out
     bool tutorialPolicyWatch = false;   // the tutorial policy showed the tutorial: remember when it ends
     bool tutorialWatchCoop = false;
     bool p2PrevNum[7] = { false, false, false, false, false, false, false }; // P2 quick-select edges
