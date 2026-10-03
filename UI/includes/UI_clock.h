@@ -4,6 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 #include "../../Game/includes/game_weather.h"
+#include "../../Game/includes/game_balance.h"
 
 class UI_clock {
 private:
@@ -27,7 +28,10 @@ public:
 
     int getCurrentDay() const { return currentDay; }
     float getHour24() const { return currentHour; }
-    bool isDaylight() const { return currentHour >= 6.0f && currentHour < 18.0f; }
+    bool isDaylight() const { return Balance::isDaylightAt(currentHour, season); }
+    float getSunriseHour() const { return Balance::getSunriseHour(season); }
+    float getSunsetHour() const { return Balance::getSunsetHour(season); }
+    bool isGracePeriod() const { return currentDay <= Balance::GRACE_PERIOD_DAYS; }
     WeatherType getWeather() const { return weather; }
     SeasonType getSeason() const { return season; }
 

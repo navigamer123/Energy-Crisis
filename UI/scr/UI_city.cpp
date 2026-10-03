@@ -1,12 +1,13 @@
 #include "../includes/UI_city.h"
 #include "../includes/UI_types.h"
+#include "../../Game/includes/game_balance.h"
 #include <cmath>
 #include <string>
 
 UI_city::UI_city() {
 }
 
-void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime) {
+void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime, bool isDaylight) {
     float screenHeight = VIRTUAL_HEIGHT;
     float midX = VIRTUAL_WIDTH / 2.0f; // 800.0f
 
@@ -59,6 +60,30 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
         car2.setPosition({ midX + carOffset2, bridgeY + 12.0f });
         car2.setFillColor(sf::Color(255, 120, 200));
         window.draw(car2);
+
+        // Night bridge streetlights and car headlights
+        if (!isDaylight) {
+            sf::CircleShape lampW(3.5f);
+            lampW.setPosition({ midX - 22.0f, bridgeY + 1.0f });
+            lampW.setFillColor(sf::Color(255, 240, 160, 240));
+            window.draw(lampW);
+
+            sf::CircleShape lampE(3.5f);
+            lampE.setPosition({ midX + 16.0f, bridgeY + 1.0f });
+            lampE.setFillColor(sf::Color(255, 240, 160, 240));
+            window.draw(lampE);
+
+            // Headlight beams
+            sf::RectangleShape beam1({ 12.0f, 3.0f });
+            beam1.setPosition({ midX + carOffset1 + 8.0f, bridgeY + 3.8f });
+            beam1.setFillColor(sf::Color(255, 255, 200, 140));
+            window.draw(beam1);
+
+            sf::RectangleShape beam2({ 12.0f, 3.0f });
+            beam2.setPosition({ midX + carOffset2 - 12.0f, bridgeY + 12.8f });
+            beam2.setFillColor(sf::Color(255, 255, 200, 140));
+            window.draw(beam2);
+        }
     }
 
     // Border marker tag below city
@@ -79,7 +104,10 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
 }
 
 void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime,
-                      float p1Share, const std::string& cutMessage) {
+                      float p1Share, const std::string& cutMessage, bool isDaylight,
+                      float currentHour, SeasonType season) {
+    (void)currentHour;
+    (void)season;
     float midX = 800.0f;
     float cityWidth = 380.0f;
     float cityLeft = midX - cityWidth / 2.0f; // 610.0f
@@ -92,7 +120,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
     // City base platform
     sf::RectangleShape base({ cityWidth, cityHeight });
     base.setPosition({ cityLeft, cityTop });
-    base.setFillColor(sf::Color(24, 30, 42, 245));
+    base.setFillColor(isDaylight ? sf::Color(24, 30, 42, 245) : sf::Color(14, 18, 28, 250));
     base.setOutlineThickness(2.0f);
     base.setOutlineColor(sf::Color(0, 220, 100, 220));
     window.draw(base);
@@ -127,7 +155,9 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 
         sf::RectangleShape bShape({ b.w, b.h });
         bShape.setPosition({ b.x, b.y });
-        bShape.setFillColor(controlledByP1 ? sf::Color(28, 38, 54) : sf::Color(44, 30, 48));
+        sf::Color bColorDay = controlledByP1 ? sf::Color(32, 44, 62) : sf::Color(48, 34, 52);
+        sf::Color bColorNight = controlledByP1 ? sf::Color(18, 26, 38) : sf::Color(30, 20, 32);
+        bShape.setFillColor(isDaylight ? bColorDay : bColorNight);
         bShape.setOutlineThickness(1.5f);
         bShape.setOutlineColor(outlineColor);
         window.draw(bShape);
@@ -152,7 +182,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
             window.draw(beacon);
         }
 
-        // Window matrix
+        // Window matrix: adapts to day (reflective glass) vs night (electric neon glow)
         int rows = static_cast<int>(b.h / 16.0f);
         int cols = static_cast<int>(b.w / 11.0f);
         for (int r = 2; r < rows; r++) {
@@ -168,9 +198,15 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
                 win.setPosition({ b.x + c * 10.0f, b.y + r * 15.0f });
 
                 if (isPowered) {
-                    win.setFillColor(controlledByP1 ? sf::Color(100, 230, 255, 220) : sf::Color(255, 215, 120, 220));
+                    if (isDaylight) {
+                        // Daytime reflection
+                        win.setFillColor(controlledByP1 ? sf::Color(90, 160, 200, 190) : sf::Color(210, 180, 130, 190));
+                    } else {
+                        // Nighttime electric glow!
+                        win.setFillColor(controlledByP1 ? sf::Color(0, 235, 255, 245) : sf::Color(255, 220, 110, 245));
+                    }
                 } else {
-                    win.setFillColor(sf::Color(16, 20, 28, 240));
+                    win.setFillColor(sf::Color(14, 18, 26, 240));
                 }
                 window.draw(win);
             }
@@ -204,7 +240,8 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 
         int p1Pct = static_cast<int>(p1Share * 100.0f);
         int p2Pct = 100 - p1Pct;
-        std::string titleStr = "ГРАД (METROPOLIS) | P1: " + std::to_string(p1Pct) + "% | P2: " + std::to_string(p2Pct) + "%";
+        std::string phaseStr = isDaylight ? "ДЕН" : "НОЩ";
+        std::string titleStr = "ГРАД (METROPOLIS) | " + phaseStr + " | P1: " + std::to_string(p1Pct) + "% | P2: " + std::to_string(p2Pct) + "%";
         sf::Text cLabel(font, toUtf8(titleStr), 12);
         cLabel.setFillColor(sf::Color(0, 255, 180));
         sf::FloatRect lb = cLabel.getLocalBounds();
@@ -230,7 +267,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 }
 
 void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                              int demand, int p1Energy, int p2Energy, float p1Share) {
+                              int demand, int p1Energy, int p2Energy, float p1Share, int currentDay) {
     float screenWidth = VIRTUAL_WIDTH;
 
     float panelW = 560.0f;
@@ -247,9 +284,20 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
 
     if (fontLoaded) {
         int totalSupplied = p1Energy + p2Energy;
-        std::string dStr = "НУЖДА НА ГРАДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
+        std::string dStr;
+        sf::Color demandColor;
+
+        if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
+            dStr = "НУЖДА НА ГРАДА: 0 MW  ★ ГРАТИСЕН ПЕРИОД (ДЕН " + std::to_string(currentDay) + "/" +
+                   std::to_string(Balance::GRACE_PERIOD_DAYS) + ") ★ | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
+            demandColor = sf::Color(90, 255, 190);
+        } else {
+            dStr = "НУЖДА НА ГРАДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
+            demandColor = sf::Color(255, 215, 0);
+        }
+
         sf::Text tDemand(font, toUtf8(dStr), 12);
-        tDemand.setFillColor(sf::Color(255, 215, 0));
+        tDemand.setFillColor(demandColor);
         sf::FloatRect db = tDemand.getLocalBounds();
         tDemand.setPosition({ panelX + (panelW - db.size.x) / 2.0f, panelY + 4.0f });
         window.draw(tDemand);

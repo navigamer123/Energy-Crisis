@@ -24,12 +24,12 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     landPlots.clear();
     buildings.clear();
 
-    // Reset City State on fresh game or restart
+    // Reset City State on fresh game or restart (First 2 days are Grace Period = 0 MW)
     city = CityConquestState();
-    city.cityEnergyDemand = Balance::STARTING_CITY_DEMAND_MW;
+    city.cityEnergyDemand = (currentDay <= Balance::GRACE_PERIOD_DAYS) ? 0 : Balance::STARTING_CITY_DEMAND_MW;
     city.p1CityShare = 0.50f;
     city.winner = 0;
-    city.lastCutMessage = "ДОБРЕ ДОШЛИ! ДОСТАВЯЙТЕ ЧИСТА ЕНЕРГИЯ КЪМ ГРАДА!";
+    city.lastCutMessage = "ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИТЕ 2 ДЕНА ГРАДЪТ ИСКА 0 ЕНЕРГИЯ ЗА РАЗВИТИЕ!";
 
     // -------------------------------------------------------------------------
     // Generate Purchasable Land Grid on West (P1) and East (P2)
@@ -176,8 +176,8 @@ void GameEngine::update(float dt) {
             p2.gold += Balance::calculateGoldDividend(p2.energyMW);
             p2.data.gold = p2.gold;
 
-            // Gradual tug-of-war city influence progression from Balance formula
-            if (city.winner == 0) {
+            // Gradual tug-of-war city influence progression from Balance formula (active after grace period)
+            if (city.winner == 0 && currentDay > Balance::GRACE_PERIOD_DAYS) {
                 float driftStep = Balance::calculateInfluenceDrift(p1.energyMW, p2.energyMW, city.cityEnergyDemand);
                 city.p1CityShare = std::clamp(city.p1CityShare + driftStep, 0.0f, 1.0f);
             }
@@ -225,7 +225,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
             BuildingCost cost = getBuildingCost(b.type);
 
             if (b.type == BuildingType::SOLAR_PANEL) {
-                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24);
+                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::WIND_TURBINE) {
@@ -331,47 +331,63 @@ void GameEngine::updateBuildingsEnergy(float dt) {
 }
 
 void GameEngine::processDayEnd() {
-    float quotaPerPlayer = city.cityEnergyDemand / 2.0f;
+    int endedDay = currentDay - 1;
     city.dayCutOccurred = true;
 
-    bool p1Success = (p1.energyMW >= quotaPerPlayer);
-    bool p2Success = (p2.energyMW >= quotaPerPlayer);
-
-    if (p1Success && !p2Success) {
-        // Player 1 supplied enough, Player 2 failed -> Player 1 cuts off and captures Player 2's city half!
-        city.p1CityShare = std::min(1.0f, city.p1CityShare + 0.15f);
-        city.lastCutMessage = "ДЕН " + std::to_string(currentDay) + ": ИГРАЧ 2 НЕ ДОСТАВИ ЕНЕРГИЯ! ЧАСТ ОТ ГРАДА МУ Е ОТРЯЗАНА!";
-    } else if (p2Success && !p1Success) {
-        // Player 2 supplied enough, Player 1 failed -> Player 2 cuts off and captures Player 1's city half!
-        city.p1CityShare = std::max(0.0f, city.p1CityShare - 0.15f);
-        city.lastCutMessage = "ДЕН " + std::to_string(currentDay) + ": ИГРАЧ 1 НЕ ДОСТАВИ ЕНЕРГИЯ! ЧАСТ ОТ ГРАДА МУ Е ОТРЯЗАНА!";
-    } else {
-        // Both succeeded or both failed -> advantage to higher producer
-        if (p1.energyMW > p2.energyMW + 50) {
-            city.p1CityShare = std::min(1.0f, city.p1CityShare + 0.05f);
-            city.lastCutMessage = "ДЕН " + std::to_string(currentDay) + ": ИГРАЧ 1 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА ПРЕДИМСТВО В ГРАДА!";
-        } else if (p2.energyMW > p1.energyMW + 50) {
-            city.p1CityShare = std::max(0.0f, city.p1CityShare - 0.05f);
-            city.lastCutMessage = "ДЕН " + std::to_string(currentDay) + ": ИГРАЧ 2 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА ПРЕДИМСТВО В ГРАДА!";
+    if (endedDay <= Balance::GRACE_PERIOD_DAYS) {
+        // Grace period for the first 2 days: 0 energy demanded, no penalties or cuts
+        if (endedDay == 1) {
+            city.lastCutMessage = "ДЕН 1 ПРИКЛЮЧИ [ГРАТИСЕН ПЕРИОД]: ГРАДЪТ ИСКАШЕ 0 MW. ОЩЕ 1 ДЕН ЗА РАЗВИТИЕ!";
         } else {
-            city.lastCutMessage = "ДЕН " + std::to_string(currentDay) + ": РАВНОВЕСИЕ В ГРАДСКАТА МРЕЖА!";
+            city.lastCutMessage = "ДЕН 2 ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД! ОТ ДЕН 3 ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ!";
+        }
+    } else {
+        float quotaPerPlayer = city.cityEnergyDemand / 2.0f;
+        bool p1Success = (p1.energyMW >= quotaPerPlayer);
+        bool p2Success = (p2.energyMW >= quotaPerPlayer);
+
+        if (p1Success && !p2Success) {
+            // Player 1 supplied enough, Player 2 failed -> Player 1 cuts off and captures Player 2's city half!
+            city.p1CityShare = std::min(1.0f, city.p1CityShare + 0.15f);
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 2 НЕ ДОСТАВИ ЕНЕРГИЯ! ЧАСТ ОТ ГРАДА МУ Е ОТРЯЗАНА!";
+        } else if (p2Success && !p1Success) {
+            // Player 2 supplied enough, Player 1 failed -> Player 2 cuts off and captures Player 1's city half!
+            city.p1CityShare = std::max(0.0f, city.p1CityShare - 0.15f);
+            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 1 НЕ ДОСТАВИ ЕНЕРГИЯ! ЧАСТ ОТ ГРАДА МУ Е ОТРЯЗАНА!";
+        } else {
+            // Both succeeded or both failed -> advantage to higher producer
+            if (p1.energyMW > p2.energyMW + 50) {
+                city.p1CityShare = std::min(1.0f, city.p1CityShare + 0.05f);
+                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 1 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА ПРЕДИМСТВО В ГРАДА!";
+            } else if (p2.energyMW > p1.energyMW + 50) {
+                city.p1CityShare = std::max(0.0f, city.p1CityShare - 0.05f);
+                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 2 ДОСТАВИ ПОВЕЧЕ И ВЗЕМА ПРЕДИМСТВО В ГРАДА!";
+            } else {
+                city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": РАВНОВЕСИЕ В ГРАДСКАТА МРЕЖА!";
+            }
+        }
+
+        // Check Victory Condition
+        if (city.p1CityShare >= 0.99f) {
+            city.winner = 1;
+            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
+        } else if (city.p1CityShare <= 0.01f) {
+            city.winner = 2;
+            city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
         }
     }
 
     p1.cityInfluence = city.p1CityShare;
     p2.cityInfluence = 1.0f - city.p1CityShare;
 
-    // Check Victory Condition
-    if (city.p1CityShare >= 0.99f) {
-        city.winner = 1;
-        city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
-    } else if (city.p1CityShare <= 0.01f) {
-        city.winner = 2;
-        city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! ЦЕЛИЯТ ГРАД Е ПОД НЕГОВ КОНТРОЛ!";
+    // City expands and demands power next day (0 MW for first 2 days grace, 30 MW Day 3, +15 MW daily)
+    if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
+        city.cityEnergyDemand = 0;
+    } else if (currentDay == Balance::GRACE_PERIOD_DAYS + 1) {
+        city.cityEnergyDemand = Balance::STARTING_CITY_DEMAND_MW;
+    } else {
+        city.cityEnergyDemand += Balance::DAILY_DEMAND_INCREASE_MW;
     }
-
-    // City expands and demands more power next day (gradual progression)
-    city.cityEnergyDemand += 25;
     city.p1DailyDelivered = 0.0f;
     city.p2DailyDelivered = 0.0f;
 

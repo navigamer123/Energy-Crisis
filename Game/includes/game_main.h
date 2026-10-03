@@ -109,7 +109,7 @@ struct PlayerEconomy {
 };
 
 struct CityConquestState {
-    int cityEnergyDemand = 30;  // Starts very low (15 MW each player quota) and grows gradually
+    int cityEnergyDemand = 0;   // Starts at 0 MW for Day 1-2 Grace Period, then 30 MW from Day 3
     float p1CityShare = 0.50f;  // 0.0 to 1.0 (P1 vs P2 city control tug-of-war)
     float p1DailyDelivered = 0.0f;
     float p2DailyDelivered = 0.0f;
@@ -207,7 +207,10 @@ public:
     int getCurrentDay() const { return currentDay; }
     float getHour24() const { return hour24; }
     float getDayProgress() const { return hour24 / 24.0f; }
-    bool isDaylight() const { return hour24 >= 6.0f && hour24 <= 18.0f; }
+    bool isDaylight() const { return Balance::isDaylightAt(hour24, currentSeason); }
+    float getSunriseHour() const { return Balance::getSunriseHour(currentSeason); }
+    float getSunsetHour() const { return Balance::getSunsetHour(currentSeason); }
+    bool isGracePeriod() const { return currentDay <= Balance::GRACE_PERIOD_DAYS; }
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
     SeasonType getSeason() const { return currentSeason; }

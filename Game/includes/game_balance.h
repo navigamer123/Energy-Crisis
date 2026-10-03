@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include "game_weather.h"
+#include "game_time.h"
 
 // =============================================================================
 // ENERGY CRISIS - CENTRAL GAME BALANCE & CONFIGURATION
@@ -9,15 +11,6 @@
 // =============================================================================
 
 namespace Balance {
-
-// -----------------------------------------------------------------------------
-// 1. Time, Day & Night Cycle
-// -----------------------------------------------------------------------------
-constexpr float SECONDS_PER_DAY = 90.0f;       // Length of 1 full 24h day in seconds
-constexpr float DAY_START_HOUR = 6.0f;         // 06:00 - Daylight begins (Sun shines)
-constexpr float DAY_END_HOUR = 18.0f;          // 18:00 - Night begins (Lamps required to build)
-constexpr float MINE_SPEEDUP_MULT = 6.0f;      // Time advances 6x faster when actively gathering resources
-constexpr float MINE_COOLDOWN_SEC = 1.0f;      // Cooldown between resource gathering actions (1.0s)
 
 // -----------------------------------------------------------------------------
 // 2. Building Statistics & Costs

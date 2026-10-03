@@ -37,7 +37,7 @@ const char* getSeasonName(SeasonType s);
 
 class WeatherSystem {
 public:
-    static float getSolarMultiplier(WeatherType w, float hour24);
+    static float getSolarMultiplier(WeatherType w, float hour24, SeasonType season = SeasonType::SPRING);
     static float getWindMultiplier(WeatherType w, float hour24);
     static float getHydroMultiplier(WeatherType w);
     static WeatherType generateDailyWeather(int day, int player);

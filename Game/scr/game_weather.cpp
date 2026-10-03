@@ -1,5 +1,6 @@
 #include "../includes/game_weather.h"
 #include "../includes/game_random.h" // for randomInt
+#include "../includes/game_balance.h"
 #include <cmath>
 #include <iostream>
 
@@ -92,11 +93,16 @@ const char* getSeasonName(SeasonType s) {
     return "Пролет";
 }
 
-float WeatherSystem::getSolarMultiplier(WeatherType w, float hour24) {
-    if (hour24 < 6.0f || hour24 > 18.0f) {
+float WeatherSystem::getSolarMultiplier(WeatherType w, float hour24, SeasonType season) {
+    float sunrise = Balance::getSunriseHour(season);
+    float sunset = Balance::getSunsetHour(season);
+    if (hour24 < sunrise || hour24 > sunset) {
         return 0.0f;
     }
-    float sunArc = std::sin((hour24 - 6.0f) / 12.0f * 3.14159265f);
+    float dayDuration = sunset - sunrise;
+    if (dayDuration <= 0.0f) return 0.0f;
+
+    float sunArc = std::sin((hour24 - sunrise) / dayDuration * 3.14159265f);
     float weatherMod = 1.0f;
     switch (w) {
         case WeatherType::SUNNY:  weatherMod = 1.6f; break;
@@ -104,7 +110,14 @@ float WeatherSystem::getSolarMultiplier(WeatherType w, float hour24) {
         case WeatherType::RAINY:  weatherMod = 0.5f; break;
         case WeatherType::STORMY: weatherMod = 0.1f; break;
     }
-    return sunArc * weatherMod;
+
+    // Seasonal solar irradiance adjustment (Summer has +15% stronger solar peak, Winter -15%)
+    float seasonMod = 1.0f;
+    if (season == SeasonType::SUMMER) seasonMod = 1.15f;
+    else if (season == SeasonType::AUTUMN) seasonMod = 0.95f;
+    else if (season == SeasonType::WINTER) seasonMod = 0.85f;
+
+    return sunArc * weatherMod * seasonMod;
 }
 
 float WeatherSystem::getWindMultiplier(WeatherType w, float hour24) {
@@ -130,8 +143,12 @@ float WeatherSystem::getHydroMultiplier(WeatherType w) {
 }
 
 WeatherType WeatherSystem::generateDailyWeather(int day, int player) {
-    // Generate using weather_report from weatherF
-    std::string sName = (day % 4 == 1) ? "spring" : ((day % 4 == 2) ? "summer" : ((day % 4 == 3) ? "fall" : "winter"));
+    // Generate using weather_report from weatherF matching GameEngine 5-day seasons
+    int sIdx = ((day - 1) / 5) % 4;
+    SeasonType season = static_cast<SeasonType>(sIdx);
+    std::string sName = (season == SeasonType::SPRING) ? "spring" :
+                        ((season == SeasonType::SUMMER) ? "summer" :
+                        ((season == SeasonType::AUTUMN) ? "fall" : "winter"));
     auto report = weather_report(sName);
     (void)player;
     return reportToWeatherType(report);
