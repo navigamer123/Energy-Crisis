@@ -352,6 +352,8 @@ void UI_economyHUD::update(GameEngine& engine, float dt) {
         reportTimer = std::max(0.0f, reportTimer - dt);
         reportAge += dt;
     }
+    // The victory screen owns the end of the match: no report card behind it
+    if (engine.getCityState().winner != 0) reportTimer = 0.0f;
 }
 
 // =============================================================================
