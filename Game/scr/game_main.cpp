@@ -29,6 +29,9 @@ unsigned int pickMatchSeed(bool& fromEnv) {
     return static_cast<unsigned int>(t ^ (t >> 32)) + 0x9E3779B9u * (++initCounter);
 }
 
+// [wave-c-soak] Only players 1 and 2 exist; any other id used to act on player 2's economy
+bool isValidPlayerId(int player) { return player == 1 || player == 2; }
+
 } // namespace
 
 GameEngine::GameEngine()
@@ -454,9 +457,13 @@ bool GameEngine::mineResource(int player, ResourceType type, std::string& outMsg
 }
 
 bool GameEngine::mineResource(int player, ResourceType type, MineResult& result, std::string& outMsg) {
-    auto& econ = (player == 1) ? p1 : p2;
     result = MineResult();
     result.type = type;
+    if (!isValidPlayerId(player)) { // [wave-c-soak]
+        outMsg = "НЕВАЛИДЕН ИГРАЧ!";
+        return false;
+    }
+    auto& econ = (player == 1) ? p1 : p2;
 
     int lvl = getMineLevel(player, type);
     float mult = Balance::getMineYieldMultiplier(lvl);
@@ -563,6 +570,10 @@ int GameEngine::getMineUpgradeCost(int player, ResourceType type) const {
 }
 
 bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg) {
+    if (!isValidPlayerId(player)) { // [wave-c-soak]
+        outMsg = "НЕВАЛИДЕН ИГРАЧ!";
+        return false;
+    }
     if (type == ResourceType::NONE || type == ResourceType::MONEY) {
         outMsg = "ТОВА НЕ Е МИНА ЗА НАДГРАЖДАНЕ!";
         return false;
@@ -648,6 +659,7 @@ bool GameEngine::buyNextLandTier(int player, std::string& outMsg) {
 }
 
 void GameEngine::cycleBuildingSelection(int player) {
+    if (!isValidPlayerId(player)) return; // [wave-c-soak]
     auto& econ = (player == 1) ? p1 : p2;
     if (econ.selectedBuilding == 0) {
         int last = econ.lastPlacedBuilding;
@@ -660,6 +672,7 @@ void GameEngine::cycleBuildingSelection(int player) {
 }
 
 void GameEngine::cycleBuildingSelectionPrev(int player) {
+    if (!isValidPlayerId(player)) return; // [wave-c-soak]
     auto& econ = (player == 1) ? p1 : p2;
     if (econ.selectedBuilding == 0) {
         int last = econ.lastPlacedBuilding;
@@ -672,6 +685,7 @@ void GameEngine::cycleBuildingSelectionPrev(int player) {
 }
 
 void GameEngine::clearBuildingSelection(int player) {
+    if (!isValidPlayerId(player)) return; // [wave-c-soak]
     auto& econ = (player == 1) ? p1 : p2;
     econ.selectedBuilding = 0;
 }

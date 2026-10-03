@@ -304,6 +304,54 @@ void testNonFinitePositionsRefused() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// [S6] Any player id other than 1 was treated as player 2: mineResource(0 / 3 / -1, ...) gave
+// player 2 resources, upgradeMine() spent player 2's gold and the selection calls changed
+// player 2's selected building.
+// ---------------------------------------------------------------------------
+void testInvalidPlayerIdsRefused() {
+    beginGroup("S6 invalid player ids are refused without side effects");
+    GameEngine e;
+    initEngine(e, 16);
+    e.update(Balance::SECONDS_PER_DAY * 0.1f); // daylight
+    for (int p = 1; p <= 2; ++p) {
+        giveResources(e, p, 500);
+        PlayerEconomy& ec = e.getPlayerEconomyMut(p);
+        ec.gold = ec.data.gold = 5000;
+    }
+    place(e, 2, BuildingType::WIND_TURBINE, 8, 0);
+    e.cycleBuildingSelection(2);
+    const int bad[] = { 0, 3, -1, 99 };
+    for (int p : bad) {
+        Snapshot before(e);
+        std::string msg;
+        MineResult r;
+        bool mined = e.mineResource(p, ResourceType::WOOD, r, msg);
+        bool upgraded = e.upgradeMine(p, ResourceType::IRON, msg);
+        bool bought = e.buyLandPlot(p, 14, msg);
+        bool boughtNext = e.buyNextLandTier(p, msg);
+        bool placed = e.placeBuilding(p, BuildingType::SOLAR_PANEL, e.getGridSlot(2, 7, 0), msg);
+        bool removed = e.removeBuilding(p, e.getGridSlot(2, 8, 0), msg);
+        bool repaired = e.repairBuilding(p, e.getGridSlot(2, 8, 0), msg);
+        e.cycleBuildingSelection(p);
+        e.cycleBuildingSelectionPrev(p);
+        e.cycleBuildingSelection(p);
+        e.clearBuildingSelection(p);
+        CHECK(!mined && !upgraded && !bought && !boughtNext && !placed && !removed && !repaired,
+              "player " << p << ": mined " << mined << " upgraded " << upgraded << " bought " << bought << "/" << boughtNext
+                        << " placed " << placed << " removed " << removed << " repaired " << repaired);
+        CHECK(Snapshot(e) == before, "player " << p << " changed the state (P2 wood " << before.p2.wood << " -> "
+                                               << e.getPlayerEconomy(2).wood << ", P2 iron mine " << before.p2.mineLevels[2]
+                                               << " -> " << e.getPlayerEconomy(2).mineLevels[2] << ", P2 selection "
+                                               << before.p2.selectedBuilding << " -> " << e.getPlayerEconomy(2).selectedBuilding << ")");
+    }
+    // players 1 and 2 still act normally
+    std::string msg;
+    CHECK(e.mineResource(1, ResourceType::WOOD, msg) && e.mineResource(2, ResourceType::WOOD, msg), msg);
+    CHECK(e.upgradeMine(2, ResourceType::IRON, msg), msg);
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -312,6 +360,7 @@ int main() {
     testLandPurchaseKeepsMirror();
     testUnknownBuildingTypesRefused();
     testNonFinitePositionsRefused();
+    testInvalidPlayerIdsRefused();
     std::cout << "\n" << (g_failures == 0 ? "ALL PASSED" : "FAILED") << ": " << (g_checks - g_failures) << "/" << g_checks
               << " checks\n";
     return g_failures == 0 ? 0 : 1;
