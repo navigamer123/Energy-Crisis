@@ -382,6 +382,49 @@ void testTimeScaleClamped() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// [S8] Exact supply: batteries that cover exactly the city demand all day deliver an average
+// of exactly the demand. The verdict (average >= demand) must not depend on the frame size
+// through float rounding of the daily energy sum.
+// ---------------------------------------------------------------------------
+void testExactBatterySupplyAtAnyFrameRate() {
+    beginGroup("S8 a day covered exactly by batteries counts at any frame rate");
+    const float dts[] = { 1.0f / 30.0f, 1.0f / 60.0f, 1.0f / 144.0f, 1.0f / 165.0f, 1.0f / 240.0f, 1.0f / 1000.0f };
+    for (float dt : dts) {
+        GameEngine e;
+        initEngine(e, 18);
+        e.update(Balance::SECONDS_PER_DAY * 0.05f); // daylight on day 1
+        giveResources(e, 1, 5000);
+        for (int c = 0; c < 2; ++c)
+            for (int r = 0; r < 3; ++r) place(e, 1, BuildingType::WIND_TURBINE, c, r); // charges the batteries
+        PlayerEconomy& p1 = e.getPlayerEconomyMut(1);
+        p1.gold = p1.data.gold = 100000;
+        std::string msg;
+        REQUIRE(e.buyLandPlot(1, 2, msg), msg);
+        for (int c = 2; c < 6; ++c) // 12 batteries = 2400 MWh, days 3 and 4 need 720 + 1080 MWh
+            for (int r = 0; r < 3; ++r) place(e, 1, BuildingType::BATTERY, c, r);
+        // grace days: demand 0, every MW charges the batteries
+        while (e.getCurrentDay() < 3) e.update(dt);
+        float stored = 0.0f;
+        for (const auto& b : e.getBuildings())
+            if (b.type == BuildingType::BATTERY) stored += b.energyStored;
+        REQUIRE(stored > 1700.0f, "batteries hold only " << stored << " MWh at the start of day 3");
+        // from day 3 on only the batteries supply the city: exactly the demand (30, then 45 MW)
+        for (int c = 0; c < 2; ++c)
+            for (int r = 0; r < 3; ++r) REQUIRE(e.removeBuilding(1, e.getGridSlot(1, c, r), msg), msg);
+        const float share2 = e.getCityState().p1CityShare;
+        while (e.getCurrentDay() < 4) e.update(dt);
+        const float share3 = e.getCityState().p1CityShare;
+        while (e.getCurrentDay() < 5) e.update(dt);
+        const float share4 = e.getCityState().p1CityShare;
+        CHECK(std::abs(share3 - share2 - Balance::MAX_DAILY_CITY_SHIFT) < 1e-4f,
+              "dt 1/" << std::lround(1.0f / dt) << ": day 3 (30 MW from batteries) moved the share by " << (share3 - share2));
+        CHECK(std::abs(share4 - share3 - Balance::MAX_DAILY_CITY_SHIFT) < 1e-4f,
+              "dt 1/" << std::lround(1.0f / dt) << ": day 4 (45 MW from batteries) moved the share by " << (share4 - share3));
+    }
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -392,6 +435,7 @@ int main() {
     testNonFinitePositionsRefused();
     testInvalidPlayerIdsRefused();
     testTimeScaleClamped();
+    testExactBatterySupplyAtAnyFrameRate();
     std::cout << "\n" << (g_failures == 0 ? "ALL PASSED" : "FAILED") << ": " << (g_checks - g_failures) << "/" << g_checks
               << " checks\n";
     return g_failures == 0 ? 0 : 1;

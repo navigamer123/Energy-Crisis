@@ -257,7 +257,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     const float solarBaseMW = static_cast<float>(getBuildingCost(BuildingType::SOLAR_PANEL).basePowerMW);
     const float windBaseMW = static_cast<float>(getBuildingCost(BuildingType::WIND_TURBINE).basePowerMW);
     const float hydroBaseMW = static_cast<float>(getBuildingCost(BuildingType::HYDRO_PLANT).basePowerMW);
-    auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
+    auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, double& dailyDelivered) {
         float rawGen = 0.0f;
         std::vector<PlacedBuilding*> playerLamps;
         std::vector<PlacedBuilding*> playerBatteries;
@@ -353,7 +353,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         // Step F: Whatever is left goes to the city
         float netPlayerOutput = std::max(0.0f, totalAvailable - poweredCount * LAMP_POWER_MW);
         econ.energyMW = static_cast<int>(std::lround(netPlayerOutput));
-        dailyDelivered += netPlayerOutput * dt; // MW x game-seconds, averaged at the day end
+        dailyDelivered += static_cast<double>(netPlayerOutput) * dt; // MW x game-seconds, averaged at the day end
     };
 
     processPlayerGrid(1, p1Weather, p1, city.p1DailyDelivered);

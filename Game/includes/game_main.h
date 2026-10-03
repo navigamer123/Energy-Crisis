@@ -112,8 +112,10 @@ struct PlayerEconomy {
 struct CityConquestState {
     int cityEnergyDemand = 0;   // Starts at 0 MW for Day 1-2 Grace Period, then 30 MW from Day 3
     float p1CityShare = 0.50f;  // 0.0 to 1.0 (P1 vs P2 city control tug-of-war)
-    float p1DailyDelivered = 0.0f; // Energy delivered to the city so far today (MW x game-seconds)
-    float p2DailyDelivered = 0.0f;
+    // Energy delivered to the city so far today (MW x game-seconds). [wave-c-soak] double: a float sum
+    // drifted with the frame size and failed a day covered exactly (batteries) at high FPS.
+    double p1DailyDelivered = 0.0;
+    double p2DailyDelivered = 0.0;
     float dailySeconds = 0.0f;     // Game-seconds elapsed in the current day (06:00 -> 06:00)
     bool dayCutOccurred = false;
     std::string lastCutMessage;
@@ -224,7 +226,7 @@ public:
     // Average power (MW) delivered to the city so far today; the day-end result is judged on this value
     float getTodayAverageMW(int player) const {
         if (city.dailySeconds <= 0.0f) return 0.0f;
-        return ((player == 1) ? city.p1DailyDelivered : city.p2DailyDelivered) / city.dailySeconds;
+        return static_cast<float>(((player == 1) ? city.p1DailyDelivered : city.p2DailyDelivered) / city.dailySeconds);
     }
 
     int getCurrentDay() const { return currentDay; }
