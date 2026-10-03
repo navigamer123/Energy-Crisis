@@ -374,6 +374,16 @@ void UI_map::render(sf::RenderWindow& window) {
     // 19. Floating Notices
     drawFloatingNotices(window);
 
+    // [AI team] Bot nameplate (rival + difficulty, red for НЕВЪЗМОЖНО, and its current plan). Drawn
+    // after the notices so rising "+N" texts pass behind the plate, and kept off the East mine cards.
+    if (resourcesLoaded && bot.isActive()) {
+        std::vector<sf::FloatRect> mineCards;
+        for (int t = static_cast<int>(ResourceType::WOOD); t <= static_cast<int>(ResourceType::GOLD); ++t) {
+            if (const auto* st = nodes.getStation(2, static_cast<ResourceType>(t))) mineCards.push_back(st->bounds);
+        }
+        drawBotNameTag(window, font, bot, p2Pos, true, mineCards);
+    }
+
     // [AI team] Rival intro banner (shown once the tutorial releases the bot), above the notices
     if (resourcesLoaded && bot.isActive() && botIntroTimer > 0.0f && !isBotHeldByTutorial() &&
         engine.getCityState().winner == 0 && !isPaused) {

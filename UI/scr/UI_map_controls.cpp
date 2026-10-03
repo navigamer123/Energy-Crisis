@@ -1,5 +1,4 @@
 #include "../includes/UI_map.h"
-#include "../includes/UI_botBanner.h" // [AI team]
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -164,15 +163,7 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
         window.draw(bracket);
     }
 
-    if (resourcesLoaded && bot.isActive()) {
-        // [AI team] Rival name + difficulty (red for НЕВЪЗМОЖНО) and the bot's current plan,
-        // kept off the East mine cards so it never covers their labels
-        std::vector<sf::FloatRect> mineCards;
-        for (int t = static_cast<int>(ResourceType::WOOD); t <= static_cast<int>(ResourceType::GOLD); ++t) {
-            if (const auto* st = nodes.getStation(2, static_cast<ResourceType>(t))) mineCards.push_back(st->bounds);
-        }
-        drawBotNameTag(window, font, bot, p2Pos, true, mineCards);
-    } else if (resourcesLoaded) {
+    if (resourcesLoaded && !bot.isActive()) { // [AI team] the bot's nameplate is drawn in render(), above the notices
         std::string p2Label = "P2";
         sf::Text p2Tag(font, toUtf8(p2Label), 13);
         p2Tag.setFillColor(bot.isActive() ? sf::Color(255, 215, 0) : sf::Color(255, 140, 220));
@@ -302,6 +293,7 @@ void UI_map::executeP2Action() {
         ResourceType resType = nodes.getP2ResourceAt(p2Pos);
         if (resType != ResourceType::NONE) {
             if (p2ResourceCooldown > 0.0f) {
+                if (bot.isActive()) return; // [AI team] no "wait" reminder for the bot
                 char buf[32];
                 std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
                 spawnNotice(buf, p2Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
