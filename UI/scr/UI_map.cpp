@@ -59,6 +59,11 @@ void UI_map::setControlScheme(ControlScheme scheme) {
     std::cout << "[UI_map] Active Control Scheme set to: " << static_cast<int>(scheme) << "\n";
 }
 
+void UI_map::setBotDifficulty(BotDifficulty diff) {
+    bot.init(diff);
+    std::cout << "[UI_map] Bot difficulty set to: " << static_cast<int>(diff) << "\n";
+}
+
 void UI_map::drawGrassBackground(sf::RenderWindow& window) {
     float screenWidth = VIRTUAL_WIDTH;
     float screenHeight = VIRTUAL_HEIGHT;
@@ -175,6 +180,7 @@ void UI_map::restartMatch() {
     p2Popup.active = false;
     notices.clear();
     miningParticles.clear();
+    bot.init(bot.getDifficulty());
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
 }
 

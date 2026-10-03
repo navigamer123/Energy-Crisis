@@ -84,9 +84,16 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     }
 
     if (resourcesLoaded) {
-        sf::Text p2Tag(font, "P2", 13);
-        p2Tag.setFillColor(sf::Color(255, 140, 220));
-        p2Tag.setPosition({ p2Pos.x - 8.0f, p2Pos.y - 28.0f });
+        std::string p2Label = "P2";
+        if (bot.isActive()) {
+            if (bot.getDifficulty() == BotDifficulty::EASY) p2Label = "P2 [BOT: ЛЕСЕН]";
+            else if (bot.getDifficulty() == BotDifficulty::MEDIUM) p2Label = "P2 [BOT: СРЕДЕН]";
+            else if (bot.getDifficulty() == BotDifficulty::HARD) p2Label = "P2 [BOT: ТРУДЕН]";
+        }
+        sf::Text p2Tag(font, toUtf8(p2Label), 13);
+        p2Tag.setFillColor(bot.isActive() ? sf::Color(255, 215, 0) : sf::Color(255, 140, 220));
+        sf::FloatRect tb = p2Tag.getLocalBounds();
+        p2Tag.setPosition({ p2Pos.x - tb.size.x / 2.0f, p2Pos.y - 28.0f });
         window.draw(p2Tag);
     }
 }
@@ -372,49 +379,69 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
     }
 
-    // 4. Player 2 Movement (Precision Grid during placement, smooth analog otherwise)
-    bool p2BuildingMode = (engine.getSelectedBuilding(2) != BuildingType::NONE);
-    if (p2BuildingMode) {
-        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
-            if (p2GridStepCooldown <= 0.0f) {
-                bool moved = false;
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
-                    p2GridRow = std::max(0, p2GridRow - 1);
-                    moved = true;
-                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
-                    p2GridRow = std::min(11, p2GridRow + 1);
-                    moved = true;
-                }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
-                    p2GridCol = std::max(0, p2GridCol - 1);
-                    moved = true;
-                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-                    p2GridCol = std::min(8, p2GridCol + 1);
-                    moved = true;
-                }
-                if (moved) {
-                    p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
-                    p2GridStepCooldown = 0.14f;
-                }
-            }
-        } else {
-            engine.getClosestGridIndex(2, mPos, p2GridCol, p2GridRow);
-            p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+    // 4. Player 2 Movement (Bot AI or Human Input)
+    if (bot.isActive()) {
+        bool botTriggerAction = false;
+        bool botTriggerUpgrade = false;
+        BuildingType botSel = BuildingType::NONE;
+        bot.update(dt, engine, nodes, p2Pos, botTriggerAction, botTriggerUpgrade, botSel);
+
+        if (botSel != BuildingType::NONE) {
+            engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(botSel);
+        }
+
+        if (botTriggerAction && p2ActionCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
+            executeP2Action();
+            p2ActionCooldown = 0.20f;
+        }
+
+        if (botTriggerUpgrade && !p2Modal.active && !showHelpOverlay) {
+            executeP2Upgrade();
         }
     } else {
-        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) p2Pos.y -= speed * dt;
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) p2Pos.y += speed * dt;
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) p2Pos.x -= speed * dt;
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) p2Pos.x += speed * dt;
-        } else if (controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE) {
-            p2Pos = mPos;
-        } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
-            if (mPos.x >= 800.0f) p2Pos = mPos;
+        bool p2BuildingMode = (engine.getSelectedBuilding(2) != BuildingType::NONE);
+        if (p2BuildingMode) {
+            if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
+                if (p2GridStepCooldown <= 0.0f) {
+                    bool moved = false;
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
+                        p2GridRow = std::max(0, p2GridRow - 1);
+                        moved = true;
+                    } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
+                        p2GridRow = std::min(11, p2GridRow + 1);
+                        moved = true;
+                    }
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
+                        p2GridCol = std::max(0, p2GridCol - 1);
+                        moved = true;
+                    } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
+                        p2GridCol = std::min(8, p2GridCol + 1);
+                        moved = true;
+                    }
+                    if (moved) {
+                        p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+                        p2GridStepCooldown = 0.14f;
+                    }
+                }
+            } else {
+                engine.getClosestGridIndex(2, mPos, p2GridCol, p2GridRow);
+                p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+            }
+        } else {
+            if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) p2Pos.y -= speed * dt;
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) p2Pos.y += speed * dt;
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) p2Pos.x -= speed * dt;
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) p2Pos.x += speed * dt;
+            } else if (controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE) {
+                p2Pos = mPos;
+            } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
+                if (mPos.x >= 800.0f) p2Pos = mPos;
+            }
+            p2Pos.x = std::max(820.0f, std::min(p2Pos.x, 1570.0f));
+            p2Pos.y = std::max(40.0f, std::min(p2Pos.y, 860.0f));
+            engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
         }
-        p2Pos.x = std::max(820.0f, std::min(p2Pos.x, 1570.0f));
-        p2Pos.y = std::max(40.0f, std::min(p2Pos.y, 860.0f));
-        engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
     }
 
     // 5. Action and selection cooldown decrements
@@ -513,76 +540,78 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p1PrevNum[k] = curNum;
     }
 
-    // 7. Player 2 Action Input (Single Press only, NO continuous hold-to-mine!)
-    bool p2PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
-    bool p2JustPressed = p2PressingAction && !p2PrevAction;
-    p2PrevAction = p2PressingAction;
+    // 7. Player 2 Action Input (Human Player 2 only)
+    if (!bot.isActive()) {
+        bool p2PressingAction = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
+        bool p2JustPressed = p2PressingAction && !p2PrevAction;
+        p2PrevAction = p2PressingAction;
 
-    if (p2JustPressed && p2ActionCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
-        executeP2Action();
-        p2ActionCooldown = 0.20f;
-    }
-
-    // P2 Upgrade Mine with Gold: [RShift] or [End]
-    bool p2PressingUpgrade = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
-    static bool p2PrevUpgrade = false;
-    if (p2PressingUpgrade && !p2PrevUpgrade && !p2Modal.active && !showHelpOverlay) {
-        executeP2Upgrade();
-    }
-    p2PrevUpgrade = p2PressingUpgrade;
-
-    // P2: [PgDn] Cycle Forward (Solar -> Wind -> Hydro -> Battery -> Lamp -> Demolish)
-    bool curPgDn = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown);
-    if (curPgDn && !p2PrevPgDn && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
-        engine.cycleBuildingSelection(2);
-        p2SelectCooldown = 0.16f;
-        BuildingType newSel = engine.getSelectedBuilding(2);
-        BuildingCost c = engine.getBuildingCost(newSel);
-        p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
-        if (newSel == BuildingType::DEMOLISH) {
-            triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
-        } else if (newSel == BuildingType::LAMP) {
-            triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 220, 100));
-        } else {
-            triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
-                               formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 120, 200));
+        if (p2JustPressed && p2ActionCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
+            executeP2Action();
+            p2ActionCooldown = 0.20f;
         }
-    }
-    p2PrevPgDn = curPgDn;
 
-    // P2: [PgUp] Cycle Backward
-    bool curPgUp = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp);
-    if (curPgUp && !p2PrevPgUp && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
-        engine.cycleBuildingSelectionPrev(2);
-        p2SelectCooldown = 0.16f;
-        BuildingType newSel = engine.getSelectedBuilding(2);
-        BuildingCost c = engine.getBuildingCost(newSel);
-        p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
-        if (newSel == BuildingType::DEMOLISH) {
-            triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
-        } else if (newSel == BuildingType::LAMP) {
-            triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 220, 100));
-        } else {
-            triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
-                               formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 120, 200));
+        // P2 Upgrade Mine with Gold: [RShift] or [End]
+        bool p2PressingUpgrade = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
+        static bool p2PrevUpgrade = false;
+        if (p2PressingUpgrade && !p2PrevUpgrade && !p2Modal.active && !showHelpOverlay) {
+            executeP2Upgrade();
         }
-    }
-    p2PrevPgUp = curPgUp;
+        p2PrevUpgrade = p2PressingUpgrade;
 
-    bool curDel = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
-    if (curDel && !p2PrevDel) {
-        if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
-            engine.clearBuildingSelection(2);
-            triggerPlayerPopup(2, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
-        } else {
-            engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
+        // P2: [PgDn] Cycle Forward (Solar -> Wind -> Hydro -> Battery -> Lamp -> Demolish)
+        bool curPgDn = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown);
+        if (curPgDn && !p2PrevPgDn && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
+            engine.cycleBuildingSelection(2);
+            p2SelectCooldown = 0.16f;
+            BuildingType newSel = engine.getSelectedBuilding(2);
+            BuildingCost c = engine.getBuildingCost(newSel);
             p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
-            triggerPlayerPopup(2, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", "[ENTER]: Премахни | [Del]: Отказ", sf::Color(255, 80, 80));
+            if (newSel == BuildingType::DEMOLISH) {
+                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
+            } else if (newSel == BuildingType::LAMP) {
+                triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 220, 100));
+            } else {
+                triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                                   formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
+                                   "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 120, 200));
+            }
         }
+        p2PrevPgDn = curPgDn;
+
+        // P2: [PgUp] Cycle Backward
+        bool curPgUp = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp);
+        if (curPgUp && !p2PrevPgUp && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
+            engine.cycleBuildingSelectionPrev(2);
+            p2SelectCooldown = 0.16f;
+            BuildingType newSel = engine.getSelectedBuilding(2);
+            BuildingCost c = engine.getBuildingCost(newSel);
+            p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+            if (newSel == BuildingType::DEMOLISH) {
+                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
+            } else if (newSel == BuildingType::LAMP) {
+                triggerPlayerPopup(2, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 220, 100));
+            } else {
+                triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                                   formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
+                                   "[ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 120, 200));
+            }
+        }
+        p2PrevPgUp = curPgUp;
+
+        bool curDel = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
+        if (curDel && !p2PrevDel) {
+            if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
+                engine.clearBuildingSelection(2);
+                triggerPlayerPopup(2, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
+            } else {
+                engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
+                p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+                triggerPlayerPopup(2, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", "[ENTER]: Премахни | [Del]: Отказ", sf::Color(255, 80, 80));
+            }
+        }
+        p2PrevDel = curDel;
     }
-    p2PrevDel = curDel;
 
     // Pulse decay
     if (p1Pulse > 0.0f) {
@@ -811,14 +840,16 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
-        BuildingType clickedP2 = p2Buildings.handleClick(clickPos);
-        if (clickedP2 != BuildingType::NONE) {
-            engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
-            BuildingCost c = engine.getBuildingCost(clickedP2);
-            triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
-                               "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
-                               "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", sf::Color(255, 120, 200));
-            return;
+        if (!bot.isActive()) {
+            BuildingType clickedP2 = p2Buildings.handleClick(clickPos);
+            if (clickedP2 != BuildingType::NONE) {
+                engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
+                BuildingCost c = engine.getBuildingCost(clickedP2);
+                triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                                   "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
+                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", sf::Color(255, 120, 200));
+                return;
+            }
         }
 
         // 2. Buy Land HUD button clicks
@@ -831,7 +862,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             }
             return;
         }
-        if (resourceHUD.getP2BuyLandButton().contains(clickPos)) {
+        if (!bot.isActive() && resourceHUD.getP2BuyLandButton().contains(clickPos)) {
             std::string msg;
             if (engine.buyNextLandTier(2, msg)) {
                 triggerPlayerPopup(2, "ЗЕМЯ", "Разширена земя!", msg, "[PgDn]: Избери сграда", sf::Color(255, 215, 0));
@@ -845,6 +876,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         for (const auto& plot : engine.getLandPlots()) {
             if (plot.bounds.contains(clickPos)) {
                 int owner = plot.playerOwner;
+                if (owner == 2 && bot.isActive()) return; // Bot handles its own land plots
                 if (!plot.isPurchased) {
                     std::string msg;
                     if (engine.buyLandPlot(owner, plot.id, msg)) {
@@ -886,18 +918,20 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
-        ResourceType p2Up = nodes.getP2UpgradeAt(clickPos);
-        if (p2Up != ResourceType::NONE) {
-            std::string msg;
-            if (engine.upgradeMine(2, p2Up, msg)) {
-                spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 25);
-                triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", sf::Color(255, 215, 0));
-                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
-            } else {
-                triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
-                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+        if (!bot.isActive()) {
+            ResourceType p2Up = nodes.getP2UpgradeAt(clickPos);
+            if (p2Up != ResourceType::NONE) {
+                std::string msg;
+                if (engine.upgradeMine(2, p2Up, msg)) {
+                    spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 25);
+                    triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", sf::Color(255, 215, 0));
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+                } else {
+                    triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+                }
+                return;
             }
-            return;
         }
 
         // 5. Click on Resource Stations
@@ -923,26 +957,28 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
-        ResourceType p2Res = nodes.getP2ResourceAt(clickPos);
-        if (p2Res != ResourceType::NONE) {
-            if (p2ResourceCooldown > 0.0f) {
-                char buf[32];
-                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
-                spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+        if (!bot.isActive()) {
+            ResourceType p2Res = nodes.getP2ResourceAt(clickPos);
+            if (p2Res != ResourceType::NONE) {
+                if (p2ResourceCooldown > 0.0f) {
+                    char buf[32];
+                    std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
+                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                    return;
+                }
+                GameEngine::MineResult res;
+                std::string msg;
+                if (engine.mineResource(2, p2Res, res, msg)) {
+                    p2ResourceCooldown = 1.0f;
+                    p2Pulse = 1.0f;
+                    const auto* st = nodes.getStation(2, p2Res);
+                    sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);
+                    spawnMiningParticles(clickPos, c, 18);
+                    triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[PgDn]: Избери сграда", c);
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
+                }
                 return;
             }
-            GameEngine::MineResult res;
-            std::string msg;
-            if (engine.mineResource(2, p2Res, res, msg)) {
-                p2ResourceCooldown = 1.0f;
-                p2Pulse = 1.0f;
-                const auto* st = nodes.getStation(2, p2Res);
-                sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);
-                spawnMiningParticles(clickPos, c, 18);
-                triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[PgDn]: Избери сграда", c);
-                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
-            }
-            return;
         }
     }
 }

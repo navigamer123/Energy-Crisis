@@ -91,6 +91,7 @@ void UI_main::render() {
                 mainMenu.resetPlayRequest();
                 map.restartMatch();
                 map.setControlScheme(mainMenu.getSelectedControlScheme());
+                map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
                 currentState = UIState::PLAYING;
             } else if (mainMenu.isQuitRequested()) {
                 currentState = UIState::QUIT;

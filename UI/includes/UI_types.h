@@ -31,6 +31,16 @@ enum class ControlScheme {
 };
 
 // -----------------------------------------------------------------------------
+// Bot Difficulty for Single Player Mode
+// -----------------------------------------------------------------------------
+enum class BotDifficulty {
+    NONE,    // Co-op 2-player local (Human vs Human)
+    EASY,    // Slower AI, basic power plants
+    MEDIUM,  // Balanced AI, builds batteries and expands
+    HARD     // Fast aggressive AI, optimizes power & upgrades
+};
+
+// -----------------------------------------------------------------------------
 // Floating FloatingNotice / Notification Particle
 // -----------------------------------------------------------------------------
 struct FloatingNotice {

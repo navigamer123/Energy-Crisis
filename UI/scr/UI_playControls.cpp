@@ -20,7 +20,7 @@ void UI_playControls::drawButton(sf::RenderWindow& window, const sf::Font& font,
     window.draw(shape);
 
     if (fontLoaded) {
-        sf::String displayText = isSelected ? (toUtf8("▶ ") + text + toUtf8(" ◀")) : text;
+        sf::String displayText = isSelected ? (toUtf8("> ") + text + toUtf8(" <")) : text;
         sf::Text label(font, displayText, 18);
         label.setFillColor(isSelected ? sf::Color(255, 240, 150) : textColor);
 
