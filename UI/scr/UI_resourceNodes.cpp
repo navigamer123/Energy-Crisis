@@ -1,4 +1,5 @@
 #include "../includes/UI_resourceNodes.h"
+#include "../includes/UI_input.h" // Team b-session (F-10): key hints from the real bindings
 #include "../includes/UI_types.h"
 #include <cmath>
 #include <string>
@@ -464,9 +465,13 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
         tc.setPosition({ pos.x - tcb.size.x / 2.0f, pos.y + 24.0f });
         window.draw(tc);
 
-        // Cancel keys are X (P1) / Del (P2); Q / PgUp only step back through the buildings
-        std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
-                                            : "[X/Del]: Отказ  |  [E]: Смени сграда";
+        // b-session (F-10): the keys of the player whose sector the ghost is in (west = P1)
+        const int ghostOwner = (pos.x < 800.0f) ? 1 : 2;
+        const InputRouter& keys = inputRouter();
+        std::string hint = isValidPlacement
+            ? keys.hint(ghostOwner, InputAction::Action, false) + ": Постави  |  " + keys.hint(ghostOwner, InputAction::Cancel, false) +
+                  ": Отказ  |  " + keys.hint(ghostOwner, InputAction::NextBuilding, false) + ": Смени"
+            : keys.hint(ghostOwner, InputAction::Cancel, false) + ": Отказ  |  " + keys.hint(ghostOwner, InputAction::NextBuilding, false) + ": Смени сграда";
         sf::Text th(font, toUtf8(hint), 10);
         th.setFillColor(isValidPlacement ? sf::Color(255, 230, 100) : sf::Color(255, 130, 130));
         sf::FloatRect thb = th.getLocalBounds();
@@ -619,7 +624,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
                 cdBar.setFillColor(sf::Color(255, 180, 50));
                 window.draw(cdBar);
             } else {
-                std::string actHint = (s.playerOwner == 1) ? "[SPACE: Добив]" : "[ENTER: Добив]";
+                std::string actHint = inputRouter().hint(s.playerOwner, InputAction::Action, false, 1) + " Добив"; // b-session (F-10)
                 sf::Text actText(font, toUtf8(hover ? actHint : "[ГОТОВО]"), 9);
                 actText.setFillColor(hover ? sf::Color(255, 235, 120) : sf::Color(140, 240, 180));
                 actText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 48.0f });
