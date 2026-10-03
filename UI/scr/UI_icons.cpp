@@ -1,4 +1,5 @@
 #include "../includes/UI_icons.h"
+#include "../includes/UI_text.h"
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
@@ -285,6 +286,12 @@ void iconDemolish(const Pen& p) {
     stroke(p, 0.02f, -0.28f, 0.3f, 0.0f, 0.17f, sf::Color(230, 95, 95), sf::Color(120, 35, 35));
 }
 
+// The visible part of an icon (shapes stay within 0.46 of the centre) for the layout lint
+void lintIcon(sf::Vector2f center, float size) {
+    const float half = size * 0.46f;
+    ui::lint::icon(sf::FloatRect({ center.x - half, center.y - half }, { 2.0f * half, 2.0f * half }));
+}
+
 } // namespace
 
 void drawResourceIcon(sf::RenderTarget& t, ResourceType r, sf::Vector2f center, float size) {
@@ -303,6 +310,7 @@ void drawResourceIcon(sf::RenderTarget& t, ResourceType r, sf::Vector2f center, 
         case ResourceType::ORE:
             break;
     }
+    if (r != ResourceType::NONE && r != ResourceType::ORE) lintIcon(center, size);
 }
 
 void drawBuildingIcon(sf::RenderTarget& t, BuildingType b, sf::Vector2f center, float size) {
@@ -317,6 +325,7 @@ void drawBuildingIcon(sf::RenderTarget& t, BuildingType b, sf::Vector2f center, 
         case BuildingType::NONE:
             break;
     }
+    if (b != BuildingType::NONE) lintIcon(center, size);
 }
 
 sf::Color resourceIconColor(ResourceType r) {

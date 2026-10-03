@@ -23,6 +23,12 @@ bool g_enabled = false;
 std::vector<TextRecord> g_records;
 std::vector<sf::FloatRect> g_containers;
 
+struct IconRecord {
+    sf::FloatRect bounds;
+    bool occluded = false;
+};
+std::vector<IconRecord> g_icons;
+
 // Texts fainter than this are invisible (fading notices) and never collide
 constexpr std::uint8_t MIN_VISIBLE_ALPHA = 40;
 // Sub-pixel slack for anti-aliased glyph boxes
@@ -180,6 +186,7 @@ bool isEnabled() { return g_enabled; }
 void beginFrame() {
     g_records.clear();
     g_containers.clear();
+    g_icons.clear();
 }
 
 void occlude(const sf::FloatRect& areaRect) {
@@ -190,6 +197,10 @@ void occlude(const sf::FloatRect& areaRect) {
         if (inter.size.x > 0.0f && inter.size.y > 0.0f) {
             r.occluded = true;
         }
+    }
+    for (auto& ic : g_icons) {
+        sf::FloatRect inter = intersect(ic.bounds, areaRect);
+        if (inter.size.x > 0.0f && inter.size.y > 0.0f) ic.occluded = true;
     }
 }
 
@@ -206,6 +217,11 @@ void solid(const sf::FloatRect& areaRect) {
             r.coveredBy = areaRect;
         }
     }
+}
+
+void icon(const sf::FloatRect& areaRect) {
+    if (!g_enabled) return;
+    g_icons.push_back({ areaRect, false });
 }
 
 ContainerScope::ContainerScope(const sf::FloatRect& areaRect) {
@@ -272,6 +288,18 @@ std::vector<std::string> report() {
             if (shadow) continue;
             out.push_back("LINT overlap: " + quote(a.str) + " " + rectStr(a.bounds) + " overlaps " + quote(b.str) + " " +
                           rectStr(b.bounds));
+        }
+    }
+
+    // Texts touching an icon (a sun dial over a title, a cost icon over its number)
+    for (const auto& r : g_records) {
+        if (r.alpha < MIN_VISIBLE_ALPHA || r.occluded || std::all_of(r.str.begin(), r.str.end(), isBlank)) continue;
+        for (const auto& ic : g_icons) {
+            if (ic.occluded) continue;
+            sf::FloatRect inter = intersect(r.bounds, ic.bounds);
+            if (inter.size.x <= TOL || inter.size.y <= TOL) continue;
+            out.push_back("LINT icon: " + quote(r.str) + " " + rectStr(r.bounds) + " touches an icon at " +
+                          rectStr(ic.bounds));
         }
     }
     return out;

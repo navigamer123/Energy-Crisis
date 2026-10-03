@@ -48,10 +48,10 @@ void UI_clock::advanceTime(float hours) {
 
 namespace {
 
-// Bulgarian-only names (the engine's names also carry English in brackets)
-const char* weatherNameBg(WeatherType w) {
+// Bulgarian-only names (the engine's names also carry English in brackets); a sunny night is "Ясно"
+const char* weatherNameBg(WeatherType w, bool daylight) {
     switch (w) {
-        case WeatherType::SUNNY:  return "Слънчево";
+        case WeatherType::SUNNY:  return daylight ? "Слънчево" : "Ясно";
         case WeatherType::WINDY:  return "Ветровито";
         case WeatherType::RAINY:  return "Дъждовно";
         case WeatherType::STORMY: return "Буря";
@@ -71,10 +71,11 @@ const char* seasonNameBg(SeasonType s) {
     return "Пролет";
 }
 
-sf::Color weatherColor(WeatherType w) {
+// Weather colours never use a player colour (both cards show weather)
+sf::Color weatherColor(WeatherType w, bool daylight) {
     switch (w) {
-        case WeatherType::SUNNY:  return theme::Energy;
-        case WeatherType::WINDY:  return theme::P1Light;
+        case WeatherType::SUNNY:  return daylight ? theme::Energy : theme::TextPrimary;
+        case WeatherType::WINDY:  return theme::TextPrimary;
         case WeatherType::RAINY:  return theme::Info;
         case WeatherType::STORMY: return theme::Warn;
         case WeatherType::SNOWY:  return theme::TextPrimary;
@@ -125,6 +126,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         celestial.setOutlineColor(sf::Color(220, 240, 255));
     }
     window.draw(celestial);
+    ui::lint::icon(celestial.getGlobalBounds());
 
     if (!fontLoaded) return;
 
@@ -135,8 +137,9 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     // the next day; never show e.g. 21/20.
     const int finalDay = static_cast<int>(Balance::FINAL_DAY);
     const int shownDay = std::min(currentDay, finalDay);
-    std::string pTitle = (playerIndex == 1) ? "ИГРАЧ 1 (ЗАПАД)" : "ИГРАЧ 2 (ИЗТОК)";
-    std::string dayStr = pTitle + " | ДЕН " + std::to_string(shownDay) + "/" + std::to_string(finalDay);
+    // (The side is clear from the card position and colour; "ИГРАЧ 1 (ЗАПАД) | ДЕН 16/20" ran under the dial.)
+    std::string pTitle = (playerIndex == 1) ? "ИГРАЧ 1" : "ИГРАЧ 2";
+    std::string dayStr = pTitle + " · ДЕН " + std::to_string(shownDay) + "/" + std::to_string(finalDay);
     // Keep the title clear of the sun/moon dial on the right edge of the card
     const float maxTitleW = size.x - 20.0f - 26.0f;
     unsigned int titleSize = ui::fitTextSize(font, dayStr, fontsize::Label, fontsize::Caption, maxTitleW, true);
@@ -146,14 +149,15 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     tTitle.setPosition({ textX, pos.y + 6.0f });
     ui::drawText(window, tTitle);
 
-    sf::RectangleShape div({ size.x - 20.0f, 1.0f });
+    // Divider under the title; it stops before the dial instead of crossing it
+    sf::RectangleShape div({ size.x - 20.0f - 26.0f, 1.0f });
     div.setPosition({ textX, pos.y + 25.0f });
     div.setFillColor(theme::Line);
     window.draw(div);
 
     // Weather (colour by weather), season and day / night
-    sf::Text tWeather(font, toUtf8(std::string("Време: ") + weatherNameBg(weather)), fontsize::Label);
-    tWeather.setFillColor(weatherColor(weather));
+    sf::Text tWeather(font, toUtf8(std::string("Време: ") + weatherNameBg(weather, daylight)), fontsize::Label);
+    tWeather.setFillColor(weatherColor(weather, daylight));
     tWeather.setPosition({ textX, pos.y + 29.0f });
     ui::drawText(window, tWeather);
 

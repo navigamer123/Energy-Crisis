@@ -12,8 +12,8 @@
 // (energy_crisis.exe --lint) it also records each drawn text's global bounds
 // and the container it has to stay inside, so the last frame can be checked
 // for: text overlapping other text, text leaving its container, text outside
-// the 1600x900 canvas, empty strings or characters missing from the font, and
-// text smaller than the minimum size (fontsize::Caption).
+// the 1600x900 canvas, empty strings or characters missing from the font, text
+// smaller than the minimum size (fontsize::Caption) and text touching an icon.
 // -----------------------------------------------------------------------------
 namespace ui {
 
@@ -53,6 +53,10 @@ void occlude(const sf::FloatRect& area);
 // An opaque element of the same layout (a button, a badge) was drawn: unlike occlude(), a text
 // drawn earlier that it covers only partly is reported, because part of that text is hidden.
 void solid(const sf::FloatRect& area);
+
+// An icon or another small mark (sun dial, badge glyph) was drawn here. Text must not touch it,
+// whether the text is drawn before or after it; an occlude() over it hides the icon as well.
+void icon(const sf::FloatRect& area);
 
 // Every text drawn while a scope is alive must stay inside its rectangle
 // (unless drawText gets an explicit container). Scopes nest.
