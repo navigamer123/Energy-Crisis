@@ -209,6 +209,12 @@ private:
     void scheduleHazard(HazardKind kind, int player, int westCol, int row);
     void fireHazard(HazardPlan& plan);
     float rollUnit();                                 // 0..1 from the hazard RNG
+    void updateReactors(float dt);                    // game_nuclear.cpp
+    void payReactorFuel();                            // game_nuclear.cpp (day end)
+    void updateMegaProjects(float dt);                // game_mega.cpp
+    void updateHazards(float dt);                     // game_hazards.cpp
+    void updateWeatherStreaks();                      // game_hazards.cpp (day end)
+    void scheduleDailyHazards();                      // game_hazards.cpp (new day)
 
 public:
     GameEngine();

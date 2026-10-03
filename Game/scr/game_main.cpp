@@ -150,6 +150,9 @@ void GameEngine::simulateStep(float dt) {
     // Season flips at midnight (dark in every season), never at the 06:00 rollover
     currentSeason = Balance::getSeasonAtGameSeconds(gameSeconds);
 
+    // Team b-power: reactor ramps, mega-project construction, scheduled hazards
+    updateAdvancedSystems(dt);
+
     // Update building energy outputs based on real-time continuous weather & sun
     updateBuildingsEnergy(dt);
     city.dailySeconds += dt;
@@ -205,6 +208,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     // Battery energy uses ONE unit for charge and discharge: MW x game-hours (MWh)
     // -------------------------------------------------------------------------
     const float stepHours = Balance::gameSecondsToHours(dt);
+    const float riverFlow = getRiverFlowFactor(); // Team b-power (F-15): shared river, all hydro plants
     auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
         float rawGen = 0.0f;
         std::vector<PlacedBuilding*> playerLamps;
@@ -213,24 +217,40 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         // Step A: Calculate pure generation from Solar, Wind, and Hydro
         for (auto& b : buildings) {
             if (b.playerOwner != player) continue;
+            // Team b-power (F-34): damaged buildings are offline until repaired
+            if (b.isBroken) {
+                b.currentOutputMW = 0.0f;
+                if (b.type == BuildingType::LAMP) b.lightRadius = 0.0f;
+                continue;
+            }
             BuildingCost cost = getBuildingCost(b.type);
 
             if (b.type == BuildingType::SOLAR_PANEL) {
-                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
+                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason) *
+                            terrainOutputMultiplier(b); // b-power: meadow x1.15
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::WIND_TURBINE) {
-                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24);
+                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24) *
+                            terrainOutputMultiplier(b); // b-power: hill x1.3
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::HYDRO_PLANT) {
-                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
+                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w) * riverFlow;
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::LAMP) {
                 playerLamps.push_back(&b);
             } else if (b.type == BuildingType::BATTERY) {
                 playerBatteries.push_back(&b);
+            } else {
+                // Team b-power: nuclear, geothermal, mega-projects (0 while building / in SCRAM)
+                float out = advancedOutputMW(b, w);
+                b.currentOutputMW = out;
+                rawGen += out;
+                if (b.type == BuildingType::MEGA_PUMPED_HYDRO && b.constructionLeft <= 0.0f) {
+                    playerBatteries.push_back(&b); // the dam is also a giant battery
+                }
             }
         }
 
@@ -253,13 +273,13 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                 float deficit = loadTarget - rawGen;
                 float canGive = 0.0f;
                 for (auto* bat : playerBatteries) {
-                    canGive += std::min(Balance::BATTERY_MAX_POWER_MW, bat->energyStored / stepHours);
+                    canGive += std::min(storageMaxPowerMW(*bat), bat->energyStored / stepHours);
                 }
                 batteryDischarge = std::min(deficit, canGive);
                 if (batteryDischarge > 0.0f) {
                     float fraction = batteryDischarge / canGive;
                     for (auto* bat : playerBatteries) {
-                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, bat->energyStored / stepHours) * fraction;
+                        float power = std::min(storageMaxPowerMW(*bat), bat->energyStored / stepHours) * fraction;
                         bat->currentOutputMW = power;
                         bat->energyStored = std::max(0.0f, bat->energyStored - power * stepHours);
                     }
@@ -269,7 +289,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                 float surplus = rawGen - loadTarget;
                 float canTake = 0.0f;
                 for (auto* bat : playerBatteries) {
-                    canTake += std::min(Balance::BATTERY_MAX_POWER_MW,
+                    canTake += std::min(storageMaxPowerMW(*bat), // b-power: dam 400 MW
                                         std::max(0.0f, bat->maxCapacity - bat->energyStored) / stepHours);
                 }
                 batteryCharge = std::min(surplus, canTake);
@@ -277,7 +297,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                     float fraction = batteryCharge / canTake;
                     for (auto* bat : playerBatteries) {
                         float room = std::max(0.0f, bat->maxCapacity - bat->energyStored);
-                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, room / stepHours) * fraction;
+                        float power = std::min(storageMaxPowerMW(*bat), room / stepHours) * fraction;
                         bat->energyStored = std::min(bat->maxCapacity, bat->energyStored + power * stepHours);
                     }
                 }
@@ -394,10 +414,16 @@ void GameEngine::processDayEnd() {
     city.p2DailyDelivered = 0.0f;
     city.dailySeconds = 0.0f;
 
+    // Team b-power: reactor fuel and weather streaks of the day that ended
+    advancedDayEnd();
+
     // Daily dynamic weather generation using weather_report from weatherF.
     // The new day's season already took effect at the preceding midnight.
     currentSeason = Balance::getSeasonForDay(currentDay);
     rollDailyWeather();
+
+    // Team b-power: hazards for the new day (floods, wildfires, hail, quakes), mega-project unlock
+    advancedNewDay();
 }
 
 bool GameEngine::mineResource(int player, ResourceType type, std::string& outMsg) {
@@ -598,15 +624,24 @@ bool GameEngine::buyNextLandTier(int player, std::string& outMsg) {
     return false;
 }
 
+// Team b-power: the cycle visits the basic buildings, the advanced page (7..11), then Demolish (6)
+static const int kSelectionCycle[] = { 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 6 };
+static const int kSelectionCycleLen = static_cast<int>(sizeof(kSelectionCycle) / sizeof(kSelectionCycle[0]));
+static int selectionCycleIndex(int sel) {
+    for (int i = 0; i < kSelectionCycleLen; ++i) {
+        if (kSelectionCycle[i] == sel) return i;
+    }
+    return -1;
+}
+
 void GameEngine::cycleBuildingSelection(int player) {
     auto& econ = (player == 1) ? p1 : p2;
     if (econ.selectedBuilding == 0) {
         int last = econ.lastPlacedBuilding;
-        econ.selectedBuilding = (last >= 1 && last <= 6) ? last : 1;
-    } else if (econ.selectedBuilding >= 6) {
-        econ.selectedBuilding = 1;
+        econ.selectedBuilding = (selectionCycleIndex(last) >= 0) ? last : 1;
     } else {
-        econ.selectedBuilding++;
+        int i = selectionCycleIndex(econ.selectedBuilding);
+        econ.selectedBuilding = kSelectionCycle[(i + 1) % kSelectionCycleLen];
     }
 }
 
@@ -614,11 +649,11 @@ void GameEngine::cycleBuildingSelectionPrev(int player) {
     auto& econ = (player == 1) ? p1 : p2;
     if (econ.selectedBuilding == 0) {
         int last = econ.lastPlacedBuilding;
-        econ.selectedBuilding = (last >= 1 && last <= 6) ? last : 6;
-    } else if (econ.selectedBuilding <= 1) {
-        econ.selectedBuilding = 6;
+        econ.selectedBuilding = (selectionCycleIndex(last) >= 0) ? last : 6;
     } else {
-        econ.selectedBuilding--;
+        int i = selectionCycleIndex(econ.selectedBuilding);
+        if (i < 0) i = 0;
+        econ.selectedBuilding = kSelectionCycle[(i + kSelectionCycleLen - 1) % kSelectionCycleLen];
     }
 }
 
@@ -662,7 +697,7 @@ BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
         case BuildingType::DEMOLISH:
             return { BuildingType::DEMOLISH, "Премахване", "Demolish Tool", 0, 0, 0, 0, 0, 0, 0, 0 };
         default:
-            return { BuildingType::NONE, "", "", 0, 0, 0, 0, 0, 0, 0, 0 };
+            return getAdvancedBuildingCost(type); // Team b-power: nuclear, geothermal, mega-projects (or NONE)
     }
 }
 
@@ -740,6 +775,7 @@ int GameEngine::findOwnedBuildingInSlot(int player, sf::Vector2f pos) const {
             }
         }
     }
+    if (bestIdx < 0) bestIdx = findPlotWideBuildingAt(player, pos); // Team b-power: reactor / mega-project plot
     return bestIdx;
 }
 
@@ -755,7 +791,7 @@ bool GameEngine::removeBuilding(int player, sf::Vector2f pos, std::string& outMs
     // Refund a fraction of what was paid (placement always deducts the full recipe)
     PlacedBuilding b = buildings[closestIdx];
     BuildingCost cost = getBuildingCost(b.type);
-    const float refund = Balance::DEMOLISH_REFUND_FRACTION;
+    const float refund = advancedRefundFraction(b.type); // b-power: reactors / mega-projects refund nothing
     int refundWood = static_cast<int>(cost.woodCost * refund);
     int refundIron = static_cast<int>(cost.ironCost * refund);
     int refundCopper = static_cast<int>(cost.copperCost * refund);
@@ -798,8 +834,14 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    // Team b-power: locked advanced buildings say why before anything else (plots / day / one per player)
+    if (!checkAdvancedUnlock(player, type, reason)) {
+        return false;
+    }
+
     // Snap to 2x2 grid slot inside land plot
     pos = snapToBuildingGrid(player, pos);
+    pos = snapAdvanced(player, type, pos); // b-power: reactors and mega-projects use the plot centre
 
     const auto& econ = (player == 1) ? p1 : p2;
     BuildingCost cost = getBuildingCost(type);
@@ -854,6 +896,11 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    // Team b-power: exclusion zones, vents for geothermal, river for the pumped-hydro dam
+    if (!checkAdvancedPlacement(player, type, pos, reason)) {
+        return false;
+    }
+
     // Hydro plants need the river: only the plot column next to the city river counts as river bank
     if (type == BuildingType::HYDRO_PLANT && !isRiverBankSlot(player, pos)) {
         reason = "ВЕЦ СЕ СТРОИ САМО НА БРЕГА НА РЕКАТА!\nИзползвайте парцелите в колоната до града (до реката).";
@@ -881,6 +928,7 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
 
     // Snap to 2x2 grid slot inside land plot
     pos = snapToBuildingGrid(player, pos);
+    pos = snapAdvanced(player, type, pos); // b-power: plot centre for reactors and mega-projects
 
     std::string reason;
     if (!canPlaceBuilding(player, type, pos, reason)) {
@@ -918,12 +966,19 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     b.energyStored = 0.0f;
     b.maxCapacity = static_cast<float>(Balance::BATTERY.batteryCapacityMWh);
     b.lightRadius = (type == BuildingType::LAMP) ? 150.0f : 0.0f;
+    onAdvancedPlaced(b); // Team b-power: terrain, reactor ramp, mega-project construction
     buildings.push_back(b);
 
     if (type == BuildingType::LAMP) {
         outMsg = "ПОСТАВЕНА Осветителна лампа! (Консумира 10 MW, осветява 150 px)";
     } else if (type == BuildingType::BATTERY) {
         outMsg = "ПОСТРОЕН Акумулатор! (0% заряд. Зарежда се от произведената чиста енергия)";
+    } else if (type == BuildingType::NUCLEAR) {
+        outMsg = "ПОСТРОЕН АЕЦ! Реакторът набира мощност цял ден (до +" + std::to_string(cost.basePowerMW) +
+                 " MW). Гориво: " + std::to_string(PowerBalance::NUCLEAR_FUEL_SILVER_PER_DAY) + " сребро на ден.";
+    } else if (isMegaProject(type)) {
+        outMsg = "ЗАПОЧНА СТРОЕЖ: " + cost.nameBg + "! Готов след " +
+                 std::to_string(static_cast<int>(std::lround(b.constructionTotal / Balance::SECONDS_PER_DAY))) + " дни.";
     } else {
         outMsg = "ПОСТРОЕН " + cost.nameBg + "! (+" + std::to_string(cost.basePowerMW) + " MW)";
     }
@@ -988,6 +1043,5 @@ bool GameEngine::breakRandomBuilding(int playerOwner, sf::Vector2f& outPos) {
 }
 
 bool GameEngine::hasBrokenBuilding(int player) const {
-    (void)player;
-    return false;
+    return countBrokenBuildings(player) > 0; // Team b-power (F-34): hazards leave repairable damage
 }
