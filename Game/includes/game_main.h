@@ -10,23 +10,6 @@
 #include "game_balance.h"
 
 // -----------------------------------------------------------------------------
-// PlayerData (integrated from weatherF branch)
-// -----------------------------------------------------------------------------
-struct PlayerData {
-    int money = 0;
-    int iron = 0;
-    int coal = 0;
-    int gold = 0;
-    int copper = 0;
-    int silver = 0;
-    int silicon = 0;
-    int wood = 0;
-    int sticks = 0;
-    std::string weather = "clear";
-    std::string wind_speed = "0";
-};
-
-// -----------------------------------------------------------------------------
 // Resource Types
 // -----------------------------------------------------------------------------
 enum class ResourceType {
@@ -77,8 +60,8 @@ struct PlacedBuilding {
     float currentOutputMW;
     float animTimer;
     float energyStored = 0.0f;  // Current stored charge in MWh
-    float maxCapacity = 200.0f; // Max capacity in MWh
-    float lightRadius = 150.0f; // For Lamp light cone
+    float maxCapacity = static_cast<float>(Balance::BATTERY.batteryCapacityMWh); // Max capacity in MWh
+    float lightRadius = Balance::STREET_LAMP.lightRadius; // For Lamp light cone
     bool isBroken = false;      // Damaged/broken by lightning strike
 };
 
@@ -106,7 +89,6 @@ struct PlayerEconomy {
     int selectedBuilding = 0;   // 0 = None, 1 = Solar, 2 = Wind, 3 = Hydro, 4 = Battery, 5 = Lamp, 6 = Demolish
     int lastPlacedBuilding = 1; // Remembers lastly placed building for instant reuse
     int mineLevels[8] = { 1, 1, 1, 1, 1, 1, 1, 1 }; // Upgrade level for each resource mine (1..5)
-    PlayerData data;            // Teammate's detailed inventory from weatherF
 };
 
 struct CityConquestState {
@@ -201,7 +183,7 @@ public:
     bool isRiverBankSlot(int player, sf::Vector2f pos) const;
 
     // Lamp consumption constant (MW)
-    static constexpr float LAMP_POWER_MW = 10.0f;
+    static constexpr float LAMP_POWER_MW = static_cast<float>(Balance::STREET_LAMP.lampConsumptionMW);
 
     // Building Data helper
     BuildingCost getBuildingCost(BuildingType type) const;

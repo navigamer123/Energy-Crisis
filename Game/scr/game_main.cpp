@@ -29,6 +29,13 @@ unsigned int pickMatchSeed(bool& fromEnv) {
     return static_cast<unsigned int>(t ^ (t >> 32)) + 0x9E3779B9u * (++initCounter);
 }
 
+// Top-left corner of a land plot (plotCol 0..2 in screen order West->East, plotRow 0..3)
+sf::Vector2f plotTopLeft(int player, int plotCol, int plotRow) {
+    float startX = (player == 1) ? Balance::WEST_PLOTS_START_X : Balance::EAST_PLOTS_START_X;
+    return { startX + plotCol * (Balance::PLOT_WIDTH + Balance::PLOT_GAP_X),
+             Balance::PLOTS_START_Y + plotRow * (Balance::PLOT_HEIGHT + Balance::PLOT_GAP_Y) };
+}
+
 } // namespace
 
 GameEngine::GameEngine()
@@ -69,54 +76,24 @@ void GameEngine::init(float screenWidth, float screenHeight) {
 
     // -------------------------------------------------------------------------
     // Generate Purchasable Land Grid on West (P1) and East (P2)
-    // 12 land plots per player (3 cols x 4 rows)
-    // Land dimensions strictly positioned so they NEVER touch or go under the city!
-    // City bounds: X in [610.0, 990.0].
+    // 12 land plots per player (3 cols x 4 rows), laid out by the Balance plot constants so they
+    // never touch or go under the city (X in [610.0, 990.0]).
     // -------------------------------------------------------------------------
-    float plotW = 105.0f;
-    float plotH = 95.0f;
-    float gapX = 12.0f;
-    float gapY = 10.0f;
-
-    // West Side (P1): 3 columns x 4 rows = 12 land plots
-    // Col 0: 258-363, Col 1: 375-480, Col 2: 492-597 < 610. Row 0..3: Y in [105..515] < 582
-    float westStartX = 258.0f;
-    float startY = 105.0f;
     int idCounter = 1;
-
-    for (int r = 0; r < 4; r++) {
-        for (int c = 0; c < 3; c++) {
-            float x = westStartX + c * (plotW + gapX);
-            float y = startY + r * (plotH + gapY);
-
-            LandPlot plot;
-            plot.id = idCounter++;
-            plot.playerOwner = 1;
-            plot.bounds = sf::FloatRect({ x, y }, { plotW, plotH });
-            // Starting top-left plot is unlocked, others are purchasable
-            plot.isPurchased = (r == 0 && c == 0);
-            plot.costGold = Balance::getLandPlotCost(r, c);
-            landPlots.push_back(plot);
-        }
-    }
-
-    // East Side (P2): 3 columns x 4 rows = 12 land plots
-    // Col 0: 1003-1108 > 990, Col 1: 1120-1225, Col 2: 1237-1342 < 1360. Row 0..3: Y in [105..515]
-    float eastStartX = 1003.0f;
-    for (int r = 0; r < 4; r++) {
-        for (int c = 0; c < 3; c++) {
-            float x = eastStartX + c * (plotW + gapX);
-            float y = startY + r * (plotH + gapY);
-
-            LandPlot plot;
-            plot.id = idCounter++;
-            plot.playerOwner = 2;
-            plot.bounds = sf::FloatRect({ x, y }, { plotW, plotH });
-            // Starting top-right plot is unlocked, others are purchasable
-            plot.isPurchased = (r == 0 && c == 2);
-            // Prices mirror P1's around the river: P2's start column (c == 2) is the cheapest tier
-            plot.costGold = Balance::getLandPlotCost(r, 2 - c);
-            landPlots.push_back(plot);
+    for (int player = 1; player <= 2; ++player) {
+        for (int r = 0; r < Balance::PLOT_ROWS; r++) {
+            for (int c = 0; c < Balance::PLOT_COLS; c++) {
+                LandPlot plot;
+                plot.id = idCounter++;
+                plot.playerOwner = player;
+                plot.bounds = sf::FloatRect(plotTopLeft(player, c, r), { Balance::PLOT_WIDTH, Balance::PLOT_HEIGHT });
+                // Each player starts with the top plot on the far side from the city (P1 top-left, P2 top-right).
+                // Prices mirror around the river, so both players pay the same for mirrored plots.
+                int ownCol = (player == 1) ? c : (Balance::PLOT_COLS - 1 - c);
+                plot.isPurchased = (r == 0 && ownCol == 0);
+                plot.costGold = Balance::getLandPlotCost(r, ownCol);
+                landPlots.push_back(plot);
+            }
         }
     }
 
@@ -146,13 +123,9 @@ void GameEngine::rollDailyWeather() {
 
     auto rep1 = weather_report(sName);
     p1Weather = WeatherSystem::reportToWeatherType(rep1);
-    p1.data.weather = weather_state;
-    p1.data.wind_speed = (rep1.size() > 3) ? rep1[3] : "0";
 
     auto rep2 = weather_report(sName);
     p2Weather = WeatherSystem::reportToWeatherType(rep2);
-    p2.data.weather = weather_state;
-    p2.data.wind_speed = (rep2.size() > 3) ? rep2[3] : "0";
 }
 
 void GameEngine::update(float dt) {
@@ -214,17 +187,13 @@ void GameEngine::payCityRevenue() {
         int p2Payout = Balance::calculatePlayerPayout(contractPool, p2Share);
 
         p1.money += p1Payout;
-        p1.data.money = p1.money;
 
         p2.money += p2Payout;
-        p2.data.money = p2.money;
 
         // Gold dividend for sustained power supply from Balance formula (capped by city demand)
         p1.gold += Balance::calculateGoldDividend(p1.energyMW, city.cityEnergyDemand);
-        p1.data.gold = p1.gold;
 
         p2.gold += Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand);
-        p2.data.gold = p2.gold;
     }
 
     // City influence reflects established territorial division from daily outcomes
@@ -330,7 +299,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         poweredCount = std::min(static_cast<int>(playerLamps.size()), poweredCount);
         for (size_t i = 0; i < playerLamps.size(); i++) {
             if (static_cast<int>(i) < poweredCount) {
-                playerLamps[i]->lightRadius = 150.0f;
+                playerLamps[i]->lightRadius = Balance::STREET_LAMP.lightRadius;
                 playerLamps[i]->currentOutputMW = -LAMP_POWER_MW;
             } else {
                 // UNPOWERED LAMP! Shuts down, dark lantern head, no light circle
@@ -458,7 +427,6 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         case ResourceType::WOOD: {
             int amount = static_cast<int>(std::round(Balance::WOOD_BASE_YIELD * mult));
             econ.wood += amount;
-            econ.data.wood = econ.wood;
             result.wood = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Дървесина (Гора)" + lvlTag;
@@ -467,7 +435,6 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         case ResourceType::IRON: {
             int amount = static_cast<int>(std::round(Balance::IRON_BASE_YIELD * mult));
             econ.iron += amount;
-            econ.data.iron = econ.iron;
             result.iron = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Желязо (Желязна мина)" + lvlTag;
@@ -476,7 +443,6 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         case ResourceType::COPPER: {
             int amount = static_cast<int>(std::round(Balance::COPPER_BASE_YIELD * mult));
             econ.copper += amount;
-            econ.data.copper = econ.copper;
             result.copper = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Мед (Медна жила)" + lvlTag;
@@ -485,7 +451,6 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         case ResourceType::COAL: {
             int amount = static_cast<int>(std::round(Balance::COAL_BASE_YIELD * mult));
             econ.coal += amount;
-            econ.data.coal = econ.coal;
             result.coal = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Въглища (Въглищен пласт)" + lvlTag;
@@ -494,7 +459,6 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         case ResourceType::SILICON: {
             int amount = static_cast<int>(std::round(Balance::SILICON_BASE_YIELD * mult));
             econ.silicon += amount;
-            econ.data.silicon = econ.silicon;
             result.silicon = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Силиций (Силициева кариера)" + lvlTag;
@@ -503,7 +467,6 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         case ResourceType::SILVER: {
             int amount = static_cast<int>(std::round(Balance::SILVER_BASE_YIELD * mult));
             econ.silver += amount;
-            econ.data.silver = econ.silver;
             result.silver = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Сребро (Сребърна жила)" + lvlTag;
@@ -512,7 +475,6 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         case ResourceType::GOLD: {
             int amount = static_cast<int>(std::round(Balance::GOLD_BASE_YIELD * mult));
             econ.gold += amount;
-            econ.data.gold = econ.gold;
             result.gold = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Злато (Златна жила)" + lvlTag;
@@ -525,10 +487,10 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
         case ResourceType::ORE: {
             // Legacy cave expedition support (grants the real minerals; the hidden ore pool is no longer used)
             int fe = Balance::IRON_BASE_YIELD, cu = Balance::COPPER_BASE_YIELD, c = Balance::COAL_BASE_YIELD, au = Balance::GOLD_BASE_YIELD;
-            econ.iron += fe; econ.data.iron = econ.iron;
-            econ.copper += cu; econ.data.copper = econ.copper;
-            econ.coal += c; econ.data.coal = econ.coal;
-            econ.gold += au; econ.data.gold = econ.gold;
+            econ.iron += fe;
+            econ.copper += cu;
+            econ.coal += c;
+            econ.gold += au;
             result.iron = fe; result.copper = cu; result.coal = c; result.gold = au; result.amount = fe + cu + c;
             outMsg = "+" + std::to_string(fe) + " Желязо, +" + std::to_string(cu) + " Мед, +" + std::to_string(c) +
                      " Въглища, +" + std::to_string(au) + " Злато";
@@ -577,7 +539,6 @@ bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg)
     }
 
     econ.gold -= cost;
-    econ.data.gold = econ.gold;
     econ.mineLevels[idx]++;
     int newLvl = econ.mineLevels[idx];
 
@@ -708,29 +669,20 @@ BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
 
 sf::Vector2f GameEngine::getGridSlot(int player, int col, int row) const {
     // 9 columns (0..8) and 12 rows (0..11) for 12 plots x 9 slots each
-    col = std::max(0, std::min(col, 8));
-    row = std::max(0, std::min(row, 11));
+    col = std::max(0, std::min(col, Balance::GRID_COLS - 1));
+    row = std::max(0, std::min(row, Balance::GRID_ROWS - 1));
 
-    int plotC = col / 3;
-    int subC = col % 3;
-    int plotR = row / 3;
-    int subR = row % 3;
+    int plotC = col / Balance::SLOT_COLS_PER_PLOT;
+    int subC = col % Balance::SLOT_COLS_PER_PLOT;
+    int plotR = row / Balance::SLOT_ROWS_PER_PLOT;
+    int subR = row % Balance::SLOT_ROWS_PER_PLOT;
 
-    float plotW = 105.0f;
-    float plotH = 95.0f;
-    float gapX = 12.0f;
-    float gapY = 10.0f;
-    float startX = (player == 1) ? 258.0f : 1003.0f;
-    float startY = 105.0f;
+    sf::Vector2f plotPos = plotTopLeft(player, plotC, plotR);
+    float subW = Balance::PLOT_WIDTH / static_cast<float>(Balance::SLOT_COLS_PER_PLOT);
+    float subH = Balance::PLOT_HEIGHT / static_cast<float>(Balance::SLOT_ROWS_PER_PLOT);
 
-    float plotLeft = startX + plotC * (plotW + gapX);
-    float plotTop = startY + plotR * (plotH + gapY);
-
-    float subW = plotW / 3.0f;
-    float subH = plotH / 3.0f;
-
-    float cx = plotLeft + (subC + 0.5f) * subW;
-    float cy = plotTop + (subR + 0.5f) * subH;
+    float cx = plotPos.x + (subC + 0.5f) * subW;
+    float cy = plotPos.y + (subR + 0.5f) * subH;
     return sf::Vector2f(cx, cy);
 }
 
@@ -738,8 +690,8 @@ void GameEngine::getClosestGridIndex(int player, sf::Vector2f pos, int& outCol, 
     float bestD2 = 1e12f;
     outCol = 0;
     outRow = 0;
-    for (int r = 0; r < 12; ++r) {
-        for (int c = 0; c < 9; ++c) {
+    for (int r = 0; r < Balance::GRID_ROWS; ++r) {
+        for (int c = 0; c < Balance::GRID_COLS; ++c) {
             sf::Vector2f s = getGridSlot(player, c, r);
             float d2 = (pos.x - s.x) * (pos.x - s.x) + (pos.y - s.y) * (pos.y - s.y);
             if (d2 < bestD2) {
@@ -834,12 +786,6 @@ bool GameEngine::removeBuilding(int player, sf::Vector2f pos, std::string& outMs
     econ.silicon += refundSilicon;
     econ.silver += refundSilver;
 
-    econ.data.wood = econ.wood;
-    econ.data.iron = econ.iron;
-    econ.data.copper = econ.copper;
-    econ.data.coal = econ.coal;
-    econ.data.silicon = econ.silicon;
-    econ.data.silver = econ.silver;
 
     buildings.erase(buildings.begin() + closestIdx);
     outMsg = "ПРЕМАХНАТ " + cost.nameBg + "! (Върнати: " + std::to_string(static_cast<int>(std::lround(refund * 100.0f))) +
@@ -929,7 +875,7 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         float dx = b.position.x - pos.x;
         float dy = b.position.y - pos.y;
         float dist = std::sqrt(dx * dx + dy * dy);
-        if (dist < 16.0f) {
+        if (dist < Balance::BUILDING_MIN_SPACING) {
             reason = "В ТАЗИ КЛЕТКА ВЕЧЕ ИМА СГРАДА! Изберете свободна клетка от грида.";
             return false;
         }
@@ -962,12 +908,6 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     econ.silicon -= cost.siliconCost;
     econ.silver -= cost.silverCost;
 
-    econ.data.wood = econ.wood;
-    econ.data.iron = econ.iron;
-    econ.data.copper = econ.copper;
-    econ.data.coal = econ.coal;
-    econ.data.silicon = econ.silicon;
-    econ.data.silver = econ.silver;
 
     // Remembers lastly placed building for instant reuse!
     econ.lastPlacedBuilding = static_cast<int>(type);
@@ -981,11 +921,12 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     // Spawns with 0% battery charge as requested!
     b.energyStored = 0.0f;
     b.maxCapacity = static_cast<float>(Balance::BATTERY.batteryCapacityMWh);
-    b.lightRadius = (type == BuildingType::LAMP) ? 150.0f : 0.0f;
+    b.lightRadius = (type == BuildingType::LAMP) ? Balance::STREET_LAMP.lightRadius : 0.0f;
     buildings.push_back(b);
 
     if (type == BuildingType::LAMP) {
-        outMsg = "ПОСТАВЕНА Осветителна лампа! (Консумира 10 MW, осветява 150 px)";
+        outMsg = "ПОСТАВЕНА Осветителна лампа! (Консумира " + std::to_string(Balance::STREET_LAMP.lampConsumptionMW) +
+                 " MW, осветява " + std::to_string(static_cast<int>(Balance::STREET_LAMP.lightRadius)) + " px)";
     } else if (type == BuildingType::BATTERY) {
         outMsg = "ПОСТРОЕН Акумулатор! (0% заряд. Зарежда се от произведената чиста енергия)";
     } else {
@@ -1000,7 +941,7 @@ bool GameEngine::repairBuilding(int player, sf::Vector2f pos, std::string& outMs
     for (auto& b : buildings) {
         if (b.playerOwner == player && b.isBroken) {
             float dist = std::hypot(b.position.x - pos.x, b.position.y - pos.y);
-            if (dist <= 48.0f) {
+            if (dist <= Balance::REPAIR_REACH_RADIUS) {
                 if (econ.wood < Balance::REPAIR_WOOD_COST || econ.iron < Balance::REPAIR_IRON_COST) {
                     outMsg = "Нужни са " + std::to_string(Balance::REPAIR_WOOD_COST) + " Дърво и " +
                              std::to_string(Balance::REPAIR_IRON_COST) + " Желязо за ремонт!";
@@ -1008,14 +949,12 @@ bool GameEngine::repairBuilding(int player, sf::Vector2f pos, std::string& outMs
                 }
                 econ.wood -= Balance::REPAIR_WOOD_COST;
                 econ.iron -= Balance::REPAIR_IRON_COST;
-                econ.data.wood = econ.wood;
-                econ.data.iron = econ.iron;
 
                 b.isBroken = false;
                 BuildingCost cost = getBuildingCost(b.type);
                 b.currentOutputMW = static_cast<float>(cost.basePowerMW);
                 if (b.type == BuildingType::LAMP) {
-                    b.lightRadius = 150.0f;
+                    b.lightRadius = Balance::STREET_LAMP.lightRadius;
                 }
                 outMsg = "ПОПРАВЕНО СЪОРЪЖЕНИЕ: " + cost.nameBg + "! Отново работи на 100%!";
                 return true;
@@ -1029,7 +968,7 @@ bool GameEngine::repairBuilding(int player, sf::Vector2f pos, std::string& outMs
 bool GameEngine::breakBuildingAt(sf::Vector2f pos) {
     for (auto it = buildings.begin(); it != buildings.end(); ++it) {
         float dist = std::hypot(it->position.x - pos.x, it->position.y - pos.y);
-        if (dist <= 30.0f) {
+        if (dist <= Balance::STRIKE_HIT_RADIUS) {
             buildings.erase(it);
             return true;
         }

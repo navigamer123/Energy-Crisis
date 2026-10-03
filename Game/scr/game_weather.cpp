@@ -153,15 +153,3 @@ float WeatherSystem::getHydroMultiplier(WeatherType w) {
     }
     return 1.0f;
 }
-
-WeatherType WeatherSystem::generateDailyWeather(int day, int player) {
-    // Generate using weather_report from weatherF matching GameEngine 5-day seasons
-    int sIdx = ((day - 1) / 5) % 4;
-    SeasonType season = static_cast<SeasonType>(sIdx);
-    std::string sName = (season == SeasonType::SPRING) ? "spring" :
-                        ((season == SeasonType::SUMMER) ? "summer" :
-                        ((season == SeasonType::AUTUMN) ? "fall" : "winter"));
-    auto report = weather_report(sName);
-    (void)player;
-    return reportToWeatherType(report);
-}

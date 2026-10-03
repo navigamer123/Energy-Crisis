@@ -111,6 +111,28 @@ constexpr int PLOTS_PER_PLAYER = 12; // 3 columns x 4 rows
 constexpr int SLOTS_PER_PLOT   = 9;  // 3x3 grid per land plot = 108 slots per player
 constexpr int TOTAL_PLOTS      = 24; // 12 West (P1) + 12 East (P2)
 
+// Plot layout on the 1600x900 map (single source for land generation and the building grid).
+// West (P1) columns: 258-363, 375-480, 492-597; East (P2) columns: 1003-1108, 1120-1225, 1237-1342.
+// Both sectors stay clear of the city (X 610..990). Rows: Y 105..515.
+constexpr int PLOT_COLS = 3;
+constexpr int PLOT_ROWS = 4;
+constexpr int SLOT_COLS_PER_PLOT = 3;
+constexpr int SLOT_ROWS_PER_PLOT = 3;
+constexpr int GRID_COLS = PLOT_COLS * SLOT_COLS_PER_PLOT; // 9 building columns per player
+constexpr int GRID_ROWS = PLOT_ROWS * SLOT_ROWS_PER_PLOT; // 12 building rows per player
+constexpr float PLOT_WIDTH = 105.0f;
+constexpr float PLOT_HEIGHT = 95.0f;
+constexpr float PLOT_GAP_X = 12.0f;
+constexpr float PLOT_GAP_Y = 10.0f;
+constexpr float WEST_PLOTS_START_X = 258.0f;
+constexpr float EAST_PLOTS_START_X = 1003.0f;
+constexpr float PLOTS_START_Y = 105.0f;
+
+// Distances (px) used by building rules
+constexpr float BUILDING_MIN_SPACING = 16.0f;  // two buildings closer than this share a grid cell
+constexpr float REPAIR_REACH_RADIUS = 48.0f;   // repairBuilding finds broken facilities within this radius
+constexpr float STRIKE_HIT_RADIUS = 30.0f;     // breakBuildingAt destroys a building within this radius
+
 constexpr int LAND_BASE_COST_GOLD = 150;
 constexpr int LAND_TIER_COST_GROWTH = 45;
 
