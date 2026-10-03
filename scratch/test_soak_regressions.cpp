@@ -352,6 +352,36 @@ void testInvalidPlayerIdsRefused() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// [S7] setTimeScale() accepted infinity and huge values: one update() then simulated the rest
+// of the match (several day-end settlements and the result in a single frame).
+// ---------------------------------------------------------------------------
+void testTimeScaleClamped() {
+    beginGroup("S7 the time scale stays finite and bounded");
+    const float nan = std::numeric_limits<float>::quiet_NaN(), inf = std::numeric_limits<float>::infinity();
+    const float odd[] = { inf, 1e9f, 1e30f, nan, -inf };
+    for (float s : odd) {
+        GameEngine e;
+        initEngine(e, 17);
+        e.setTimeScale(s);
+        float ts = e.getTimeScale();
+        CHECK(std::isfinite(ts) && ts > 0.0f && ts <= 100.0f, "setTimeScale(" << s << ") -> " << ts);
+        e.update(1.0f / 30.0f);
+        CHECK(e.getCurrentDay() == 1 && e.getCityState().winner == 0,
+              "setTimeScale(" << s << "): one frame reached day " << e.getCurrentDay() << " winner " << e.getCityState().winner);
+    }
+    // the values the game uses keep working
+    GameEngine e;
+    initEngine(e, 17);
+    e.setTimeScale(Balance::MINE_SPEEDUP_MULT);
+    CHECK(e.getTimeScale() == Balance::MINE_SPEEDUP_MULT, "6x became " << e.getTimeScale());
+    e.setTimeScale(1.0f);
+    CHECK(e.getTimeScale() == 1.0f, "1x became " << e.getTimeScale());
+    e.setTimeScale(0.0f);
+    CHECK(e.getTimeScale() == 1.0f, "0 became " << e.getTimeScale());
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -361,6 +391,7 @@ int main() {
     testUnknownBuildingTypesRefused();
     testNonFinitePositionsRefused();
     testInvalidPlayerIdsRefused();
+    testTimeScaleClamped();
     std::cout << "\n" << (g_failures == 0 ? "ALL PASSED" : "FAILED") << ": " << (g_checks - g_failures) << "/" << g_checks
               << " checks\n";
     return g_failures == 0 ? 0 : 1;

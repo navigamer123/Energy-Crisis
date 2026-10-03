@@ -171,7 +171,12 @@ public:
     void init(float screenWidth, float screenHeight);
     void update(float dt);
 
-    void setTimeScale(float scale) { timeScale = (scale > 0.1f ? scale : 1.0f); }
+    // [wave-c-soak] Infinite / huge scales played the rest of the match in one frame: capped at MAX_TIME_SCALE
+    static constexpr float MAX_TIME_SCALE = 100.0f;
+    void setTimeScale(float scale) {
+        // (no std::min: it would odr-use MAX_TIME_SCALE, which needs a definition before C++17)
+        timeScale = (std::isfinite(scale) && scale > 0.1f) ? (scale < MAX_TIME_SCALE ? scale : MAX_TIME_SCALE) : 1.0f;
+    }
     float getTimeScale() const { return timeScale; }
 
     // Player Actions
