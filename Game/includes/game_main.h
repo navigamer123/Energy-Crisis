@@ -223,7 +223,17 @@ public:
     // Lamp consumption constant (MW)
     static constexpr float LAMP_POWER_MW = static_cast<float>(Balance::STREET_LAMP.lampConsumptionMW);
 
-    // Building Data helper
+    // Building recipes: the single source of building costs for engine, UI and bot.
+    // getBuildingDef: the Balance recipe of a type (nullptr for NONE / DEMOLISH).
+    static constexpr const Balance::BuildingDef* getBuildingDef(BuildingType type) {
+        return (type == BuildingType::SOLAR_PANEL)    ? &Balance::SOLAR_PANEL
+               : (type == BuildingType::WIND_TURBINE) ? &Balance::WIND_TURBINE
+               : (type == BuildingType::HYDRO_PLANT)  ? &Balance::HYDRO_PLANT
+               : (type == BuildingType::BATTERY)      ? &Balance::BATTERY
+               : (type == BuildingType::LAMP)         ? &Balance::STREET_LAMP
+                                                      : nullptr;
+    }
+    // getBuildingCost: name, resource recipe and base MW of a type (base prices, no player modifiers)
     BuildingCost getBuildingCost(BuildingType type) const;
     sf::Vector2f snapToBuildingGrid(int player, sf::Vector2f pos) const;
     sf::Vector2f getGridSlot(int player, int col, int row) const;

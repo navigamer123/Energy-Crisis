@@ -535,6 +535,42 @@ void testFixedTimestep() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// [CD-11] One source for building costs
+// ---------------------------------------------------------------------------
+void testBuildingCosts() {
+    beginGroup("Building costs from one accessor (CD-11)");
+    GameEngine e;
+    e.init(1600.0f, 900.0f);
+    struct Expect { BuildingType type; const Balance::BuildingDef* def; int legacyOre; };
+    const Expect expected[] = {
+        { BuildingType::SOLAR_PANEL, &Balance::SOLAR_PANEL, 18 },
+        { BuildingType::WIND_TURBINE, &Balance::WIND_TURBINE, 28 },
+        { BuildingType::HYDRO_PLANT, &Balance::HYDRO_PLANT, 38 },
+        { BuildingType::BATTERY, &Balance::BATTERY, 26 },
+        { BuildingType::LAMP, &Balance::STREET_LAMP, 8 },
+    };
+    for (const auto& x : expected) {
+        const Balance::BuildingDef* def = GameEngine::getBuildingDef(x.type);
+        REQUIRE(def != nullptr, "no recipe for type " << static_cast<int>(x.type));
+        const BuildingCost c = e.getBuildingCost(x.type);
+        CHECK(c.type == x.type && c.nameBg == x.def->nameBg && c.nameEn == x.def->nameEn, "names of type " << static_cast<int>(x.type));
+        CHECK(c.woodCost == x.def->woodCost && c.ironCost == x.def->ironCost && c.copperCost == x.def->copperCost &&
+                  c.coalCost == x.def->coalCost && c.siliconCost == x.def->siliconCost && c.silverCost == x.def->silverCost,
+              "recipe of type " << static_cast<int>(x.type));
+        CHECK(c.basePowerMW == x.def->basePowerMW && c.oreCost == x.legacyOre,
+              "MW / ore of type " << static_cast<int>(x.type) << ": " << c.basePowerMW << " / " << c.oreCost);
+        CHECK(def->woodCost == x.def->woodCost && def->basePowerMW == x.def->basePowerMW, "getBuildingDef mismatch");
+    }
+    CHECK(GameEngine::getBuildingDef(BuildingType::NONE) == nullptr && GameEngine::getBuildingDef(BuildingType::DEMOLISH) == nullptr,
+          "NONE / DEMOLISH have no recipe");
+    CHECK(e.getBuildingCost(BuildingType::DEMOLISH).type == BuildingType::DEMOLISH &&
+              e.getBuildingCost(BuildingType::DEMOLISH).woodCost == 0,
+          "demolish tool entry");
+    CHECK(e.getBuildingCost(BuildingType::NONE).type == BuildingType::NONE, "NONE entry");
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -546,6 +582,7 @@ int main() {
     testMatchConfig();
     testDeterministicRng();
     testFixedTimestep();
+    testBuildingCosts();
 
     std::cout << "\n========================================================\n";
     if (g_failures == 0) {

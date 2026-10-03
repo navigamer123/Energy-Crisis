@@ -69,12 +69,7 @@ float windSpeedOf(const std::vector<std::string>& report) {
 
 // Base output (MW) of a building type, read from Balance without building a BuildingCost (no strings)
 constexpr int basePowerOf(BuildingType type) {
-    return (type == BuildingType::SOLAR_PANEL)    ? Balance::SOLAR_PANEL.basePowerMW
-           : (type == BuildingType::WIND_TURBINE) ? Balance::WIND_TURBINE.basePowerMW
-           : (type == BuildingType::HYDRO_PLANT)  ? Balance::HYDRO_PLANT.basePowerMW
-           : (type == BuildingType::BATTERY)      ? Balance::BATTERY.basePowerMW
-           : (type == BuildingType::LAMP)         ? Balance::STREET_LAMP.basePowerMW
-                                                  : 0;
+    return GameEngine::getBuildingDef(type) ? GameEngine::getBuildingDef(type)->basePowerMW : 0;
 }
 
 } // namespace
@@ -784,37 +779,17 @@ BuildingType GameEngine::getSelectedBuilding(int player) const {
 }
 
 BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
-    switch (type) {
-        case BuildingType::SOLAR_PANEL: {
-            const auto& b = Balance::SOLAR_PANEL;
-            int ore = b.ironCost + b.copperCost + b.siliconCost;
-            return { BuildingType::SOLAR_PANEL, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
-        }
-        case BuildingType::WIND_TURBINE: {
-            const auto& b = Balance::WIND_TURBINE;
-            int ore = b.ironCost + b.copperCost + b.coalCost;
-            return { BuildingType::WIND_TURBINE, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
-        }
-        case BuildingType::HYDRO_PLANT: {
-            const auto& b = Balance::HYDRO_PLANT;
-            int ore = b.ironCost + b.copperCost + b.siliconCost;
-            return { BuildingType::HYDRO_PLANT, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
-        }
-        case BuildingType::BATTERY: {
-            const auto& b = Balance::BATTERY;
-            int ore = b.ironCost + b.copperCost + b.coalCost + b.silverCost;
-            return { BuildingType::BATTERY, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
-        }
-        case BuildingType::LAMP: {
-            const auto& b = Balance::STREET_LAMP;
-            int ore = b.ironCost + b.copperCost;
-            return { BuildingType::LAMP, b.nameBg, b.nameEn, b.woodCost, b.ironCost, b.copperCost, b.coalCost, b.siliconCost, b.silverCost, ore, b.basePowerMW };
-        }
-        case BuildingType::DEMOLISH:
-            return { BuildingType::DEMOLISH, "Премахване", "Demolish Tool", 0, 0, 0, 0, 0, 0, 0, 0 };
-        default:
-            return { BuildingType::NONE, "", "", 0, 0, 0, 0, 0, 0, 0, 0 };
+    if (type == BuildingType::DEMOLISH) {
+        return { BuildingType::DEMOLISH, "Премахване", "Demolish Tool", 0, 0, 0, 0, 0, 0, 0, 0 };
     }
+    const Balance::BuildingDef* def = getBuildingDef(type);
+    if (!def) {
+        return { BuildingType::NONE, "", "", 0, 0, 0, 0, 0, 0, 0, 0 };
+    }
+    // Legacy 'ore' total = every mineral of the recipe (no longer spent, kept for old callers)
+    int ore = def->ironCost + def->copperCost + def->coalCost + def->siliconCost + def->silverCost;
+    return { type, def->nameBg, def->nameEn, def->woodCost, def->ironCost, def->copperCost, def->coalCost,
+             def->siliconCost, def->silverCost, ore, def->basePowerMW };
 }
 
 sf::Vector2f GameEngine::getGridSlot(int player, int col, int row) const {
