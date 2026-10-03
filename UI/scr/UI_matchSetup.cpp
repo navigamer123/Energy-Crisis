@@ -74,12 +74,6 @@ std::string fmtFloat(float v, int decimals) {
 }
 
 // Shrinks a text until it fits maxWidth (never below minSize)
-void fitText(sf::Text& t, float maxWidth, unsigned int minSize) {
-    while (t.getCharacterSize() > minSize && t.getLocalBounds().size.x > maxWidth) {
-        t.setCharacterSize(t.getCharacterSize() - 1);
-    }
-}
-
 void drawPanel(sf::RenderWindow& window, float x, float y, float w, float h) {
     sf::RectangleShape box({ w, h });
     box.setPosition({ x, y });
@@ -105,33 +99,6 @@ void drawTriangle(sf::RenderWindow& window, sf::FloatRect r, int dir, sf::Color 
     }
     tri.setFillColor(c);
     window.draw(tri);
-}
-
-void drawLeftText(sf::RenderWindow& window, const sf::Font& font, const std::string& s, unsigned int size,
-                  sf::Color c, float x, float centerY, float maxW = 10000.0f) {
-    sf::Text t(font, toUtf8(s), size);
-    fitText(t, maxW, 10);
-    t.setFillColor(c);
-    sf::FloatRect b = t.getLocalBounds();
-    sf::Text ref(font, toUtf8("НЕ"), t.getCharacterSize()); // same baseline for every row
-    sf::FloatRect rb = ref.getLocalBounds();
-    t.setPosition({ x - b.position.x, centerY - rb.size.y / 2.0f - rb.position.y });
-    window.draw(t);
-}
-
-void drawCenteredText(sf::RenderWindow& window, const sf::Font& font, const std::string& s, unsigned int size,
-                      sf::Color c, sf::FloatRect box) {
-    sf::Text t(font, toUtf8(s), size);
-    fitText(t, box.size.x - 8.0f, 10);
-    t.setFillColor(c);
-    sf::FloatRect b = t.getLocalBounds();
-    // Vertical centre from plain capitals of the same size, so labels with diacritics (Й) or
-    // descenders stay on one baseline across a row of chips
-    sf::Text ref(font, toUtf8("НЕ"), t.getCharacterSize());
-    sf::FloatRect rb = ref.getLocalBounds();
-    t.setPosition({ box.position.x + (box.size.x - b.size.x) / 2.0f - b.position.x,
-                    box.position.y + (box.size.y - rb.size.y) / 2.0f - rb.position.y });
-    window.draw(t);
 }
 
 } // namespace
@@ -407,6 +374,15 @@ void UI_matchSetup::handleEvent(const sf::Event& event, const sf::RenderWindow& 
 // Drawing
 // -----------------------------------------------------------------------------
 void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded) {
+    // Cached labels: numbered in drawing order, rebuilt only when their text changes
+    int slot = 0;
+    auto L = [&](const std::string& s, unsigned int size, sf::Color c, float x, float cy, float maxW = 100000.0f) {
+        texts.draw(window, ++slot, font, s, size, c, x, cy, maxW, OptionsTextCache::LEFT, 10);
+    };
+    auto C = [&](const std::string& s, unsigned int size, sf::Color c, sf::FloatRect box) {
+        texts.draw(window, ++slot, font, s, size, c, box.position.x + box.size.x / 2.0f, box.position.y + box.size.y / 2.0f,
+                   box.size.x - 8.0f, OptionsTextCache::CENTER, 10);
+    };
     const float rowW = PANEL_W - 2.0f * INNER_PAD;
     drawPanel(window, LEFT_X, PANEL_Y, PANEL_W, PANEL_H);
     drawPanel(window, RIGHT_X, PANEL_Y, PANEL_W, PANEL_H);
@@ -424,7 +400,7 @@ void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fo
 
     // ---------------- Left panel: preset + rule values ----------------
     if (fontLoaded) {
-        drawLeftText(window, font, "ПРАВИЛА НА МАЧА", 20, COL_TITLE, LEFT_X + INNER_PAD, PANEL_Y + 20.0f);
+        L("ПРАВИЛА НА МАЧА", 20, COL_TITLE, LEFT_X + INNER_PAD, PANEL_Y + 20.0f);
     }
     for (int i = 0; i < static_cast<int>(MatchPreset::COUNT); ++i) {
         sf::FloatRect chip = presetChipRect(i);
@@ -436,12 +412,12 @@ void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fo
         c.setOutlineColor(selected ? (focus == ITEM_PRESET ? COL_FOCUS_EDGE : COL_GOOD) : COL_PANEL_EDGE);
         window.draw(c);
         if (fontLoaded) {
-            drawCenteredText(window, font, MatchInfo::presetName(static_cast<MatchPreset>(i)), 15,
+            C(MatchInfo::presetName(static_cast<MatchPreset>(i)), 15,
                              selected ? COL_TEXT : COL_MUTED, chip);
         }
     }
     if (fontLoaded) {
-        drawLeftText(window, font, MatchInfo::presetDescription(rules.preset), 13, COL_MUTED,
+        L(MatchInfo::presetDescription(rules.preset), 13, COL_MUTED,
                      LEFT_X + INNER_PAD, 270.0f, rowW);
     }
 
@@ -452,12 +428,12 @@ void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fo
         drawTriangle(window, arrowRect(item, -1), -1, focus == item ? COL_FOCUS_EDGE : COL_ARROW);
         drawTriangle(window, arrowRect(item, +1), +1, focus == item ? COL_FOCUS_EDGE : COL_ARROW);
         if (fontLoaded) {
-            drawLeftText(window, font, labelText(item), 15, focus == item ? COL_TEXT : COL_MUTED, r.position.x + 12.0f, cy,
+            L(labelText(item), 15, focus == item ? COL_TEXT : COL_MUTED, r.position.x + 12.0f, cy,
                          arrowRect(item, -1).position.x - r.position.x - 24.0f);
             sf::FloatRect left = arrowRect(item, -1), right = arrowRect(item, +1);
             sf::FloatRect valueBox({ left.position.x + left.size.x, r.position.y },
                                    { right.position.x - (left.position.x + left.size.x), r.size.y });
-            drawCenteredText(window, font, valueText(item), 16, COL_VALUE, valueBox);
+            C(valueText(item), 16, COL_VALUE, valueBox);
         }
     }
 
@@ -470,29 +446,26 @@ void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fo
             length = "Продължителност: до " + std::to_string(minutes) + " мин (" + std::to_string(rules.finalDay) +
                      " дни x " + fmtFloat(rules.daySeconds, 0) + " с)";
         }
-        drawLeftText(window, font, length, 14, COL_TEXT, LEFT_X + INNER_PAD, 604.0f, rowW);
-        drawLeftText(window, font, "Ускорението при добив съкращава реалното време.", 12, COL_MUTED,
+        L(length, 14, COL_TEXT, LEFT_X + INNER_PAD, 604.0f, rowW);
+        L("Ускорението при добив съкращава реалното време.", 12, COL_MUTED,
                      LEFT_X + INNER_PAD, 626.0f, rowW);
         std::string mode = vsBot ? "Режим: срещу бот (ботът е Играч 2)" : "Режим: двама играчи на една машина";
-        drawLeftText(window, font, mode, 13, COL_MUTED, LEFT_X + INNER_PAD, 660.0f, rowW);
-        drawLeftText(window, font, "Изборът се пази за следващите мачове и при [R] рестарт.", 12, COL_MUTED,
+        L(mode, 13, COL_MUTED, LEFT_X + INNER_PAD, 660.0f, rowW);
+        L("Изборът се пази за следващите мачове и при [R] рестарт.", 12, COL_MUTED,
                      LEFT_X + INNER_PAD, 682.0f, rowW);
     }
 
     // ---------------- Right panel: mutators ----------------
     if (fontLoaded) {
-        drawLeftText(window, font, "МУТАТОРИ", 20, COL_TITLE, RIGHT_X + INNER_PAD, PANEL_Y + 20.0f);
+        L("МУТАТОРИ", 20, COL_TITLE, RIGHT_X + INNER_PAD, PANEL_Y + 20.0f);
         float flash = 0.0f;
         if (refusedFlash > 0.0f) {
             flash = std::max(0.0f, 1.0f - flashClock.getElapsedTime().asSeconds() / 1.2f);
             if (flash <= 0.0f) refusedFlash = 0.0f;
         }
         std::string count = "избрани " + std::to_string(rules.activeMutatorCount()) + " от " + std::to_string(MAX_ACTIVE_MUTATORS);
-        sf::Text tc(font, toUtf8(count), 14);
-        tc.setFillColor(flash > 0.0f ? COL_REFUSED : COL_VALUE);
-        sf::FloatRect cb = tc.getLocalBounds();
-        tc.setPosition({ RIGHT_X + PANEL_W - INNER_PAD - cb.size.x - cb.position.x, PANEL_Y + 20.0f - cb.size.y / 2.0f - cb.position.y });
-        window.draw(tc);
+        texts.draw(window, 9000, font, count, 14, flash > 0.0f ? COL_REFUSED : COL_VALUE, RIGHT_X + PANEL_W - INNER_PAD,
+                   PANEL_Y + 20.0f, 300.0f, OptionsTextCache::RIGHT, 10);
     }
     for (int i = 0; i < MUTATOR_COUNT; ++i) {
         int item = ITEM_MUTATOR_FIRST + i;
@@ -516,8 +489,8 @@ void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fo
             window.draw(check, 3, sf::PrimitiveType::LineStrip);
         }
         if (fontLoaded) {
-            drawLeftText(window, font, MatchInfo::mutatorName(flag), 15, on ? COL_GOOD : COL_TEXT, r.position.x + 38.0f, cy, 190.0f);
-            drawLeftText(window, font, MatchInfo::mutatorDescription(flag), 12, COL_MUTED, r.position.x + 236.0f, cy,
+            L(MatchInfo::mutatorName(flag), 15, on ? COL_GOOD : COL_TEXT, r.position.x + 38.0f, cy, 190.0f);
+            L(MatchInfo::mutatorDescription(flag), 12, COL_MUTED, r.position.x + 236.0f, cy,
                          r.size.x - 236.0f - 8.0f);
         }
     }
@@ -529,12 +502,12 @@ void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fo
         b.setOutlineThickness(focus == ITEM_MUTATOR_RANDOM ? 2.0f : 1.5f);
         b.setOutlineColor(focus == ITEM_MUTATOR_RANDOM ? COL_FOCUS_EDGE : COL_PANEL_EDGE);
         window.draw(b);
-        if (fontLoaded) drawCenteredText(window, font, "СЛУЧАЙНИ МУТАТОРИ", 14, COL_TEXT, r);
+        if (fontLoaded) C("СЛУЧАЙНИ МУТАТОРИ", 14, COL_TEXT, r);
     }
 
     // ---------------- Right panel: charters ----------------
     if (fontLoaded) {
-        drawLeftText(window, font, "СТАРТОВИ ХАРТИ", 20, COL_TITLE, RIGHT_X + INNER_PAD, 538.0f);
+        L("СТАРТОВИ ХАРТИ", 20, COL_TITLE, RIGHT_X + INNER_PAD, 538.0f);
     }
     for (int idx = 0; idx < 2; ++idx) {
         int item = (idx == 0) ? ITEM_CHARTER_P1 : ITEM_CHARTER_P2;
@@ -545,17 +518,17 @@ void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fo
         drawTriangle(window, arrowRect(item, +1), +1, focus == item ? COL_FOCUS_EDGE : COL_ARROW);
         if (fontLoaded) {
             std::string who = (idx == 0) ? "ИГРАЧ 1 (ЗАПАД)" : (vsBot ? "БОТ (ИЗТОК)" : "ИГРАЧ 2 (ИЗТОК)");
-            drawLeftText(window, font, who, 15, idx == 0 ? COL_P1 : COL_P2, r.position.x + 12.0f, cy, 176.0f);
+            L(who, 15, idx == 0 ? COL_P1 : COL_P2, r.position.x + 12.0f, cy, 176.0f);
             sf::FloatRect left = arrowRect(item, -1), right = arrowRect(item, +1);
             sf::FloatRect valueBox({ left.position.x + left.size.x, r.position.y },
                                    { right.position.x - (left.position.x + left.size.x), r.size.y });
-            drawCenteredText(window, font, valueText(item), 16, COL_VALUE, valueBox);
+            C(valueText(item), 16, COL_VALUE, valueBox);
             CharterType ct = rules.charter[idx];
-            drawLeftText(window, font, MatchInfo::charterDescription(ct), 13, ct == CharterType::NONE ? COL_MUTED : COL_GOOD,
+            L(MatchInfo::charterDescription(ct), 13, ct == CharterType::NONE ? COL_MUTED : COL_GOOD,
                          r.position.x + 12.0f, r.position.y + r.size.y + 12.0f, r.size.x - 24.0f);
             const char* minus = MatchInfo::charterDrawback(ct);
             if (minus[0] != '\0') {
-                drawLeftText(window, font, minus, 13, COL_BAD, r.position.x + 12.0f, r.position.y + r.size.y + 30.0f, r.size.x - 24.0f);
+                L(minus, 13, COL_BAD, r.position.x + 12.0f, r.position.y + r.size.y + 30.0f, r.size.x - 24.0f);
             }
         }
     }
@@ -572,14 +545,10 @@ void UI_matchSetup::draw(sf::RenderWindow& window, const sf::Font& font, bool fo
         b.setOutlineColor(f ? COL_FOCUS_EDGE : COL_PANEL_EDGE);
         window.draw(b);
         if (fontLoaded) {
-            drawCenteredText(window, font, item == ITEM_START ? "СТАРТ НА МАЧА" : "НАЗАД", 19, COL_TEXT, r);
+            C(item == ITEM_START ? "СТАРТ НА МАЧА" : "НАЗАД", 19, COL_TEXT, r);
         }
     }
     if (fontLoaded) {
-        sf::Text hint(font, toUtf8("[W/S] Ред   |   [A/D] Промяна   |   [Enter/Space] Избор   |   [Esc] Назад   |   Мишка: клик / колелце"), 13);
-        hint.setFillColor(COL_MUTED);
-        sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (VIRTUAL_WIDTH - hb.size.x) / 2.0f - hb.position.x, 836.0f });
-        window.draw(hint);
+        texts.draw(window, 9001, font, "[W/S] Ред   |   [A/D] Промяна   |   [Enter/Space] Избор   |   [Esc] Назад   |   Мишка: клик / колелце", 13, COL_MUTED, VIRTUAL_WIDTH / 2.0f, 845.0f, 1400.0f, OptionsTextCache::CENTER, 10);
     }
 }

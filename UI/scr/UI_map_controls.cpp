@@ -896,6 +896,9 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
     }
 
+    // [b-options] Research panels (F-33) and the sandbox panel (F-21) get their keys / clicks first
+    if (handleMatchOptionsEvent(event, window)) return;
+
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         if (key->code == sf::Keyboard::Key::F11) {
             requestFullscreenToggle = true;

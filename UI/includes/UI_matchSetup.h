@@ -3,6 +3,7 @@
 
 #include <SFML/Graphics.hpp>
 #include "UI_types.h"
+#include "UI_optionsText.h"
 #include "../../Game/includes/game_match.h"
 
 // =============================================================================
@@ -54,6 +55,7 @@ private:
     float refusedFlash = 0.0f;           // red flash when a 4th mutator is refused
     sf::Clock flashClock;
     sf::Vector2f lastMouse = { -999.0f, -999.0f };
+    OptionsTextCache texts;               // cached labels (text building is the costly part of a frame)
 
     void adjust(int item, int dir);       // left / right on a row
     void activate(int item);              // Enter / Space / click on a row

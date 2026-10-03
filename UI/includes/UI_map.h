@@ -12,6 +12,7 @@
 #include "UI_buildings.h"
 #include "UI_bot.h"
 #include "UI_tutorial.h"
+#include "UI_research.h" // [b-options] F-33 research lab
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -194,7 +195,18 @@ private:
     bool isModalDismissKey(int player, sf::Keyboard::Key code) const;  // That player's own confirm/cancel keys
 
     // [b-options] Match options & progression glue (UI_map_options.cpp)
+    UI_research research;                // F-33 lab buildings + research panels
+    OptionsTextCache optionsTexts;       // cached labels of the rules strip / sandbox panel
+    float botResearchTimer = 2.0f;       // the bot (P2) checks the lab every 2 s
+    sf::Vector2f guardPos[2];            // cursor state frozen while that player's panel is open
+    int guardGrid[2][2] = { { 0, 0 }, { 0, 0 } };
     void syncMatchOptionsUI(float dt);   // per frame: rule numbers on clocks/bar, real costs on the menus
+    bool handleMatchOptionsEvent(const sf::Event& event, const sf::RenderWindow& window); // true = consumed
+    void drawMatchOptionsWorld(sf::RenderWindow& window, float animTime);    // rules strip + lab buildings
+    void drawMatchOptionsOverlays(sf::RenderWindow& window, float animTime); // research panels
+    void beginOptionsInputGuard();       // around updateControls(): a player with an open panel
+    void endOptionsInputGuard();         // neither moves nor acts in the world
+    void tryResearch(int player, int branch, int tier, int option);
 
 public:
     // [b-options] Rules for the next restartMatch() (Match Setup screen / sandbox)

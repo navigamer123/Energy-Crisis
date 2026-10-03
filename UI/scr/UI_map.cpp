@@ -208,6 +208,8 @@ void UI_map::restartMatch() {
     p1SelectCooldown = 0.0f;
     p2SelectCooldown = 0.0f;
 
+    research.closeAll(); // [b-options] F-33 panels start closed in every match
+
     // Dialogs, popups & effects
     p1Modal.active = false;
     p2Modal.active = false;
@@ -254,7 +256,9 @@ void UI_map::render(sf::RenderWindow& window) {
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     if (!isPaused && engine.getCityState().winner == 0) {
         engine.update(dt);
+        beginOptionsInputGuard(); // [b-options] an open research panel owns its player's keys
         updateControls(window, dt);
+        endOptionsInputGuard();   // [b-options]
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
     }
@@ -330,6 +334,9 @@ void UI_map::render(sf::RenderWindow& window) {
     // 10. Resource Mines & Timber Forests
     nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
 
+    // [b-options] Match rules strip and the two research lab buildings (centre column)
+    drawMatchOptionsWorld(window, animTime);
+
     // Interactive mining extraction prompts & 6x speed badges
     drawMiningZonesAndBadges(window);
 
@@ -368,6 +375,9 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 19. Floating Notices
     drawFloatingNotices(window);
+
+    // [b-options] Research panels (and the sandbox control panel) above the world, below pause/help
+    drawMatchOptionsOverlays(window, animTime);
 
     // 20. Pause Menu (drawn before help so help is layered on top)
     if (engine.getCityState().winner != 0) {
