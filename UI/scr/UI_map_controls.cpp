@@ -413,14 +413,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     p1GridRow = std::max(0, p1GridRow - 1);
                     moved = true;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) {
-                    p1GridRow = std::min(11, p1GridRow + 1);
+                    p1GridRow = std::min(engine.getGridRows() - 1, p1GridRow + 1); // b-power: layout size
                     moved = true;
                 }
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) {
                     p1GridCol = std::max(0, p1GridCol - 1);
                     moved = true;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) {
-                    p1GridCol = std::min(8, p1GridCol + 1);
+                    p1GridCol = std::min(engine.getGridCols() - 1, p1GridCol + 1); // b-power: layout size
                     moved = true;
                 }
                 if (moved) {
@@ -489,14 +489,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p2GridRow = std::max(0, p2GridRow - 1);
                         moved = true;
                     } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
-                        p2GridRow = std::min(11, p2GridRow + 1);
+                        p2GridRow = std::min(engine.getGridRows() - 1, p2GridRow + 1); // b-power: layout size
                         moved = true;
                     }
                     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
                         p2GridCol = std::max(0, p2GridCol - 1);
                         moved = true;
                     } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-                        p2GridCol = std::min(8, p2GridCol + 1);
+                        p2GridCol = std::min(engine.getGridCols() - 1, p2GridCol + 1); // b-power: layout size
                         moved = true;
                     }
                     if (moved) {

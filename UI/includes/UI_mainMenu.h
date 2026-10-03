@@ -5,6 +5,7 @@
 #include <string>
 #include "UI_types.h"
 #include "UI_playControls.h"
+#include "UI_mapSelect.h" // Team b-power: map layout selector
 
 enum class MenuState {
     MAIN,
@@ -41,6 +42,7 @@ private:
     bool fontLoaded;
 
     UI_playControls playControls;
+    UI_mapSelect mapSelect; // Team b-power (F-39)
 
     void drawHeader(sf::RenderWindow& window);
     void drawMainMenu(sf::RenderWindow& window);
@@ -76,6 +78,9 @@ public:
     BotDifficulty getSelectedBotDifficulty() const {
         return selectedBotDifficulty;
     }
+    // Team b-power (F-39): chosen map layout and its seed (0 = follow the match seed)
+    MapPreset getSelectedMapPreset() const { return mapSelect.getPreset(); }
+    unsigned getSelectedMapSeed() const { return mapSelect.getSeed(); }
 };
 
 #endif // UI_MAINMENU_H

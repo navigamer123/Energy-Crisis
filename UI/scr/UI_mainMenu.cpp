@@ -107,6 +107,7 @@ void UI_mainMenu::onPlay() {
 void UI_mainMenu::returnToMain() {
     state = MenuState::MAIN;
     selectedMainIndex = 0;
+    mapSelect.reroll(); // Team b-power: a fresh terrain roll for the next match
     // A key still held from the match (e.g. Enter on 'ГЛАВНО МЕНЮ') must be released first
     enterHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
     spaceHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
@@ -209,6 +210,9 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 112.0f });
         window.draw(hint);
     }
+
+    // Team b-power (F-39): map layout selector with mini-map preview
+    mapSelect.draw(window, font, fontLoaded, startY + 2.0f * spacing + 142.0f, mousePos);
 }
 
 void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
@@ -449,7 +453,9 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 }
             }
         } else if (state == MenuState::MODE_SELECT) {
-            if (isUp) {
+            if (mapSelect.handleKey(key->code)) {
+                // Team b-power: A/D, Left/Right and R change the map layout
+            } else if (isUp) {
                 selectedModeIndex = (selectedModeIndex + 2) % 3;
             } else if (isDown) {
                 selectedModeIndex = (selectedModeIndex + 1) % 3;
@@ -547,6 +553,7 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     onQuit();
                 }
             } else if (state == MenuState::MODE_SELECT) {
+                if (mapSelect.handleClick(clickPos)) return; // Team b-power: map selector arrows
                 float btnWidth = 540.0f;
                 float btnHeight = 58.0f;
                 float btnX = (screenWidth - btnWidth) / 2.0f;

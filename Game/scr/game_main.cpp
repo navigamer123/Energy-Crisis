@@ -47,7 +47,12 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     (void)screenHeight;
 
     // Reset EVERY piece of match state (clock, season, revenue timer, city, players, buildings)
+    // Team b-power: the map chosen in the menu survives the reset
+    const MapPreset keepPreset = mapPreset;
+    const unsigned keepMapSeed = mapSeedOverride;
     *this = GameEngine();
+    mapPreset = keepPreset;
+    mapSeedOverride = keepMapSeed;
 
     // Seed both the weather RNG and std::rand (lightning, bot, particles) once per match
     bool seedFromEnv = false;
@@ -68,57 +73,12 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     city.lastCutMessage = "ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИТЕ 2 ДЕНА ГРАДЪТ ИСКА 0 ЕНЕРГИЯ ЗА РАЗВИТИЕ!";
 
     // -------------------------------------------------------------------------
-    // Generate Purchasable Land Grid on West (P1) and East (P2)
-    // 12 land plots per player (3 cols x 4 rows)
-    // Land dimensions strictly positioned so they NEVER touch or go under the city!
-    // City bounds: X in [610.0, 990.0].
+    // Team b-power (F-39): purchasable land plots of West (P1) and East (P2) come from the map
+    // layout (game_map_layout.cpp). The Classic preset is the original 3x4 grid with the same ids,
+    // prices and river column; other presets change the geometry. East always mirrors West.
+    // Plots never touch the city (x 610..990) or the resource stations (y >= 582).
     // -------------------------------------------------------------------------
-    float plotW = 105.0f;
-    float plotH = 95.0f;
-    float gapX = 12.0f;
-    float gapY = 10.0f;
-
-    // West Side (P1): 3 columns x 4 rows = 12 land plots
-    // Col 0: 258-363, Col 1: 375-480, Col 2: 492-597 < 610. Row 0..3: Y in [105..515] < 582
-    float westStartX = 258.0f;
-    float startY = 105.0f;
-    int idCounter = 1;
-
-    for (int r = 0; r < 4; r++) {
-        for (int c = 0; c < 3; c++) {
-            float x = westStartX + c * (plotW + gapX);
-            float y = startY + r * (plotH + gapY);
-
-            LandPlot plot;
-            plot.id = idCounter++;
-            plot.playerOwner = 1;
-            plot.bounds = sf::FloatRect({ x, y }, { plotW, plotH });
-            // Starting top-left plot is unlocked, others are purchasable
-            plot.isPurchased = (r == 0 && c == 0);
-            plot.costGold = Balance::getLandPlotCost(r, c);
-            landPlots.push_back(plot);
-        }
-    }
-
-    // East Side (P2): 3 columns x 4 rows = 12 land plots
-    // Col 0: 1003-1108 > 990, Col 1: 1120-1225, Col 2: 1237-1342 < 1360. Row 0..3: Y in [105..515]
-    float eastStartX = 1003.0f;
-    for (int r = 0; r < 4; r++) {
-        for (int c = 0; c < 3; c++) {
-            float x = eastStartX + c * (plotW + gapX);
-            float y = startY + r * (plotH + gapY);
-
-            LandPlot plot;
-            plot.id = idCounter++;
-            plot.playerOwner = 2;
-            plot.bounds = sf::FloatRect({ x, y }, { plotW, plotH });
-            // Starting top-right plot is unlocked, others are purchasable
-            plot.isPurchased = (r == 0 && c == 2);
-            // Prices mirror P1's around the river: P2's start column (c == 2) is the cheapest tier
-            plot.costGold = Balance::getLandPlotCost(r, 2 - c);
-            landPlots.push_back(plot);
-        }
-    }
+    setupPowerWorld(seed);
 
     // Clear and reset players
     buildings.clear();
@@ -707,39 +667,17 @@ BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
 }
 
 sf::Vector2f GameEngine::getGridSlot(int player, int col, int row) const {
-    // 9 columns (0..8) and 12 rows (0..11) for 12 plots x 9 slots each
-    col = std::max(0, std::min(col, 8));
-    row = std::max(0, std::min(row, 11));
-
-    int plotC = col / 3;
-    int subC = col % 3;
-    int plotR = row / 3;
-    int subR = row % 3;
-
-    float plotW = 105.0f;
-    float plotH = 95.0f;
-    float gapX = 12.0f;
-    float gapY = 10.0f;
-    float startX = (player == 1) ? 258.0f : 1003.0f;
-    float startY = 105.0f;
-
-    float plotLeft = startX + plotC * (plotW + gapX);
-    float plotTop = startY + plotR * (plotH + gapY);
-
-    float subW = plotW / 3.0f;
-    float subH = plotH / 3.0f;
-
-    float cx = plotLeft + (subC + 0.5f) * subW;
-    float cy = plotTop + (subR + 0.5f) * subH;
-    return sf::Vector2f(cx, cy);
+    // Team b-power (F-39): geometry comes from the map layout (3x3 slots per plot cell;
+    // Classic = 9 columns x 12 rows). Columns are screen columns for both players.
+    return layout.slotCenter(player, col, row);
 }
 
 void GameEngine::getClosestGridIndex(int player, sf::Vector2f pos, int& outCol, int& outRow) const {
     float bestD2 = 1e12f;
     outCol = 0;
     outRow = 0;
-    for (int r = 0; r < 12; ++r) {
-        for (int c = 0; c < 9; ++c) {
+    for (int r = 0; r < layout.gridRows(); ++r) {
+        for (int c = 0; c < layout.gridCols(); ++c) {
             sf::Vector2f s = getGridSlot(player, c, r);
             float d2 = (pos.x - s.x) * (pos.x - s.x) + (pos.y - s.y) * (pos.y - s.y);
             if (d2 < bestD2) {
@@ -775,12 +713,10 @@ bool GameEngine::isAreaIlluminated(int player, sf::Vector2f pos) const {
 }
 
 bool GameEngine::isRiverBankSlot(int player, sf::Vector2f pos) const {
-    // The river runs through the city between the two sectors; the plot column touching the city
-    // (P1: right-most column, P2: left-most column) is the river bank.
-    int col = 0, row = 0;
-    getClosestGridIndex(player, pos, col, row);
-    int plotCol = col / 3;
-    return plotCol == ((player == 1) ? Balance::P1_RIVER_BANK_PLOT_COL : Balance::P2_RIVER_BANK_PLOT_COL);
+    // Team b-power (F-15/F-39): river-bank plots come from the map layout terrain. In the Classic
+    // map that is the plot column touching the city (P1: right-most column, P2: left-most column).
+    const LandPlot* plot = findPlotAt(player, snapToBuildingGrid(player, pos));
+    return plot != nullptr && plot->terrain == static_cast<int>(TerrainType::RIVER);
 }
 
 int GameEngine::findOwnedBuildingInSlot(int player, sf::Vector2f pos) const {

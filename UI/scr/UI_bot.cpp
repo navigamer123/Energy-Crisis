@@ -73,8 +73,8 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     std::vector<sf::Vector2f> freeSlots;
     std::vector<sf::Vector2f> illuminatedFreeSlots;
 
-    for (int r = 0; r < 12; ++r) {
-        for (int c = 0; c < 9; ++c) {
+    for (int r = 0; r < engine.getGridRows(); ++r) { // b-power: map layout size
+        for (int c = 0; c < engine.getGridCols(); ++c) {
             sf::Vector2f slot = engine.getGridSlot(2, c, r);
             bool onPurchased = false;
             for (const auto& plot : engine.getLandPlots()) {

@@ -8,6 +8,7 @@
 #include "game_expedition.h"
 #include "game_random.h"
 #include "game_balance.h"
+#include "game_power.h" // Team b-power: map layouts, terrain, nuclear, hazards, mega-projects
 
 // -----------------------------------------------------------------------------
 // PlayerData (integrated from weatherF branch)
@@ -53,7 +54,13 @@ enum class BuildingType {
     HYDRO_PLANT,
     BATTERY,
     LAMP,
-    DEMOLISH
+    DEMOLISH,
+    // Team b-power: advanced power (DEMOLISH stays 6 for the 1..6 hotkeys). See game_power.h.
+    NUCLEAR,            // 7  АЕЦ: 400 MW after a one-day ramp, silver fuel, SCRAM, whole plot
+    GEOTHERMAL,         // 8  Геотермална ЦЕЦ: steady output, only on vent plots
+    MEGA_FUSION,        // 9  Mega-project: термоядрен реактор
+    MEGA_SPACE_SOLAR,   // 10 Mega-project: космическа слънчева централа
+    MEGA_PUMPED_HYDRO   // 11 Mega-project: ПАВЕЦ (pumped-hydro storage dam, river plot)
 };
 
 struct BuildingCost {
@@ -80,6 +87,14 @@ struct PlacedBuilding {
     float maxCapacity = 200.0f; // Max capacity in MWh
     float lightRadius = 150.0f; // For Lamp light cone
     bool isBroken = false;      // Damaged/broken by lightning strike
+    // Team b-power: terrain, nuclear, hazards, mega-projects (game_power.h)
+    int terrain = 0;               // TerrainType of the plot it stands on (set when placed)
+    int damageKind = 0;            // HazardKind that broke it (valid while isBroken)
+    float rampProgress = 0.0f;     // Nuclear: 0..1 output ramp after (re)start
+    float scramTimer = 0.0f;       // Nuclear: game-seconds left in a SCRAM shutdown
+    bool needsFuel = false;        // Nuclear: shut down until 12 silver are available
+    float constructionLeft = 0.0f; // Mega-projects: game-seconds of construction left (0 = done)
+    float constructionTotal = 0.0f;// Mega-projects: full construction time (game-seconds)
 };
 
 struct LandPlot {
@@ -88,6 +103,10 @@ struct LandPlot {
     sf::FloatRect bounds;
     bool isPurchased;
     int costGold;
+    // Team b-power: map layout cell and terrain (game_power.h)
+    int terrain = 0;    // TerrainType
+    int screenCol = 0;  // Plot column on screen (left to right)
+    int row = 0;        // Plot row (top to bottom)
 };
 
 struct PlayerEconomy {
@@ -165,6 +184,32 @@ private:
     void rollDailyWeather();
     int findOwnedBuildingInSlot(int player, sf::Vector2f pos) const;
 
+    // ---- Team b-power: map layout, terrain, nuclear, hazards, mega-projects (game_power*.cpp) ----
+    MapPreset mapPreset = MapPreset::CLASSIC; // Survives init(): chosen in the menu before a match
+    unsigned mapSeedOverride = 0;             // 0 = use the match seed for the map
+    MapLayout layout;
+    PowerWorldState world;
+    void setupPowerWorld(unsigned matchSeed);         // game_map_layout.cpp: layout + land plots + RNG
+    void updateAdvancedSystems(float dt);             // game_power_update.cpp: every simulation step
+    void advancedDayEnd();                            // before the new day's weather is rolled
+    void advancedNewDay();                            // after the new day's weather is rolled
+    float advancedOutputMW(const PlacedBuilding& b, WeatherType w) const; // nuclear, geothermal, mega
+    float terrainOutputMultiplier(const PlacedBuilding& b) const;         // hill / meadow / river flow
+    float storageMaxPowerMW(const PlacedBuilding& b) const;               // battery 40, dam 400
+    bool checkAdvancedUnlock(int player, BuildingType type, std::string& reason) const;
+    bool checkAdvancedPlacement(int player, BuildingType type, sf::Vector2f pos, std::string& reason) const;
+    sf::Vector2f snapAdvanced(int player, BuildingType type, sf::Vector2f pos) const;
+    void onAdvancedPlaced(PlacedBuilding& b);
+    float advancedRefundFraction(BuildingType type) const;
+    BuildingCost getAdvancedBuildingCost(BuildingType type) const;
+    int findPlotWideBuildingAt(int player, sf::Vector2f pos) const;
+    void pushPowerFx(const PowerFx& fx);
+    void scramReactor(PlacedBuilding& b, const std::string& cause);
+    bool damageBuilding(PlacedBuilding& b, HazardKind kind);
+    void scheduleHazard(HazardKind kind, int player, int westCol, int row);
+    void fireHazard(HazardPlan& plan);
+    float rollUnit();                                 // 0..1 from the hazard RNG
+
 public:
     GameEngine();
     void init(float screenWidth, float screenHeight);
@@ -231,6 +276,40 @@ public:
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
     SeasonType getSeason() const { return currentSeason; }
+
+    // ---- Team b-power public API (game_power.h) ----
+    // Map layout (F-39): pick before init()/restartGame(); seed 0 = derive from the match seed
+    void setMapPreset(MapPreset preset, unsigned seed = 0) { mapPreset = preset; mapSeedOverride = seed; }
+    MapPreset getMapPreset() const { return mapPreset; }
+    const MapLayout& getMapLayout() const { return layout; }
+    int getGridCols() const { return layout.gridCols(); }  // slots per row (3 per plot column)
+    int getGridRows() const { return layout.gridRows(); }  // slots per column (3 per plot row)
+    sf::Vector2f getStartPlotSlot(int player, int subCol, int subRow) const; // slot inside the start plot
+    const LandPlot* findPlotAt(int player, sf::Vector2f pos) const;          // nullptr outside the plots
+    int countOwnedPlots(int player) const;
+    // Terrain (F-15)
+    float getRiverFlowFactor() const;   // shared hydro multiplier from all hydro plants of both players
+    int countHydroPlants() const;
+    // Advanced buildings (F-32, HX-10)
+    static bool isPlotWideBuilding(BuildingType type); // nuclear + mega-projects fill a whole plot
+    static bool isMegaProject(BuildingType type);
+    bool isAdvancedUnlocked(int player, BuildingType type, std::string& reason) const;
+    bool isSlotReserved(int player, sf::Vector2f slot) const; // inside a plot used by a plot-wide building
+    const PlacedBuilding* getMegaProject(int player) const;   // nullptr when the player has none
+    const PlacedBuilding* getReactor(int player) const;
+    float getConstructionProgress(const PlacedBuilding& b) const; // 0..1 (1 = finished)
+    // Lightning on a reactor or mega-project: SCRAM / construction setback instead of destruction.
+    // Returns true when the strike was absorbed (the caller must not delete the building).
+    bool absorbLightningAt(sf::Vector2f pos);
+    // Hazards (F-34)
+    int countBrokenBuildings(int player) const;
+    const std::vector<HazardPlan>& getHazardPlans() const { return world.plans; }
+    int getRainStreak(int player) const { return world.rainStreak[player == 2 ? 2 : 1]; }
+    int getDryStreak(int player) const { return world.dryStreak[player == 2 ? 2 : 1]; }
+    // Test / demo hook: trigger a hazard now (quake: westCol/row = epicentre, -1 = random)
+    void triggerHazardNow(HazardKind kind, int player, int westCol = -1, int row = -1);
+    // UI event queue (HazardFx): returns and clears the pending events
+    std::vector<PowerFx> drainPowerFx();
 };
 
 #endif // GAME_MAIN_H

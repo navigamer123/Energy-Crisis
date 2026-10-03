@@ -212,6 +212,8 @@ public:
     void skipTutorial() { tutorial.skip(); }
 
     const GameEngine& getEngine() const { return engine; }
+    // Team b-power (F-39): map layout for the next restartMatch()
+    void setMapPreset(MapPreset preset, unsigned seed) { engine.setMapPreset(preset, seed); }
 
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
     void render(sf::RenderWindow& window);
