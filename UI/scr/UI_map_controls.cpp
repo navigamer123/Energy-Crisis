@@ -734,6 +734,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     // -------------------------------------------------------------------------
     if (engine.getCityState().winner != 0) {
         if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (postMatch.handleKey(key->code)) return; // team info: report tabs (1/2/3, arrows)
             if (key->code == sf::Keyboard::Key::R) {
                 restartMatch();
                 return;
@@ -745,6 +746,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
         if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
             sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            if (postMatch.handleClick(clickPos)) return; // team info: report tab headers
             if (victoryRestartBtn.contains(clickPos)) {
                 restartMatch();
                 return;

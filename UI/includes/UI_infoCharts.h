@@ -49,11 +49,11 @@ inline float niceCeil(float v) {
     return 10.0f * p;
 }
 
-// Number of grid steps (4, 5 or 2) that puts every y label on a round value
+// Number of grid steps (4, 5 or 2) whose step is itself a "nice" value (1, 2, 2.5, 5 x 10^k)
 inline int niceTicks(float yMax) {
     for (int n : { 4, 5, 2 }) {
         float step = yMax / static_cast<float>(n);
-        if (std::fabs(step - std::round(step)) < 1e-3f) return n;
+        if (std::fabs(niceCeil(step) - step) < 1e-3f * std::max(1.0f, step)) return n;
     }
     return 4;
 }
@@ -77,7 +77,7 @@ inline void polyline(sf::RenderTarget& t, const std::vector<sf::Vector2f>& pts, 
 }
 
 // Filled area between a polyline and a horizontal line (baseY can be the top or the bottom of the plot)
-inline void area(sf::RenderTarget& t, const std::vector<sf::Vector2f>& pts, float baseY, sf::Color col) {
+inline void fillArea(sf::RenderTarget& t, const std::vector<sf::Vector2f>& pts, float baseY, sf::Color col) {
     if (pts.size() < 2) return;
     sf::VertexArray va(sf::PrimitiveType::Triangles);
     for (std::size_t i = 0; i + 1 < pts.size(); ++i) {
@@ -140,11 +140,40 @@ inline void textCentered(sf::RenderTarget& t, const sf::Font& f, const std::stri
     t.draw(tx);
 }
 
-// Panel with a title, horizontal grid lines and y-axis labels. Returns the plot area frame.
+struct LegendItem {
+    sf::Color color;
+    std::string label;
+};
+
+inline float legendWidth(const sf::Font& f, const std::vector<LegendItem>& items) {
+    float w = 0.0f;
+    for (const auto& it : items) w += 19.0f + infoText::advance(f, toUtf8(it.label), 11) + 16.0f;
+    return items.empty() ? 0.0f : w - 16.0f;
+}
+
+// Legend entries laid out so that the last one ends at rightX
+inline void legendRight(sf::RenderTarget& t, const sf::Font& f, float rightX, float y, const std::vector<LegendItem>& items) {
+    float x = rightX - legendWidth(f, items);
+    for (const auto& it : items) {
+        rect(t, sf::FloatRect({ x, y + 4.0f }, { 14.0f, 4.0f }), it.color);
+        sf::Text tx(f, toUtf8(it.label), 11);
+        tx.setFillColor(AXIS_TEXT);
+        tx.setPosition({ x + 19.0f, y - 2.0f });
+        t.draw(tx);
+        x += 19.0f + infoText::width(tx) + 16.0f;
+    }
+}
+
+// Panel with a title (shortened so it never runs into the legend), an optional legend at the
+// top right, horizontal grid lines and y-axis labels. Returns the plot area frame.
 inline Frame chartPanel(sf::RenderTarget& t, const sf::Font& f, sf::FloatRect box, const std::string& title,
-                        float yMax, int yTicks, const std::function<std::string(float)>& yLabel) {
+                        float yMax, int yTicks, const std::function<std::string(float)>& yLabel,
+                        const std::vector<LegendItem>& legendItems = {}) {
     rect(t, box, PANEL, PANEL_EDGE, 1.0f);
-    text(t, f, title, 13, { box.position.x + 12.0f, box.position.y + 8.0f }, TITLE_TEXT, true, box.size.x - 24.0f);
+    const float legendW = legendWidth(f, legendItems);
+    if (!legendItems.empty()) legendRight(t, f, box.position.x + box.size.x - 12.0f, box.position.y + 10.0f, legendItems);
+    const float titleMaxW = box.size.x - 24.0f - (legendItems.empty() ? 0.0f : legendW + 18.0f);
+    text(t, f, title, 13, { box.position.x + 12.0f, box.position.y + 8.0f }, TITLE_TEXT, true, titleMaxW);
 
     Frame fr;
     fr.r = sf::FloatRect({ box.position.x + 58.0f, box.position.y + 36.0f }, { box.size.x - 74.0f, box.size.y - 62.0f });

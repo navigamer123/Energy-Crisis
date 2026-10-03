@@ -184,7 +184,8 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         const float yMax = niceCeil(maxV * 1.1f);
         sf::FloatRect box({ leftX, chartsY }, { wideW, chartH });
         Frame fr = chartPanel(target, font, box, "МОЩНОСТ КЪМ ГРАДА (MW) · ПОСЛЕДНИТЕ 48 ЧАСА", yMax, niceTicks(yMax),
-                              [](float v) { return fmtInt(v); });
+                              [](float v) { return fmtInt(v); },
+                              { { COL_P1, "Играч 1" }, { COL_P2, "Играч 2" }, { COL_DEMAND, "Нужда" } });
         fr.x0 = x0;
         fr.x1 = x1;
 
@@ -237,17 +238,14 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
             if (!l1.empty()) liveDot(target, l1.back(), COL_P1, animTime);
             if (!l2.empty()) liveDot(target, l2.back(), COL_P2, animTime);
         }
-        float lx = box.position.x + box.size.x - 300.0f;
-        lx = legend(target, font, lx, box.position.y + 10.0f, COL_P1, "Играч 1");
-        lx = legend(target, font, lx, box.position.y + 10.0f, COL_P2, "Играч 2");
-        legend(target, font, lx, box.position.y + 10.0f, COL_DEMAND, "Нужда");
     }
 
     // B. City share tug-of-war across the match
     {
         sf::FloatRect box({ rightX, chartsY }, { narrowW, chartH });
         Frame fr = chartPanel(target, font, box, "ДЯЛ ОТ ГРАДА ПО ДНИ", 100.0f, 4,
-                              [](float v) { return std::to_string(static_cast<int>(std::lround(v))) + "%"; });
+                              [](float v) { return std::to_string(static_cast<int>(std::lround(v))) + "%"; },
+                              { { COL_P1, "Запад" }, { COL_P2, "Изток" } });
         const float nowDays = nowH / 24.0f;
         fr.x0 = 0.0f;
         fr.x1 = std::max(5.0f, std::ceil(nowDays + 0.01f));
@@ -263,8 +261,8 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         const float revealX = fr.r.position.x + fr.r.size.x * reveal;
         for (const auto& p : line) if (p.x <= revealX + 0.5f) shown.push_back(p);
 
-        area(target, shown, fr.r.position.y + fr.r.size.y, sf::Color(COL_P1.r, COL_P1.g, COL_P1.b, 70));
-        area(target, shown, fr.r.position.y, sf::Color(COL_P2.r, COL_P2.g, COL_P2.b, 70));
+        fillArea(target, shown, fr.r.position.y + fr.r.size.y, sf::Color(COL_P1.r, COL_P1.g, COL_P1.b, 70));
+        fillArea(target, shown, fr.r.position.y, sf::Color(COL_P2.r, COL_P2.g, COL_P2.b, 70));
         for (float v : { Balance::VICTORY_SHARE * 100.0f, (1.0f - Balance::VICTORY_SHARE) * 100.0f }) {
             sf::Vector2f p = fr.map(0.0f, v);
             dashedH(target, fr.r.position.x, fr.r.position.x + fr.r.size.x, p.y, COL_DEMAND);
@@ -291,9 +289,6 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
             textCentered(target, font, std::to_string(d), 10, { p.x, fr.r.position.y + fr.r.size.y + 4.0f }, AXIS_TEXT);
         }
         textRight(target, font, "ден", 10, { box.position.x + box.size.x - 10.0f, fr.r.position.y + fr.r.size.y + 4.0f }, AXIS_TEXT);
-        float lx = box.position.x + box.size.x - 210.0f;
-        lx = legend(target, font, lx, box.position.y + 10.0f, COL_P1, "Запад");
-        legend(target, font, lx, box.position.y + 10.0f, COL_P2, "Изток");
     }
 
     // C. Energy mix right now

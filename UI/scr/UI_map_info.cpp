@@ -26,6 +26,8 @@ void UI_map::resetInfoUI() {
     notifications.reset();
     pendingInfoEvents.clear();
     showEventLog = false;
+    dashboardOpenedAt = -1.0f;
+    postMatch.reset();
 }
 
 // -----------------------------------------------------------------------------

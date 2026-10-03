@@ -16,6 +16,7 @@
 #include "UI_matchStats.h"   // team info
 #include "UI_notifications.h" // team info
 #include "UI_dashboard.h"     // team info
+#include "UI_postmatch.h"     // team info
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -210,6 +211,7 @@ private:
     UI_dashboard dashboard;             // Energy dashboard while [Tab] is held
     float dashboardOpenedAt = -1.0f;    // animClock time when Tab went down (-1 = closed)
     void drawDashboardIfHeld(sf::RenderWindow& window);
+    UI_postmatch postMatch;             // Post-match report (replaces the victory box)
 
 public:
     UI_map();
