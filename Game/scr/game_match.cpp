@@ -5,6 +5,7 @@
 #include "../includes/game_match.h"
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 namespace {
 
@@ -200,27 +201,128 @@ const char* charterShortName(CharterType c) {
     }
 }
 
-const char* charterDescription(CharterType c) {
-    switch (c) {
-        case CharterType::NONE:             return "Еднакъв старт, без бонуси и минуси.";
-        case CharterType::SOLAR_COOP:       return "+20% слънчева мощност, панелите -25% цена";
-        case CharterType::HYDRO_HOLDING:    return "+20% мощност на ВЕЦ, ВЕЦ -20% цена";
-        case CharterType::MINING_SYNDICATE: return "+25% добив, ъпгрейди на мини -30% злато";
-        case CharterType::CITY_INSIDER:     return "+25% пари от града, земя -20% злато";
-        case CharterType::NIGHT_SHIFT:      return "+50% капацитет и -30% цена батерии, лампи -50% ток";
-        default:                            return "";
+// F-35 charter table: the only place where charter numbers live (see CharterDef)
+const CharterDef& charterDef(CharterType c) {
+    static const CharterDef* const kDefs = [] {
+        static CharterDef d[static_cast<int>(CharterType::COUNT)];
+        CharterDef& solar = d[static_cast<int>(CharterType::SOLAR_COOP)];
+        solar.solarOutput = 1.40f;
+        solar.solarCost = 0.60f;
+        solar.hydroOutput = 0.90f;
+        CharterDef& hydro = d[static_cast<int>(CharterType::HYDRO_HOLDING)];
+        hydro.hydroOutput = 1.30f;
+        hydro.hydroCost = 0.70f;
+        hydro.solarOutput = 0.90f;
+        CharterDef& mining = d[static_cast<int>(CharterType::MINING_SYNDICATE)];
+        mining.miningYield = 1.20f;
+        mining.mineUpgradeCost = 0.80f;
+        mining.windOutput = 0.90f;
+        mining.solarOutput = 0.90f;
+        mining.hydroOutput = 0.90f;
+        CharterDef& insider = d[static_cast<int>(CharterType::CITY_INSIDER)];
+        insider.income = 1.30f;
+        insider.landCost = 0.85f;
+        insider.miningYield = 0.90f;
+        CharterDef& night = d[static_cast<int>(CharterType::NIGHT_SHIFT)];
+        night.batteryCapacity = 1.50f;
+        night.batteryCost = 0.85f;
+        night.lampDraw = 0.50f;
+        night.solarOutput = 0.90f;
+        return d;
+    }();
+    int i = static_cast<int>(c);
+    if (i < 0 || i >= static_cast<int>(CharterType::COUNT)) i = 0;
+    return kDefs[i];
+}
+
+namespace {
+
+// One effect of a charter for the generated bonus / drawback lines. `higherIsBetter` is true
+// for outputs, yields and income; false for prices and lamp draw.
+struct CharterEffect {
+    float CharterDef::*field;
+    bool higherIsBetter;
+    const char* before; // text before the percentage ("" when the percentage comes first)
+    const char* after;  // text after the percentage
+};
+
+const CharterEffect kCharterEffects[] = {
+    { &CharterDef::solarOutput, true, "", " слънчева мощност" },
+    { &CharterDef::windOutput, true, "", " вятърна мощност" },
+    { &CharterDef::hydroOutput, true, "", " мощност на ВЕЦ" },
+    { &CharterDef::batteryCapacity, true, "", " капацитет на батерии" },
+    { &CharterDef::miningYield, true, "", " добив" },
+    { &CharterDef::income, true, "", " пари от града" },
+    { &CharterDef::solarCost, false, "панели ", " цена" },
+    { &CharterDef::windCost, false, "мелници ", " цена" },
+    { &CharterDef::hydroCost, false, "ВЕЦ ", " цена" },
+    { &CharterDef::batteryCost, false, "батерии ", " цена" },
+    { &CharterDef::lampDraw, false, "лампи ", " ток" },
+    { &CharterDef::mineUpgradeCost, false, "ъпгрейди на мини ", " злато" },
+    { &CharterDef::landCost, false, "земя ", " злато" },
+};
+
+// "+35%" / "-10%" for a multiplier
+std::string percentText(float mult) {
+    int pct = static_cast<int>(std::lround((mult - 1.0f) * 100.0f));
+    return (pct > 0 ? "+" : "") + std::to_string(pct) + "%";
+}
+
+bool isOutputField(float CharterDef::*field) {
+    return field == &CharterDef::solarOutput || field == &CharterDef::windOutput || field == &CharterDef::hydroOutput;
+}
+
+// wantGood = true: the bonus line; false: the drawback line (without the "Минус: " prefix)
+std::string charterEffectLine(const CharterDef& d, bool wantGood) {
+    std::string line;
+    auto add = [&line](const std::string& part) {
+        if (!line.empty()) line += ", ";
+        line += part;
+    };
+    // The same change on all three generators reads as one effect
+    const bool sameOutputs = std::fabs(d.solarOutput - d.windOutput) < 0.005f && std::fabs(d.solarOutput - d.hydroOutput) < 0.005f;
+    for (const auto& e : kCharterEffects) {
+        float v = d.*(e.field);
+        if (std::fabs(v - 1.0f) < 0.005f) continue;
+        bool good = e.higherIsBetter ? (v > 1.0f) : (v < 1.0f);
+        if (good != wantGood) continue;
+        if (sameOutputs && isOutputField(e.field)) {
+            if (e.field == &CharterDef::solarOutput) add(percentText(v) + " мощност на всички централи");
+            continue;
+        }
+        add(e.before + percentText(v) + e.after);
     }
+    return line;
+}
+
+} // namespace
+
+const char* charterDescription(CharterType c) {
+    static const std::string* const kLines = [] {
+        static std::string s[static_cast<int>(CharterType::COUNT)];
+        for (int i = 0; i < static_cast<int>(CharterType::COUNT); ++i) {
+            s[i] = charterEffectLine(charterDef(static_cast<CharterType>(i)), true);
+            if (s[i].empty()) s[i] = "Еднакъв старт, без бонуси и минуси.";
+        }
+        return s;
+    }();
+    int i = static_cast<int>(c);
+    if (i < 0 || i >= static_cast<int>(CharterType::COUNT)) return "";
+    return kLines[i].c_str();
 }
 
 const char* charterDrawback(CharterType c) {
-    switch (c) {
-        case CharterType::SOLAR_COOP:       return "Минус: -15% вятърна мощност";
-        case CharterType::HYDRO_HOLDING:    return "Минус: -10% слънчева мощност";
-        case CharterType::MINING_SYNDICATE: return "Минус: -20% пари от града";
-        case CharterType::CITY_INSIDER:     return "Минус: -10% добив";
-        case CharterType::NIGHT_SHIFT:      return "Минус: -10% слънчева мощност";
-        default:                            return "";
-    }
+    static const std::string* const kLines = [] {
+        static std::string s[static_cast<int>(CharterType::COUNT)];
+        for (int i = 0; i < static_cast<int>(CharterType::COUNT); ++i) {
+            std::string minus = charterEffectLine(charterDef(static_cast<CharterType>(i)), false);
+            s[i] = minus.empty() ? std::string() : "Минус: " + minus;
+        }
+        return s;
+    }();
+    int i = static_cast<int>(c);
+    if (i < 0 || i >= static_cast<int>(CharterType::COUNT)) return "";
+    return kLines[i].c_str();
 }
 
 const char* techBranchName(int branch) {
@@ -272,38 +374,21 @@ int techTierCost(int tier) {
 PlayerPerks computePlayerPerks(const MatchRules& rules, int player, const TechState& tech) {
     PlayerPerks p;
 
-    // F-35 charter
-    switch (rules.charterOf(player)) {
-        case CharterType::SOLAR_COOP:
-            p.solarOutputMult *= 1.20f;
-            p.buildCostMult[BT_SOLAR] *= 0.75f;
-            p.windOutputMult *= 0.85f;
-            break;
-        case CharterType::HYDRO_HOLDING:
-            p.hydroOutputMult *= 1.20f;
-            p.buildCostMult[BT_HYDRO] *= 0.80f;
-            p.solarOutputMult *= 0.90f;
-            break;
-        case CharterType::MINING_SYNDICATE:
-            p.miningYieldMult *= 1.25f;
-            p.mineUpgradeCostMult *= 0.70f;
-            p.incomeMult *= 0.80f;
-            break;
-        case CharterType::CITY_INSIDER:
-            p.incomeMult *= 1.25f;
-            p.landCostMult *= 0.80f;
-            p.miningYieldMult *= 0.90f;
-            break;
-        case CharterType::NIGHT_SHIFT:
-            p.batteryCapacityMult *= 1.50f;
-            p.buildCostMult[BT_BATTERY] *= 0.70f;
-            p.lampDrawMult *= 0.50f;
-            p.solarOutputMult *= 0.90f;
-            break;
-        case CharterType::NONE:
-        default:
-            break;
-    }
+    // F-35 charter (multipliers from the charter table)
+    const CharterDef& ch = charterDef(rules.charterOf(player));
+    p.solarOutputMult *= ch.solarOutput;
+    p.windOutputMult *= ch.windOutput;
+    p.hydroOutputMult *= ch.hydroOutput;
+    p.buildCostMult[BT_SOLAR] *= ch.solarCost;
+    p.buildCostMult[BT_WIND] *= ch.windCost;
+    p.buildCostMult[BT_HYDRO] *= ch.hydroCost;
+    p.buildCostMult[BT_BATTERY] *= ch.batteryCost;
+    p.batteryCapacityMult *= ch.batteryCapacity;
+    p.lampDrawMult *= ch.lampDraw;
+    p.miningYieldMult *= ch.miningYield;
+    p.mineUpgradeCostMult *= ch.mineUpgradeCost;
+    p.incomeMult *= ch.income;
+    p.landCostMult *= ch.landCost;
 
     // F-33 research (choice -1 = not researched)
     auto has = [&](int branch, int tier, int option) {

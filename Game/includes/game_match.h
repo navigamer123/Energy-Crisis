@@ -122,6 +122,19 @@ struct PlayerPerks {
 };
 
 // -----------------------------------------------------------------------------
+// F-35 charter multipliers (1.0 = unchanged). The single source of truth for each charter:
+// computePlayerPerks() applies these and the bonus / drawback lines shown in the Match Setup
+// screen are generated from them, so the text can never drift from the numbers.
+// Tuned with scratch/test_charter_balance.cpp (no charter above a 55% win rate).
+// -----------------------------------------------------------------------------
+struct CharterDef {
+    float solarOutput = 1.0f, windOutput = 1.0f, hydroOutput = 1.0f;
+    float solarCost = 1.0f, windCost = 1.0f, hydroCost = 1.0f, batteryCost = 1.0f;
+    float batteryCapacity = 1.0f, lampDraw = 1.0f;
+    float miningYield = 1.0f, mineUpgradeCost = 1.0f, income = 1.0f, landCost = 1.0f;
+};
+
+// -----------------------------------------------------------------------------
 // F-33 Research lab: 3 branches x 3 tiers, each tier offers 2 options and you keep one
 // -----------------------------------------------------------------------------
 constexpr int TECH_BRANCHES = 3;   // 0 = Generation, 1 = Storage & night, 2 = Extraction
@@ -167,8 +180,9 @@ const char* mutatorName(std::uint32_t flag);
 const char* mutatorDescription(std::uint32_t flag);
 const char* charterName(CharterType c);
 const char* charterShortName(CharterType c);
-const char* charterDescription(CharterType c);     // bonus line
-const char* charterDrawback(CharterType c);        // drawback line ("" for NONE)
+const CharterDef& charterDef(CharterType c);       // the charter's multipliers
+const char* charterDescription(CharterType c);     // bonus line, generated from charterDef()
+const char* charterDrawback(CharterType c);        // drawback line ("" when there is none)
 const char* techBranchName(int branch);
 const TechInfo& techInfo(int branch, int tier, int option);
 int techTierCost(int tier);                        // money ($): 4 000 / 15 000 / 40 000

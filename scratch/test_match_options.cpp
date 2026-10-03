@@ -6,6 +6,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -274,12 +275,20 @@ void testMutators() {
 // ---------------------------------------------------------------------------
 void testCharters() {
     beginGroup("F-35 charters");
-    { // Solar Co-op vs none: cheaper panels, +20% output at the same weather and hour
+    // Every expectation comes from the charter table, so retuning a number keeps these checks valid
+    auto scaled = [](int base, float mult) { return std::max(1, static_cast<int>(std::lround(base * mult))); };
+    const CharterDef& solar = MatchInfo::charterDef(CharterType::SOLAR_COOP);
+    const CharterDef& hydro = MatchInfo::charterDef(CharterType::HYDRO_HOLDING);
+    const CharterDef& mining = MatchInfo::charterDef(CharterType::MINING_SYNDICATE);
+    const CharterDef& insider = MatchInfo::charterDef(CharterType::CITY_INSIDER);
+    const CharterDef& night = MatchInfo::charterDef(CharterType::NIGHT_SHIFT);
+    { // Solar Co-op vs none: cheaper panels, more output at the same weather and hour
         MatchRules m; m.charter[0] = CharterType::SOLAR_COOP;
         GameEngine e; startMatch(e, m);
         BuildingCost c1 = e.getBuildingCostFor(1, BuildingType::SOLAR_PANEL);
         BuildingCost c2 = e.getBuildingCostFor(2, BuildingType::SOLAR_PANEL);
-        CHECK(c1.siliconCost == 6 && c2.siliconCost == 8, "solar silicon 8 -> 6 for P1 only");
+        CHECK(solar.solarCost < 1.0f && c1.siliconCost == scaled(8, solar.solarCost) && c2.siliconCost == 8,
+              "solar silicon 8 -> " << c1.siliconCost << " for P1 only");
         giveEverything(e, 1, 100, 0);
         giveEverything(e, 2, 100, 0);
         std::string msg;
@@ -289,16 +298,28 @@ void testCharters() {
         e.sandboxSetWeather(2, WeatherType::SUNNY);
         e.sandboxSetHour(12.5f);
         float o1 = e.projectGenerationMW(1, 12.5f), o2 = e.projectGenerationMW(2, 12.5f);
-        CHECK(o2 > 0.0f && near(o1 / o2, 1.2f, 1e-3f), "P1 solar x1.2: " << o1 << " vs " << o2);
-        CHECK(near(static_cast<float>(e.getPlayerEconomy(1).energyMW) / e.getPlayerEconomy(2).energyMW, 1.2f, 0.02f),
+        CHECK(solar.solarOutput > 1.0f && o2 > 0.0f && near(o1 / o2, solar.solarOutput, 1e-3f),
+              "P1 solar x" << solar.solarOutput << ": " << o1 << " vs " << o2);
+        CHECK(near(static_cast<float>(e.getPlayerEconomy(1).energyMW) / e.getPlayerEconomy(2).energyMW, solar.solarOutput, 0.02f),
               "live grid follows the perk: " << e.getPlayerEconomy(1).energyMW << " vs " << e.getPlayerEconomy(2).energyMW);
+    }
+    { // Hydro Holding: cheaper and stronger hydro on the river bank
+        MatchRules m; m.charter[0] = CharterType::HYDRO_HOLDING;
+        GameEngine e; startMatch(e, m);
+        BuildingCost c1 = e.getBuildingCostFor(1, BuildingType::HYDRO_PLANT);
+        CHECK(hydro.hydroCost < 1.0f && c1.ironCost == scaled(20, hydro.hydroCost) && e.getBuildingCostFor(2, BuildingType::HYDRO_PLANT).ironCost == 20,
+              "hydro iron 20 -> " << c1.ironCost << " for P1 only");
+        CHECK(hydro.hydroOutput > 1.0f && near(e.getPlayerPerks(1).hydroOutputMult, hydro.hydroOutput) &&
+              near(e.getPlayerPerks(2).hydroOutputMult, 1.0f), "hydro output x" << hydro.hydroOutput);
     }
     { // Mining Syndicate
         MatchRules m; m.charter[1] = CharterType::MINING_SYNDICATE;
         GameEngine e; startMatch(e, m);
-        CHECK(e.getMineYield(2, ResourceType::WOOD) == 15 && e.getMineYield(1, ResourceType::WOOD) == 12, "wood 12 -> 15 for P2");
-        CHECK(e.getMineUpgradeCost(2, ResourceType::IRON) == 21 && e.getMineUpgradeCost(1, ResourceType::IRON) == 30,
-              "upgrade 30 -> 21 gold");
+        int wood = static_cast<int>(std::round(12 * mining.miningYield));
+        CHECK(mining.miningYield > 1.0f && e.getMineYield(2, ResourceType::WOOD) == wood && e.getMineYield(1, ResourceType::WOOD) == 12,
+              "wood 12 -> " << wood << " for P2");
+        CHECK(e.getMineUpgradeCost(2, ResourceType::IRON) == scaled(30, mining.mineUpgradeCost) && e.getMineUpgradeCost(1, ResourceType::IRON) == 30,
+              "upgrade 30 -> " << scaled(30, mining.mineUpgradeCost) << " gold");
     }
     { // City Insider: cheaper land, more money
         MatchRules m; m.charter[0] = CharterType::CITY_INSIDER;
@@ -308,7 +329,8 @@ void testCharters() {
             if (p.id == 2) p1Plot2 = p.costGold;
             if (p.id == 14) p2Plot14 = p.costGold;
         }
-        CHECK(p1Plot2 == 156 && p2Plot14 == 195, "plot 195 G -> 156 G for P1 (" << p1Plot2 << ", " << p2Plot14 << ")");
+        CHECK(insider.landCost < 1.0f && p1Plot2 == scaled(195, insider.landCost) && p2Plot14 == 195,
+              "plot 195 G -> " << scaled(195, insider.landCost) << " G for P1 (" << p1Plot2 << ", " << p2Plot14 << ")");
         giveEverything(e, 1, 100, 0);
         giveEverything(e, 2, 100, 0);
         std::string msg;
@@ -318,7 +340,8 @@ void testCharters() {
         e.sandboxSetWeather(2, WeatherType::WINDY);
         runSeconds(e, 10.0f);
         float ratio = static_cast<float>(e.getPlayerEconomy(1).money) / std::max(1, e.getPlayerEconomy(2).money);
-        CHECK(near(ratio, 1.25f, 0.03f), "P1 earns +25%: " << e.getPlayerEconomy(1).money << " vs " << e.getPlayerEconomy(2).money);
+        CHECK(insider.income > 1.0f && near(ratio, insider.income, 0.03f),
+              "P1 earns x" << insider.income << ": " << e.getPlayerEconomy(1).money << " vs " << e.getPlayerEconomy(2).money);
     }
     { // Night Shift: bigger batteries, cheaper lamps to run
         MatchRules m; m.charter[0] = CharterType::NIGHT_SHIFT;
@@ -328,14 +351,33 @@ void testCharters() {
         REQUIRE(e.placeBuilding(1, BuildingType::BATTERY, e.getGridSlot(1, 0, 0), msg), msg);
         float cap = 0.0f;
         for (const auto& b : e.getBuildings()) if (b.type == BuildingType::BATTERY) cap = b.maxCapacity;
-        CHECK(near(cap, 300.0f), "battery 300 MWh, got " << cap);
-        CHECK(near(e.getLampDrawFor(1), 5.0f) && near(e.getLampDrawFor(2), 10.0f), "lamp draw 5 MW for P1");
+        CHECK(night.batteryCapacity > 1.0f && near(cap, 200.0f * night.batteryCapacity), "battery " << 200.0f * night.batteryCapacity << " MWh, got " << cap);
+        CHECK(night.lampDraw < 1.0f && near(e.getLampDrawFor(1), 10.0f * night.lampDraw) && near(e.getLampDrawFor(2), 10.0f),
+              "lamp draw " << 10.0f * night.lampDraw << " MW for P1");
     }
+    // Generated texts: every charter has a name and a bonus line; every real charter also has a
+    // drawback line, and the lines quote the table numbers
     for (int c = 0; c < static_cast<int>(CharterType::COUNT); ++c) {
         CharterType ct = static_cast<CharterType>(c);
-        CHECK(std::string(MatchInfo::charterName(ct)) != "?" && std::string(MatchInfo::charterDescription(ct)).size() > 0,
-              "charter " << c << " has a name and a description");
+        std::string desc = MatchInfo::charterDescription(ct), minus = MatchInfo::charterDrawback(ct);
+        CHECK(std::string(MatchInfo::charterName(ct)) != "?" && !desc.empty(), "charter " << c << " has a name and a description");
+        if (ct == CharterType::NONE) {
+            CHECK(minus.empty(), "no drawback without a charter");
+        } else {
+            CHECK(desc.find('%') != std::string::npos && minus.rfind("Минус: ", 0) == 0,
+                  "charter " << c << " bonus '" << desc << "' and drawback '" << minus << "'");
+        }
     }
+    auto pct = [](float mult) {
+        int p = static_cast<int>(std::lround((mult - 1.0f) * 100.0f));
+        return (p > 0 ? "+" : "") + std::to_string(p) + "%";
+    };
+    CHECK(std::string(MatchInfo::charterDescription(CharterType::SOLAR_COOP)).find(pct(solar.solarOutput) + " слънчева мощност") != std::string::npos,
+          "solar text quotes " << pct(solar.solarOutput) << ": " << MatchInfo::charterDescription(CharterType::SOLAR_COOP));
+    CHECK(std::string(MatchInfo::charterDescription(CharterType::NIGHT_SHIFT)).find("лампи " + pct(night.lampDraw) + " ток") != std::string::npos,
+          "night text quotes the lamp draw: " << MatchInfo::charterDescription(CharterType::NIGHT_SHIFT));
+    CHECK(std::string(MatchInfo::charterDrawback(CharterType::MINING_SYNDICATE)).find("всички централи") != std::string::npos,
+          "the same output change on every generator reads as one effect: " << MatchInfo::charterDrawback(CharterType::MINING_SYNDICATE));
     endGroup();
 }
 
