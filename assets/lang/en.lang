@@ -420,7 +420,7 @@ modal.badge.build_error = BUILD ERROR
 # UI/scr/UI_map_particles.cpp:119
 popup.lightning.title = Facility destroyed!
 # UI/scr/UI_map_particles.cpp:120 ({0} = име на сградата)
-popup.lightning.detail = Lightning destroyed your {0}!\nThe cell is free for a new building (hydro or other).
+popup.lightning.detail = Lightning destroyed your {0}!\nThe cell is free for a new building (hydro/other).
 # UI/scr/UI_map_particles.cpp:121
 popup.lightning.action = [SPACE/Click]: Build a new facility
 # UI/scr/UI_map_controls.cpp:188, :266, :1032
@@ -442,7 +442,7 @@ popup.plot_bought.title = Plot purchased!
 # UI/scr/UI_map_controls.cpp:238
 popup.plot_bought.detail_p1 = The plot is yours. Press E to choose a building.
 # UI/scr/UI_map_controls.cpp:316
-popup.plot_bought.detail_p2 = The plot is yours. Press PgDn to choose a building.
+popup.plot_bought.detail_p2 = The plot is yours. Press PgDn to choose.
 # UI/scr/UI_map_controls.cpp:1010, :1019
 popup.land_expanded.title = Land expanded!
 # UI/scr/UI_map_controls.cpp:244, :322
@@ -464,7 +464,7 @@ popup.no_gold.tip = Sell power to the city to earn gold!
 # UI/scr/UI_map_controls.cpp:573, :595, :663, :684
 popup.demolish.detail = Click one of your buildings to demolish it.\nRefunds 50% of its resources.
 # UI/scr/UI_map_controls.cpp:575, :597, :665, :686 ({0} = cost.need)
-popup.lamp.detail = {0}.\nLights up the area so you can build at night.
+popup.lamp.detail = {0}.\nLights the area for building at night.
 # UI/scr/UI_map_controls.cpp:578, :600, :668, :689 ({0} = cost.need, {1} = MW)
 popup.build.detail = {0}.\nOutput: +{1} MW of power.
 # UI/scr/UI_map_controls.cpp:988, :1000 ({0} = cost.need, {1} = MW)
