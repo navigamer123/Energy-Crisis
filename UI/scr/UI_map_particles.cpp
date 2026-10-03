@@ -201,6 +201,11 @@ void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
     };
 
     for (const auto& p : particles) {
+        // Dust, petals and leaves never drift over the city banner or the mine cards (keeps their text clean)
+        if (p.type >= 4 && (cityRect.contains(p.pos) || nodes.getP1StationAt(p.pos) != ResourceType::NONE ||
+                            nodes.getP2StationAt(p.pos) != ResourceType::NONE)) {
+            continue;
+        }
         if (p.type == 0) {
             // Rain streak
             sf::Vertex line[2];
