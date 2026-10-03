@@ -47,11 +47,14 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     (void)screenHeight;
 
     // Reset EVERY piece of match state (clock, season, revenue timer, city, players, buildings)
+    MatchRules keptRules = rules; // [b-options] the chosen match rules survive the reset
     *this = GameEngine();
+    rules = keptRules;
 
     // Seed both the weather RNG and std::rand (lightning, bot, particles) once per match
     bool seedFromEnv = false;
     unsigned int seed = pickMatchSeed(seedFromEnv);
+    if (rules.seed != 0u) seed = rules.seed; // [b-options] fixed seed from MatchRules
     seedRandom(seed);
     std::srand(seed);
     std::cout << "[GameEngine] RNG seed: " << seed << (seedFromEnv ? " (from EC_SEED)" : " (from clock)")
@@ -62,10 +65,10 @@ void GameEngine::init(float screenWidth, float screenHeight) {
 
     // Reset City State on fresh game or restart (First 2 days are Grace Period = 0 MW)
     city = CityConquestState();
-    city.cityEnergyDemand = (currentDay <= Balance::GRACE_PERIOD_DAYS) ? 0 : Balance::STARTING_CITY_DEMAND_MW;
+    city.cityEnergyDemand = (currentDay <= getGraceDays()) ? 0 : rules.startDemandMW; // [b-options]
     city.p1CityShare = 0.50f;
     city.winner = 0;
-    city.lastCutMessage = "ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИТЕ 2 ДЕНА ГРАДЪТ ИСКА 0 ЕНЕРГИЯ ЗА РАЗВИТИЕ!";
+    city.lastCutMessage = welcomeMessage(); // [b-options] depends on the grace days / sandbox
 
     // -------------------------------------------------------------------------
     // Generate Purchasable Land Grid on West (P1) and East (P2)
@@ -124,12 +127,13 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     buildings.clear();
     p1 = PlayerEconomy();
     p2 = PlayerEconomy();
+    applyMatchStartRules(); // [b-options] charter plot prices, Head Start mutator, sandbox resources
 
     // Players start with 0 buildings and 0 MW (buildings must be earned and constructed)
     buildings.clear();
 
     // Initialize day 1 weather (season of day 1 = spring) with weather_report from weatherF
-    currentSeason = Balance::getSeasonForDay(currentDay);
+    currentSeason = seasonForDay(currentDay); // [b-options] season lock
     rollDailyWeather();
 
     // Initial update of building energies
@@ -153,6 +157,8 @@ void GameEngine::rollDailyWeather() {
     p2Weather = WeatherSystem::reportToWeatherType(rep2);
     p2.data.weather = weather_state;
     p2.data.wind_speed = (rep2.size() > 3) ? rep2[3] : "0";
+
+    applyWeatherRules(); // [b-options] Mirror Weather mutator, sandbox weather locks
 }
 
 void GameEngine::update(float dt) {
@@ -161,7 +167,11 @@ void GameEngine::update(float dt) {
         return;
     }
 
-    float remaining = dt * timeScale;
+    applyFrameRules(); // [b-options] sandbox: infinite resources
+
+    // [b-options] getPaceMultiplier(): day length from MatchRules (90 s / daySeconds) and the
+    // sandbox clock speed (0 = paused). The simulation itself always runs in 90 s-day units.
+    float remaining = dt * timeScale * getPaceMultiplier();
     while (remaining > 0.0f && city.winner == 0) {
         float step = std::min(remaining, MAX_SIM_STEP_SEC);
 
@@ -188,7 +198,7 @@ void GameEngine::simulateStep(float dt) {
     gameSeconds += dt;
     hour24 = std::fmod((gameSeconds / Balance::SECONDS_PER_DAY) * 24.0f + Balance::CLOCK_HOUR_AT_ZERO, 24.0f);
     // Season flips at midnight (dark in every season), never at the 06:00 rollover
-    currentSeason = Balance::getSeasonAtGameSeconds(gameSeconds);
+    currentSeason = seasonAtGameSeconds(gameSeconds); // [b-options] season lock
 
     // Update building energy outputs based on real-time continuous weather & sun
     updateBuildingsEnergy(dt);
@@ -210,8 +220,9 @@ void GameEngine::payCityRevenue() {
 
         // City energy contract pool from central Balance formula
         int contractPool = Balance::calculateContractPool(totalGrid);
-        int p1Payout = Balance::calculatePlayerPayout(contractPool, p1Share);
-        int p2Payout = Balance::calculatePlayerPayout(contractPool, p2Share);
+        // [b-options] scaledIncome(): charter / research income multipliers
+        int p1Payout = scaledIncome(1, Balance::calculatePlayerPayout(contractPool, p1Share));
+        int p2Payout = scaledIncome(2, Balance::calculatePlayerPayout(contractPool, p2Share));
 
         p1.money += p1Payout;
         p1.data.money = p1.money;
@@ -246,6 +257,11 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     // -------------------------------------------------------------------------
     const float stepHours = Balance::gameSecondsToHours(dt);
     auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
+        // [b-options] charter / research / mutator multipliers for this player's grid
+        const PlayerPerks perks = getPlayerPerks(player);
+        const float lampMW = LAMP_POWER_MW * perks.lampDrawMult;
+        const float batteryMaxMW = Balance::BATTERY_MAX_POWER_MW * perks.batteryPowerMult;
+        const float lampRadius = Balance::STREET_LAMP.lightRadius * perks.lampRadiusMult;
         float rawGen = 0.0f;
         std::vector<PlacedBuilding*> playerLamps;
         std::vector<PlacedBuilding*> playerBatteries;
@@ -256,15 +272,15 @@ void GameEngine::updateBuildingsEnergy(float dt) {
             BuildingCost cost = getBuildingCost(b.type);
 
             if (b.type == BuildingType::SOLAR_PANEL) {
-                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
+                float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason) * perks.solarOutputMult; // [b-options]
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::WIND_TURBINE) {
-                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24);
+                float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24) * perks.windOutputMult; // [b-options]
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::HYDRO_PLANT) {
-                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
+                float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w) * perks.hydroOutputMult; // [b-options]
                 b.currentOutputMW = out;
                 rawGen += out;
             } else if (b.type == BuildingType::LAMP) {
@@ -275,7 +291,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         }
 
         // Step B: Load the player is trying to serve: own lamps first (10 MW each), then the city demand
-        float lampDemand = playerLamps.size() * LAMP_POWER_MW;
+        float lampDemand = playerLamps.size() * lampMW; // [b-options] perks.lampDrawMult
         float cityTarget = static_cast<float>(std::max(0, city.cityEnergyDemand));
         float loadTarget = lampDemand + cityTarget;
 
@@ -293,13 +309,13 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                 float deficit = loadTarget - rawGen;
                 float canGive = 0.0f;
                 for (auto* bat : playerBatteries) {
-                    canGive += std::min(Balance::BATTERY_MAX_POWER_MW, bat->energyStored / stepHours);
+                    canGive += std::min(batteryMaxMW, bat->energyStored / stepHours);
                 }
                 batteryDischarge = std::min(deficit, canGive);
                 if (batteryDischarge > 0.0f) {
                     float fraction = batteryDischarge / canGive;
                     for (auto* bat : playerBatteries) {
-                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, bat->energyStored / stepHours) * fraction;
+                        float power = std::min(batteryMaxMW, bat->energyStored / stepHours) * fraction;
                         bat->currentOutputMW = power;
                         bat->energyStored = std::max(0.0f, bat->energyStored - power * stepHours);
                     }
@@ -309,7 +325,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                 float surplus = rawGen - loadTarget;
                 float canTake = 0.0f;
                 for (auto* bat : playerBatteries) {
-                    canTake += std::min(Balance::BATTERY_MAX_POWER_MW,
+                    canTake += std::min(batteryMaxMW,
                                         std::max(0.0f, bat->maxCapacity - bat->energyStored) / stepHours);
                 }
                 batteryCharge = std::min(surplus, canTake);
@@ -317,7 +333,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                     float fraction = batteryCharge / canTake;
                     for (auto* bat : playerBatteries) {
                         float room = std::max(0.0f, bat->maxCapacity - bat->energyStored);
-                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, room / stepHours) * fraction;
+                        float power = std::min(batteryMaxMW, room / stepHours) * fraction;
                         bat->energyStored = std::min(bat->maxCapacity, bat->energyStored + power * stepHours);
                     }
                 }
@@ -326,12 +342,12 @@ void GameEngine::updateBuildingsEnergy(float dt) {
 
         // Step E: Power lamps first from generation + discharge (minus what went into storage)
         float totalAvailable = std::max(0.0f, rawGen + batteryDischarge - batteryCharge);
-        int poweredCount = static_cast<int>((totalAvailable + 0.001f) / LAMP_POWER_MW);
+        int poweredCount = static_cast<int>((totalAvailable + 0.001f) / lampMW); // [b-options]
         poweredCount = std::min(static_cast<int>(playerLamps.size()), poweredCount);
         for (size_t i = 0; i < playerLamps.size(); i++) {
             if (static_cast<int>(i) < poweredCount) {
-                playerLamps[i]->lightRadius = 150.0f;
-                playerLamps[i]->currentOutputMW = -LAMP_POWER_MW;
+                playerLamps[i]->lightRadius = lampRadius; // [b-options] perks.lampRadiusMult
+                playerLamps[i]->currentOutputMW = -lampMW;
             } else {
                 // UNPOWERED LAMP! Shuts down, dark lantern head, no light circle
                 playerLamps[i]->lightRadius = 0.0f;
@@ -340,7 +356,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         }
 
         // Step F: Whatever is left goes to the city
-        float netPlayerOutput = std::max(0.0f, totalAvailable - poweredCount * LAMP_POWER_MW);
+        float netPlayerOutput = std::max(0.0f, totalAvailable - poweredCount * lampMW); // [b-options]
         econ.energyMW = static_cast<int>(std::lround(netPlayerOutput));
         dailyDelivered += netPlayerOutput * dt; // MW x game-seconds, averaged at the day end
     };
@@ -360,17 +376,14 @@ void GameEngine::processDayEnd() {
     int p1AvgMW = static_cast<int>(std::floor(city.p1DailyDelivered / daySeconds + 0.01f));
     int p2AvgMW = static_cast<int>(std::floor(city.p2DailyDelivered / daySeconds + 0.01f));
 
-    if (endedDay <= Balance::GRACE_PERIOD_DAYS) {
-        // Grace period for the first 2 days: 0 energy demanded, no penalties or cuts
-        if (endedDay == 1) {
-            city.lastCutMessage = "ДЕН 1 ПРИКЛЮЧИ [ГРАТИСЕН ПЕРИОД]: ГРАДЪТ ИСКАШЕ 0 MW. ОЩЕ 1 ДЕН ЗА РАЗВИТИЕ!";
-        } else {
-            city.lastCutMessage = "ДЕН 2 ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД! ОТ ДЕН 3 ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ!";
-        }
+    if (endedDay <= getGraceDays()) { // [b-options] grace days from MatchRules
+        // Grace period: 0 energy demanded, no penalties or cuts
+        city.lastCutMessage = graceDayEndMessage(endedDay);
     } else {
         bool p1Succeeded = (p1AvgMW >= city.cityEnergyDemand);
         bool p2Succeeded = (p2AvgMW >= city.cityEnergyDemand);
-        float shift = Balance::calculateDailyCityShift(p1AvgMW, p2AvgMW, city.cityEnergyDemand);
+        float shift = Balance::calculateDailyCityShift(p1AvgMW, p2AvgMW, city.cityEnergyDemand) *
+                      rules.effectiveShiftMult(); // [b-options] Volatile City mutator
         city.p1CityShare = std::clamp(city.p1CityShare + shift, 0.0f, 1.0f);
         int shiftPct = static_cast<int>(std::round(std::abs(shift) * 100.0f));
 
@@ -395,15 +408,18 @@ void GameEngine::processDayEnd() {
         float p2Share = 1.0f - p1Share;
         int p1Pct = static_cast<int>(std::lround(p1Share * 100.0f));
         int p2Pct = 100 - p1Pct;
-        if (p1Share >= Balance::VICTORY_SHARE - eps) {
+        const float victoryShare = getVictoryShare(); // [b-options] win threshold from MatchRules
+        if (rules.sandbox) {
+            // [b-options] F-21 practice sandbox never ends
+        } else if (p1Share >= victoryShare - eps) {
             city.winner = 1;
             city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 1! КОНТРОЛИРА " + std::to_string(p1Pct) + "% ОТ ГРАДА (НУЖНИ СА " +
-                                  std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%)!";
-        } else if (p2Share >= Balance::VICTORY_SHARE - eps) {
+                                  std::to_string(static_cast<int>(std::lround(victoryShare * 100.0f))) + "%)!";
+        } else if (p2Share >= victoryShare - eps) {
             city.winner = 2;
             city.lastCutMessage = "ПОБЕДА ЗА ИГРАЧ 2! КОНТРОЛИРА " + std::to_string(p2Pct) + "% ОТ ГРАДА (НУЖНИ СА " +
-                                  std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%)!";
-        } else if (endedDay >= Balance::FINAL_DAY) {
+                                  std::to_string(static_cast<int>(std::lround(victoryShare * 100.0f))) + "%)!";
+        } else if (getFinalDay() > 0 && endedDay >= getFinalDay()) { // [b-options] 0 = endless
             std::string head = "КРАЙ НА ДЕН " + std::to_string(endedDay) + "! ";
             if (std::abs(p1Share - 0.5f) < Balance::DRAW_SHARE_TOLERANCE) {
                 city.winner = 3;
@@ -423,20 +439,22 @@ void GameEngine::processDayEnd() {
     p2.cityInfluence = 1.0f - city.p1CityShare;
 
     // City expands and demands power next day (0 MW for first 2 days grace, 30 MW Day 3, +15 MW daily)
-    if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
+    // [b-options] grace days, start demand and growth from MatchRules (Hungry City doubles growth)
+    if (currentDay <= getGraceDays()) {
         city.cityEnergyDemand = 0;
-    } else if (currentDay == Balance::GRACE_PERIOD_DAYS + 1) {
-        city.cityEnergyDemand = Balance::STARTING_CITY_DEMAND_MW;
+    } else if (currentDay == getGraceDays() + 1) {
+        city.cityEnergyDemand = rules.startDemandMW;
     } else {
-        city.cityEnergyDemand += Balance::DAILY_DEMAND_INCREASE_MW;
+        city.cityEnergyDemand += rules.effectiveDemandGrowthMW();
     }
+    if (sandbox.demandLocked) city.cityEnergyDemand = sandbox.lockedDemandMW; // [b-options] sandbox
     city.p1DailyDelivered = 0.0f;
     city.p2DailyDelivered = 0.0f;
     city.dailySeconds = 0.0f;
 
     // Daily dynamic weather generation using weather_report from weatherF.
     // The new day's season already took effect at the preceding midnight.
-    currentSeason = Balance::getSeasonForDay(currentDay);
+    currentSeason = seasonForDay(currentDay); // [b-options] season lock
     rollDailyWeather();
 }
 
@@ -451,7 +469,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
     result.type = type;
 
     int lvl = getMineLevel(player, type);
-    float mult = Balance::getMineYieldMultiplier(lvl);
+    float mult = Balance::getMineYieldMultiplier(lvl) * getMiningYieldScale(player); // [b-options] perks / Rich Veins / pacing
     std::string lvlTag = (lvl > 1 ? " [НИВО " + std::to_string(lvl) + "]" : "");
 
     switch (type) {
@@ -551,7 +569,9 @@ int GameEngine::getMineLevel(int player, ResourceType type) const {
 int GameEngine::getMineUpgradeCost(int player, ResourceType type) const {
     int lvl = getMineLevel(player, type);
     if (lvl >= Balance::MINE_MAX_LEVEL) return -1; // Max Level reached
-    return Balance::getMineUpgradeCost(lvl, type == ResourceType::GOLD);
+    // [b-options] charter / research discount on mine upgrades
+    int baseCost = Balance::getMineUpgradeCost(lvl, type == ResourceType::GOLD);
+    return std::max(1, static_cast<int>(std::lround(baseCost * getPlayerPerks(player).mineUpgradeCostMult)));
 }
 
 bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg) {
@@ -818,7 +838,7 @@ bool GameEngine::removeBuilding(int player, sf::Vector2f pos, std::string& outMs
 
     // Refund a fraction of what was paid (placement always deducts the full recipe)
     PlacedBuilding b = buildings[closestIdx];
-    BuildingCost cost = getBuildingCost(b.type);
+    BuildingCost cost = getBuildingCostFor(player, b.type); // [b-options] refund what this player paid
     const float refund = Balance::DEMOLISH_REFUND_FRACTION;
     int refundWood = static_cast<int>(cost.woodCost * refund);
     int refundIron = static_cast<int>(cost.ironCost * refund);
@@ -866,7 +886,7 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
     pos = snapToBuildingGrid(player, pos);
 
     const auto& econ = (player == 1) ? p1 : p2;
-    BuildingCost cost = getBuildingCost(type);
+    BuildingCost cost = getBuildingCostFor(player, type); // [b-options] cost after perks
 
     // Every resource of the recipe is required on its own (no hidden 'ore' wildcard)
     bool hasRes = econ.wood >= cost.woodCost &&
@@ -954,7 +974,7 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
 
     // canPlaceBuilding guaranteed that every resource is available: pay the full recipe
     auto& econ = (player == 1) ? p1 : p2;
-    BuildingCost cost = getBuildingCost(type);
+    BuildingCost cost = getBuildingCostFor(player, type); // [b-options] cost after perks
     econ.wood -= cost.woodCost;
     econ.iron -= cost.ironCost;
     econ.copper -= cost.copperCost;
@@ -980,12 +1000,14 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     b.animTimer = 0.0f;
     // Spawns with 0% battery charge as requested!
     b.energyStored = 0.0f;
-    b.maxCapacity = static_cast<float>(Balance::BATTERY.batteryCapacityMWh);
+    b.maxCapacity = getBatteryCapacityFor(player); // [b-options] perks.batteryCapacityMult
     b.lightRadius = (type == BuildingType::LAMP) ? 150.0f : 0.0f;
     buildings.push_back(b);
 
     if (type == BuildingType::LAMP) {
-        outMsg = "ПОСТАВЕНА Осветителна лампа! (Консумира 10 MW, осветява 150 px)";
+        // [b-options] real draw / radius after perks
+        outMsg = "ПОСТАВЕНА Осветителна лампа! (Консумира " + std::to_string(static_cast<int>(std::lround(getLampDrawFor(player)))) +
+                 " MW, осветява " + std::to_string(static_cast<int>(std::lround(getLampRadiusFor(player)))) + " px)";
     } else if (type == BuildingType::BATTERY) {
         outMsg = "ПОСТРОЕН Акумулатор! (0% заряд. Зарежда се от произведената чиста енергия)";
     } else {

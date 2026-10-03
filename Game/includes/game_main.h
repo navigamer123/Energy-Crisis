@@ -8,6 +8,7 @@
 #include "game_expedition.h"
 #include "game_random.h"
 #include "game_balance.h"
+#include "game_match.h" // [b-options] match rules, mutators, charters, research, sandbox
 
 // -----------------------------------------------------------------------------
 // PlayerData (integrated from weatherF branch)
@@ -107,6 +108,7 @@ struct PlayerEconomy {
     int lastPlacedBuilding = 1; // Remembers lastly placed building for instant reuse
     int mineLevels[8] = { 1, 1, 1, 1, 1, 1, 1, 1 }; // Upgrade level for each resource mine (1..5)
     PlayerData data;            // Teammate's detailed inventory from weatherF
+    TechState tech;             // [b-options] F-33 research choices (reset every match)
 };
 
 struct CityConquestState {
@@ -164,6 +166,21 @@ private:
     void processDayEnd();
     void rollDailyWeather();
     int findOwnedBuildingInSlot(int player, sf::Vector2f pos) const;
+
+    // [b-options] Match options & progression state + hooks (game_match_engine.cpp,
+    // game_research.cpp, game_sandbox.cpp). `rules` survives init()/restartGame().
+    MatchRules rules;
+    SandboxState sandbox;
+    SeasonType seasonForDay(int day) const;               // season lock (Eternal Winter / sandbox)
+    SeasonType seasonAtGameSeconds(float seconds) const;
+    void applyMatchStartRules();                          // plot prices, Head Start, sandbox refill
+    void applyWeatherRules();                             // Mirror Weather, sandbox weather locks
+    void applyFrameRules();                               // sandbox: keep resources topped up
+    void refreshPerkDependentState(int player);           // battery capacity, unbought plot prices
+    int scaledIncome(int player, int payout) const;
+    float getMiningYieldScale(int player) const;
+    std::string graceDayEndMessage(int endedDay) const;
+    std::string welcomeMessage() const;
 
 public:
     GameEngine();
@@ -227,10 +244,53 @@ public:
     bool isDaylight() const { return Balance::isDaylightAt(hour24, currentSeason); }
     float getSunriseHour() const { return Balance::getSunriseHour(currentSeason); }
     float getSunsetHour() const { return Balance::getSunsetHour(currentSeason); }
-    bool isGracePeriod() const { return currentDay <= Balance::GRACE_PERIOD_DAYS; }
+    bool isGracePeriod() const { return currentDay <= getGraceDays(); } // [b-options] from MatchRules
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
     SeasonType getSeason() const { return currentSeason; }
+
+    // -------------------------------------------------------------------------
+    // [b-options] F-03 Match rules (call setMatchRules() before init()/restartGame())
+    // -------------------------------------------------------------------------
+    void setMatchRules(const MatchRules& newRules);
+    const MatchRules& getMatchRules() const { return rules; }
+    int getGraceDays() const { return rules.effectiveGraceDays(); }
+    int getFinalDay() const { return rules.finalDay; }          // 0 = endless
+    float getVictoryShare() const { return rules.victoryShare; }
+    float getDaySeconds() const { return rules.daySeconds; }    // real seconds per day at 1x
+    float getPaceMultiplier() const;                            // game-seconds per real second
+    bool isSandbox() const { return rules.sandbox; }
+    int getDaysLeft() const;                                    // -1 when endless
+
+    // [b-options] F-35 / F-33 / F-24 per-player modifiers
+    PlayerPerks getPlayerPerks(int player) const;
+    BuildingCost getBuildingCostFor(int player, BuildingType type) const; // cost after perks
+    int getMineYield(int player, ResourceType type) const;     // what mineResource() gives now
+    float getMiningCooldown(int player) const;                 // real seconds between mining actions
+    float getBatteryCapacityFor(int player) const;             // MWh of one battery
+    float getLampDrawFor(int player) const;                    // MW one powered lamp consumes
+    float getLampRadiusFor(int player) const;                  // px a powered lamp lights
+
+    // [b-options] F-33 Research lab (game_research.cpp)
+    int getTechChoice(int player, int branch, int tier) const; // -1 = not researched
+    int getResearchedTierCount(int player, int branch) const;
+    TechStatus getTechStatus(int player, int branch, int tier, int option) const;
+    bool researchTech(int player, int branch, int tier, int option, std::string& outMsg);
+    bool autoResearch(int player, std::string& outMsg);        // bot helper: cheapest affordable tier
+
+    // [b-options] F-21 Practice sandbox controls (game_sandbox.cpp; usable in any mode for tests)
+    void sandboxSetClockSpeed(float speed);                    // 0 = paused, max 32
+    float getSandboxClockSpeed() const { return sandbox.clockSpeed; }
+    void sandboxSetHour(float hour24);                         // jump within the current day
+    void sandboxSetWeather(int player, WeatherType w);         // locks that sector's weather
+    void sandboxUnlockWeather();
+    bool isSandboxWeatherLocked(int player) const { return sandbox.weatherLocked[(player == 2) ? 1 : 0]; }
+    void sandboxSetSeason(int season);                         // -1 = natural seasons
+    int getSandboxSeasonOverride() const { return sandbox.seasonOverride; }
+    void sandboxSetDemand(int demandMW);                       // locks the city demand
+    bool isSandboxDemandLocked() const { return sandbox.demandLocked; }
+    int sandboxClearBuildings(int player);                     // returns how many were removed
+    float projectGenerationMW(int player, float hour24) const; // raw output at that hour today
 };
 
 #endif // GAME_MAIN_H
