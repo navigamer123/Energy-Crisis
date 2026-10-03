@@ -320,6 +320,7 @@ void UI_map::render(sf::RenderWindow& window) {
     // 8. Compact Metropolis City Center with territorial slicing & conquest
     city.drawCity(window, font, resourcesLoaded, animTime, engine.getCityState().p1CityShare,
                   engine.getCityState().lastCutMessage, engine.isDaylight(), engine.getHour24(), engine.getSeason());
+    city.getSkyline().drawWorldDim(window); // [b-showcase] HX-04: the world dims during a blackout (HUD stays bright)
 
     // 9. City Demand & Influence Tug-of-War Bar (Above City)
     city.drawInfluenceBar(window, font, resourcesLoaded, engine.getCityState().cityEnergyDemand,
@@ -367,6 +368,9 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 19. Floating Notices
     drawFloatingNotices(window);
+
+    // [b-showcase] HX-04: emergency banner over the city during a blackout
+    city.getSkyline().drawBlackoutBanner(window, font, resourcesLoaded, animTime);
 
     // 20. Pause Menu (drawn before help so help is layered on top)
     if (engine.getCityState().winner != 0) {

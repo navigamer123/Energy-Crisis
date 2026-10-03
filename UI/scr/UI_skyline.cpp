@@ -164,7 +164,7 @@ void UI_skyline::update(float dt, const GameEngine& engine) {
         p1Brownout = s.p1Failed;
         p2Brownout = s.p2Failed;
         if (nextInLine && (s.p1Failed || s.p2Failed) && engine.getCityState().winner == 0) {
-            // (blackout set piece: HX-04)
+            triggerBlackout(s.p1Failed, s.p2Failed, s.demandMW, s.p1AvgMW, s.p2AvgMW);
         }
     }
 
