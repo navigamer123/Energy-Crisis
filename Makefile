@@ -54,8 +54,24 @@ $(ENGINE_OBJS): $(TEST_BIN_DIR)/%.o: Game/scr/%.cpp $(TEST_HDRS) | $(TEST_BIN_DI
 $(TEST_BIN_DIR):
 	mkdir -p $(TEST_BIN_DIR)
 
+# -----------------------------------------------------------------------------
+# [AI team] Bot difficulty simulation: make botsim [BOTSIM_ARGS="20 --rivals"]
+# Plays full matches of the real bot (UI/scr/UI_bot.cpp) against scripted P1 strategies and prints
+# win rates per difficulty. Links SFML for its types only (no window). Exit code 1 when НЕВЪЗМОЖНО
+# loses or draws a single match or the difficulties are out of order.
+# -----------------------------------------------------------------------------
+BOTSIM_SRCS = $(TEST_DIR)/sim_bot_difficulty.cpp UI/scr/UI_bot.cpp UI/scr/UI_botProfiles.cpp UI/scr/UI_resourceNodes.cpp $(ENGINE_SRCS)
+BOTSIM_BIN = $(TEST_BIN_DIR)/sim_bot_difficulty$(EXE)
+BOTSIM_ARGS ?= 8
+
+botsim: $(BOTSIM_BIN)
+	./$(BOTSIM_BIN) $(BOTSIM_ARGS)
+
+$(BOTSIM_BIN): $(BOTSIM_SRCS) | $(TEST_BIN_DIR)
+	$(CXX) $(CXXFLAGS) -O2 $(BOTSIM_SRCS) $(LIBS) -o $@
+
 clean:
 	rm -f $(TARGET)
 	rm -rf $(TEST_BIN_DIR)
 
-.PHONY: all run clean test $(TEST_RUNS)
+.PHONY: all run clean test botsim $(TEST_RUNS)
