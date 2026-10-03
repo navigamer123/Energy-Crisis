@@ -352,7 +352,7 @@ void UI_economyHUD::update(GameEngine& engine, float dt) {
 // Dashboard
 // =============================================================================
 void UI_economyHUD::drawDashboard(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded, const GameEngine& engine,
-                                  float animTime) {
+                                  float animTime, float maxBottom) {
     if (!fontLoaded) return;
     beginQueue(); // one batched draw for all shapes, texts on top
     const auto& ce = engine.getCityEconomy();
@@ -361,12 +361,17 @@ void UI_economyHUD::drawDashboard(sf::RenderTarget& target, const sf::Font& font
                         Econ::hasUnderdogSubsidy(ce, 1, share1) || Econ::hasUnderdogSubsidy(ce, 2, share1) ||
                         (std::max(share1, 1.0f - share1) >= Econ::DAMPING_START_SHARE && !engine.isGracePeriod());
 
-    const float chipH = badges ? 88.0f : 72.0f;
-    const float curveH = 116.0f;
-    const float freqH = 56.0f;
-    const float mixH = 76.0f;
-    const float msgH = 36.0f;
-    const float totalH = 26.0f + chipH + curveH + freqH + mixH + msgH + 5.0f * SECTION_GAP;
+    // Sections top to bottom; the ones that would pass maxBottom (e.g. above the tutorial card) are left out
+    enum Section { CHIP, CURVE, FREQ, MIX, MSG, SECTION_COUNT };
+    const float heights[SECTION_COUNT] = { badges ? 88.0f : 72.0f, 116.0f, 56.0f, 76.0f, 36.0f };
+    int shown = 0;
+    float totalH = 26.0f;
+    for (int s = 0; s < SECTION_COUNT; ++s) {
+        const float next = totalH + (s > 0 ? SECTION_GAP : 0.0f) + heights[s];
+        if (DASH_Y + next + 4.0f > maxBottom) break;
+        totalH = next;
+        shown = s + 1;
+    }
 
     // Panel and title bar
     drawRect(target, DASH_X - 4.0f, DASH_Y - 4.0f, DASH_W + 8.0f, totalH + 8.0f, COL_PANEL_BG, COL_PANEL_EDGE, 1.5f);
@@ -375,15 +380,18 @@ void UI_economyHUD::drawDashboard(sf::RenderTarget& target, const sf::Font& font
     drawRect(target, DASH_X + 8.0f, DASH_Y + 22.0f, DASH_W - 16.0f, 1.0f, withAlpha(COL_PANEL_EDGE, 0.9f));
 
     float y = DASH_Y + 26.0f;
-    drawForecastChip(target, font, engine, sf::FloatRect({ DASH_X, y }, { DASH_W, chipH }), animTime);
-    y += chipH + SECTION_GAP;
-    drawDemandCurve(target, font, engine, sf::FloatRect({ DASH_X, y }, { DASH_W, curveH }));
-    y += curveH + SECTION_GAP;
-    drawFrequency(target, font, engine, sf::FloatRect({ DASH_X, y }, { DASH_W, freqH }), animTime);
-    y += freqH + SECTION_GAP;
-    drawEnergyMix(target, font, engine, sf::FloatRect({ DASH_X, y }, { DASH_W, mixH }));
-    y += mixH + SECTION_GAP;
-    drawLastMessage(target, font, engine, sf::FloatRect({ DASH_X, y }, { DASH_W, msgH }));
+    for (int s = 0; s < shown; ++s) {
+        const sf::FloatRect box({ DASH_X, y }, { DASH_W, heights[s] });
+        switch (s) {
+            case CHIP: drawForecastChip(target, font, engine, box, animTime); break;
+            case CURVE: drawDemandCurve(target, font, engine, box); break;
+            case FREQ: drawFrequency(target, font, engine, box, animTime); break;
+            case MIX: drawEnergyMix(target, font, engine, box); break;
+            case MSG: drawLastMessage(target, font, engine, box); break;
+            default: break;
+        }
+        y += heights[s] + SECTION_GAP;
+    }
     flushQueue(target);
 }
 

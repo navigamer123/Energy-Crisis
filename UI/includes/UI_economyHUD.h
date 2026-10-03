@@ -27,7 +27,7 @@ public:
     void update(GameEngine& engine, float dt);
 
     void drawDashboard(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded, const GameEngine& engine,
-                       float animTime);
+                       float animTime, float maxBottom = 866.0f); // sections that would pass maxBottom are skipped
     void drawDistricts(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded, const GameEngine& engine,
                        float animTime);
     void drawGridAlerts(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded, const GameEngine& engine,

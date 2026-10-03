@@ -334,7 +334,8 @@ void UI_map::render(sf::RenderWindow& window) {
                           engine.getPlayerEconomy(1).energyMW, engine.getPlayerEconomy(2).energyMW,
                           engine.getCityState().p1CityShare, engine.getCurrentDay());
     // [b-economy] grid control dashboard under the city (forecast, demand curve, frequency, CO2)
-    economyHUD.drawDashboard(window, font, resourcesLoaded, engine, animTime);
+    // (while the tutorial card sits at the bottom, only the sections above it are drawn)
+    economyHUD.drawDashboard(window, font, resourcesLoaded, engine, animTime, tutorial.isActive() ? 762.0f : 866.0f);
 
     // 10. Resource Mines & Timber Forests
     nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
