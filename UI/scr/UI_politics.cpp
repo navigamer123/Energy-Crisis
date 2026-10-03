@@ -401,7 +401,7 @@ void UI_politics::drawTicker(sf::RenderTarget& t, const sf::Font& font, const Ga
         sf::Color pc = (pct > 2) ? FESTIVAL : (pct < -2 ? P1 : TEXT);
         if (k > 1) drawRect(t, sf::FloatRect({ r.position.x + 4.0f + (k - 1) * cellW, y + 2.0f }, { 1.0f, 38.0f }), PANEL_EDGE);
         drawFit(t, font, kResShort[k], 10, { cx, y }, TEXT_DIM, cellW - 9.0f, Align::CENTER, false, 9);
-        drawFit(t, font, money(engine.getMarketBuyPrice(rt)) + "$", 11, { cx, y + 13.0f }, pc, cellW - 4.0f,
+        drawFit(t, font, moneyShort(engine.getMarketBuyPrice(rt)) + "$", 11, { cx, y + 13.0f }, pc, cellW - 8.0f,
                 Align::CENTER, true, 9);
         std::string trend = (pct > 0) ? "▲" + std::to_string(pct) + "%" : (pct < 0 ? "▼" + std::to_string(-pct) + "%" : "0%");
         drawFit(t, font, trend, 10, { cx, y + 28.0f }, pc, cellW - 4.0f, Align::CENTER);

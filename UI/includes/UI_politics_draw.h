@@ -10,6 +10,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <cstdint>
+#include <cstdio>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -202,6 +203,16 @@ inline std::string money(int v) {
         if (++n % 3 == 0 && k > 1) out.insert(out.begin(), ' ');
     }
     return (neg ? "-" : "") + out;
+}
+
+// Short money for tight cells: 9130 -> "9130", 12500 -> "12.5k", 250000 -> "250k", 3400000 -> "3.4M"
+inline std::string moneyShort(int v) {
+    char buf[24];
+    if (v < 10000) std::snprintf(buf, sizeof(buf), "%d", v);
+    else if (v < 100000) std::snprintf(buf, sizeof(buf), "%.1fk", v / 1000.0);
+    else if (v < 1000000) std::snprintf(buf, sizeof(buf), "%dk", v / 1000);
+    else std::snprintf(buf, sizeof(buf), "%.1fM", v / 1000000.0);
+    return buf;
 }
 
 } // namespace PolUi
