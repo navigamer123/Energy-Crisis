@@ -749,16 +749,6 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p2Pulse -= dt * 2.2f;
         if (p2Pulse < 0.0f) p2Pulse = 0.0f;
     }
-
-    // Player Side Popup Timers
-    if (p1Popup.active) {
-        p1Popup.timer -= dt;
-        if (p1Popup.timer <= 0.0f) p1Popup.active = false;
-    }
-    if (p2Popup.active) {
-        p2Popup.timer -= dt;
-        if (p2Popup.timer <= 0.0f) p2Popup.active = false;
-    }
 }
 
 void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {

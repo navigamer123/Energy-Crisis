@@ -221,8 +221,6 @@ void UI_map::restartMatch() {
     // Dialogs, popups & effects
     p1Modal.active = false;
     p2Modal.active = false;
-    p1Popup.active = false;
-    p2Popup.active = false;
     notices.clear();
     miningParticles.clear();
 

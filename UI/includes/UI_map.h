@@ -51,21 +51,6 @@ private:
     float p1Pulse;
     float p2Pulse;
 
-    // Player Side Popups (not floating in center of screen)
-    struct PlayerPopup {
-        std::string badge;      // e.g. "ИНФО", "ГРЕШКА", "СТРОЕЖ", "ДОБИВ", "ЗЕМЯ"
-        std::string title;      // e.g. "Соларен панел"
-        std::string detail;     // e.g. "Нужно: 35 Дърво, 30 Руда"
-        std::string action;     // e.g. "SPACE/Клик: Постави | Q: Отказ"
-        sf::Color accentColor;
-        float timer = 0.0f;
-        float maxTimer = 4.0f;
-        bool active = false;
-    };
-
-    PlayerPopup p1Popup;
-    PlayerPopup p2Popup;
-
     // Interactive Modal Popups with required [OK] dismissal
     struct PlayerModalDialog {
         bool active = false;
