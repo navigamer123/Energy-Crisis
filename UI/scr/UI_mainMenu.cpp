@@ -215,54 +215,50 @@ void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
     drawHeader(window);
 
     float screenWidth = VIRTUAL_WIDTH;
-    float btnWidth = 460.0f;
-    float btnHeight = 54.0f;
-    float btnX = (screenWidth - btnWidth) / 2.0f;
-    float startY = 205.0f;
-    float spacing = 66.0f;
 
+    // [AI team] Five rows: Easy, Medium, Hard, НЕВЪЗМОЖНО (red), Back (UI_mainMenu_rivals.cpp has the layout)
     sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-    sf::FloatRect easyBtn({ btnX, startY }, { btnWidth, btnHeight });
-    sf::FloatRect medBtn({ btnX, startY + spacing }, { btnWidth, btnHeight });
-    sf::FloatRect hardBtn({ btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight });
-    sf::FloatRect backBtn({ btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 10.0f }, { 240.0f, 46.0f });
-
     bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
     if (mouseMoved) {
         lastMenuMousePos = mousePos;
-        if (easyBtn.contains(mousePos)) selectedDifficultyIndex = 0;
-        else if (medBtn.contains(mousePos)) selectedDifficultyIndex = 1;
-        else if (hardBtn.contains(mousePos)) selectedDifficultyIndex = 2;
-        else if (backBtn.contains(mousePos)) selectedDifficultyIndex = 3;
+        for (int i = 0; i < DIFFICULTY_ROWS; ++i) {
+            if (difficultyButtonRect(i).contains(mousePos)) selectedDifficultyIndex = i;
+        }
     }
 
     sf::Color defaultBtn(30, 40, 56);
     sf::Color whiteText(240, 245, 255);
 
-    drawButton(window, easyBtn, toUtf8("ЛЕСНО / EASY BOT"), defaultBtn, sf::Color(35, 130, 80), whiteText, selectedDifficultyIndex == 0);
-    drawButton(window, medBtn, toUtf8("СРЕДНО / MEDIUM BOT"), defaultBtn, sf::Color(170, 110, 30), whiteText, selectedDifficultyIndex == 1);
-    drawButton(window, hardBtn, toUtf8("ТРУДНО / HARD BOT"), defaultBtn, sf::Color(160, 45, 45), whiteText, selectedDifficultyIndex == 2);
-    drawButton(window, backBtn, toUtf8("НАЗАД / BACK"), defaultBtn, sf::Color(70, 45, 60), whiteText, selectedDifficultyIndex == 3);
+    drawButton(window, difficultyButtonRect(0), toUtf8("ЛЕСНО / EASY BOT"), defaultBtn, sf::Color(35, 130, 80), whiteText, selectedDifficultyIndex == 0);
+    drawButton(window, difficultyButtonRect(1), toUtf8("СРЕДНО / MEDIUM BOT"), defaultBtn, sf::Color(170, 110, 30), whiteText, selectedDifficultyIndex == 1);
+    drawButton(window, difficultyButtonRect(2), toUtf8("ТРУДНО / HARD BOT"), defaultBtn, sf::Color(160, 45, 45), whiteText, selectedDifficultyIndex == 2);
+    drawImpossibleButton(window, difficultyButtonRect(3), selectedDifficultyIndex == 3);
+    drawButton(window, difficultyButtonRect(4), toUtf8("НАЗАД / BACK"), defaultBtn, sf::Color(70, 45, 60), whiteText, selectedDifficultyIndex == 4);
 
     if (fontLoaded) {
-        std::string desc = (selectedDifficultyIndex == 0)
-            ? "По-бавен бот; строи базови солари и турбини (подходящ за учене)"
-            : (selectedDifficultyIndex == 1)
-                ? "Балансиран бот; събира ресурси, строи батерии и нощни лампи"
-                : (selectedDifficultyIndex == 2)
-                    ? "Бърз и агресивен бот; купува земя, ъпгрейдва мини и оптимизира ток"
-                    : "Връщане към избор на режим";
+        float descY = difficultyButtonRect(4).position.y + difficultyButtonRect(4).size.y + 22.0f;
+        if (selectedDifficultyIndex == 3) {
+            drawDifficultyNote(window, descY);
+        } else {
+            std::string desc = (selectedDifficultyIndex == 0)
+                ? "Цели се под нуждата на града и често бърка (подходящ за учене)"
+                : (selectedDifficultyIndex == 1)
+                    ? "Цели се точно в нуждата на града; понякога не стига"
+                    : (selectedDifficultyIndex == 2)
+                        ? "Бърз и точен: държи резерв, подготвя се за новия ден; рядко греши"
+                        : "Връщане към избор на режим";
 
-        sf::Text tDesc(font, toUtf8(desc), 14);
-        tDesc.setFillColor(sf::Color(170, 205, 240));
-        sf::FloatRect db = tDesc.getLocalBounds();
-        tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 3.0f * spacing + 70.0f });
-        window.draw(tDesc);
+            sf::Text tDesc(font, toUtf8(desc), 14);
+            tDesc.setFillColor(sf::Color(170, 205, 240));
+            sf::FloatRect db = tDesc.getLocalBounds();
+            tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, descY });
+            window.draw(tDesc);
+        }
 
-        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Старт: [Enter / Space] | Отказ: [ESC]"), 13);
+        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Space] | Отказ: [ESC]"), 13);
         hint.setFillColor(sf::Color(120, 145, 175));
         sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 3.0f * spacing + 102.0f });
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, descY + 52.0f });
         window.draw(hint);
     }
 }
@@ -412,6 +408,11 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
         }
     }
 
+    if (state == MenuState::BOT_RIVAL) { // [AI team] rival picker (UI_mainMenu_rivals.cpp)
+        handleRivalEvent(event, window);
+        return;
+    }
+
     if (state == MenuState::PLAY_CONTROLS) {
         playControls.handleEvent(event, window);
         if (playControls.isStartRequested()) {
@@ -468,23 +469,13 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 state = MenuState::MAIN;
             }
         } else if (state == MenuState::BOT_DIFFICULTY) {
+            // [AI team] 5 rows: Easy, Medium, Hard -> rival picker; НЕВЪЗМОЖНО starts at once; Back
             if (isUp) {
-                selectedDifficultyIndex = (selectedDifficultyIndex + 3) % 4;
+                selectedDifficultyIndex = (selectedDifficultyIndex + DIFFICULTY_ROWS - 1) % DIFFICULTY_ROWS;
             } else if (isDown) {
-                selectedDifficultyIndex = (selectedDifficultyIndex + 1) % 4;
+                selectedDifficultyIndex = (selectedDifficultyIndex + 1) % DIFFICULTY_ROWS;
             } else if (isSelect) {
-                if (selectedDifficultyIndex == 0) {
-                    selectedBotDifficulty = BotDifficulty::EASY;
-                    onPlay();
-                } else if (selectedDifficultyIndex == 1) {
-                    selectedBotDifficulty = BotDifficulty::MEDIUM;
-                    onPlay();
-                } else if (selectedDifficultyIndex == 2) {
-                    selectedBotDifficulty = BotDifficulty::HARD;
-                    onPlay();
-                } else if (selectedDifficultyIndex == 3) {
-                    state = MenuState::MODE_SELECT;
-                }
+                chooseDifficulty(selectedDifficultyIndex);
             } else if (isEscape) {
                 state = MenuState::MODE_SELECT;
             }
@@ -564,23 +555,13 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     state = MenuState::MAIN;
                 }
             } else if (state == MenuState::BOT_DIFFICULTY) {
-                float btnWidth = 460.0f;
-                float btnHeight = 54.0f;
-                float btnX = (screenWidth - btnWidth) / 2.0f;
-                float startY = 205.0f;
-                float spacing = 66.0f;
-
-                if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
-                    selectedBotDifficulty = BotDifficulty::EASY;
-                    onPlay();
-                } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
-                    selectedBotDifficulty = BotDifficulty::MEDIUM;
-                    onPlay();
-                } else if (isPointInside({ { btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight } }, clickPos)) {
-                    selectedBotDifficulty = BotDifficulty::HARD;
-                    onPlay();
-                } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 10.0f }, { 240.0f, 46.0f } }, clickPos)) {
-                    state = MenuState::MODE_SELECT;
+                // [AI team] same row layout as drawBotDifficultyMenu (difficultyButtonRect)
+                for (int i = 0; i < DIFFICULTY_ROWS; ++i) {
+                    if (isPointInside(difficultyButtonRect(i), clickPos)) {
+                        selectedDifficultyIndex = i;
+                        chooseDifficulty(i);
+                        break;
+                    }
                 }
             } else if (state == MenuState::SETTINGS) {
                 float panelWidth = 560.0f;
@@ -619,5 +600,7 @@ void UI_mainMenu::render(sf::RenderWindow& window) {
         drawBotDifficultyMenu(window);
     } else if (state == MenuState::SETTINGS) {
         drawSettingsMenu(window);
+    } else if (state == MenuState::BOT_RIVAL) {
+        drawRivalMenu(window); // [AI team]
     }
 }

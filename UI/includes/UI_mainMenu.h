@@ -11,7 +11,8 @@ enum class MenuState {
     MODE_SELECT,
     PLAY_CONTROLS,
     BOT_DIFFICULTY,
-    SETTINGS
+    SETTINGS,
+    BOT_RIVAL      // [AI team] rival picker after Easy/Medium/Hard (UI_mainMenu_rivals.cpp)
 };
 
 class UI_mainMenu {
@@ -53,6 +54,20 @@ private:
                     bool isSelected);
     bool isPointInside(sf::FloatRect bounds, sf::Vector2f pt) const;
 
+    // [AI team] НЕВЪЗМОЖНО button and rival picker (UI/scr/UI_mainMenu_rivals.cpp)
+    int selectedRivalIndex = 0;       // 0..4 rivals, 5 = random, 6 = back
+    int selectedBotPersonality = 0;   // rival passed to the match (BOT_PERSONALITY_OMEGA for НЕВЪЗМОЖНО)
+    BotDifficulty pendingDifficulty = BotDifficulty::MEDIUM; // tier chosen before the rival picker
+    static constexpr int DIFFICULTY_ROWS = 5; // Easy, Medium, Hard, Impossible, Back
+    sf::FloatRect difficultyButtonRect(int index) const;
+    sf::FloatRect rivalRowRect(int index) const;
+    void drawImpossibleButton(sf::RenderWindow& window, sf::FloatRect bounds, bool isSelected);
+    void drawDifficultyNote(sf::RenderWindow& window, float y);
+    void drawRivalMenu(sf::RenderWindow& window);
+    void chooseDifficulty(int index);  // acts on a difficulty row (keyboard or mouse)
+    void chooseRival(int index);       // acts on a rival row (keyboard or mouse)
+    bool handleRivalEvent(const sf::Event& event, const sf::RenderWindow& window);
+
 public:
     UI_mainMenu();
     ~UI_mainMenu();
@@ -76,6 +91,7 @@ public:
     BotDifficulty getSelectedBotDifficulty() const {
         return selectedBotDifficulty;
     }
+    int getSelectedBotPersonality() const { return selectedBotPersonality; } // [AI team]
 };
 
 #endif // UI_MAINMENU_H

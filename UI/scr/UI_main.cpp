@@ -100,6 +100,7 @@ void UI_main::render() {
                 mainMenu.resetPlayRequest();
                 map.restartMatch();
                 map.setControlScheme(mainMenu.getSelectedControlScheme());
+                map.setBotPersonality(mainMenu.getSelectedBotPersonality()); // [AI team] rival before init
                 map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
                 map.resetMatchInputState(); // The Enter/Space/click that started the match must not act in it
                 currentState = UIState::PLAYING;
