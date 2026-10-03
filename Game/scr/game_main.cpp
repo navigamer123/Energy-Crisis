@@ -11,23 +11,42 @@ namespace {
 // are split so energy, batteries, payouts and day-ends do not depend on the frame size.
 constexpr float MAX_SIM_STEP_SEC = 0.25f;
 
-// Match seed: EC_SEED environment variable when set (reproducible matches / tests), else the clock
-unsigned int pickMatchSeed(bool& fromEnv) {
-    fromEnv = false;
+// Match seed: MatchConfig::seed when non-zero, else the EC_SEED environment variable when set
+// (reproducible matches / tests), else the clock. source names where it came from for the log.
+uint32_t pickMatchSeed(uint32_t configSeed, const char*& source) {
+    if (configSeed != 0u) {
+        source = "from MatchConfig";
+        return configSeed;
+    }
     if (const char* env = std::getenv("EC_SEED")) {
         char* end = nullptr;
         unsigned long value = std::strtoul(env, &end, 10);
         if (end != env && *end == '\0') {
-            fromEnv = true;
-            return static_cast<unsigned int>(value);
+            source = "from EC_SEED";
+            return static_cast<uint32_t>(value);
         }
         std::cerr << "[GameEngine] EC_SEED=\"" << env << "\" is not a number; using a clock seed.\n";
     }
+    source = "from clock";
     static unsigned int initCounter = 0; // keeps two engines created in the same clock tick apart
     unsigned long long t = static_cast<unsigned long long>(
         std::chrono::high_resolution_clock::now().time_since_epoch().count());
-    return static_cast<unsigned int>(t ^ (t >> 32)) + 0x9E3779B9u * (++initCounter);
+    return static_cast<uint32_t>(t ^ (t >> 32)) + 0x9E3779B9u * (++initCounter);
 }
+
+// Stream ids of the engine-owned generators (any distinct constants; changing them changes every seeded match)
+constexpr uint64_t RNG_STREAM_WEATHER = 1;
+constexpr uint64_t RNG_STREAM_HAZARD = 2;
+constexpr uint64_t RNG_STREAM_GENERAL = 3;
+
+// Wind direction of a weather_report ("left" / "right" / "none") as -1 / +1 / 0
+int windDirectionOf(const std::vector<std::string>& report) {
+    if (report.size() < 3) return 0;
+    if (report[2] == "left") return -1;
+    if (report[2] == "right") return 1;
+    return 0;
+}
+
 
 // Top-left corner of a land plot (plotCol 0..2 in screen order West->East, plotRow 0..3)
 sf::Vector2f plotTopLeft(int player, int plotCol, int plotRow) {
@@ -76,13 +95,16 @@ void GameEngine::init(const MatchConfig& cfg) {
     config = rules;
     gameSeconds = Balance::gameSecondsAtHour(Balance::MATCH_START_HOUR, config.daySeconds);
 
-    // Seed both the weather RNG and std::rand (lightning, bot, particles) once per match
-    bool seedFromEnv = false;
-    unsigned int seed = pickMatchSeed(seedFromEnv);
-    seedRandom(seed);
-    std::srand(seed);
-    std::cout << "[GameEngine] RNG seed: " << seed << (seedFromEnv ? " (from EC_SEED)" : " (from clock)")
-              << ". Set EC_SEED=" << seed << " to replay this match.\n";
+    // Seed the engine generators, the legacy randomInt and std::rand (lightning, bot, particles) once per match
+    const char* seedSource = "";
+    matchSeed = pickMatchSeed(config.seed, seedSource);
+    weatherRng.seed(matchSeed, RNG_STREAM_WEATHER);
+    hazardRng.seed(matchSeed, RNG_STREAM_HAZARD);
+    generalRng.seed(matchSeed, RNG_STREAM_GENERAL);
+    seedRandom(matchSeed);
+    std::srand(matchSeed);
+    std::cout << "[GameEngine] RNG seed: " << matchSeed << " (" << seedSource << ")"
+              << ". Set EC_SEED=" << matchSeed << " to replay this match.\n";
 
     landPlots.clear();
     buildings.clear();
@@ -168,13 +190,17 @@ std::vector<GameEvent> GameEngine::pollEvents() {
 void GameEngine::rollDailyWeather() {
     std::string sName = Balance::getSeasonWeatherKey(currentSeason);
 
-    auto rep1 = weather_report(sName);
+    auto rep1 = weather_report(sName, weatherRng);
+    p1WindSpeed = windSpeedOf(rep1);
+    p1WindDirection = windDirectionOf(rep1);
     p1Weather = WeatherSystem::reportToWeatherType(rep1);
-    emitEvent(GameEventType::WEATHER_CHANGED, 1, windSpeedOf(rep1), std::string(), static_cast<int>(p1Weather));
+    emitEvent(GameEventType::WEATHER_CHANGED, 1, p1WindSpeed, std::string(), static_cast<int>(p1Weather));
 
-    auto rep2 = weather_report(sName);
+    auto rep2 = weather_report(sName, weatherRng);
+    p2WindSpeed = windSpeedOf(rep2);
+    p2WindDirection = windDirectionOf(rep2);
     p2Weather = WeatherSystem::reportToWeatherType(rep2);
-    emitEvent(GameEventType::WEATHER_CHANGED, 2, windSpeedOf(rep2), std::string(), static_cast<int>(p2Weather));
+    emitEvent(GameEventType::WEATHER_CHANGED, 2, p2WindSpeed, std::string(), static_cast<int>(p2Weather));
 }
 
 void GameEngine::update(float dt) {
@@ -1068,7 +1094,7 @@ bool GameEngine::breakRandomBuilding(int playerOwner, sf::Vector2f& outPos) {
         }
     }
     if (candidates.empty()) return false;
-    size_t chosenIdx = candidates[rand() % candidates.size()];
+    size_t chosenIdx = candidates[static_cast<size_t>(hazardRng.range(0, static_cast<int>(candidates.size()) - 1))];
     PlacedBuilding hit = buildings[chosenIdx];
     outPos = buildings[chosenIdx].position;
     buildings.erase(buildings.begin() + chosenIdx);

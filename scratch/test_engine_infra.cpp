@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "../Game/includes/game_main.h"
@@ -323,6 +324,146 @@ void testMatchConfig() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// Deterministic scripted match: both players act every `actionSeconds` of real time (choices from
+// the engine's own randInt stream), so the same seed must give the same match.
+// ---------------------------------------------------------------------------
+std::string fingerprint(const GameEngine& e) {
+    std::ostringstream os;
+    os.precision(9);
+    const auto& c = e.getCityState();
+    os << "day " << e.getCurrentDay() << " hour " << e.getHour24() << " season " << static_cast<int>(e.getSeason())
+       << " share " << c.p1CityShare << " demand " << c.cityEnergyDemand << " winner " << c.winner
+       << " delivered " << c.p1DailyDelivered << "/" << c.p2DailyDelivered << " msg " << c.lastCutMessage << "\n";
+    for (int p = 1; p <= 2; ++p) {
+        const auto& q = e.getPlayerEconomy(p);
+        os << "P" << p << " $" << q.money << " g" << q.gold << " w" << q.wood << " fe" << q.iron << " cu" << q.copper
+           << " c" << q.coal << " si" << q.silicon << " ag" << q.silver << " mw" << q.energyMW << " tier" << q.landTier
+           << " weather " << static_cast<int>(e.getPlayerWeather(p)) << " wind " << e.getPlayerWindSpeed(p) << "\n";
+    }
+    for (const auto& b : e.getBuildings()) {
+        os << "B" << static_cast<int>(b.type) << " p" << b.playerOwner << " " << b.position.x << "," << b.position.y
+           << " out " << b.currentOutputMW << " st " << b.energyStored << " lr " << b.lightRadius << "\n";
+    }
+    return os.str();
+}
+
+void scriptedAction(GameEngine& e, long tick) {
+    std::string msg;
+    const int player = 1 + static_cast<int>(tick % 2);
+    const ResourceType res = static_cast<ResourceType>(e.randInt(1, 7)); // WOOD..GOLD
+    e.mineResource(player, res, msg);
+    if (tick % 7 == 0) {
+        const BuildingType type = static_cast<BuildingType>(e.randInt(1, 5)); // SOLAR..LAMP
+        const int plotIdx = e.randInt(0, 2);
+        const int sub = e.randInt(0, 8);
+        const int plotId = (player == 1) ? (1 + plotIdx) : (15 - plotIdx);
+        e.placeBuilding(player, type, slotOf(e, player, plotId, sub), msg);
+    }
+    if (tick % 11 == 0) e.buyNextLandTier(player, msg);
+    if (tick % 13 == 0) e.upgradeMine(player, static_cast<ResourceType>(e.randInt(1, 7)), msg);
+}
+
+// Plays until `days` days have been settled (or the match ended); returns the fingerprint
+std::string playScriptedMatch(GameEngine& e, int days, float dt, float actionSeconds) {
+    const long framesPerAction = std::max(1L, std::lround(actionSeconds / dt));
+    long frame = 0;
+    long tick = 0;
+    while (e.getCurrentDay() <= days && e.getCityState().winner == 0) {
+        if (frame % framesPerAction == 0) scriptedAction(e, tick++);
+        e.update(dt);
+        ++frame;
+        REQUIRE(frame < 50000000L, "scripted match does not end");
+    }
+    return fingerprint(e);
+}
+
+// ---------------------------------------------------------------------------
+// [CD-03] Engine-owned deterministic RNG
+// ---------------------------------------------------------------------------
+void testDeterministicRng() {
+    beginGroup("Engine-owned deterministic RNG (CD-03)");
+    {
+        // Portable generator: fixed reference values, ranges inclusive and unbiased enough
+        GameRng a(42u, 7u), b(42u, 7u), c(42u, 8u);
+        bool same = true, differs = false;
+        for (int i = 0; i < 100; ++i) {
+            uint32_t x = a.next();
+            same = same && (x == b.next());
+            differs = differs || (x != c.next());
+        }
+        CHECK(same, "same seed and stream gave different numbers");
+        CHECK(differs, "different streams gave the same numbers");
+        GameRng r(1u, 1u);
+        int counts[6] = { 0, 0, 0, 0, 0, 0 };
+        bool inRange = true;
+        for (int i = 0; i < 60000; ++i) {
+            int v = r.range(1, 6);
+            inRange = inRange && v >= 1 && v <= 6;
+            if (v >= 1 && v <= 6) ++counts[v - 1];
+        }
+        CHECK(inRange, "range(1, 6) left its bounds");
+        for (int k = 0; k < 6; ++k) CHECK(counts[k] > 9000 && counts[k] < 11000, "face " << k + 1 << " came " << counts[k] << " times");
+        CHECK(r.range(5, 5) == 5 && r.range(9, 3) >= 3, "degenerate ranges");
+        float f = r.unit();
+        CHECK(f >= 0.0f && f < 1.0f, "unit() = " << f);
+    }
+    {
+        // The seed comes from MatchConfig first
+        MatchConfig cfg;
+        cfg.seed = 777u;
+        GameEngine e;
+        e.init(cfg);
+        CHECK(e.getSeed() == 777u, "seed " << e.getSeed());
+        GameEngine f;
+        f.init(cfg);
+        bool sameDraws = true;
+        for (int i = 0; i < 50; ++i) sameDraws = sameDraws && (e.randInt(0, 1000000) == f.randInt(0, 1000000));
+        CHECK(sameDraws, "randInt differs for the same seed");
+        float x = e.randFloat();
+        CHECK(x >= 0.0f && x < 1.0f, "randFloat " << x);
+    }
+    {
+        // Same seed -> identical 10-day matches (weather, actions, economy, buildings)
+        MatchConfig cfg;
+        cfg.seed = 20261003u;
+        cfg.sandbox = true; // no early victory: always 10 full days
+        GameEngine a, b;
+        a.init(cfg);
+        b.init(cfg);
+        const std::string fa = playScriptedMatch(a, 10, kFrame, 0.5f);
+        const std::string fb = playScriptedMatch(b, 10, kFrame, 0.5f);
+        CHECK(fa == fb, "two matches with seed " << cfg.seed << " differ:\n" << fa << "---\n" << fb);
+        CHECK(a.getCurrentDay() == 11, "match stopped on day " << a.getCurrentDay());
+        CHECK(!a.getBuildings().empty(), "the script built nothing (test would prove little)");
+        std::cout << "  seed " << cfg.seed << ": day " << a.getCurrentDay() << ", " << a.getBuildings().size()
+                  << " buildings, P1 share " << a.getCityState().p1CityShare << "\n";
+
+        // UI draws from randInt() do not shift the weather
+        GameEngine c, d;
+        c.init(cfg);
+        d.init(cfg);
+        std::vector<int> wc, wd;
+        for (int day = 0; day < 10; ++day) {
+            for (int i = 0; i < 37; ++i) d.randInt(0, 99);
+            wc.push_back(static_cast<int>(c.getPlayerWeather(1)) * 10 + static_cast<int>(c.getPlayerWeather(2)));
+            wd.push_back(static_cast<int>(d.getPlayerWeather(1)) * 10 + static_cast<int>(d.getPlayerWeather(2)));
+            c.update(Balance::SECONDS_PER_DAY);
+            d.update(Balance::SECONDS_PER_DAY);
+        }
+        CHECK(wc == wd, "randInt() calls changed the weather sequence");
+
+        // A different seed gives a different match
+        MatchConfig other = cfg;
+        other.seed = 99u;
+        GameEngine g;
+        g.init(other);
+        const std::string fg = playScriptedMatch(g, 10, kFrame, 0.5f);
+        CHECK(fg != fa, "seeds " << cfg.seed << " and " << other.seed << " gave the same match");
+    }
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -332,6 +473,7 @@ int main() {
 
     testEvents();
     testMatchConfig();
+    testDeterministicRng();
 
     std::cout << "\n========================================================\n";
     if (g_failures == 0) {

@@ -1,24 +1,24 @@
 #include "../includes/game_weather.h"
-#include "../includes/game_random.h" // for randomInt
+#include "../includes/game_random.h"
 #include "../includes/game_balance.h"
 #include <cmath>
 #include <iostream>
 
-std::string weather_state = "clear";
-bool wind = false;
-std::string wind_direction = "none";
+namespace {
 
-// Returns {cloud, precipitation, wind direction, wind speed}
-std::vector<std::string> weather_report(const std::string& season)
+// Rolls one weather report; roll(lo, hi) returns a uniform integer in [lo, hi].
+// The order of the rolls is part of the format: the same generator state gives the same weather.
+template <class RollFn>
+std::vector<std::string> makeWeatherReport(const std::string& season, RollFn roll)
 {
     // 0 = cloud, 1 = precipitation, 2 = wind direction, 3 = wind speed
     std::vector<std::string> Weather = {"clear", "clear", "none", "0"};
-    int rain_roll = randomInt(1, 10);
-    int wind_roll = randomInt(1, 10);
-    int thunder_storm_roll = randomInt(1, 10);
-    int snow_roll = randomInt(1, 10);
-    int hail_roll = randomInt(1, 10);
-    int cloudy_roll = randomInt(1, 10);
+    int rain_roll = roll(1, 10);
+    int wind_roll = roll(1, 10);
+    int thunder_storm_roll = roll(1, 10);
+    int snow_roll = roll(1, 10);
+    int hail_roll = roll(1, 10);
+    int cloudy_roll = roll(1, 10);
     int cloudy_num, wind_num, rain_num, thunder_storm_num, snow_num, hail_num;
 
     if (season == "spring") { cloudy_num = 6; wind_num = 4; rain_num = 4; thunder_storm_num = 8; snow_num = 10; hail_num = 10; }
@@ -32,17 +32,10 @@ std::vector<std::string> weather_report(const std::string& season)
 
     if (wind_roll > wind_num)
     {
-        int knots = randomInt(1, 50);
+        int knots = roll(1, 50);
         double wind_speed = knots * 1.9;
-        Weather[2] = (randomInt(1, 2) == 1) ? "right" : "left";
+        Weather[2] = (roll(1, 2) == 1) ? "right" : "left";
         Weather[3] = std::to_string(wind_speed);
-        wind = true;
-        wind_direction = Weather[2];
-    }
-    else
-    {
-        wind = false;
-        wind_direction = "none";
     }
 
     if (snow_roll > snow_num)
@@ -56,8 +49,20 @@ std::vector<std::string> weather_report(const std::string& season)
         Weather[1] = (thunder_storm_roll > thunder_storm_num) ? "thunder_storm" : "rain";
     }
 
-    weather_state = (Weather[1] != "clear") ? Weather[1] : Weather[0];
     return Weather;
+}
+
+} // namespace
+
+// Returns {cloud, precipitation, wind direction, wind speed} from the legacy shared generator
+std::vector<std::string> weather_report(const std::string& season)
+{
+    return makeWeatherReport(season, [](int lo, int hi) { return randomInt(lo, hi); });
+}
+
+std::vector<std::string> weather_report(const std::string& season, GameRng& rng)
+{
+    return makeWeatherReport(season, [&rng](int lo, int hi) { return rng.range(lo, hi); });
 }
 
 WeatherType WeatherSystem::reportToWeatherType(const std::vector<std::string>& report) {

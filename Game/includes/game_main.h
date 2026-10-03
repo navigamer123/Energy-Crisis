@@ -143,6 +143,17 @@ private:
     std::vector<GameEvent> events; // pending events, drained by pollEvents()
     MatchConfig config;            // rules of the current match
 
+    // Engine-owned random numbers: one independent stream per purpose, all derived from matchSeed, so
+    // UI calls to randInt() never shift the weather sequence of a seeded match
+    uint32_t matchSeed = 0;
+    GameRng weatherRng;            // daily weather rolls
+    GameRng hazardRng;             // random building losses (breakRandomBuilding)
+    GameRng generalRng;            // randInt() / randFloat() for UI, bot and features
+    float p1WindSpeed = 0.0f;      // wind speed of the day per sector (weather report, 0 = calm)
+    float p2WindSpeed = 0.0f;
+    int p1WindDirection = 0;       // -1 = blowing left, 0 = calm, +1 = blowing right
+    int p2WindDirection = 0;
+
     void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
     void payCityRevenue();
@@ -227,6 +238,15 @@ public:
     bool isGracePeriod() const { return currentDay <= config.graceDays; }
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
+    float getPlayerWindSpeed(int player) const { return (player == 1) ? p1WindSpeed : p2WindSpeed; }
+    int getPlayerWindDirection(int player) const { return (player == 1) ? p1WindDirection : p2WindDirection; }
+
+    // Match seed: MatchConfig::seed when non-zero, else the EC_SEED environment variable, else the clock.
+    // std::rand is seeded with it too, for the legacy rand() calls in the UI (particles, bot, lightning).
+    uint32_t getSeed() const { return matchSeed; }
+    // Deterministic random numbers for UI, bot and features (own stream; the weather does not shift)
+    int randInt(int lo, int hi) { return generalRng.range(lo, hi); } // inclusive range
+    float randFloat() { return generalRng.unit(); }                   // [0, 1)
     SeasonType getSeason() const { return currentSeason; }
 };
 
