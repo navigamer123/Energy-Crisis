@@ -272,7 +272,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
         drawPrompt(p1Pos, name, "[SPACE]", c, p1ResourceCooldown);
     }
-    if (p2Res != ResourceType::NONE) {
+    if (p2Res != ResourceType::NONE && !bot.isActive()) { // [AI team] no "[ENTER]" key prompt over the bot
         const auto* st = nodes.getStation(2, p2Res);
         std::string name = st ? st->nameBg + " (" + st->yieldStr + ")" : "ДОБИВ";
         sf::Color c = st ? st->themeColor : sf::Color(255, 120, 200);

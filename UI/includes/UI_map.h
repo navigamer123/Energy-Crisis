@@ -193,12 +193,16 @@ private:
     int mouseOwnerAt(sf::Vector2f pos) const;                          // 0 = nobody, 1 = P1, 2 = P2
     bool isModalDismissKey(int player, sf::Keyboard::Key code) const;  // That player's own confirm/cancel keys
 
+    float botIntroTimer = 0.0f; // [AI team] rival intro banner time left (UI_botBanner.cpp)
+    bool isBotHeldByTutorial() const; // [AI team] same rule as the bot hold in updateControls
+
 public:
     UI_map();
     ~UI_map();
 
     void setControlScheme(ControlScheme scheme);
     void setBotDifficulty(BotDifficulty diff);
+    void setBotPersonality(int id) { bot.setPersonality(id); } // [AI team] rival; call before setBotDifficulty
     BotDifficulty getBotDifficulty() const { return bot.getDifficulty(); }
     bool isBotActive() const { return bot.isActive(); }
     bool isMenuRequested() const { return requestMenu; }

@@ -1,4 +1,5 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_botBanner.h" // [AI team]
 #include <cmath>
 #include <iostream>
 #include <algorithm>
@@ -62,14 +63,18 @@ void UI_map::setControlScheme(ControlScheme scheme) {
 
 void UI_map::setBotDifficulty(BotDifficulty diff) {
     bot.init(diff);
+    // [AI team] Engine-side bot advantages (only НЕВЪЗМОЖНО has any) and the rival intro banner.
+    // init() of a new match resets the modifiers, and every match start passes through here.
+    engine.setPlayerModifiers(2, bot.getEngineModifiers());
+    botIntroTimer = bot.isActive() ? BOT_INTRO_BANNER_SEC : 0.0f;
     if (!resourcesLoaded) {
         // No font: the tutorial cannot be drawn, so never leave it active (it would invisibly
         // swallow input and keep the bot frozen).
         tutorial.setCoop(diff == BotDifficulty::NONE);
         tutorial.skip();
-    } else if (diff == BotDifficulty::HARD) {
+    } else if (diff == BotDifficulty::HARD || diff == BotDifficulty::IMPOSSIBLE) {
         tutorial.setCoop(false);
-        tutorial.skip(); // Hard mode: skip tutorial for advanced players
+        tutorial.skip(); // Hard / Impossible: skip tutorial for advanced players
     } else if (diff == BotDifficulty::NONE) {
         tutorial.setCoop(true);
         tutorial.start(); // Co-op mode: show tutorial for 2 players
@@ -257,6 +262,8 @@ void UI_map::render(sf::RenderWindow& window) {
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
+        // [AI team] The rival intro runs once the bot is actually playing
+        if (botIntroTimer > 0.0f && !isBotHeldByTutorial()) botIntroTimer = std::max(0.0f, botIntroTimer - dt);
     }
 
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible
@@ -366,6 +373,12 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 19. Floating Notices
     drawFloatingNotices(window);
+
+    // [AI team] Rival intro banner (shown once the tutorial releases the bot), above the notices
+    if (resourcesLoaded && bot.isActive() && botIntroTimer > 0.0f && !isBotHeldByTutorial() &&
+        engine.getCityState().winner == 0 && !isPaused) {
+        drawRivalIntroBanner(window, font, bot, botIntroTimer);
+    }
 
     // 20. Pause Menu (drawn before help so help is layered on top)
     if (engine.getCityState().winner != 0) {

@@ -1,4 +1,5 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_botBanner.h" // [AI team]
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -70,6 +71,11 @@ void UI_map::resetMatchInputState() {
     tutorialBotHoldLeft = TUTORIAL_BOT_HOLD_SEC;
     helpOpenedFromPause = false;
     primeInputEdges(0);
+}
+
+// An active tutorial gives the human a head start, but only for a limited window
+bool UI_map::isBotHeldByTutorial() const {
+    return tutorial.isActive() && tutorial.getStep() != TutorialStep::COMPLETED && tutorialBotHoldLeft > 0.0f;
 }
 
 void UI_map::onFocusLost() {
@@ -157,13 +163,11 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
         window.draw(bracket);
     }
 
-    if (resourcesLoaded) {
+    if (resourcesLoaded && bot.isActive()) {
+        // [AI team] Rival name + difficulty (red for НЕВЪЗМОЖНО) and the bot's current plan
+        drawBotNameTag(window, font, bot, p2Pos, true);
+    } else if (resourcesLoaded) {
         std::string p2Label = "P2";
-        if (bot.isActive()) {
-            if (bot.getDifficulty() == BotDifficulty::EASY) p2Label = "P2 [BOT: ЛЕСЕН]";
-            else if (bot.getDifficulty() == BotDifficulty::MEDIUM) p2Label = "P2 [BOT: СРЕДЕН]";
-            else if (bot.getDifficulty() == BotDifficulty::HARD) p2Label = "P2 [BOT: ТРУДЕН]";
-        }
         sf::Text p2Tag(font, toUtf8(p2Label), 13);
         p2Tag.setFillColor(bot.isActive() ? sf::Color(255, 215, 0) : sf::Color(255, 140, 220));
         sf::FloatRect tb = p2Tag.getLocalBounds();
@@ -222,7 +226,7 @@ void UI_map::executeP1Action() {
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, resType, res, msg)) {
-                p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC * engine.getPlayerModifiers(1).cooldownMult; // [AI team]
                 const auto* st = nodes.getStation(1, resType);
                 sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
                 spawnMiningParticles(p1Pos, c, 18);
@@ -300,12 +304,17 @@ void UI_map::executeP2Action() {
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, resType, res, msg)) {
-                p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC * engine.getPlayerModifiers(2).cooldownMult; // [AI team]
                 const auto* st = nodes.getStation(2, resType);
                 sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);
-                spawnMiningParticles(p2Pos, c, 18);
-                triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[ENTER]: Добив (на 1 сек)", c);
-                spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), c);
+                // [AI team] A bot without mining cooldown (НЕВЪЗМОЖНО) hits several times a second:
+                // keep its sparks but not a stack of overlapping "+N" texts and popups
+                const bool rapidBot = bot.isActive() && engine.getPlayerModifiers(2).cooldownMult < 0.5f;
+                spawnMiningParticles(p2Pos, c, rapidBot ? 6 : 18);
+                if (!rapidBot) {
+                    triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[ENTER]: Добив (на 1 сек)", c);
+                    spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), c);
+                }
             }
         } else {
             for (const auto& plot : engine.getLandPlots()) {
@@ -457,8 +466,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
         // An active tutorial gives the human a head start, but only for a limited window:
         // skipping or completing it, or running out of time, releases the bot.
-        bool tutorialHoldsBot = tutorial.isActive() && tutorial.getStep() != TutorialStep::COMPLETED &&
-                                tutorialBotHoldLeft > 0.0f;
+        bool tutorialHoldsBot = isBotHeldByTutorial();
         if (tutorialHoldsBot) {
             tutorialBotHoldLeft -= dt;
         } else {
@@ -472,7 +480,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
             if (botTriggerAction && p2ActionCooldown <= 0.0f && !showHelpOverlay) {
                 executeP2Action();
-                p2ActionCooldown = 0.15f;
+                p2ActionCooldown = bot.getActionCooldown(); // [AI team] per-difficulty reactions (was 0.15 s)
             }
 
             if (botTriggerUpgrade && !showHelpOverlay) {
