@@ -691,6 +691,84 @@ void testPlayerModifiers() {
     endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// [CD-03] Snapshots: saveState / loadState reproduce the match
+// ---------------------------------------------------------------------------
+std::string snapshotOf(const GameEngine& e) {
+    std::ostringstream os;
+    bool ok = e.saveState(os);
+    REQUIRE(ok, "saveState failed");
+    return os.str();
+}
+
+bool loadFrom(GameEngine& e, const std::string& text) {
+    std::istringstream is(text);
+    return e.loadState(is);
+}
+
+void testSnapshots() {
+    beginGroup("Snapshots: saveState / loadState (CD-03)");
+    MatchConfig cfg;
+    cfg.seed = 8080u;
+    cfg.finalDay = 30;
+    cfg.mutators = { "noch mit leerzeichen", "кирилица" };
+    GameEngine a;
+    a.init(cfg);
+    PlayerModifiers m;
+    m.costMult = 0.75f;
+    m.shareBonus = 0.01f;
+    a.setPlayerModifiers(2, m);
+    playScriptedMatch(a, 4, kFrame, 0.25f);
+    a.update(0.005f); // leave part of a fixed step in the accumulator
+    REQUIRE(a.getCityState().winner == 0, "the match ended before the snapshot");
+
+    const std::string s1 = snapshotOf(a);
+    CHECK(s1.compare(0, 19, "ENERGY_CRISIS_STATE") == 0, "missing header: " << s1.substr(0, 40));
+
+    // Load into an engine in a completely different state (other rules, other day, a step cap)
+    GameEngine b;
+    b.setMaxStepsPerUpdate(5);
+    b.init(1600.0f, 900.0f);
+    b.update(200.0f);
+    b.pollEvents();
+    std::string msg;
+    b.mineResource(1, ResourceType::GOLD, msg); // leaves one pending event
+    CHECK(loadFrom(b, s1), "loadState rejected a fresh snapshot");
+    CHECK(snapshotOf(b) == s1, "save -> load -> save changed the snapshot");
+    CHECK(b.pollEvents().empty(), "events of the old match survived the load");
+    CHECK(b.getMaxStepsPerUpdate() == 5, "load changed the host step cap");
+    b.setMaxStepsPerUpdate(0);
+    CHECK(fingerprint(a) == fingerprint(b), "loaded state differs:\n" << fingerprint(a) << "---\n" << fingerprint(b));
+    CHECK(b.getConfig().finalDay == 30 && b.getConfig().seed == 8080u && b.getConfig().hasMutator("кирилица") &&
+              b.getConfig().hasMutator("noch mit leerzeichen"),
+          "config not restored");
+    CHECK(b.getSeed() == a.getSeed() && b.getPlayerModifiers(2).costMult == 0.75f, "seed or modifiers not restored");
+    CHECK(b.getBuildings().size() == a.getBuildings().size() && b.getLandPlots().size() == a.getLandPlots().size(),
+          "buildings or plots missing");
+
+    // Both continue identically (weather rolls, randInt choices, batteries, payouts)
+    const std::string fa = playScriptedMatch(a, 8, kFrame, 0.25f);
+    const std::string fb = playScriptedMatch(b, 8, kFrame, 0.25f);
+    CHECK(fa == fb, "the loaded match diverged:\n" << fa << "---\n" << fb);
+    CHECK(snapshotOf(a) == snapshotOf(b), "snapshots differ after playing on");
+
+    // Bad input is rejected and leaves the match untouched
+    const std::string before = snapshotOf(b);
+    CHECK(!loadFrom(b, ""), "empty input accepted");
+    CHECK(!loadFrom(b, "hello world"), "garbage accepted");
+    CHECK(!loadFrom(b, s1.substr(0, s1.size() / 2)), "truncated snapshot accepted");
+    std::string wrongVersion = s1;
+    wrongVersion.replace(0, std::string("ENERGY_CRISIS_STATE 1").size(), "ENERGY_CRISIS_STATE 99");
+    CHECK(!loadFrom(b, wrongVersion), "unknown version accepted");
+    std::string badBuilding = s1;
+    size_t pos = badBuilding.find("\nbuilding ");
+    REQUIRE(pos != std::string::npos, "snapshot without buildings");
+    badBuilding.replace(pos, 11, "\nbuilding 9");
+    CHECK(!loadFrom(b, badBuilding), "invalid building type accepted");
+    CHECK(snapshotOf(b) == before, "a rejected load changed the match");
+    endGroup();
+}
+
 } // namespace
 
 int main() {
@@ -704,6 +782,7 @@ int main() {
     testFixedTimestep();
     testBuildingCosts();
     testPlayerModifiers();
+    testSnapshots();
 
     std::cout << "\n========================================================\n";
     if (g_failures == 0) {

@@ -1,6 +1,7 @@
 #ifndef GAME_MAIN_H
 #define GAME_MAIN_H
 
+#include <iosfwd>
 #include <string>
 #include <vector>
 #include <SFML/Graphics.hpp>
@@ -269,6 +270,13 @@ public:
     float getSunriseHour() const { return Balance::getSunriseHour(currentSeason); }
     float getSunsetHour() const { return Balance::getSunsetHour(currentSeason); }
     bool isGracePeriod() const { return currentDay <= config.graceDays; }
+
+    // Snapshots (Game/scr/game_snapshot.cpp): all match state as versioned text, for save/load,
+    // replays and tests. loadState returns false and leaves the match untouched on bad input; on success
+    // the match continues exactly like the saved one. Pending events and std::rand are not saved.
+    static constexpr int SNAPSHOT_VERSION = 1;
+    bool saveState(std::ostream& out) const;
+    bool loadState(std::istream& in);
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
     float getPlayerWindSpeed(int player) const { return (player == 1) ? p1WindSpeed : p2WindSpeed; }
