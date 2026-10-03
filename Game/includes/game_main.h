@@ -137,6 +137,8 @@ struct MineResult {
 // Backend Game Engine
 // -----------------------------------------------------------------------------
 class GameEngine {
+    // [Team Demo / HX-02] Judge demo mode: forced weather / day jumps / winner (Game/scr/game_demo.cpp)
+    friend class DemoEngineAccess;
 public:
     using MineResult = ::MineResult;
 
