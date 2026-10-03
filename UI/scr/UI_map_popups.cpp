@@ -159,6 +159,26 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     m.okBtn = sf::FloatRect({ x + (w - 200.0f) / 2.0f, y + h - 44.0f }, { 200.0f, 32.0f });
 }
 
+void UI_map::reportBuildFailure(int player, BuildingType sel, const std::string& engineMsg) {
+    const sf::Color errorColor(255, 75, 75);
+    if (sel != BuildingType::DEMOLISH && sel != BuildingType::NONE) {
+        BuildingCost cost = engine.getBuildingCost(sel);
+        std::string missing = missingResourcesText(engine.getPlayerEconomy(player), cost);
+        if (!missing.empty()) {
+            std::string key = (player == 1) ? "[SPACE]" : "[ENTER]";
+            triggerPlayerModal(player, "НЕДОСТИГ НА РЕСУРСИ", "Не стигат ресурси за " + cost.nameBg, missing,
+                               "Добийте ги от станциите долу: застанете върху станция и натиснете " + key +
+                                   " (или кликнете върху нея).",
+                               errorColor);
+            return;
+        }
+    }
+    triggerPlayerModal(player, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", engineMsg,
+                       !engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!"
+                                            : "Изберете свободна клетка от ваш закупен парцел.",
+                       errorColor);
+}
+
 void UI_map::closePlayerModal(int player) {
     if (player == 1) {
         p1Modal.active = false;

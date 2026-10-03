@@ -65,6 +65,7 @@ void UI_map::primeInputEdges(int player) {
         p2PrevPgDn = true;
         p2PrevPgUp = true;
         p2PrevDel = true;
+        for (int k = 1; k <= 6; ++k) p2PrevNum[k] = true;
     }
 }
 
@@ -225,8 +226,7 @@ void UI_map::executeP1Action() {
             spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, sf::Color(0, 255, 180));
             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(1);
         } else {
-            triggerPlayerModal(1, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
-                               (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
+            reportBuildFailure(1, sel, msg);
         }
     } else {
         ResourceType resType = nodes.getP1ResourceAt(p1Pos);
@@ -303,8 +303,7 @@ void UI_map::executeP2Action() {
             spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, sf::Color(255, 120, 200));
             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(2);
         } else {
-            triggerPlayerModal(2, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
-                               (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете ресурсите си или изберете друго място!"), sf::Color(255, 75, 75));
+            reportBuildFailure(2, sel, msg);
         }
     } else {
         ResourceType resType = nodes.getP2ResourceAt(p2Pos);
@@ -724,6 +723,21 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             }
         }
         p2PrevDel = curDel;
+
+        // Direct hotkeys Numpad 1..6 for P2 (same order as the cards and P1's keys 1..6)
+        for (int k = 1; k <= 6; ++k) {
+            sf::Keyboard::Key numKey = static_cast<sf::Keyboard::Key>(static_cast<int>(sf::Keyboard::Key::Numpad1) + (k - 1));
+            bool curNum = sf::Keyboard::isKeyPressed(numKey);
+            if (curNum && !p2PrevNum[k] && !p2Modal.active && !showHelpOverlay) {
+                engine.getPlayerEconomyMut(2).selectedBuilding = k;
+                BuildingCost c = engine.getBuildingCost(static_cast<BuildingType>(k));
+                p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+                triggerPlayerPopup(2, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
+                                   (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
+                                   "[ENTER]: Постави в грида | [Del]: Отказ", (k == 6 ? sf::Color(255, 80, 80) : sf::Color(255, 120, 200)));
+            }
+            p2PrevNum[k] = curNum;
+        }
     }
 
     // Pulse decay
@@ -1062,8 +1076,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                             triggerPlayerPopup(owner, "УСПЕХ", "Действието е успешно!", msg, "", sf::Color(0, 255, 180));
                             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(owner);
                         } else {
-                            triggerPlayerModal(owner, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", msg,
-                                               (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!" : "Проверете вашите ресурси и парцели!"), sf::Color(255, 75, 75));
+                            reportBuildFailure(owner, sel, msg);
                         }
                         return;
                     }

@@ -93,6 +93,9 @@ private:
     void triggerPlayerModal(int player, const std::string& badge, const std::string& title,
                             const std::string& detail, const std::string& tip, sf::Color accent = sf::Color(255, 75, 75));
     void closePlayerModal(int player);
+    // Build error dialog: lists exactly the missing resources ("Недостигат: 3 желязо, 2 мед") when that
+    // is the reason, otherwise shows the engine's reason
+    void reportBuildFailure(int player, BuildingType sel, const std::string& engineMsg);
 
     bool requestFullscreenToggle = false;
     bool showHelpOverlay = false;
@@ -139,6 +142,7 @@ private:
     bool p2PrevPgDn = false;
     bool p2PrevPgUp = false;
     bool p2PrevDel = false;
+    bool p2PrevNum[7] = {false, false, false, false, false, false, false}; // Numpad 1..6 (co-op P2)
 
     // Discrete grid movement stepping for building placement
     float p1GridStepCooldown = 0.0f;
