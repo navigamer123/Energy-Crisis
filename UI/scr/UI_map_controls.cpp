@@ -382,21 +382,25 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     // 4. Player 2 Movement (Bot AI or Human Input)
     if (bot.isActive()) {
         p2Modal.active = false; // Never block Player 2 bot with a modal dialog
-        bool botTriggerAction = false;
-        bool botTriggerUpgrade = false;
-        BuildingType botSel = BuildingType::NONE;
-        bot.update(dt, engine, nodes, p2Pos, botTriggerAction, botTriggerUpgrade, botSel);
 
-        // Always sync selectedBuilding with bot's desired building state (clearing when NONE)
-        engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(botSel);
+        // During active tutorial, let the human player learn and build their first solar panel in peace!
+        if (!tutorial.isActive() || tutorial.getStep() == TutorialStep::COMPLETED) {
+            bool botTriggerAction = false;
+            bool botTriggerUpgrade = false;
+            BuildingType botSel = BuildingType::NONE;
+            bot.update(dt, engine, nodes, p2Pos, botTriggerAction, botTriggerUpgrade, botSel);
 
-        if (botTriggerAction && p2ActionCooldown <= 0.0f && !showHelpOverlay) {
-            executeP2Action();
-            p2ActionCooldown = 0.15f;
-        }
+            // Always sync selectedBuilding with bot's desired building state (clearing when NONE)
+            engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(botSel);
 
-        if (botTriggerUpgrade && !showHelpOverlay) {
-            executeP2Upgrade();
+            if (botTriggerAction && p2ActionCooldown <= 0.0f && !showHelpOverlay) {
+                executeP2Action();
+                p2ActionCooldown = 0.15f;
+            }
+
+            if (botTriggerUpgrade && !showHelpOverlay) {
+                executeP2Upgrade();
+            }
         }
     } else {
         bool p2BuildingMode = (engine.getSelectedBuilding(2) != BuildingType::NONE);
@@ -681,6 +685,27 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             }
         }
         return; // swallow all other input while help is open
+    }
+
+    // -------------------------------------------------------------------------
+    // 0.5. Interactive Tutorial Clicks & Keypresses
+    // -------------------------------------------------------------------------
+    if (tutorial.isActive()) {
+        if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            if (tutorial.handleClick(clickPos)) {
+                return;
+            }
+        }
+        if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (key->code == sf::Keyboard::Key::Escape) {
+                tutorial.skip();
+                return;
+            }
+            if (tutorial.handleKey(key->code)) {
+                return;
+            }
+        }
     }
 
     // -------------------------------------------------------------------------

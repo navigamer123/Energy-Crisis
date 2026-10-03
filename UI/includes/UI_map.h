@@ -11,6 +11,7 @@
 #include "UI_resourceNodes.h"
 #include "UI_buildings.h"
 #include "UI_bot.h"
+#include "UI_tutorial.h"
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -36,6 +37,7 @@ private:
     UI_resourceHUD resourceHUD;
     UI_resourceNodes nodes;
     UIBot bot;
+    UI_tutorial tutorial;
 
     // Player cursor / drone positions and pulse animations
     sf::Vector2f p1Pos;
@@ -180,6 +182,10 @@ public:
 
     bool isFullscreenRequested() const { return requestFullscreenToggle; }
     void resetFullscreenRequest() { requestFullscreenToggle = false; }
+
+    bool isTutorialActive() const { return tutorial.isActive(); }
+    void startTutorial() { tutorial.start(); }
+    void skipTutorial() { tutorial.skip(); }
 
     const GameEngine& getEngine() const { return engine; }
 

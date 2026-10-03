@@ -181,6 +181,7 @@ void UI_map::restartMatch() {
     notices.clear();
     miningParticles.clear();
     bot.init(bot.getDifficulty());
+    tutorial.reset();
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
 }
 
@@ -202,6 +203,7 @@ void UI_map::render(sf::RenderWindow& window) {
         engine.update(dt);
         updateControls(window, dt);
         updateWeatherParticles(dt);
+        tutorial.update(dt, engine);
     }
 
     // 2. Synchronize clock displays with continuous time and dynamic weather
@@ -294,6 +296,9 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 17. Interactive Modal Dialogs (Requires player to click OK or confirm)
     drawPlayerModals(window);
+
+    // 17.5 Interactive Beginner Tutorial Prompts and Guide Arrows
+    tutorial.draw(window, font, resourcesLoaded, engine, nodes, animTime, mousePos);
 
     // 18. Player targeting cursors (RENDERED ON TOP OF EVERYTHING!)
     drawPlayerCursors(window);
