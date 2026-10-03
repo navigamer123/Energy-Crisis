@@ -29,9 +29,13 @@ private:
     BotDifficulty selectedBotDifficulty;
 
     // Settings state
-    int volume;
-    bool soundEffects;
-    int settingsDifficultyIndex;
+    int volume;                  // 0..100 % (no audio subsystem yet: stored only)
+    bool soundEffects;           // no audio subsystem yet: stored only
+    int settingsDifficultyIndex; // 0..2: default bot difficulty preselected in the single-player menu
+
+    // Enter/Space must be released before they can select again (filters key auto-repeat)
+    bool enterHeld = false;
+    bool spaceHeld = false;
 
     sf::Font font;
     bool fontLoaded;
@@ -59,6 +63,9 @@ public:
     void onPlay();
     void onSettings();
     void onQuit();
+
+    // Show the top-level menu again (call when returning from a match); keys still held are ignored
+    void returnToMain();
 
     bool isPlayRequested() const { return requestPlay; }
     bool isQuitRequested() const { return requestQuit; }

@@ -266,22 +266,18 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
                 break;
             }
         } else {
-            if (!isDay) {
-                // Must be an illuminated slot at night!
-                if (!illuminatedFreeSlots.empty()) {
+            // Must be an illuminated slot at night! Hydro plants also need a river-bank slot
+            // (engine rule); without one, try the next candidate instead of a refused build.
+            const std::vector<sf::Vector2f>& slotPool = isDay ? freeSlots : illuminatedFreeSlots;
+            for (const auto& slot : slotPool) {
+                if (cand.type != BuildingType::HYDRO_PLANT || engine.isRiverBankSlot(2, slot)) {
                     chosenType = cand.type;
-                    chosenSlot = illuminatedFreeSlots[0];
-                    foundCandidate = true;
-                    break;
-                }
-            } else {
-                if (!freeSlots.empty()) {
-                    chosenType = cand.type;
-                    chosenSlot = freeSlots[0];
+                    chosenSlot = slot;
                     foundCandidate = true;
                     break;
                 }
             }
+            if (foundCandidate) break;
         }
     }
 

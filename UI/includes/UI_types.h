@@ -27,7 +27,7 @@ enum class ControlScheme {
     BOTH_KEYBOARD,          // 1. P1: WASD + Q/E, P2: Arrows + PgUp/PgDn
     P1_KEYBOARD_P2_MOUSE,   // 2. P1: WASD + Q/E, P2: Mouse
     P1_MOUSE_P2_KEYBOARD,   // 3. P1: Mouse, P2: Arrows + PgUp/PgDn
-    BOTH_MOUSE              // 4. P1: Mouse, P2: Mouse (2 Mice)
+    BOTH_MOUSE              // 4. One shared mouse (hot-seat): it drives only the player whose half it is in
 };
 
 // -----------------------------------------------------------------------------

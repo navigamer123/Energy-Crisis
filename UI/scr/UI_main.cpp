@@ -7,6 +7,7 @@ UI_main::UI_main()
       currentState(UIState::MAIN_MENU),
       isFullscreen(false) {
     window.setFramerateLimit(60);
+    window.setKeyRepeatEnabled(false); // A held key must not re-trigger menu/pause/hotkey events
     updateViewport();
     std::cout << "[UI_main] SFML RenderWindow (1600x900 virtual canvas) initialized.\n";
 }
@@ -54,6 +55,7 @@ void UI_main::toggleFullscreen() {
         window.create(sf::VideoMode({ 1600, 900 }), "Energy Crisis", sf::Style::Default);
     }
     window.setFramerateLimit(60);
+    window.setKeyRepeatEnabled(false); // window.create() restores the default (repeat on)
     updateViewport();
     std::cout << "[UI_main] Fullscreen toggled: " << (isFullscreen ? "ENABLED" : "DISABLED")
               << " (" << window.getSize().x << "x" << window.getSize().y << ")\n";
@@ -71,10 +73,17 @@ void UI_main::render() {
                 updateViewport();
             }
 
+            // Auto-pause the match when the window loses focus (Alt-Tab, click elsewhere)
+            if (event->is<sf::Event::FocusLost>() && currentState == UIState::PLAYING) {
+                map.onFocusLost();
+            }
+
             if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                 if (key->code == sf::Keyboard::Key::F11 ||
                     (key->code == sf::Keyboard::Key::Enter && key->alt)) {
                     toggleFullscreen();
+                    // The Enter of Alt+Enter (still held) must not also fire a player action
+                    if (currentState == UIState::PLAYING) map.primeInputEdges();
                     continue;
                 }
             }
@@ -92,6 +101,7 @@ void UI_main::render() {
                 map.restartMatch();
                 map.setControlScheme(mainMenu.getSelectedControlScheme());
                 map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
+                map.resetMatchInputState(); // The Enter/Space/click that started the match must not act in it
                 currentState = UIState::PLAYING;
             } else if (mainMenu.isQuitRequested()) {
                 currentState = UIState::QUIT;
@@ -101,11 +111,13 @@ void UI_main::render() {
         } else if (currentState == UIState::PLAYING) {
             if (map.isMenuRequested()) {
                 map.resetMenuRequest();
+                mainMenu.returnToMain(); // Show the top-level menu, not the last submenu
                 currentState = UIState::MAIN_MENU;
             }
             if (map.isFullscreenRequested()) {
                 map.resetFullscreenRequest();
                 toggleFullscreen();
+                map.primeInputEdges();
             }
         }
 

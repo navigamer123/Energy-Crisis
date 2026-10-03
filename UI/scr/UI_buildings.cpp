@@ -125,19 +125,13 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     b.btnBounds = sf::FloatRect({itemX, y}, {itemW, itemH});
 
     bool isSelected = (b.type == activeSelection);
+    // Every resource of the recipe is required on its own (no legacy 'ore' wildcard)
     bool canAfford =
         (b.type == BuildingType::DEMOLISH)
             ? true
-            : (econ.wood >= b.woodCost &&
-               (econ.iron >= b.ironCost || econ.ore >= b.oreCost) &&
-               (b.copperCost == 0 || econ.copper >= b.copperCost ||
-                econ.ore >= b.oreCost) &&
-               (b.coalCost == 0 || econ.coal >= b.coalCost ||
-                econ.ore >= b.oreCost) &&
-               (b.siliconCost == 0 || econ.silicon >= b.siliconCost ||
-                econ.ore >= b.oreCost) &&
-               (b.silverCost == 0 || econ.silver >= b.silverCost ||
-                econ.ore >= b.oreCost));
+            : (econ.wood >= b.woodCost && econ.iron >= b.ironCost &&
+               econ.copper >= b.copperCost && econ.coal >= b.coalCost &&
+               econ.silicon >= b.siliconCost && econ.silver >= b.silverCost);
     bool hover = b.btnBounds.contains(mousePos);
 
     // Card background

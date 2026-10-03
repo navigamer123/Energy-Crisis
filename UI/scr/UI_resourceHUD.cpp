@@ -4,8 +4,8 @@
 #include <string>
 
 UI_resourceHUD::UI_resourceHUD()
-    : p1BuyLandBtn({ 14.0f, 852.0f }, { 190.0f, 28.0f }),
-      p2BuyLandBtn({ 1600.0f - 204.0f, 852.0f }, { 190.0f, 28.0f }) {
+    : p1BuyLandBtn({ 14.0f, 834.0f }, { 186.0f, 26.0f }),
+      p2BuyLandBtn({ 1600.0f - 200.0f, 834.0f }, { 186.0f, 26.0f }) {
 }
 
 void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
@@ -185,22 +185,22 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
 
             // Energy & Share Banner
             sf::RectangleShape energyPlaque({ 186.0f, 26.0f });
-            energyPlaque.setPosition({ 14.0f, screenHeight - 88.0f });
+            energyPlaque.setPosition({ 14.0f, screenHeight - 98.0f });
             energyPlaque.setFillColor(sf::Color(25, 36, 52, 230));
             energyPlaque.setOutlineThickness(1.0f);
             energyPlaque.setOutlineColor(sf::Color(0, 229, 255));
             window.draw(energyPlaque);
 
-            drawIcon(ResourceType::ENERGY, 18.0f, screenHeight - 82.0f);
+            drawIcon(ResourceType::ENERGY, 18.0f, screenHeight - 92.0f);
             int p1SharePct = static_cast<int>(econ.cityInfluence * 100.0f);
             std::string pStr = std::to_string(econ.energyMW) + " MW (" + std::to_string(p1SharePct) + "% ток)";
             sf::Text tPwr(font, toUtf8(pStr), 12);
             tPwr.setFillColor(sf::Color(255, 235, 100));
-            tPwr.setPosition({ 40.0f, screenHeight - 83.0f });
+            tPwr.setPosition({ 40.0f, screenHeight - 93.0f });
             window.draw(tPwr);
 
             // Land Expansion Button
-            p1BuyLandBtn = sf::FloatRect({ 14.0f, screenHeight - 52.0f }, { 186.0f, 26.0f });
+            p1BuyLandBtn = sf::FloatRect({ 14.0f, screenHeight - 66.0f }, { 186.0f, 26.0f });
             bool hoverLand = p1BuyLandBtn.contains(mousePos);
             sf::RectangleShape landBtn(p1BuyLandBtn.size);
             landBtn.setPosition(p1BuyLandBtn.position);
@@ -212,7 +212,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             sf::Text tLand(font, toUtf8("+ КУПИ ЗЕМЯ"), 11);
             tLand.setFillColor(hoverLand ? sf::Color(255, 240, 150) : sf::Color::White);
             sf::FloatRect tb = tLand.getLocalBounds();
-            tLand.setPosition({ p1BuyLandBtn.position.x + (p1BuyLandBtn.size.x - tb.size.x) / 2.0f, screenHeight - 47.0f });
+            tLand.setPosition({ p1BuyLandBtn.position.x + (p1BuyLandBtn.size.x - tb.size.x) / 2.0f, screenHeight - 61.0f });
             window.draw(tLand);
         } else {
             // Player 2 (East Corner)
@@ -281,22 +281,22 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
 
             // Energy & Share Banner
             sf::RectangleShape energyPlaque({ 186.0f, 26.0f });
-            energyPlaque.setPosition({ screenWidth - 200.0f, screenHeight - 88.0f });
+            energyPlaque.setPosition({ screenWidth - 200.0f, screenHeight - 98.0f });
             energyPlaque.setFillColor(sf::Color(42, 25, 45, 230));
             energyPlaque.setOutlineThickness(1.0f);
             energyPlaque.setOutlineColor(sf::Color(255, 120, 200));
             window.draw(energyPlaque);
 
-            drawIcon(ResourceType::ENERGY, screenWidth - 196.0f, screenHeight - 82.0f);
+            drawIcon(ResourceType::ENERGY, screenWidth - 196.0f, screenHeight - 92.0f);
             int p2SharePct = static_cast<int>(econ.cityInfluence * 100.0f);
             std::string pStr = std::to_string(econ.energyMW) + " MW (" + std::to_string(p2SharePct) + "% ток)";
             sf::Text tPwr(font, toUtf8(pStr), 12);
             tPwr.setFillColor(sf::Color(255, 235, 100));
-            tPwr.setPosition({ screenWidth - 174.0f, screenHeight - 83.0f });
+            tPwr.setPosition({ screenWidth - 174.0f, screenHeight - 93.0f });
             window.draw(tPwr);
 
             // Land Expansion Button
-            p2BuyLandBtn = sf::FloatRect({ screenWidth - 200.0f, screenHeight - 52.0f }, { 186.0f, 26.0f });
+            p2BuyLandBtn = sf::FloatRect({ screenWidth - 200.0f, screenHeight - 66.0f }, { 186.0f, 26.0f });
             bool hoverLand = p2BuyLandBtn.contains(mousePos);
             sf::RectangleShape landBtn(p2BuyLandBtn.size);
             landBtn.setPosition(p2BuyLandBtn.position);
@@ -308,7 +308,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
             sf::Text tLand(font, toUtf8("+ КУПИ ЗЕМЯ"), 11);
             tLand.setFillColor(hoverLand ? sf::Color(255, 240, 150) : sf::Color::White);
             sf::FloatRect tb = tLand.getLocalBounds();
-            tLand.setPosition({ p2BuyLandBtn.position.x + (p2BuyLandBtn.size.x - tb.size.x) / 2.0f, screenHeight - 47.0f });
+            tLand.setPosition({ p2BuyLandBtn.position.x + (p2BuyLandBtn.size.x - tb.size.x) / 2.0f, screenHeight - 61.0f });
             window.draw(tLand);
         }
     }

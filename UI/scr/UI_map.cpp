@@ -27,7 +27,8 @@ UI_map::UI_map()
     if (font.openFromFile("assets/font.ttf")) {
         resourcesLoaded = true;
     } else {
-        std::cerr << "[UI_map] Warning: Failed to load assets/font.ttf\n";
+        std::cerr << "[UI_map] ERROR: Failed to load assets/font.ttf - all text will be missing; "
+                     "the tutorial and modal dialogs are disabled so they cannot block the game.\n";
     }
 
     // Initialize weather particles
@@ -61,7 +62,13 @@ void UI_map::setControlScheme(ControlScheme scheme) {
 
 void UI_map::setBotDifficulty(BotDifficulty diff) {
     bot.init(diff);
-    if (diff == BotDifficulty::HARD) {
+    if (!resourcesLoaded) {
+        // No font: the tutorial cannot be drawn, so never leave it active (it would invisibly
+        // swallow input and keep the bot frozen).
+        tutorial.setCoop(diff == BotDifficulty::NONE);
+        tutorial.skip();
+    } else if (diff == BotDifficulty::HARD) {
+        tutorial.setCoop(false);
         tutorial.skip(); // Hard mode: skip tutorial for advanced players
     } else if (diff == BotDifficulty::NONE) {
         tutorial.setCoop(true);
@@ -173,24 +180,61 @@ void UI_map::drawEnergyConduits(sf::RenderWindow& window, float animTime) {
 }
 
 void UI_map::restartMatch() {
-    isPaused = false;
     engine.restartGame();
-    p1Pos = { 420.0f, 320.0f };
-    p2Pos = { 1180.0f, 320.0f };
+
+    // --- Reset every per-match UI state (same result for menu starts and in-match restarts) ---
+    // Overlays
+    isPaused = false;
+    pauseSelectedIdx = 0;
+    lastPauseMousePos = { -999.0f, -999.0f };
+    showHelpOverlay = false;
+    requestMenu = false;
+
+    // Cursors spawn exactly like a menu start (see setControlScheme)
+    p1Pos = { 450.0f, 450.0f };
+    p2Pos = { 1150.0f, 450.0f };
+    p1Pulse = 0.0f;
+    p2Pulse = 0.0f;
+    p1GridStepCooldown = 0.0f;
+    p2GridStepCooldown = 0.0f;
+    engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
+    engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
+
+    // Cooldowns
     p1ResourceCooldown = 0.0f;
     p2ResourceCooldown = 0.0f;
     p1ActionCooldown = 0.0f;
     p2ActionCooldown = 0.0f;
     p1SelectCooldown = 0.0f;
     p2SelectCooldown = 0.0f;
+
+    // Dialogs, popups & effects
     p1Modal.active = false;
     p2Modal.active = false;
     p1Popup.active = false;
     p2Popup.active = false;
     notices.clear();
     miningParticles.clear();
-    bot.init(bot.getDifficulty());
+
+    // Lightning
+    activeLightnings.clear();
+    lightningFlashTimer = 0.0f;
+    lightningStrikeCooldown = 5.0f;
+    lightningStrikeCooldownP2 = 5.0f;
+
+    // Re-apply the chosen mode & difficulty: re-inits the bot and shows the tutorial only where
+    // that mode wants it (never on HARD), with the matching co-op / single-player hints.
     tutorial.reset();
+    setBotDifficulty(bot.getDifficulty());
+
+    // Per-match input state owned by UI_map_controls.cpp: bot/tutorial hold timer, help origin, and
+    // every key edge flag primed, so the Enter/Space/R that started this match (menu, pause menu or
+    // victory screen) is not seen as a fresh in-game press. Idempotent, so callers may repeat it.
+    resetMatchInputState();
+
+    // Do not let the time spent in menus/pause leak into the first frame of the new match
+    deltaClock.restart();
+
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, sf::Color(0, 255, 180));
 }
 
@@ -213,6 +257,14 @@ void UI_map::render(sf::RenderWindow& window) {
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
+    }
+
+    // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible
+    // dialog/tutorial blocking input (or freezing the bot).
+    if (!resourcesLoaded) {
+        p1Modal.active = false;
+        p2Modal.active = false;
+        if (tutorial.isActive()) tutorial.skip();
     }
 
     // 2. Synchronize clock displays with continuous time and dynamic weather

@@ -137,19 +137,18 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     float y = 250.0f;
 
     m.box = sf::FloatRect({ x, y }, { w, h });
-    m.okBtn = sf::FloatRect({ x + (w - 160.0f) / 2.0f, y + h - 42.0f }, { 160.0f, 32.0f });
+    m.okBtn = sf::FloatRect({ x + (w - 200.0f) / 2.0f, y + h - 42.0f }, { 200.0f, 32.0f });
 }
 
 void UI_map::closePlayerModal(int player) {
     if (player == 1) {
         p1Modal.active = false;
         p1ActionCooldown = 0.35f;
-        p1PrevAction = true;
     } else {
         p2Modal.active = false;
         p2ActionCooldown = 0.35f;
-        p2PrevAction = true;
     }
+    primeInputEdges(player); // The dismissing key (Space/X/Enter/Del...) must not also act in-game
 }
 
 void UI_map::drawPlayerModals(sf::RenderWindow& window) {
@@ -206,8 +205,8 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
             window.draw(tTip);
         }
 
-        // [ OK - РАЗБРАХ ] Button
-        bool btnHover = m.okBtn.contains(mousePos);
+        // [ OK - РАЗБРАХ ] Button (clickable only by the player who owns the mouse)
+        bool btnHover = (mouseOwnerAt(mousePos) == pIdx) && m.okBtn.contains(mousePos);
         sf::RectangleShape btn(m.okBtn.size);
         btn.setPosition(m.okBtn.position);
         btn.setFillColor(btnHover ? sf::Color(55, 160, 95) : sf::Color(35, 110, 65));
@@ -215,7 +214,7 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         btn.setOutlineColor(btnHover ? sf::Color(100, 255, 180) : sf::Color(70, 210, 110));
         window.draw(btn);
 
-        sf::Text tOk(font, toUtf8("OK  (РАЗБРАХ)"), 12);
+        sf::Text tOk(font, toUtf8(pIdx == 1 ? "OK [SPACE] - РАЗБРАХ" : "OK [ENTER] - РАЗБРАХ"), 12);
         tOk.setFillColor(sf::Color::White);
         sf::FloatRect ob = tOk.getLocalBounds();
         tOk.setPosition({ m.okBtn.position.x + (m.okBtn.size.x - ob.size.x) / 2.0f, m.okBtn.position.y + 6.0f });
@@ -247,7 +246,9 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
             std::snprintf(buf, sizeof(buf), " (%.1fs)", cd);
             promptText += buf;
         } else {
-            promptText += " [Добив: 2с]";
+            char cdBuf[48];
+            std::snprintf(cdBuf, sizeof(cdBuf), " [Добив: %gс]", static_cast<double>(Balance::MINE_COOLDOWN_SEC));
+            promptText += cdBuf;
         }
 
         sf::Text t(font, toUtf8(promptText), 11);
@@ -257,7 +258,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         window.draw(t);
 
         if (cd > 0.05f) {
-            float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / 2.0f));
+            float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / Balance::MINE_COOLDOWN_SEC));
             sf::RectangleShape cdBar({ 256.0f * fillRatio, 3.0f });
             cdBar.setPosition({ tagBox.getPosition().x + 2.0f, tagBox.getPosition().y + 24.0f });
             cdBar.setFillColor(sf::Color(0, 255, 180));

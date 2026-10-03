@@ -34,11 +34,22 @@ void UI_tutorial::reset() {
 void UI_tutorial::start() {
     step = TutorialStep::WELCOME;
     active = true;
+    stepDelayTimer = 0.0f;
+    initialP1BuildingCount = 0;
 }
 
 void UI_tutorial::skip() {
     step = TutorialStep::INACTIVE;
     active = false;
+}
+
+// Number of solar panels Player 1 currently owns (tutorial PLACE_SOLAR progress)
+static int countP1SolarPanels(const GameEngine& engine) {
+    int count = 0;
+    for (const auto& b : engine.getBuildings()) {
+        if (b.playerOwner == 1 && b.type == BuildingType::SOLAR_PANEL) count++;
+    }
+    return count;
 }
 
 void UI_tutorial::update(float dt, const GameEngine& engine) {
@@ -82,16 +93,17 @@ void UI_tutorial::update(float dt, const GameEngine& engine) {
             break;
         case TutorialStep::SELECT_SOLAR:
             if (engine.getSelectedBuilding(1) == BuildingType::SOLAR_PANEL) {
+                // Baseline: P1's solar panels that already exist, so only a NEW solar completes the step
+                initialP1BuildingCount = countP1SolarPanels(engine);
                 step = TutorialStep::PLACE_SOLAR;
             }
             break;
         case TutorialStep::PLACE_SOLAR: {
-            int currentP1Buildings = 0;
-            for (const auto& b : engine.getBuildings()) {
-                if (b.playerOwner == 1) currentP1Buildings++;
-            }
-            if (currentP1Buildings > initialP1BuildingCount) {
+            int currentP1Solars = countP1SolarPanels(engine);
+            if (currentP1Solars > initialP1BuildingCount) {
                 step = TutorialStep::COMPLETED;
+            } else if (currentP1Solars < initialP1BuildingCount) {
+                initialP1BuildingCount = currentP1Solars; // a solar was demolished / destroyed meanwhile
             }
             break;
         }
@@ -144,7 +156,9 @@ void UI_tutorial::drawSpotlight(sf::RenderWindow& window, sf::FloatRect targetRe
     border.setPosition(targetRect.position);
     border.setFillColor(sf::Color::Transparent);
     border.setOutlineThickness(2.5f);
-    border.setOutlineColor(sf::Color(0, 255, 200, 210 + static_cast<std::uint8_t>(std::sin(animTime * 6.0f) * 45.0f)));
+    // Pulse computed in float and clamped before the single cast (a negative float -> uint8_t cast is UB)
+    std::uint8_t borderAlpha = static_cast<std::uint8_t>(std::clamp(210.0f + std::sin(animTime * 6.0f) * 45.0f, 0.0f, 255.0f));
+    border.setOutlineColor(sf::Color(0, 255, 200, borderAlpha));
     window.draw(border);
 
     // Corner bracket accents

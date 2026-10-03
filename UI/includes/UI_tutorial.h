@@ -33,7 +33,7 @@ private:
     bool isCoop = false;
     float animTimer = 0.0f;
     float stepDelayTimer = 0.0f;
-    int initialP1BuildingCount = 0;
+    int initialP1BuildingCount = 0; // P1 solar panels owned when PLACE_SOLAR started (baseline)
 
     sf::FloatRect cardBounds;
     sf::FloatRect skipBtnBounds;

@@ -58,7 +58,6 @@ void UI_map::triggerLightningStrike(sf::Vector2f targetPos, bool hitBuilding) {
 void UI_map::updateWeatherParticles(float dt) {
     WeatherType w1 = engine.getPlayerWeather(1);
     WeatherType w2 = engine.getPlayerWeather(2);
-    SeasonType season = engine.getSeason();
     bool isNight = !engine.isDaylight();
 
     // 1. Update existing active lightnings
@@ -77,42 +76,56 @@ void UI_map::updateWeatherParticles(float dt) {
         if (lightningFlashTimer < 0.0f) lightningFlashTimer = 0.0f;
     }
 
-    // 3. Lightning Strike schedule & strike chance
-    lightningStrikeCooldown -= dt;
-    if (lightningStrikeCooldown <= 0.0f) {
-        bool isStormy = (w1 == WeatherType::STORMY || w2 == WeatherType::STORMY);
-        bool isRainy = (w1 == WeatherType::RAINY || w2 == WeatherType::RAINY);
-
-        if (isStormy) {
-            lightningStrikeCooldown = 6.0f + static_cast<float>(rand() % 6);
-        } else if (isRainy) {
-            lightningStrikeCooldown = 18.0f + static_cast<float>(rand() % 12);
-        } else {
-            lightningStrikeCooldown = 45.0f + static_cast<float>(rand() % 35);
+    // 3. Lightning Strike schedule & strike chance.
+    //    Each sector rolls on its own: strikes happen ONLY while that sector's weather is STORMY,
+    //    they can only hit buildings standing in that sector (West = P1, East = P2), and the
+    //    schedule runs on game time (dt * time scale) so strikes per game day do not depend on
+    //    the mining speed-up. Bolt/flash animations above stay on real time.
+    float gameDt = dt * engine.getTimeScale();
+    for (int sector = 1; sector <= 2; ++sector) {
+        float& strikeCooldown = (sector == 1) ? lightningStrikeCooldown : lightningStrikeCooldownP2;
+        WeatherType sectorWeather = (sector == 1) ? w1 : w2;
+        if (sectorWeather != WeatherType::STORMY) {
+            continue; // Calm sky in this sector: no lightning, schedule paused
         }
+
+        strikeCooldown -= gameDt;
+        if (strikeCooldown > 0.0f) {
+            continue;
+        }
+        strikeCooldown = 6.0f + static_cast<float>(rand() % 6);
 
         // Lightning strikes!
         // Very small chance to hit a facility ("много малък шанс да чупят съоръжението")
         // "ако бъдат счупени да изчезват за да може да бъде построен друг ВЕЦ"
+        // Facilities are safe during the grace period.
         const auto& allBuildings = engine.getBuildings();
-        if (!allBuildings.empty() && (rand() % 12 == 0)) {
-            size_t chosen = rand() % allBuildings.size();
+        std::vector<size_t> sectorBuildings;
+        for (size_t i = 0; i < allBuildings.size(); ++i) {
+            if (allBuildings[i].playerOwner == sector) {
+                sectorBuildings.push_back(i);
+            }
+        }
+
+        if (!sectorBuildings.empty() && !engine.isGracePeriod() && (rand() % 12 == 0)) {
+            size_t chosen = sectorBuildings[static_cast<size_t>(rand()) % sectorBuildings.size()];
             sf::Vector2f strikePos = allBuildings[chosen].position;
-            int owner = allBuildings[chosen].playerOwner;
             BuildingCost cost = engine.getBuildingCost(allBuildings[chosen].type);
 
             // Destroy and remove building so it disappears immediately and frees the grid slot!
-            const_cast<GameEngine&>(engine).breakBuildingAt(strikePos);
+            // (allBuildings must not be used after this call)
+            engine.breakBuildingAt(strikePos);
 
-            triggerPlayerPopup(owner, "МЪЛНИЯ!", "Унищожено съоръжение!",
+            triggerPlayerPopup(sector, "МЪЛНИЯ!", "Унищожено съоръжение!",
                                "Мълния унищожи " + cost.nameBg + "!\nКлетката се освободи за нов строеж (ВЕЦ/друг).",
                                "[SPACE/Клик]: Постройте ново съоръжение", sf::Color(255, 230, 80));
 
             spawnNotice("СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!", strikePos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 80, 80));
             triggerLightningStrike(strikePos, true);
         } else {
-            // Harmless strike into open ground
-            float sx = 80.0f + static_cast<float>(rand() % 1440);
+            // Harmless strike into open ground of the stormy sector
+            float minX = (sector == 1) ? 80.0f : 820.0f;
+            float sx = minX + static_cast<float>(rand() % 700);
             float sy = 160.0f + static_cast<float>(rand() % 650);
             triggerLightningStrike(sf::Vector2f(sx, sy), false);
         }
@@ -125,8 +138,8 @@ void UI_map::updateWeatherParticles(float dt) {
         if (w == WeatherType::RAINY || w == WeatherType::STORMY) {
             p.type = 0; // Rain
             p.vel = sf::Vector2f((w == WeatherType::STORMY ? -140.0f : -60.0f), (w == WeatherType::STORMY ? 750.0f : 550.0f));
-        } else if (season == SeasonType::WINTER) {
-            p.type = 1; // Snow
+        } else if (w == WeatherType::SNOWY) {
+            p.type = 1; // Snow (snow / hail days only, not every dry winter day)
             float drift = std::sin(p.pos.y * 0.02f + static_cast<float>(i)) * 40.0f;
             p.vel = sf::Vector2f(drift, 65.0f);
         } else if (w == WeatherType::WINDY) {

@@ -7,6 +7,80 @@
 // UI_map Controls & Input Handling (Cursors, Actions, Hotkeys, Events)
 // =============================================================================
 
+// Real resource list of a building recipe (used by keyboard and mouse selection popups)
+static std::string formatCost(const BuildingCost& c) {
+    std::string s = "Нужно: " + std::to_string(c.woodCost) + " Дърво";
+    if (c.ironCost > 0) s += ", " + std::to_string(c.ironCost) + " Жел";
+    if (c.copperCost > 0) s += ", " + std::to_string(c.copperCost) + " Мед";
+    if (c.siliconCost > 0) s += ", " + std::to_string(c.siliconCost) + " Сил";
+    if (c.coalCost > 0) s += ", " + std::to_string(c.coalCost) + " Въгл";
+    if (c.silverCost > 0) s += ", " + std::to_string(c.silverCost) + " Среб";
+    return s;
+}
+
+// -----------------------------------------------------------------------------
+// Input ownership & resync helpers
+// -----------------------------------------------------------------------------
+
+// Which player the mouse acts for. Single Player: the human (P1). Co-op: only the player whose
+// scheme includes the mouse; in the shared-mouse scheme, the player whose half the pointer is in.
+int UI_map::mouseOwnerAt(sf::Vector2f pos) const {
+    if (bot.isActive()) return 1;
+    switch (controlScheme) {
+        case ControlScheme::P1_MOUSE_P2_KEYBOARD: return 1;
+        case ControlScheme::P1_KEYBOARD_P2_MOUSE: return 2;
+        case ControlScheme::BOTH_MOUSE:           return (pos.x < 800.0f) ? 1 : 2;
+        case ControlScheme::BOTH_KEYBOARD:
+        default:                                  return 0; // Keyboard-only co-op: the mouse drives no player
+    }
+}
+
+// A modal is dismissed only by its own player's confirm/cancel keys
+bool UI_map::isModalDismissKey(int player, sf::Keyboard::Key code) const {
+    if (player == 1) {
+        if (code == sf::Keyboard::Key::Space || code == sf::Keyboard::Key::X) return true;
+        // Single Player: P1 also owns Enter/Delete/Backspace, and Esc is unambiguous
+        return bot.isActive() && (code == sf::Keyboard::Key::Enter || code == sf::Keyboard::Key::Delete ||
+                                  code == sf::Keyboard::Key::Backspace || code == sf::Keyboard::Key::Escape);
+    }
+    return code == sf::Keyboard::Key::Enter || code == sf::Keyboard::Key::Delete;
+}
+
+// Mark every polled one-shot key as "already down": a key that a menu, dialog, pause screen or
+// fullscreen toggle just consumed must be released before it counts as a new in-game press.
+void UI_map::primeInputEdges(int player) {
+    if (player != 2) {
+        p1PrevAction = true;
+        p1PrevUpgrade = true;
+        p1PrevE = true;
+        p1PrevQ = true;
+        p1PrevX = true;
+        for (int k = 1; k <= 6; ++k) p1PrevNum[k] = true;
+    }
+    if (player != 1) {
+        p2PrevAction = true;
+        p2PrevUpgrade = true;
+        p2PrevPgDn = true;
+        p2PrevPgUp = true;
+        p2PrevDel = true;
+    }
+}
+
+void UI_map::resetMatchInputState() {
+    tutorialBotHoldLeft = TUTORIAL_BOT_HOLD_SEC;
+    helpOpenedFromPause = false;
+    primeInputEdges(0);
+}
+
+void UI_map::onFocusLost() {
+    if (engine.getCityState().winner != 0) return;
+    if (!isPaused) {
+        isPaused = true;
+        pauseSelectedIdx = 0;
+    }
+    helpOpenedFromPause = true; // If help is open, closing it lands on the pause menu
+}
+
 void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     float animTime = animClock.getElapsedTime().asSeconds();
 
@@ -148,7 +222,7 @@ void UI_map::executeP1Action() {
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, resType, res, msg)) {
-                p1ResourceCooldown = 1.0f;
+                p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
                 const auto* st = nodes.getStation(1, resType);
                 sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
                 spawnMiningParticles(p1Pos, c, 18);
@@ -226,7 +300,7 @@ void UI_map::executeP2Action() {
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, resType, res, msg)) {
-                p2ResourceCooldown = 1.0f;
+                p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
                 const auto* st = nodes.getStation(2, resType);
                 sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);
                 spawnMiningParticles(p2Pos, c, 18);
@@ -242,7 +316,7 @@ void UI_map::executeP2Action() {
                             triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете PgDn за избор.", "[PgDn]: Избери сграда", sf::Color(255, 215, 0));
                             spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, sf::Color(255, 215, 0));
                         } else {
-                            triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "[PgUp]: Отказ", sf::Color(255, 90, 90));
+                            triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", sf::Color(255, 90, 90));
                         }
                     } else {
                         triggerPlayerPopup(2, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[PgDn]: Изберете сграда за строеж", sf::Color(255, 140, 220));
@@ -292,14 +366,20 @@ void UI_map::executeP2Upgrade() {
 
 void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     if (isPaused || engine.getCityState().winner != 0) {
-        if (engine.getCityState().winner != 0 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
-            restartMatch();
-        }
+        return;
+    }
+
+    // Keyboard & mouse state is global: never read it while another window has the focus
+    if (!window.hasFocus()) {
+        engine.setTimeScale(1.0f);
+        primeInputEdges(0);
         return;
     }
 
     float speed = 360.0f;
     sf::Vector2f mPos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    // The pointer only drives mouse-scheme cursors while it is over the game canvas
+    const bool mouseOnCanvas = (mPos.x >= 0.0f && mPos.x < VIRTUAL_WIDTH && mPos.y >= 0.0f && mPos.y < VIRTUAL_HEIGHT);
 
     // 1. Update floating notices & mining particles
     for (auto it = notices.begin(); it != notices.end();) {
@@ -310,29 +390,16 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     }
     updateMiningParticles(dt);
 
-    // 2. Resource zone detection -> 6x time speedup!
+    // 2. Mining speed-up: game time runs faster only while EVERY human player's cursor is in a
+    //    resource zone (the bot never triggers it, and one player cannot speed up the other's day)
     bool p1InRes = (nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE);
     bool p2InRes = (nodes.getP2ResourceAt(p2Pos) != ResourceType::NONE);
-    if (p1InRes || p2InRes) {
-        engine.setTimeScale(6.0f);
-    } else {
-        engine.setTimeScale(1.0f);
-    }
+    bool allHumansInRes = bot.isActive() ? p1InRes : (p1InRes && p2InRes);
+    engine.setTimeScale(allHumansInRes ? Balance::MINE_SPEEDUP_MULT : 1.0f);
 
     // Decrement grid step cooldowns
     if (p1GridStepCooldown > 0.0f) p1GridStepCooldown -= dt;
     if (p2GridStepCooldown > 0.0f) p2GridStepCooldown -= dt;
-
-    // Helper to format building costs
-    auto formatCost = [](const BuildingCost& c) {
-        std::string s = "Нужно: " + std::to_string(c.woodCost) + " Дърво";
-        if (c.ironCost > 0) s += ", " + std::to_string(c.ironCost) + " Жел";
-        if (c.copperCost > 0) s += ", " + std::to_string(c.copperCost) + " Мед";
-        if (c.siliconCost > 0) s += ", " + std::to_string(c.siliconCost) + " Сил";
-        if (c.coalCost > 0) s += ", " + std::to_string(c.coalCost) + " Въгл";
-        if (c.silverCost > 0) s += ", " + std::to_string(c.silverCost) + " Среб";
-        return s;
-    };
 
     // 3. Player 1 Movement (Precision Grid during placement, smooth analog otherwise)
     bool p1BuildingMode = (engine.getSelectedBuilding(1) != BuildingType::NONE);
@@ -362,8 +429,11 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                 }
             }
         } else {
-            engine.getClosestGridIndex(1, mPos, p1GridCol, p1GridRow);
-            p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+            // Mouse-driven P1 (shared-mouse scheme: only while the pointer is in the west half)
+            if (mouseOnCanvas && (controlScheme != ControlScheme::BOTH_MOUSE || mPos.x < 800.0f)) {
+                engine.getClosestGridIndex(1, mPos, p1GridCol, p1GridRow);
+                p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+            }
         }
     } else {
         if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || allowArrowsForP1) {
@@ -372,9 +442,9 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) p1Pos.x -= speed * dt;
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) p1Pos.x += speed * dt;
         } else if (controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
-            p1Pos = mPos;
+            if (mouseOnCanvas) p1Pos = mPos;
         } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
-            if (mPos.x <= 800.0f) p1Pos = mPos;
+            if (mouseOnCanvas && mPos.x < 800.0f) p1Pos = mPos;
         }
         p1Pos.x = std::max(30.0f, std::min(p1Pos.x, 780.0f));
         p1Pos.y = std::max(40.0f, std::min(p1Pos.y, 860.0f));
@@ -385,8 +455,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     if (bot.isActive()) {
         p2Modal.active = false; // Never block Player 2 bot with a modal dialog
 
-        // During active tutorial, let the human player learn and build their first solar panel in peace!
-        if (!tutorial.isActive() || tutorial.getStep() == TutorialStep::COMPLETED) {
+        // An active tutorial gives the human a head start, but only for a limited window:
+        // skipping or completing it, or running out of time, releases the bot.
+        bool tutorialHoldsBot = tutorial.isActive() && tutorial.getStep() != TutorialStep::COMPLETED &&
+                                tutorialBotHoldLeft > 0.0f;
+        if (tutorialHoldsBot) {
+            tutorialBotHoldLeft -= dt;
+        } else {
             bool botTriggerAction = false;
             bool botTriggerUpgrade = false;
             BuildingType botSel = BuildingType::NONE;
@@ -430,8 +505,11 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     }
                 }
             } else {
-                engine.getClosestGridIndex(2, mPos, p2GridCol, p2GridRow);
-                p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+                // Mouse-driven P2 (shared-mouse scheme: only while the pointer is in the east half)
+                if (mouseOnCanvas && (controlScheme != ControlScheme::BOTH_MOUSE || mPos.x >= 800.0f)) {
+                    engine.getClosestGridIndex(2, mPos, p2GridCol, p2GridRow);
+                    p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+                }
             }
         } else {
             if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
@@ -440,9 +518,9 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) p2Pos.x -= speed * dt;
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) p2Pos.x += speed * dt;
             } else if (controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE) {
-                p2Pos = mPos;
+                if (mouseOnCanvas) p2Pos = mPos;
             } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
-                if (mPos.x >= 800.0f) p2Pos = mPos;
+                if (mouseOnCanvas && mPos.x >= 800.0f) p2Pos = mPos;
             }
             p2Pos.x = std::max(820.0f, std::min(p2Pos.x, 1570.0f));
             p2Pos.y = std::max(40.0f, std::min(p2Pos.y, 860.0f));
@@ -472,11 +550,15 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     // P1 Upgrade Mine with Gold: [F] or [RShift / End in Single Player]
     bool p1PressingUpgrade = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F) ||
                              (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End)));
-    static bool p1PrevUpgrade = false;
     if (p1PressingUpgrade && !p1PrevUpgrade && !p1Modal.active && !showHelpOverlay) {
         executeP1Upgrade();
     }
     p1PrevUpgrade = p1PressingUpgrade;
+
+    // Key names shown in P1's popups: Enter/PgDn/Del belong to P1 only in Single Player
+    const std::string p1ActKeys = allowArrowsForP1 ? "[SPACE/ENTER]" : "[SPACE]";
+    const std::string p1NextKeys = allowArrowsForP1 ? "[E/PgDn]" : "[E]";
+    const std::string p1CancelKeys = allowArrowsForP1 ? "[X/Del]" : "[X]";
 
     // P1: [E] Cycle Forward (or PgDn in Single Player)
     bool curE = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E) ||
@@ -488,13 +570,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         BuildingCost c = engine.getBuildingCost(newSel);
         p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
         if (newSel == BuildingType::DEMOLISH) {
-            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE/ENTER]: Премахни | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(255, 80, 80));
+            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 80, 80));
         } else if (newSel == BuildingType::LAMP) {
-            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE/ENTER]: Постави | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(255, 220, 100));
+            triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", p1ActKeys + ": Постави | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 220, 100));
         } else {
             triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                               "[SPACE/ENTER]: Постави в грида | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(0, 229, 255));
+                               p1ActKeys + ": Постави в грида | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(0, 229, 255));
         }
     }
     p1PrevE = curE;
@@ -510,13 +592,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             BuildingCost c = engine.getBuildingCost(newSel);
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
             if (newSel == BuildingType::DEMOLISH) {
-                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[SPACE/ENTER]: Премахни | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(255, 80, 80));
+                triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 80, 80));
             } else if (newSel == BuildingType::LAMP) {
-                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", "[SPACE/ENTER]: Постави | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(255, 220, 100));
+                triggerPlayerPopup(1, "ОСВЕТЛЕНИЕ", c.nameBg, formatCost(c) + ".\nОсветява нощем за строителство.", p1ActKeys + ": Постави | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 220, 100));
             } else {
                 triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                    formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                                   "[SPACE/ENTER]: Постави в грида | [E/PgDn]: Следваща | [X]: Отказ", sf::Color(0, 229, 255));
+                                   p1ActKeys + ": Постави в грида | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(0, 229, 255));
             }
         }
     }
@@ -524,14 +606,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     bool curX = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::X) ||
                 (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Backspace)));
-    if (curX && !p1PrevX) {
+    if (curX && !p1PrevX && !p1Modal.active && !showHelpOverlay) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
             engine.clearBuildingSelection(1);
-            triggerPlayerPopup(1, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[E/PgDn]: Избери сграда", sf::Color(180, 180, 180));
+            triggerPlayerPopup(1, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", p1NextKeys + ": Избери сграда", sf::Color(180, 180, 180));
         } else {
             engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
-            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", "[SPACE/ENTER]: Премахни | [X/Del]: Отказ", sf::Color(255, 80, 80));
+            triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", p1ActKeys + ": Премахни | " + p1CancelKeys + ": Отказ", sf::Color(255, 80, 80));
         }
     }
     p1PrevX = curX;
@@ -564,7 +646,6 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
         // P2 Upgrade Mine with Gold: [RShift] or [End]
         bool p2PressingUpgrade = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
-        static bool p2PrevUpgrade = false;
         if (p2PressingUpgrade && !p2PrevUpgrade && !p2Modal.active && !showHelpOverlay) {
             executeP2Upgrade();
         }
@@ -590,9 +671,10 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
         p2PrevPgDn = curPgDn;
 
-        // P2: [PgUp] Cycle Backward
+        // P2: [PgUp] Cycle Backward (like P1's [Q]: only while a building is selected)
         bool curPgUp = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp);
-        if (curPgUp && !p2PrevPgUp && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
+        if (curPgUp && !p2PrevPgUp && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay &&
+            engine.getSelectedBuilding(2) != BuildingType::NONE) {
             engine.cycleBuildingSelectionPrev(2);
             p2SelectCooldown = 0.16f;
             BuildingType newSel = engine.getSelectedBuilding(2);
@@ -610,8 +692,9 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
         p2PrevPgUp = curPgUp;
 
-        bool curDel = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
-        if (curDel && !p2PrevDel) {
+        // P2: [Del] Cancel / Demolish mode ([End] is P2's upgrade key only)
+        bool curDel = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete);
+        if (curDel && !p2PrevDel && !p2Modal.active && !showHelpOverlay) {
             if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
                 engine.clearBuildingSelection(2);
                 triggerPlayerPopup(2, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[PgDn]: Избери сграда", sf::Color(180, 180, 180));
@@ -676,26 +759,123 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 
     // -------------------------------------------------------------------------
     // 0. If Help overlay is active, any dismiss key or click closes it.
-    //    Stays paused after (if it was opened from the pause menu).
+    //    Closing returns to the pause menu only if help was opened from it.
     // -------------------------------------------------------------------------
     if (showHelpOverlay) {
-        if (event.is<sf::Event::MouseButtonPressed>()) {
+        auto closeHelp = [this]() {
             showHelpOverlay = false;
-            return; // stays paused if isPaused is true
+            isPaused = helpOpenedFromPause;
+            primeInputEdges(0); // The Enter/Space that closed help must not act in-game
+        };
+        if (event.is<sf::Event::MouseButtonPressed>()) {
+            closeHelp();
+            return;
         }
         if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
             if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1 ||
                 key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::Enter ||
                 key->code == sf::Keyboard::Key::Space) {
-                showHelpOverlay = false;
-                return; // stays paused if isPaused is true
+                closeHelp();
+                return;
             }
         }
         return; // swallow all other input while help is open
     }
 
     // -------------------------------------------------------------------------
-    // 0.5. Interactive Tutorial Clicks & Keypresses
+    // 1. Pause Menu Event Handling (before the tutorial and the dialogs, so they
+    //    never receive keys or clicks meant for the pause menu)
+    // -------------------------------------------------------------------------
+    if (isPaused) {
+        if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (key->code == sf::Keyboard::Key::Escape) {
+                isPaused = false;
+                primeInputEdges(0);
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W) {
+                pauseSelectedIdx = (pauseSelectedIdx + 3) % 4;
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S) {
+                pauseSelectedIdx = (pauseSelectedIdx + 1) % 4;
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space) {
+                if (pauseSelectedIdx == 0) {
+                    isPaused = false;
+                    primeInputEdges(0);
+                } else if (pauseSelectedIdx == 1) {
+                    isPaused = false;
+                    restartMatch();
+                } else if (pauseSelectedIdx == 2) {
+                    helpOpenedFromPause = true;
+                    showHelpOverlay = true;
+                } else if (pauseSelectedIdx == 3) {
+                    isPaused = false;
+                    requestMenu = true;
+                }
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::R) {
+                isPaused = false;
+                restartMatch();
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1) {
+                helpOpenedFromPause = true;
+                showHelpOverlay = true;
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::M) {
+                isPaused = false;
+                requestMenu = true;
+                return;
+            }
+        }
+        if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            if (pauseResumeBtn.contains(clickPos)) {
+                isPaused = false;
+                primeInputEdges(0);
+                return;
+            }
+            if (pauseRestartBtn.contains(clickPos)) {
+                isPaused = false;
+                restartMatch();
+                return;
+            }
+            if (pauseHelpBtn.contains(clickPos)) {
+                helpOpenedFromPause = true;
+                showHelpOverlay = true;
+                return;
+            }
+            if (pauseMenuBtn.contains(clickPos)) {
+                isPaused = false;
+                requestMenu = true;
+                return;
+            }
+        }
+        return;
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Player modal dialogs: each one closes only with its own player's
+    //    confirm/cancel keys (mouse: that player's click on its OK button, below)
+    // -------------------------------------------------------------------------
+    if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+        if (p1Modal.active && isModalDismissKey(1, key->code)) {
+            closePlayerModal(1);
+            return;
+        }
+        if (p2Modal.active && isModalDismissKey(2, key->code)) {
+            closePlayerModal(2);
+            return;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Interactive Tutorial Clicks & Keypresses
     // -------------------------------------------------------------------------
     if (tutorial.isActive()) {
         if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
@@ -710,19 +890,9 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 return;
             }
             if (tutorial.handleKey(key->code)) {
+                primeInputEdges(0); // The Space/Enter the tutorial consumed must not act in-game
                 return;
             }
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // 1. Check if interactive player modal dialog is active (any click or key dismisses easily)
-    // -------------------------------------------------------------------------
-    if (p1Modal.active || p2Modal.active) {
-        if (event.is<sf::Event::MouseButtonPressed>() || event.is<sf::Event::KeyPressed>()) {
-            if (p1Modal.active) closePlayerModal(1);
-            if (p2Modal.active) closePlayerModal(2);
-            return;
         }
     }
 
@@ -733,81 +903,12 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
     }
 
-    // -------------------------------------------------------------------------
-    // 2. Pause Menu Event Handling
-    // -------------------------------------------------------------------------
-    if (isPaused) {
-        if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
-            if (key->code == sf::Keyboard::Key::Escape) {
-                isPaused = false;
-                return;
-            }
-            if (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W) {
-                pauseSelectedIdx = (pauseSelectedIdx + 3) % 4;
-                return;
-            }
-            if (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S) {
-                pauseSelectedIdx = (pauseSelectedIdx + 1) % 4;
-                return;
-            }
-            if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space) {
-                if (pauseSelectedIdx == 0) {
-                    isPaused = false;
-                } else if (pauseSelectedIdx == 1) {
-                    isPaused = false;
-                    restartMatch();
-                } else if (pauseSelectedIdx == 2) {
-                    showHelpOverlay = true;
-                } else if (pauseSelectedIdx == 3) {
-                    isPaused = false;
-                    requestMenu = true;
-                }
-                return;
-            }
-            if (key->code == sf::Keyboard::Key::R) {
-                isPaused = false;
-                restartMatch();
-                return;
-            }
-            if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1) {
-                showHelpOverlay = true;
-                return;
-            }
-            if (key->code == sf::Keyboard::Key::M) {
-                isPaused = false;
-                requestMenu = true;
-                return;
-            }
-        }
-        if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
-            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
-            if (pauseResumeBtn.contains(clickPos)) {
-                isPaused = false;
-                return;
-            }
-            if (pauseRestartBtn.contains(clickPos)) {
-                isPaused = false;
-                restartMatch();
-                return;
-            }
-            if (pauseHelpBtn.contains(clickPos)) {
-                showHelpOverlay = true;
-                return;
-            }
-            if (pauseMenuBtn.contains(clickPos)) {
-                isPaused = false;
-                requestMenu = true;
-                return;
-            }
-        }
-        return;
-    }
-
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         if (key->code == sf::Keyboard::Key::H || key->code == sf::Keyboard::Key::F1) {
-            // Auto-pause then open help on top
+            // Auto-pause then open help on top; closing help resumes the game
             isPaused = true;
             pauseSelectedIdx = 0;
+            helpOpenedFromPause = false;
             showHelpOverlay = true;
             return;
         }
@@ -819,25 +920,28 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
 
         if (key->code == sf::Keyboard::Key::M) {
+            // Open on "ПРОДЪЛЖИ": a following Space/Enter must not abandon the match
             isPaused = true;
-            pauseSelectedIdx = 3;
+            pauseSelectedIdx = 0;
             return;
         }
     }
 
     if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
         sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+        // The mouse acts only for the player who owns it in the chosen control scheme
+        const int owner = mouseOwnerAt(clickPos);
+        PlayerModalDialog* ownerModal = (owner == 1) ? &p1Modal : (owner == 2 ? &p2Modal : nullptr);
 
-        // Right-Click: CANCEL / КЕНСЕЛИРАЙ
+        // Right-Click: CANCEL / КЕНСЕЛИРАЙ (only the mouse owner's own selection)
         if (mb->button == sf::Mouse::Button::Right) {
-            bool was1 = (engine.getSelectedBuilding(1) != BuildingType::NONE);
-            bool was2 = (engine.getSelectedBuilding(2) != BuildingType::NONE);
-            engine.clearBuildingSelection(1);
-            engine.clearBuildingSelection(2);
-            if (was1) triggerPlayerPopup(1, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "", sf::Color(180, 180, 180));
-            if (was2) triggerPlayerPopup(2, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "", sf::Color(180, 180, 180));
+            if (owner != 0 && !ownerModal->active && engine.getSelectedBuilding(owner) != BuildingType::NONE) {
+                engine.clearBuildingSelection(owner);
+                triggerPlayerPopup(owner, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "", sf::Color(180, 180, 180));
+            }
             return;
         }
+        if (mb->button != sf::Mouse::Button::Left) return; // Middle / extra buttons do nothing
 
         // Left-Click:
         // Click on ESC / MENU
@@ -853,62 +957,75 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
-        // Click on Help button — auto-pause then show help on top
+        // Click on Help button — auto-pause then show help on top; closing help resumes the game
         if (sf::FloatRect({ 1600.0f - 405.0f, 900.0f - 34.0f }, { 120.0f, 28.0f }).contains(clickPos)) {
             isPaused = true;
             pauseSelectedIdx = 0;
+            helpOpenedFromPause = false;
             showHelpOverlay = true;
             return;
         }
 
-        // 1. Building Menu Clicks
-        BuildingType clickedP1 = p1Buildings.handleClick(clickPos);
-        if (clickedP1 != BuildingType::NONE) {
-            engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(clickedP1);
-            BuildingCost c = engine.getBuildingCost(clickedP1);
-            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
-                               "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
-                               "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", sf::Color(0, 229, 255));
+        if (owner == 0) return; // Keyboard-only scheme: the mouse plays for nobody
+
+        // The owner's open modal blocks their other clicks; its OK button closes it
+        if (ownerModal->active) {
+            if (ownerModal->okBtn.contains(clickPos)) {
+                closePlayerModal(owner);
+            }
             return;
         }
 
-        if (!bot.isActive()) {
+        // 1. Building Menu Clicks
+        if (owner == 1) {
+            BuildingType clickedP1 = p1Buildings.handleClick(clickPos);
+            if (clickedP1 != BuildingType::NONE) {
+                engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(clickedP1);
+                p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow); // Snap like the keyboard paths so the action matches the ghost
+                BuildingCost c = engine.getBuildingCost(clickedP1);
+                triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
+                                   (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                        : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
+                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", sf::Color(0, 229, 255));
+                return;
+            }
+        } else {
             BuildingType clickedP2 = p2Buildings.handleClick(clickPos);
             if (clickedP2 != BuildingType::NONE) {
                 engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
+                p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow); // Snap like the keyboard paths so the action matches the ghost
                 BuildingCost c = engine.getBuildingCost(clickedP2);
                 triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
-                                   "Нужно: " + std::to_string(c.woodCost) + " Дърво, " + std::to_string(c.oreCost) + " Руда.\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
+                                   (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                        : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
                                    "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", sf::Color(255, 120, 200));
                 return;
             }
         }
 
         // 2. Buy Land HUD button clicks
-        if (resourceHUD.getP1BuyLandButton().contains(clickPos)) {
+        if (owner == 1 && resourceHUD.getP1BuyLandButton().contains(clickPos)) {
             std::string msg;
             if (engine.buyNextLandTier(1, msg)) {
                 triggerPlayerPopup(1, "ЗЕМЯ", "Разширена земя!", msg, "[E]: Избери сграда за строеж", sf::Color(255, 215, 0));
             } else {
-                triggerPlayerPopup(1, "ГРЕШКА", "Няма злато!", msg, "[Q]: Отказ", sf::Color(255, 90, 90));
+                triggerPlayerPopup(1, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", sf::Color(255, 90, 90));
             }
             return;
         }
-        if (!bot.isActive() && resourceHUD.getP2BuyLandButton().contains(clickPos)) {
+        if (owner == 2 && resourceHUD.getP2BuyLandButton().contains(clickPos)) {
             std::string msg;
             if (engine.buyNextLandTier(2, msg)) {
                 triggerPlayerPopup(2, "ЗЕМЯ", "Разширена земя!", msg, "[PgDn]: Избери сграда", sf::Color(255, 215, 0));
             } else {
-                triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "[PgUp]: Отказ", sf::Color(255, 90, 90));
+                triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", sf::Color(255, 90, 90));
             }
             return;
         }
 
-        // 3. Click on Land Plots directly (Buy Plot or Place Building on it)
+        // 3. Click on the owner's Land Plots directly (Buy Plot or Place Building on it)
         for (const auto& plot : engine.getLandPlots()) {
-            if (plot.bounds.contains(clickPos)) {
-                int owner = plot.playerOwner;
-                if (owner == 2 && bot.isActive()) return; // Bot handles its own land plots
+            if (plot.playerOwner == owner && plot.bounds.contains(clickPos)) {
                 if (!plot.isPurchased) {
                     std::string msg;
                     if (engine.buyLandPlot(owner, plot.id, msg)) {
@@ -936,21 +1053,21 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
 
         // 4. Click on Upgrade Button of Resource Stations
-        ResourceType p1Up = nodes.getP1UpgradeAt(clickPos);
-        if (p1Up != ResourceType::NONE) {
-            std::string msg;
-            if (engine.upgradeMine(1, p1Up, msg)) {
-                spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 25);
-                triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", sf::Color(255, 215, 0));
-                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
-            } else {
-                triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
-                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+        if (owner == 1) {
+            ResourceType p1Up = nodes.getP1UpgradeAt(clickPos);
+            if (p1Up != ResourceType::NONE) {
+                std::string msg;
+                if (engine.upgradeMine(1, p1Up, msg)) {
+                    spawnMiningParticles(clickPos, sf::Color(255, 215, 0), 25);
+                    triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", sf::Color(255, 215, 0));
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 215, 0));
+                } else {
+                    triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", sf::Color(255, 90, 90));
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 90, 90));
+                }
+                return;
             }
-            return;
-        }
-
-        if (!bot.isActive()) {
+        } else {
             ResourceType p2Up = nodes.getP2UpgradeAt(clickPos);
             if (p2Up != ResourceType::NONE) {
                 std::string msg;
@@ -967,29 +1084,29 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
 
         // 5. Click on Resource Stations
-        ResourceType p1Res = nodes.getP1ResourceAt(clickPos);
-        if (p1Res != ResourceType::NONE) {
-            if (p1ResourceCooldown > 0.0f) {
-                char buf[32];
-                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
-                spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+        if (owner == 1) {
+            ResourceType p1Res = nodes.getP1ResourceAt(clickPos);
+            if (p1Res != ResourceType::NONE) {
+                if (p1ResourceCooldown > 0.0f) {
+                    char buf[32];
+                    std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
+                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), sf::Color(255, 180, 50));
+                    return;
+                }
+                GameEngine::MineResult res;
+                std::string msg;
+                if (engine.mineResource(1, p1Res, res, msg)) {
+                    p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                    p1Pulse = 1.0f;
+                    const auto* st = nodes.getStation(1, p1Res);
+                    sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
+                    spawnMiningParticles(clickPos, c, 18);
+                    triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[E]: Избери сграда", c);
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
+                }
                 return;
             }
-            GameEngine::MineResult res;
-            std::string msg;
-            if (engine.mineResource(1, p1Res, res, msg)) {
-                p1ResourceCooldown = 1.0f;
-                p1Pulse = 1.0f;
-                const auto* st = nodes.getStation(1, p1Res);
-                sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
-                spawnMiningParticles(clickPos, c, 18);
-                triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[E]: Избери сграда", c);
-                spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
-            }
-            return;
-        }
-
-        if (!bot.isActive()) {
+        } else {
             ResourceType p2Res = nodes.getP2ResourceAt(clickPos);
             if (p2Res != ResourceType::NONE) {
                 if (p2ResourceCooldown > 0.0f) {
@@ -1001,7 +1118,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 GameEngine::MineResult res;
                 std::string msg;
                 if (engine.mineResource(2, p2Res, res, msg)) {
-                    p2ResourceCooldown = 1.0f;
+                    p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
                     p2Pulse = 1.0f;
                     const auto* st = nodes.getStation(2, p2Res);
                     sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);

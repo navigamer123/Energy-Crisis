@@ -95,7 +95,8 @@ private:
     bool requestFullscreenToggle = false;
     bool showHelpOverlay = false;
     float lightningFlashTimer = 0.0f;
-    float lightningStrikeCooldown = 5.0f;
+    float lightningStrikeCooldown = 5.0f;   // West sector (P1) strike schedule, game seconds
+    float lightningStrikeCooldownP2 = 5.0f; // East sector (P2) strike schedule, game seconds
 
     struct ActiveLightning {
         sf::Vector2f startPos;
@@ -183,6 +184,15 @@ private:
     sf::FloatRect pauseHelpBtn;
     sf::FloatRect pauseMenuBtn;
 
+    // Input ownership & per-match input state (UI_map_controls.cpp)
+    static constexpr float TUTORIAL_BOT_HOLD_SEC = 60.0f; // Max real seconds an unfinished tutorial keeps the bot idle
+    float tutorialBotHoldLeft = TUTORIAL_BOT_HOLD_SEC;
+    bool p1PrevUpgrade = false;         // Upgrade-key edge flags (were function-local statics)
+    bool p2PrevUpgrade = false;
+    bool helpOpenedFromPause = false;   // Closing help returns to this pause state
+    int mouseOwnerAt(sf::Vector2f pos) const;                          // 0 = nobody, 1 = P1, 2 = P2
+    bool isModalDismissKey(int player, sf::Keyboard::Key code) const;  // That player's own confirm/cancel keys
+
 public:
     UI_map();
     ~UI_map();
@@ -206,6 +216,11 @@ public:
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
     void render(sf::RenderWindow& window);
     void restartMatch();
+
+    // Input resync (UI_map_controls.cpp)
+    void primeInputEdges(int player = 0); // Keys held right now are not fresh presses (0 = both players)
+    void resetMatchInputState();          // Call after restartMatch()/setBotDifficulty() when a match starts
+    void onFocusLost();                   // Auto-pause when the window loses focus
 };
 
 #endif // UI_MAP_H

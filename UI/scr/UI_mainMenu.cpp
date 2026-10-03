@@ -1,6 +1,7 @@
 #include "../includes/UI_mainMenu.h"
 #include <iostream>
 #include <cmath>
+#include <algorithm>
 
 UI_mainMenu::UI_mainMenu()
     : state(MenuState::MAIN),
@@ -93,6 +94,22 @@ void UI_mainMenu::onPlay() {
               << static_cast<int>(playControls.getSelectedScheme())
               << ", Bot Difficulty: " << static_cast<int>(selectedBotDifficulty) << "...\n";
     requestPlay = true;
+
+    // Coming back from the match ('ГЛАВНО МЕНЮ') must show the top-level menu, not the
+    // submenu that started this match (one Enter there would start a new match at once).
+    // The chosen scheme / difficulty stay stored for getSelectedControlScheme/BotDifficulty().
+    state = MenuState::MAIN;
+    selectedMainIndex = 0;
+    enterHeld = false;
+    spaceHeld = false;
+}
+
+void UI_mainMenu::returnToMain() {
+    state = MenuState::MAIN;
+    selectedMainIndex = 0;
+    // A key still held from the match (e.g. Enter on 'ГЛАВНО МЕНЮ') must be released first
+    enterHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
+    spaceHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
 }
 
 void UI_mainMenu::onSettings() {
@@ -334,7 +351,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     window.draw(diffHighlight);
 
     if (fontLoaded) {
-        sf::Text tDiff(font, toUtf8(diffSelected ? "> Трудност:" : "  Трудност:"), 17);
+        sf::Text tDiff(font, toUtf8(diffSelected ? "> Трудност на бота:" : "  Трудност на бота:"), 17);
         tDiff.setFillColor(diffSelected ? sf::Color(255, 240, 150) : sf::Color::White);
         tDiff.setPosition({ panelX + 45.0f, panelY + 188.0f });
         window.draw(tDiff);
@@ -343,6 +360,21 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     sf::FloatRect diffBtn({ panelX + 280.0f, panelY + 184.0f }, { 180.0f, 34.0f });
     drawButton(window, diffBtn, toUtf8(diffLabels[settingsDifficultyIndex]),
                sf::Color(40, 55, 80), sf::Color(60, 85, 120), sf::Color::White, diffSelected || diffBtn.contains(mousePos));
+
+    // Honest notes: there is no audio yet, and the difficulty is only the default bot choice
+    if (fontLoaded) {
+        const char* notes[] = {
+            "Звукът все още не е реализиран: звуковите настройки нямат ефект.",
+            "Трудността на бота е избраната по подразбиране в САМОСТОЯТЕЛНА ИГРА."
+        };
+        for (int i = 0; i < 2; ++i) {
+            sf::Text tNote(font, toUtf8(notes[i]), 12);
+            tNote.setFillColor(sf::Color(150, 170, 195));
+            sf::FloatRect nb = tNote.getLocalBounds();
+            tNote.setPosition({ panelX + (panelWidth - nb.size.x) / 2.0f, panelY + 234.0f + i * 20.0f });
+            window.draw(tNote);
+        }
+    }
 
     // Row 3: Back button
     sf::FloatRect backBtn({ panelX + (panelWidth - 220.0f) / 2.0f, panelY + 285.0f }, { 220.0f, 46.0f });
@@ -360,6 +392,26 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
 }
 
 void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
+    // Filter auto-repeated Enter/Space: a held select key acts once and must be released before
+    // it acts again, so holding it can never walk through the submenus and start a match.
+    if (event.is<sf::Event::FocusLost>()) {
+        enterHeld = false;
+        spaceHeld = false;
+    }
+    if (const auto* released = event.getIf<sf::Event::KeyReleased>()) {
+        if (released->code == sf::Keyboard::Key::Enter) enterHeld = false;
+        if (released->code == sf::Keyboard::Key::Space) spaceHeld = false;
+    }
+    if (const auto* pressed = event.getIf<sf::Event::KeyPressed>()) {
+        if (pressed->code == sf::Keyboard::Key::Enter) {
+            if (enterHeld) return;
+            enterHeld = true;
+        } else if (pressed->code == sf::Keyboard::Key::Space) {
+            if (spaceHeld) return;
+            spaceHeld = true;
+        }
+    }
+
     if (state == MenuState::PLAY_CONTROLS) {
         playControls.handleEvent(event, window);
         if (playControls.isStartRequested()) {
@@ -408,7 +460,7 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     playControls.resetRequests();
                 } else if (selectedModeIndex == 1) {
                     state = MenuState::BOT_DIFFICULTY;
-                    selectedDifficultyIndex = 1;
+                    selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
                 } else if (selectedModeIndex == 2) {
                     state = MenuState::MAIN;
                 }
@@ -463,7 +515,8 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 }
             } else if (isSelect) {
                 if (selectedSettingsIndex == 0) {
-                    volume = (volume >= 100) ? 0 : volume + 20;
+                    // Step up by 10% and wrap to 0% after 100% (never above 100%)
+                    volume = (volume >= 100) ? 0 : std::min(100, volume + 10);
                 } else if (selectedSettingsIndex == 1) {
                     soundEffects = !soundEffects;
                 } else if (selectedSettingsIndex == 2) {
@@ -506,7 +559,7 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     playControls.resetRequests();
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
                     state = MenuState::BOT_DIFFICULTY;
-                    selectedDifficultyIndex = 1;
+                    selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 12.0f }, { 240.0f, 48.0f } }, clickPos)) {
                     state = MenuState::MAIN;
                 }

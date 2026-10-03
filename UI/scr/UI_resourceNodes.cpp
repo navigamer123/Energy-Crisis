@@ -464,8 +464,9 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
         tc.setPosition({ pos.x - tcb.size.x / 2.0f, pos.y + 24.0f });
         window.draw(tc);
 
-        std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [Q]: Отказ  |  [E]: Смени" 
-                                            : "[Q]: Отказ  |  [E]: Смени сграда";
+        // Cancel keys are X (P1) / Del (P2); Q / PgUp only step back through the buildings
+        std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
+                                            : "[X/Del]: Отказ  |  [E]: Смени сграда";
         sf::Text th(font, toUtf8(hint), 10);
         th.setFillColor(isValidPlacement ? sf::Color(255, 230, 100) : sf::Color(255, 130, 130));
         sf::FloatRect thb = th.getLocalBounds();

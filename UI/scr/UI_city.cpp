@@ -321,7 +321,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
         banner.setOutlineColor(sf::Color(0, 220, 100));
         window.draw(banner);
 
-        int p1Pct = static_cast<int>(p1Share * 100.0f);
+        int p1Pct = static_cast<int>(std::lround(p1Share * 100.0f));
         int p2Pct = 100 - p1Pct;
         std::string phaseStr = isDaylight ? "ДЕН" : "НОЩ";
         std::string titleStr = "ГРАД (METROPOLIS) | " + phaseStr + " | P1: " + std::to_string(p1Pct) + "% | P2: " + std::to_string(p2Pct) + "%";
@@ -375,7 +375,8 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
                    std::to_string(Balance::GRACE_PERIOD_DAYS) + ") * | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
             demandColor = sf::Color(90, 255, 190);
         } else {
-            dStr = "НУЖДА НА ГРАДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
+            dStr = "НУЖДА НА ГРАДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) +
+                   " MW | ПОБЕДА: " + std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%";
             demandColor = sf::Color(255, 215, 0);
         }
 
@@ -407,6 +408,14 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         p2Bar.setFillColor(sf::Color(255, 120, 200));
         window.draw(p2Bar);
 
+        // Victory threshold ticks: P1 wins when the needle reaches the right tick, P2 at the left one
+        for (float tickShare : { Balance::VICTORY_SHARE, 1.0f - Balance::VICTORY_SHARE }) {
+            sf::RectangleShape tick({ 2.0f, barH + 6.0f });
+            tick.setPosition({ barX + barW * tickShare - 1.0f, barY - 3.0f });
+            tick.setFillColor(sf::Color(255, 215, 0, 230));
+            window.draw(tick);
+        }
+
         // Dividing needle
         sf::RectangleShape needle({ 3.0f, barH + 4.0f });
         needle.setPosition({ barX + barW * p1Share - 1.5f, barY - 2.0f });
@@ -414,7 +423,7 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         window.draw(needle);
 
         // Percent tags on edges
-        int p1Pct = static_cast<int>(p1Share * 100.0f);
+        int p1Pct = static_cast<int>(std::lround(p1Share * 100.0f));
         int p2Pct = 100 - p1Pct;
 
         sf::Text p1Tag(font, toUtf8("P1: " + std::to_string(p1Pct) + "%"), 11);

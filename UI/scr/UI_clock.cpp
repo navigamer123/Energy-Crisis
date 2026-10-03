@@ -1,6 +1,7 @@
 #include "../includes/UI_clock.h"
 #include "../includes/UI_types.h"
 #include <cmath>
+#include <algorithm>
 #include <sstream>
 #include <iomanip>
 
@@ -79,13 +80,21 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     window.draw(celestial);
 
     if (fontLoaded) {
-        // Header: Player Name & Day + Grace Period Tag
+        // Header: Player Name & Day (ДЕН N/FINAL_DAY). The grace period is shown by the green
+        // title colour and the "(0 MW Гратис)" sun line below (a "[ГРАТИС]" tag no longer fits).
+        // After the final day ends the engine is already on the next day; never show e.g. 21/20.
+        const int finalDay = static_cast<int>(Balance::FINAL_DAY);
+        const int shownDay = std::min(currentDay, finalDay);
         std::string pTitle = (playerIndex == 1) ? "ИГРАЧ 1 (ЗАПАД)" : "ИГРАЧ 2 (ИЗТОК)";
-        std::string dayStr = pTitle + " | ДЕН " + std::to_string(currentDay);
-        if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
-            dayStr += " [ГРАТИС]";
+        std::string dayStr = pTitle + " | ДЕН " + std::to_string(shownDay) + "/" + std::to_string(finalDay);
+        unsigned int titleSize = 13;
+        sf::Text tTitle(font, toUtf8(dayStr), titleSize);
+        // Keep the title clear of the sun/moon dial on the right edge of the card
+        const float maxTitleW = size.x - 20.0f - 26.0f;
+        while (titleSize > 10 && tTitle.getLocalBounds().size.x > maxTitleW) {
+            --titleSize;
+            tTitle.setCharacterSize(titleSize);
         }
-        sf::Text tTitle(font, toUtf8(dayStr), 13);
         tTitle.setFillColor(currentDay <= Balance::GRACE_PERIOD_DAYS ? sf::Color(90, 255, 190) : accentColor);
         tTitle.setPosition({ pos.x + 10.0f, pos.y + 5.0f });
         window.draw(tTitle);
@@ -101,7 +110,9 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         sf::Text tWeather(font, toUtf8(wStr), 12);
         tWeather.setFillColor(weather == WeatherType::SUNNY ? sf::Color(255, 225, 110) :
                              (weather == WeatherType::WINDY ? sf::Color(130, 245, 255) :
-                             (weather == WeatherType::RAINY ? sf::Color(150, 190, 255) : sf::Color(255, 160, 140))));
+                             (weather == WeatherType::RAINY ? sf::Color(150, 190, 255) :
+                             (weather == WeatherType::SNOWY ? sf::Color(220, 235, 255) :
+                             (weather == WeatherType::CLOUDY ? sf::Color(180, 185, 200) : sf::Color(255, 160, 140))))));
         tWeather.setPosition({ pos.x + 10.0f, pos.y + 27.0f });
         window.draw(tWeather);
 
