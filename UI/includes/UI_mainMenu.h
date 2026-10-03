@@ -5,13 +5,15 @@
 #include <string>
 #include "UI_types.h"
 #include "UI_playControls.h"
+#include "UI_matchSetup.h" // [b-options] F-03 Match Setup screen
 
 enum class MenuState {
     MAIN,
     MODE_SELECT,
     PLAY_CONTROLS,
     BOT_DIFFICULTY,
-    SETTINGS
+    SETTINGS,
+    MATCH_SETUP // [b-options] presets, mutators, charters (between mode/difficulty and the match)
 };
 
 class UI_mainMenu {
@@ -41,6 +43,14 @@ private:
     bool fontLoaded;
 
     UI_playControls playControls;
+
+    // [b-options] Match Setup screen (F-03/F-24/F-35) and the practice sandbox mode (F-21)
+    UI_matchSetup matchSetup;
+    bool matchSetupConfirmed = false;   // START pressed on the setup screen -> onPlay() really starts
+    bool sandboxSelected = false;       // ПЯСЪЧНИК chosen in the mode menu
+    MenuState setupReturnState = MenuState::MODE_SELECT;
+    void openMatchSetup();
+    void handleMatchSetupEvent(const sf::Event& event, const sf::RenderWindow& window);
 
     void drawHeader(sf::RenderWindow& window);
     void drawMainMenu(sf::RenderWindow& window);
@@ -76,6 +86,8 @@ public:
     BotDifficulty getSelectedBotDifficulty() const {
         return selectedBotDifficulty;
     }
+    // [b-options] Rules for the next match (setup screen choices, or the sandbox rules)
+    MatchRules getMatchRules() const;
 };
 
 #endif // UI_MAINMENU_H

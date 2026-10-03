@@ -17,6 +17,13 @@ public:
                           int demand, int p1Energy, int p2Energy, float p1Share, int currentDay = 1);
 
     sf::FloatRect getCityBounds() const { return sf::FloatRect({ 610.0f, 65.0f }, { 380.0f, 330.0f }); }
+
+    // [b-options] match rules shown on the influence bar (MatchRules via UI_map::syncMatchOptionsUI)
+    void setRuleInfo(int graceDays, float victoryShare) { ruleGraceDays = graceDays; ruleVictoryShare = victoryShare; }
+
+private:
+    int ruleGraceDays = 2;
+    float ruleVictoryShare = 0.85f;
 };
 
 #endif // UI_CITY_H

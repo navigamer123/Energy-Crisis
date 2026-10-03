@@ -193,7 +193,14 @@ private:
     int mouseOwnerAt(sf::Vector2f pos) const;                          // 0 = nobody, 1 = P1, 2 = P2
     bool isModalDismissKey(int player, sf::Keyboard::Key code) const;  // That player's own confirm/cancel keys
 
+    // [b-options] Match options & progression glue (UI_map_options.cpp)
+    void syncMatchOptionsUI(float dt);   // per frame: rule numbers on clocks/bar, real costs on the menus
+
 public:
+    // [b-options] Rules for the next restartMatch() (Match Setup screen / sandbox)
+    void setMatchRules(const MatchRules& rules);
+    const MatchRules& getMatchRules() const { return engine.getMatchRules(); }
+
     UI_map();
     ~UI_map();
 

@@ -487,7 +487,8 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
 
         int lvl = engine ? engine->getMineLevel(s.playerOwner, s.type) : 1;
         int upCost = engine ? engine->getMineUpgradeCost(s.playerOwner, s.type) : 15;
-        float mult = 1.0f + (lvl - 1) * 0.75f;
+        // [b-options] charter / research / mutator / pacing mining multipliers (same as GameEngine::getMineYield)
+        float mult = (1.0f + (lvl - 1) * 0.75f) * (engine ? engine->getPlayerPerks(s.playerOwner).miningYieldMult : 1.0f);
 
         // Station background card
         sf::RectangleShape card(s.bounds.size);

@@ -370,13 +370,13 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         std::string dStr;
         sf::Color demandColor;
 
-        if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
+        if (currentDay <= ruleGraceDays) { // [b-options] grace days / victory share from MatchRules
             dStr = "НУЖДА НА ГРАДА: 0 MW  * ГРАТИСЕН ПЕРИОД (ДЕН " + std::to_string(currentDay) + "/" +
-                   std::to_string(Balance::GRACE_PERIOD_DAYS) + ") * | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
+                   std::to_string(ruleGraceDays) + ") * | ДОСТАВКА: " + std::to_string(totalSupplied) + " MW";
             demandColor = sf::Color(90, 255, 190);
         } else {
             dStr = "НУЖДА НА ГРАДА: " + std::to_string(demand) + " MW | ДОСТАВКА: " + std::to_string(totalSupplied) +
-                   " MW | ПОБЕДА: " + std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%";
+                   " MW | ПОБЕДА: " + std::to_string(static_cast<int>(std::lround(ruleVictoryShare * 100.0f))) + "%";
             demandColor = sf::Color(255, 215, 0);
         }
 
@@ -409,7 +409,7 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         window.draw(p2Bar);
 
         // Victory threshold ticks: P1 wins when the needle reaches the right tick, P2 at the left one
-        for (float tickShare : { Balance::VICTORY_SHARE, 1.0f - Balance::VICTORY_SHARE }) {
+        for (float tickShare : { ruleVictoryShare, 1.0f - ruleVictoryShare }) {
             sf::RectangleShape tick({ 2.0f, barH + 6.0f });
             tick.setPosition({ barX + barW * tickShare - 1.0f, barY - 3.0f });
             tick.setFillColor(sf::Color(255, 215, 0, 230));

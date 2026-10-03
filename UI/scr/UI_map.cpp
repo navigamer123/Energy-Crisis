@@ -278,6 +278,8 @@ void UI_map::render(sf::RenderWindow& window) {
     p2Clock.setWeather(engine.getPlayerWeather(2));
     p2Clock.setSeason(engine.getSeason());
 
+    syncMatchOptionsUI(dt); // [b-options] match rules / perks -> clocks, influence bar, building menus
+
     float animTime = animClock.getElapsedTime().asSeconds();
     sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
 
@@ -303,7 +305,7 @@ void UI_map::render(sf::RenderWindow& window) {
         if (p1Sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(1, targetPos)) {
             std::string reason;
             bool valid = engine.canPlaceBuilding(1, p1Sel, targetPos, reason);
-            nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, targetPos, valid, engine.getBuildingCost(p1Sel));
+            nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, targetPos, valid, engine.getBuildingCostFor(1, p1Sel)); // [b-options]
         }
     }
     BuildingType p2Sel = engine.getSelectedBuilding(2);
@@ -312,7 +314,7 @@ void UI_map::render(sf::RenderWindow& window) {
         if (p2Sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(2, targetPos)) {
             std::string reason;
             bool valid = engine.canPlaceBuilding(2, p2Sel, targetPos, reason);
-            nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, targetPos, valid, engine.getBuildingCost(p2Sel));
+            nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, targetPos, valid, engine.getBuildingCostFor(2, p2Sel)); // [b-options]
         }
     }
 

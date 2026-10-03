@@ -146,17 +146,25 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
             y += bt.getLocalBounds().size.y + 24.0f;
         };
 
-        const std::string victoryPctStr = std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f)));
-        const std::string finalDayStr = std::to_string(static_cast<int>(Balance::FINAL_DAY));
+        // [b-options] rule numbers from the current MatchRules (preset / custom)
+        const std::string victoryPctStr = std::to_string(static_cast<int>(std::lround(engine.getVictoryShare() * 100.0f)));
+        const std::string finalDayStr = std::to_string(engine.getFinalDay());
+        const int graceDaysHelp = engine.getGraceDays();
+        const std::string graceLine = (graceDaysHelp <= 0)
+            ? std::string("- Няма гратисен период: градът иска ток още от ден 1!\n")
+            : "- Първите " + std::to_string(graceDaysHelp) + (graceDaysHelp == 1 ? " ден е" : " дена са") +
+              " ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n";
+        const std::string endLine = (engine.getFinalDay() > 0)
+            ? ". След края на ден " + finalDayStr + " печели по-големият дял (равен дял = равенство)."
+            : ". Безкрайна игра: няма последен ден.";
         const std::string speedupStr = std::to_string(static_cast<int>(std::lround(Balance::MINE_SPEEDUP_MULT)));
 
         drawSection("1. ЦЕЛ НА ИГРАТА И ДОМИНИРАНЕ НА ГРАДА",
                     "- Всеки играч започва с начален свободен парцел и 50% териториален дял в града.\n"
-                    "- Първите 2 дена са ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n"
+                    + graceLine +
                     "- Захранването на града носи пари ($) от договори и златен дивидент (Gold, лимитиран до нуждите на града!).\n"
                     "- В края на всеки ден се отчита средната доставена мощност (MW) за целия ден: превесът носи 10-15% дневно завладяване!\n"
-                    "- Победител е първият играч с поне " + victoryPctStr + "% от града в края на ден. След края на ден " + finalDayStr +
-                    " печели по-големият дял (равен дял = равенство).",
+                    "- Победител е първият играч с поне " + victoryPctStr + "% от града в края на ден" + endLine,
                     sf::Color(255, 215, 0));
 
         drawSection("2. СЕЗОНЕН ДЕН/НОЩ ЦИКЪЛ И СЛЪНЧЕВ ГРАФИК",
@@ -195,17 +203,17 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
     const auto& cityState = engine.getCityState();
     int winner = cityState.winner;
     bool isDraw = (winner == 3);
-    int finalDay = static_cast<int>(Balance::FINAL_DAY);
-    int victoryPct = static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f));
+    int finalDay = engine.getFinalDay(); // [b-options] MatchRules (0 = endless)
+    int victoryPct = static_cast<int>(std::lround(engine.getVictoryShare() * 100.0f));
     int p1Pct = static_cast<int>(std::lround(cityState.p1CityShare * 100.0f));
     int p2Pct = 100 - p1Pct;
     int winnerPct = (winner == 1) ? p1Pct : p2Pct;
     int loserPct = 100 - winnerPct;
     float winnerShare = (winner == 1) ? cityState.p1CityShare : (1.0f - cityState.p1CityShare);
     // Won by reaching the target share; otherwise the larger share won after the final day
-    bool wonByShare = !isDraw && (winnerShare + 0.0005f >= Balance::VICTORY_SHARE);
+    bool wonByShare = !isDraw && (finalDay <= 0 || winnerShare + 0.0005f >= engine.getVictoryShare()); // [b-options]
     // The deciding settlement runs at the 06:00 rollover, so the settled day is the previous one
-    int decidedDay = std::max(1, std::min(engine.getCurrentDay() - 1, finalDay));
+    int decidedDay = std::max(1, finalDay > 0 ? std::min(engine.getCurrentDay() - 1, finalDay) : engine.getCurrentDay() - 1);
 
     sf::Color winColor = isDraw ? sf::Color(255, 215, 0)
                        : ((winner == 1) ? sf::Color(0, 229, 255) : sf::Color(255, 120, 200));

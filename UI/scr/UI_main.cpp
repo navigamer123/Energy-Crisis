@@ -98,6 +98,7 @@ void UI_main::render() {
         if (currentState == UIState::MAIN_MENU) {
             if (mainMenu.isPlayRequested()) {
                 mainMenu.resetPlayRequest();
+                map.setMatchRules(mainMenu.getMatchRules()); // [b-options] F-03/F-24/F-35/F-21 rules for this match
                 map.restartMatch();
                 map.setControlScheme(mainMenu.getSelectedControlScheme());
                 map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());

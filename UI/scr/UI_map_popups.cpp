@@ -231,7 +231,8 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
     ResourceType p1Res = nodes.getP1ResourceAt(p1Pos);
     ResourceType p2Res = nodes.getP2ResourceAt(p2Pos);
 
-    auto drawPrompt = [&](sf::Vector2f pos, const std::string& title, const std::string& keyStr, sf::Color col, float cd) {
+    auto drawPrompt = [&](sf::Vector2f pos, const std::string& title, const std::string& keyStr, sf::Color col, float cd,
+                          float cdMax) { // [b-options] cdMax = that player's mining cooldown
         if (!resourcesLoaded) return;
         sf::RectangleShape tagBox({ 260.0f, 26.0f });
         tagBox.setPosition({ pos.x - 130.0f, pos.y - 44.0f });
@@ -247,7 +248,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
             promptText += buf;
         } else {
             char cdBuf[48];
-            std::snprintf(cdBuf, sizeof(cdBuf), " [Добив: %gс]", static_cast<double>(Balance::MINE_COOLDOWN_SEC));
+            std::snprintf(cdBuf, sizeof(cdBuf), " [Добив: %gс]", static_cast<double>(cdMax));
             promptText += cdBuf;
         }
 
@@ -258,7 +259,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         window.draw(t);
 
         if (cd > 0.05f) {
-            float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / Balance::MINE_COOLDOWN_SEC));
+            float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / std::max(0.01f, cdMax)));
             sf::RectangleShape cdBar({ 256.0f * fillRatio, 3.0f });
             cdBar.setPosition({ tagBox.getPosition().x + 2.0f, tagBox.getPosition().y + 24.0f });
             cdBar.setFillColor(sf::Color(0, 255, 180));
@@ -268,15 +269,16 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
 
     if (p1Res != ResourceType::NONE) {
         const auto* st = nodes.getStation(1, p1Res);
-        std::string name = st ? st->nameBg + " (" + st->yieldStr + ")" : "ДОБИВ";
+        // [b-options] live yield (mine level, charter, research, mutators) instead of the static base text
+        std::string name = st ? st->nameBg + " (+" + std::to_string(engine.getMineYield(1, p1Res)) + st->yieldStr.substr(st->yieldStr.find(' ')) + ")" : "ДОБИВ";
         sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
-        drawPrompt(p1Pos, name, "[SPACE]", c, p1ResourceCooldown);
+        drawPrompt(p1Pos, name, "[SPACE]", c, p1ResourceCooldown, engine.getMiningCooldown(1));
     }
     if (p2Res != ResourceType::NONE) {
         const auto* st = nodes.getStation(2, p2Res);
-        std::string name = st ? st->nameBg + " (" + st->yieldStr + ")" : "ДОБИВ";
+        std::string name = st ? st->nameBg + " (+" + std::to_string(engine.getMineYield(2, p2Res)) + st->yieldStr.substr(st->yieldStr.find(' ')) + ")" : "ДОБИВ"; // [b-options]
         sf::Color c = st ? st->themeColor : sf::Color(255, 120, 200);
-        drawPrompt(p2Pos, name, "[ENTER]", c, p2ResourceCooldown);
+        drawPrompt(p2Pos, name, "[ENTER]", c, p2ResourceCooldown, engine.getMiningCooldown(2));
     }
 
     // High-speed 6x time badges under the top clocks when active

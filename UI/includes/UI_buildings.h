@@ -37,6 +37,8 @@ public:
 
     void setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size, sf::Color accent);
     BuildingType handleClick(sf::Vector2f clickPos);
+    // [b-options] Show this player's real costs (charter / research / mutators); UI_map_options.cpp
+    void syncCosts(const GameEngine& engine);
 
     void draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
               sf::Vector2f mousePos, const PlayerEconomy& econ, BuildingType activeSelection);

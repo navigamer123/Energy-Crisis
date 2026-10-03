@@ -90,6 +90,13 @@ void UI_mainMenu::drawHeader(sf::RenderWindow& window) {
 }
 
 void UI_mainMenu::onPlay() {
+    // [b-options] F-03: every mode except the sandbox goes through the Match Setup screen first
+    if (!sandboxSelected && !matchSetupConfirmed) {
+        openMatchSetup();
+        return;
+    }
+    matchSetupConfirmed = false;
+
     std::cout << "[UI_mainMenu] Game launching with Control Scheme "
               << static_cast<int>(playControls.getSelectedScheme())
               << ", Bot Difficulty: " << static_cast<int>(selectedBotDifficulty) << "...\n";
@@ -173,14 +180,17 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
     sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
     sf::FloatRect coopBtn({ btnX, startY }, { btnWidth, btnHeight });
     sf::FloatRect singleBtn({ btnX, startY + spacing }, { btnWidth, btnHeight });
-    sf::FloatRect backBtn({ btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 12.0f }, { 240.0f, 48.0f });
+    // [b-options] F-21: third mode ПЯСЪЧНИК; the back button moved one row down
+    sf::FloatRect sandboxBtn({ btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight });
+    sf::FloatRect backBtn({ btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 12.0f }, { 240.0f, 48.0f });
 
     bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
     if (mouseMoved) {
         lastMenuMousePos = mousePos;
         if (coopBtn.contains(mousePos)) selectedModeIndex = 0;
         else if (singleBtn.contains(mousePos)) selectedModeIndex = 1;
-        else if (backBtn.contains(mousePos)) selectedModeIndex = 2;
+        else if (sandboxBtn.contains(mousePos)) selectedModeIndex = 2;
+        else if (backBtn.contains(mousePos)) selectedModeIndex = 3;
     }
 
     sf::Color defaultBtn(30, 40, 56);
@@ -188,25 +198,28 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
 
     drawButton(window, coopBtn, toUtf8("ДВАМА ИГРАЧИ / CO-OP (1v1)"), defaultBtn, sf::Color(35, 120, 70), whiteText, selectedModeIndex == 0);
     drawButton(window, singleBtn, toUtf8("САМОСТОЯТЕЛНА ИГРА / SINGLE PLAYER (VS BOT)"), defaultBtn, sf::Color(35, 95, 150), whiteText, selectedModeIndex == 1);
-    drawButton(window, backBtn, toUtf8("НАЗАД / BACK"), defaultBtn, sf::Color(80, 50, 60), whiteText, selectedModeIndex == 2);
+    drawButton(window, sandboxBtn, toUtf8("ПЯСЪЧНИК / ТРЕНИРОВКА (SANDBOX)"), defaultBtn, sf::Color(120, 84, 24), whiteText, selectedModeIndex == 2);
+    drawButton(window, backBtn, toUtf8("НАЗАД / BACK"), defaultBtn, sf::Color(80, 50, 60), whiteText, selectedModeIndex == 3);
 
     if (fontLoaded) {
         std::string desc = (selectedModeIndex == 0)
             ? "Двама играчи се състезават на една машина (Разделен екран / Сектори)"
             : (selectedModeIndex == 1)
                 ? "Играйте срещу автономен изкуствен интелект (Бот в East сектора)"
-                : "Връщане към главното меню";
+                : (selectedModeIndex == 2)
+                    ? "Без натиск: безкрайни ресурси, контрол на часа, времето и нуждата [F2]"
+                    : "Връщане към главното меню";
 
         sf::Text tDesc(font, toUtf8(desc), 14);
         tDesc.setFillColor(sf::Color(170, 205, 240));
         sf::FloatRect db = tDesc.getLocalBounds();
-        tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 2.0f * spacing + 78.0f });
+        tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 3.0f * spacing + 78.0f });
         window.draw(tDesc);
 
         sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Space] | Отказ: [ESC]"), 13);
         hint.setFillColor(sf::Color(120, 145, 175));
         sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 112.0f });
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 3.0f * spacing + 112.0f });
         window.draw(hint);
     }
 }
@@ -412,6 +425,11 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
         }
     }
 
+    if (state == MenuState::MATCH_SETUP) { // [b-options]
+        handleMatchSetupEvent(event, window);
+        return;
+    }
+
     if (state == MenuState::PLAY_CONTROLS) {
         playControls.handleEvent(event, window);
         if (playControls.isStartRequested()) {
@@ -450,18 +468,25 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             }
         } else if (state == MenuState::MODE_SELECT) {
             if (isUp) {
-                selectedModeIndex = (selectedModeIndex + 2) % 3;
+                selectedModeIndex = (selectedModeIndex + 3) % 4; // [b-options] 4 items (sandbox added)
             } else if (isDown) {
-                selectedModeIndex = (selectedModeIndex + 1) % 3;
+                selectedModeIndex = (selectedModeIndex + 1) % 4;
             } else if (isSelect) {
                 if (selectedModeIndex == 0) {
+                    sandboxSelected = false; // [b-options]
                     selectedBotDifficulty = BotDifficulty::NONE;
                     state = MenuState::PLAY_CONTROLS;
                     playControls.resetRequests();
                 } else if (selectedModeIndex == 1) {
+                    sandboxSelected = false; // [b-options]
                     state = MenuState::BOT_DIFFICULTY;
                     selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
                 } else if (selectedModeIndex == 2) {
+                    // [b-options] F-21 sandbox: P2 stays idle (inert bot slot = single-player input mapping)
+                    sandboxSelected = true;
+                    selectedBotDifficulty = BotDifficulty::EASY;
+                    onPlay();
+                } else if (selectedModeIndex == 3) {
                     state = MenuState::MAIN;
                 }
             } else if (isEscape) {
@@ -554,13 +579,20 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 float spacing = 78.0f;
 
                 if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
+                    sandboxSelected = false; // [b-options]
                     selectedBotDifficulty = BotDifficulty::NONE;
                     state = MenuState::PLAY_CONTROLS;
                     playControls.resetRequests();
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
+                    sandboxSelected = false; // [b-options]
                     state = MenuState::BOT_DIFFICULTY;
                     selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
-                } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 12.0f }, { 240.0f, 48.0f } }, clickPos)) {
+                } else if (isPointInside({ { btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight } }, clickPos)) {
+                    // [b-options] F-21 sandbox
+                    sandboxSelected = true;
+                    selectedBotDifficulty = BotDifficulty::EASY;
+                    onPlay();
+                } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 12.0f }, { 240.0f, 48.0f } }, clickPos)) {
                     state = MenuState::MAIN;
                 }
             } else if (state == MenuState::BOT_DIFFICULTY) {
@@ -619,5 +651,8 @@ void UI_mainMenu::render(sf::RenderWindow& window) {
         drawBotDifficultyMenu(window);
     } else if (state == MenuState::SETTINGS) {
         drawSettingsMenu(window);
+    } else if (state == MenuState::MATCH_SETUP) { // [b-options]
+        drawHeader(window);
+        matchSetup.draw(window, font, fontLoaded);
     }
 }

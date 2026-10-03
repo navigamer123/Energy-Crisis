@@ -323,7 +323,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     // -------------------------------------------------------------------------
     // 6. Compute Exact Deficits for Planned Building
     // -------------------------------------------------------------------------
-    BuildingCost cost = engine.getBuildingCost(plannedBuilding);
+    BuildingCost cost = engine.getBuildingCostFor(2, plannedBuilding); // [b-options] the bot plays P2: cost after its perks
 
     int needWood = std::max(0, cost.woodCost - econ.wood);
     int needIron = std::max(0, cost.ironCost - econ.iron);

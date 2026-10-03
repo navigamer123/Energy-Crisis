@@ -222,7 +222,7 @@ void UI_map::executeP1Action() {
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, resType, res, msg)) {
-                p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                p1ResourceCooldown = engine.getMiningCooldown(1); // [b-options] research can shorten it
                 const auto* st = nodes.getStation(1, resType);
                 sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
                 spawnMiningParticles(p1Pos, c, 18);
@@ -300,7 +300,7 @@ void UI_map::executeP2Action() {
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, resType, res, msg)) {
-                p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                p2ResourceCooldown = engine.getMiningCooldown(2); // [b-options]
                 const auto* st = nodes.getStation(2, resType);
                 sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);
                 spawnMiningParticles(p2Pos, c, 18);
@@ -567,7 +567,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         engine.cycleBuildingSelection(1);
         p1SelectCooldown = 0.16f;
         BuildingType newSel = engine.getSelectedBuilding(1);
-        BuildingCost c = engine.getBuildingCost(newSel);
+        BuildingCost c = engine.getBuildingCostFor(1, newSel); // [b-options] cost after perks
         p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
         if (newSel == BuildingType::DEMOLISH) {
             triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 80, 80));
@@ -589,7 +589,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             engine.cycleBuildingSelectionPrev(1);
             p1SelectCooldown = 0.16f;
             BuildingType newSel = engine.getSelectedBuilding(1);
-            BuildingCost c = engine.getBuildingCost(newSel);
+            BuildingCost c = engine.getBuildingCostFor(1, newSel); // [b-options] cost after perks
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
             if (newSel == BuildingType::DEMOLISH) {
                 triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", sf::Color(255, 80, 80));
@@ -624,7 +624,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         bool curNum = sf::Keyboard::isKeyPressed(numKey);
         if (curNum && !p1PrevNum[k] && !p1Modal.active && !showHelpOverlay) {
             engine.getPlayerEconomyMut(1).selectedBuilding = k;
-            BuildingCost c = engine.getBuildingCost(static_cast<BuildingType>(k));
+            BuildingCost c = engine.getBuildingCostFor(1, static_cast<BuildingType>(k)); // [b-options] cost after perks
             p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
             triggerPlayerPopup(1, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
                                (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
@@ -657,7 +657,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             engine.cycleBuildingSelection(2);
             p2SelectCooldown = 0.16f;
             BuildingType newSel = engine.getSelectedBuilding(2);
-            BuildingCost c = engine.getBuildingCost(newSel);
+            BuildingCost c = engine.getBuildingCostFor(2, newSel); // [b-options] cost after perks
             p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
             if (newSel == BuildingType::DEMOLISH) {
                 triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
@@ -678,7 +678,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             engine.cycleBuildingSelectionPrev(2);
             p2SelectCooldown = 0.16f;
             BuildingType newSel = engine.getSelectedBuilding(2);
-            BuildingCost c = engine.getBuildingCost(newSel);
+            BuildingCost c = engine.getBuildingCostFor(2, newSel); // [b-options] cost after perks
             p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
             if (newSel == BuildingType::DEMOLISH) {
                 triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", sf::Color(255, 80, 80));
@@ -982,7 +982,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             if (clickedP1 != BuildingType::NONE) {
                 engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(clickedP1);
                 p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow); // Snap like the keyboard paths so the action matches the ghost
-                BuildingCost c = engine.getBuildingCost(clickedP1);
+                BuildingCost c = engine.getBuildingCostFor(1, clickedP1); // [b-options] cost after perks
                 triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                    (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                         : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
@@ -994,7 +994,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             if (clickedP2 != BuildingType::NONE) {
                 engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
                 p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow); // Snap like the keyboard paths so the action matches the ghost
-                BuildingCost c = engine.getBuildingCost(clickedP2);
+                BuildingCost c = engine.getBuildingCostFor(2, clickedP2); // [b-options] cost after perks
                 triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                    (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                         : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
@@ -1096,7 +1096,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 GameEngine::MineResult res;
                 std::string msg;
                 if (engine.mineResource(1, p1Res, res, msg)) {
-                    p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                    p1ResourceCooldown = engine.getMiningCooldown(1); // [b-options] research can shorten it
                     p1Pulse = 1.0f;
                     const auto* st = nodes.getStation(1, p1Res);
                     sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
@@ -1118,7 +1118,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 GameEngine::MineResult res;
                 std::string msg;
                 if (engine.mineResource(2, p2Res, res, msg)) {
-                    p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                    p2ResourceCooldown = engine.getMiningCooldown(2); // [b-options]
                     p2Pulse = 1.0f;
                     const auto* st = nodes.getStation(2, p2Res);
                     sf::Color c = st ? st->themeColor : sf::Color(255, 140, 210);

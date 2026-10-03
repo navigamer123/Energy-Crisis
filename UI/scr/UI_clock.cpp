@@ -83,10 +83,11 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         // Header: Player Name & Day (ДЕН N/FINAL_DAY). The grace period is shown by the green
         // title colour and the "(0 MW Гратис)" sun line below (a "[ГРАТИС]" tag no longer fits).
         // After the final day ends the engine is already on the next day; never show e.g. 21/20.
-        const int finalDay = static_cast<int>(Balance::FINAL_DAY);
-        const int shownDay = std::min(currentDay, finalDay);
+        // [b-options] day limit from MatchRules (0 = endless: no "/N")
+        const int finalDay = dayLimit;
+        const int shownDay = (finalDay > 0) ? std::min(currentDay, finalDay) : currentDay;
         std::string pTitle = (playerIndex == 1) ? "ИГРАЧ 1 (ЗАПАД)" : "ИГРАЧ 2 (ИЗТОК)";
-        std::string dayStr = pTitle + " | ДЕН " + std::to_string(shownDay) + "/" + std::to_string(finalDay);
+        std::string dayStr = pTitle + " | ДЕН " + std::to_string(shownDay) + (finalDay > 0 ? "/" + std::to_string(finalDay) : std::string());
         unsigned int titleSize = 13;
         sf::Text tTitle(font, toUtf8(dayStr), titleSize);
         // Keep the title clear of the sun/moon dial on the right edge of the card
@@ -95,7 +96,16 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
             --titleSize;
             tTitle.setCharacterSize(titleSize);
         }
-        tTitle.setFillColor(currentDay <= Balance::GRACE_PERIOD_DAYS ? sf::Color(90, 255, 190) : accentColor);
+        sf::Color titleColor = (currentDay <= graceDays) ? sf::Color(90, 255, 190) : accentColor;
+        // [b-options] F-03: the last 3 days of a limited match pulse (warm red <-> player colour)
+        if (finalDay > 0 && currentDay > finalDay - 3) {
+            float k = 0.5f + 0.5f * std::sin(pulseClock.getElapsedTime().asSeconds() * 6.0f);
+            const sf::Color warn(255, 110, 80);
+            titleColor = sf::Color(static_cast<std::uint8_t>(accentColor.r + (warn.r - accentColor.r) * k),
+                                   static_cast<std::uint8_t>(accentColor.g + (warn.g - accentColor.g) * k),
+                                   static_cast<std::uint8_t>(accentColor.b + (warn.b - accentColor.b) * k));
+        }
+        tTitle.setFillColor(titleColor);
         tTitle.setPosition({ pos.x + 10.0f, pos.y + 5.0f });
         window.draw(tTitle);
 
@@ -136,11 +146,11 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
         std::string riseStr = Balance::formatHourMinute(Balance::getSunriseHour(season));
         std::string setStr = Balance::formatHourMinute(Balance::getSunsetHour(season));
         std::string sLine = "Слънце: " + riseStr + " - " + setStr;
-        if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
+        if (currentDay <= graceDays) { // [b-options]
             sLine += " (0 MW Гратис)";
         }
         sf::Text tSun(font, toUtf8(sLine), 11);
-        tSun.setFillColor(currentDay <= Balance::GRACE_PERIOD_DAYS ? sf::Color(90, 255, 190) : sf::Color(255, 215, 120));
+        tSun.setFillColor(currentDay <= graceDays ? sf::Color(90, 255, 190) : sf::Color(255, 215, 120));
         tSun.setPosition({ pos.x + 10.0f, pos.y + 79.0f });
         window.draw(tSun);
     }
