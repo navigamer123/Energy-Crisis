@@ -110,18 +110,12 @@ void UI_map::updateWeatherParticles(float dt) {
         if (!sectorBuildings.empty() && !engine.isGracePeriod() && (rand() % 12 == 0)) {
             size_t chosen = sectorBuildings[static_cast<size_t>(rand()) % sectorBuildings.size()];
             sf::Vector2f strikePos = allBuildings[chosen].position;
-            BuildingType hitType = allBuildings[chosen].type;
 
             // Destroy and remove building so it disappears immediately and frees the grid slot!
             // (allBuildings must not be used after this call)
             engine.breakBuildingAt(strikePos);
 
-            // team info: the notification system shows the critical toast and logs the loss
-            InfoEvent lost;
-            lost.type = InfoEventType::LOST_LIGHTNING;
-            lost.player = sector;
-            lost.building = hitType;
-            onInfoEvent(lost);
+            // team info: the BUILDING_DESTROYED engine event brings the critical toast and the log line
 
             spawnNotice("СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!", strikePos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 80, 80));
             triggerLightningStrike(strikePos, true);

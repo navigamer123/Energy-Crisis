@@ -11,11 +11,7 @@ void UI_map::onInfoEvent(const InfoEvent& ev) {
 }
 
 void UI_map::updateInfoUI(float dt) {
-    pendingInfoEvents.clear();
-    stats.afterEngineUpdate(engine, pendingInfoEvents);
-    for (const InfoEvent& ev : pendingInfoEvents) {
-        if (ev.type != InfoEventType::LOST_LIGHTNING) onInfoEvent(ev); // lightning arrives via its own hook
-    }
+    stats.sample(engine); // discrete events arrive through dispatchEngineEvents() (UI_map_events.cpp)
     // Toast timers and alerts only run while the match itself runs
     const bool running = !isPaused && !showHelpOverlay && engine.getCityState().winner == 0;
     notifications.update(running ? dt : 0.0f, engine, bot.isActive());
@@ -24,7 +20,6 @@ void UI_map::updateInfoUI(float dt) {
 void UI_map::resetInfoUI() {
     stats.reset();
     notifications.reset();
-    pendingInfoEvents.clear();
     showEventLog = false;
     dashboardOpenedAt = -1.0f;
     postMatch.reset();

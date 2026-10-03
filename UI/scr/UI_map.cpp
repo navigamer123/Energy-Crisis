@@ -245,7 +245,7 @@ void UI_map::restartMatch() {
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
 
-    resetInfoUI(); // team info: clear telemetry, toasts and the event log
+    resetEventConsumers(); // engine events: telemetry, toasts and the event log start over
 
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, theme::Good);
 }
@@ -267,13 +267,13 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     if (!isPaused && engine.getCityState().winner == 0) {
-        stats.beforeEngineUpdate(engine); // team info: capture the day's average before a settlement
         engine.update(dt * devOverlay.timeMultiplier()); // team info: x1 unless the [F3] panel speeds it up
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
     }
-    updateInfoUI(dt); // team info: telemetry, notifications, alerts
+    dispatchEngineEvents(); // the only engine.pollEvents() of the UI: feeds every consumer below
+    updateInfoUI(dt);       // team info: telemetry samples, toast timers, alerts
 
     // Screenshot storm scene: fire one harmless bolt into the stormy sector just before the capture
     if (debugBoltCountdown >= 0 && debugBoltCountdown-- == 0) {

@@ -1,26 +1,27 @@
 #ifndef UI_INFO_EVENTS_H
 #define UI_INFO_EVENTS_H
 
+#include <string>
 #include "../../Game/includes/game_main.h"
 
 // -----------------------------------------------------------------------------
 // team info: internal event hook for the information UI (toasts, event log, match
-// statistics, post-match report). Today the events are produced by UI_matchStats by
-// comparing engine snapshots every frame, plus one explicit call from the lightning code.
-// When the engine event queue (GameEngine::pollEvents) lands, the integrator can map
-// those engine events onto InfoEvent and feed them to UI_map::onInfoEvent() instead.
+// statistics, post-match report). UI_map::dispatchEngineEvents() maps the engine's
+// GameEvents (GameEngine::pollEvents) onto InfoEvents and feeds them to UI_map::onInfoEvent().
 // -----------------------------------------------------------------------------
 enum class InfoEventType {
     BUILT,            // player, building, value = how many
-    DEMOLISHED,       // player, value = how many
+    DEMOLISHED,       // player, building, value = how many
     LOST_LIGHTNING,   // player, building (one building destroyed by a lightning strike)
     PLOT_BOUGHT,      // player, value = plots now owned
     MINE_UPGRADED,    // player, resource, value = new level
-    DAY_SETTLED,      // value = ended day, value2 = outcome (see UI_matchStats::DayOutcome), share = P1 share after
-    GRACE_ENDED,      // value = first day with a real city demand
+    MINED,            // player, resource, value = amount gathered (statistics only)
+    DAY_SETTLED,      // value = ended day, value2 = outcome (see UI_matchStats::DayOutcome), share = P1 share after,
+                      // demand, avgMW, text = the engine's day-end message
+    GRACE_ENDED,      // value = first day with a real city demand, demand = that demand
     SEASON_CHANGED,   // value = static_cast<int>(SeasonType)
     WEATHER_CHANGED,  // player, value = static_cast<int>(WeatherType)
-    MATCH_ENDED       // value = winner (1, 2, 3 = draw)
+    MATCH_ENDED       // value = winner (1, 2, 3 = draw), share = final P1 share, text = the engine's message
 };
 
 struct InfoEvent {
@@ -33,6 +34,7 @@ struct InfoEvent {
     int avgMW[2] = { 0, 0 };                // DAY_SETTLED: average MW delivered by P1 / P2 that day
     BuildingType building = BuildingType::NONE;
     ResourceType resource = ResourceType::NONE;
+    std::string text;                       // DAY_SETTLED / MATCH_ENDED: Bulgarian message from the engine
 };
 
 #endif // UI_INFO_EVENTS_H

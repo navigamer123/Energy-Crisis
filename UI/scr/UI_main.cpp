@@ -39,6 +39,7 @@ void UI_main::setupShotScene() {
     map.setBotDifficulty(BotDifficulty::MEDIUM);
     map.resetMatchInputState();
     map.setupDebugScene(shot.scene, shot.frames);
+    map.settleSetupEvents(); // the setup's engine events count in the statistics, without toasts
     currentState = UIState::PLAYING;
 }
 

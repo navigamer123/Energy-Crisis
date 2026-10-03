@@ -324,7 +324,7 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
             const int p1Pct = static_cast<int>(std::lround(ev.share * 100.0f));
             const std::string demandStr = std::to_string(std::max(0, ev.demand));
             log(0, outcome == UI_matchStats::DayOutcome::NONE_MET ? ToastPriority::WARNING : ToastPriority::INFO,
-                engine.getCityState().lastCutMessage);
+                ev.text);
 
             if (outcome == UI_matchStats::DayOutcome::GRACE) {
                 for (int q = 1; q <= 2; ++q) {
@@ -367,7 +367,7 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
             for (int q = 1; q <= 2; ++q) {
                 if (!isHuman(q, botActive)) continue;
                 push(q, ToastPriority::WARNING, "grace", "ВНИМАНИЕ", "Край на гратисния период",
-                     "От днес градът иска средно " + std::to_string(Balance::STARTING_CITY_DEMAND_MW) +
+                     "От днес градът иска средно " + std::to_string(std::max(ev.demand, Balance::STARTING_CITY_DEMAND_MW)) +
                          " MW за деня. Отчет всяка сутрин в 06:00.",
                      "Задръжте [Tab] за енергийното табло", COL_WARN, false);
             }
@@ -396,8 +396,10 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
             }
             break;
         }
+        case InfoEventType::MINED: // statistics only
+            break;
         case InfoEventType::MATCH_ENDED:
-            log(0, ToastPriority::CRITICAL, engine.getCityState().lastCutMessage);
+            log(0, ToastPriority::CRITICAL, ev.text);
             break;
     }
 }

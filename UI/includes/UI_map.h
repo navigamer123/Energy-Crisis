@@ -209,7 +209,6 @@ private:
     // team info: information UI (UI_map_info.cpp) - telemetry, notifications, dashboard, report, dev overlay
     UI_matchStats stats;
     UI_notifications notifications;
-    std::vector<InfoEvent> pendingInfoEvents;
     bool showEventLog = false;          // Event log overlay, opened from the pause menu
     sf::FloatRect pauseLogBtn;          // Pause menu entry "ДНЕВНИК НА СЪБИТИЯТА"
     void updateInfoUI(float dt);
@@ -222,6 +221,18 @@ private:
     UI_postmatch postMatch;             // Post-match report (replaces the victory box)
     UI_devOverlay devOverlay;           // Developer overlay ([F3])
     void drawDevOverlay(sf::RenderWindow& window);
+
+    // Engine events (UI_map_events.cpp): the ONLY engine.pollEvents() caller in the UI. Each frame it
+    // fans the queue out to the information UI (and the other feedback systems).
+    enum class EventDispatch { Live, Silent }; // Silent: statistics only (no toasts or log), for shot setup
+    struct EngineEventCtx {
+        int endedDay = 0;                  // value of the last DAY_END (its DAY_RESULT follows in the same batch)
+        float share = 0.5f;                // P1 share after the last DAY_RESULT
+        int weather[2] = { -1, -1 };       // last announced WeatherType per sector (weather is re-rolled daily)
+    };
+    EngineEventCtx evCtx;
+    void dispatchEngineEvents(EventDispatch mode = EventDispatch::Live);
+    void resetEventConsumers();            // New match: forget everything the consumers derived
 
 public:
     UI_map();
@@ -256,6 +267,8 @@ public:
     // (game, mining, night, winter, storm, victory, pause, help, modal, tutorial) using only the public
     // engine API. frames = frames the capture will render (used to time a lightning bolt).
     void setupDebugScene(const std::string& scene, int frames);
+    // After setupDebugScene: feed the setup's queued engine events to the statistics without toasts
+    void settleSetupEvents();
     // team info: entry point of the information-UI event hook (see UI_infoEvents.h)
     void onInfoEvent(const InfoEvent& ev);
 };

@@ -7,7 +7,8 @@
 // -----------------------------------------------------------------------------
 // team info: match telemetry for the dashboard (Tab), the post-match report and the
 // notification system. Samples the engine every quarter of a game hour, keeps one
-// record per settled day and per-player totals, and turns state changes into InfoEvents.
+// record per settled day (from DAY_SETTLED) and per-player totals (from the InfoEvents that
+// UI_map::dispatchEngineEvents feeds in, plus the energy and income it measures itself).
 // -----------------------------------------------------------------------------
 class UI_matchStats {
 public:
@@ -58,8 +59,9 @@ public:
     };
 
     void reset();
-    void beforeEngineUpdate(const GameEngine& engine);
-    void afterEngineUpdate(const GameEngine& engine, std::vector<InfoEvent>& out);
+    // Once per frame, after the engine update: energy by source, CO2, income, share range, time series
+    void sample(const GameEngine& engine);
+    // Discrete events (built, lost, mined, settled day...) from the engine event queue
     void onInfoEvent(const InfoEvent& ev);
 
     const std::vector<Sample>& getSamples() const { return samples; }
@@ -73,15 +75,7 @@ public:
 
 private:
     struct Snapshot {
-        int day = 1;
-        int winner = 0;
         float p1Share = 0.5f;
-        SeasonType season = SeasonType::SPRING;
-        WeatherType weather[2] = { WeatherType::SUNNY, WeatherType::SUNNY };
-        int buildings[2][7] = {};
-        int plots[2] = { 0, 0 };
-        int mineLevels[2][8] = {};
-        long materials[2] = { 0, 0 };
         long money[2] = { 0, 0 };
         long gold[2] = { 0, 0 };
     };
@@ -96,11 +90,7 @@ private:
     bool hasPrev = false;
     float lastHours = 0.0f;
     float nextSampleHours = 0.0f;
-    int pendingLightning[2] = { 0, 0 };
-    // Values captured just before engine.update(), so a settlement that happens inside the
-    // update is recorded with the day's real average and demand
-    float preTodayAvg[2] = { 0.0f, 0.0f };
-    int preDemand = 0;
+    float lastSettledShare = 0.5f; // P1 share after the previous settlement (DayRecord::shareBefore)
 };
 
 #endif // UI_MATCH_STATS_H
