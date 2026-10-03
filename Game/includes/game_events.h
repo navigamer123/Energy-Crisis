@@ -12,6 +12,7 @@
 enum class GameEventType {
     DAY_END,            // value = day that just ended; text = empty
     DAY_RESULT,         // player = who won the day's territory (0 = nobody / both); value = P1 share change; text = day-end message
+                        // subtype = that day's city demand in MW (0 on a grace day); x / y = average MW delivered by P1 / P2
     BUILDING_PLACED,    // player, subtype = BuildingType, x/y = cell centre, value = base MW; text = building name
     BUILDING_REMOVED,   // player demolished it: player, subtype = BuildingType, x/y, value = refund fraction; text = name
     BUILDING_DESTROYED, // lightning / hazard: player = owner, subtype = BuildingType, x/y; text = name

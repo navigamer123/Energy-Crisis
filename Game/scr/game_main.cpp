@@ -534,7 +534,9 @@ void GameEngine::processDayEnd() {
     }
 
     int dayWinner = (dayShift > 0.0f) ? 1 : ((dayShift < 0.0f) ? 2 : 0);
-    emitEvent(GameEventType::DAY_RESULT, dayWinner, dayShift, city.lastCutMessage);
+    // subtype = the ended day's city demand (0 on a grace day), x / y = average MW delivered by P1 / P2
+    emitEvent(GameEventType::DAY_RESULT, dayWinner, dayShift, city.lastCutMessage, city.cityEnergyDemand,
+              static_cast<float>(p1AvgMW), static_cast<float>(p2AvgMW));
     if (city.winner != 0) {
         emitEvent(GameEventType::VICTORY, city.winner, city.p1CityShare, city.lastCutMessage);
     }

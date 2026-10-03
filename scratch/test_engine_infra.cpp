@@ -171,6 +171,7 @@ void testEvents() {
     CHECK(countEvents(ev, GameEventType::DAY_RESULT) == 1, "DAY_RESULT count " << countEvents(ev, GameEventType::DAY_RESULT));
     const GameEvent* result = findEvent(ev, GameEventType::DAY_RESULT);
     CHECK(result && result->text == e.getCityState().lastCutMessage, "DAY_RESULT text differs from the day-end message");
+    CHECK(result && result->subtype == 0, "grace day DAY_RESULT demand " << (result ? result->subtype : -1));
     CHECK(countEvents(ev, GameEventType::WEATHER_CHANGED) == 2, "weather events at day end: " << countEvents(ev, GameEventType::WEATHER_CHANGED));
     CHECK(countEvents(ev, GameEventType::VICTORY) == 0, "victory on day 1");
 
@@ -202,6 +203,8 @@ void testEvents() {
         if (item.type == GameEventType::DAY_RESULT && item.player == 1) {
             ++dayResultsWonByP1;
             CHECK(item.value > 0.0f, "P1 won a day with share change " << item.value);
+            CHECK(item.subtype > 0 && item.x >= static_cast<float>(item.subtype) && item.y == 0.0f,
+                  "DAY_RESULT demand / averages " << item.subtype << " " << item.x << " " << item.y);
         }
     }
     victory = findEvent(all, GameEventType::VICTORY);
