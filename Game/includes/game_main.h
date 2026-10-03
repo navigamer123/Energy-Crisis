@@ -8,6 +8,7 @@
 #include "game_expedition.h"
 #include "game_random.h"
 #include "game_balance.h"
+#include "game_events.h"
 
 // -----------------------------------------------------------------------------
 // Resource Types
@@ -97,7 +98,6 @@ struct CityConquestState {
     float p1DailyDelivered = 0.0f; // Energy delivered to the city so far today (MW x game-seconds)
     float p2DailyDelivered = 0.0f;
     float dailySeconds = 0.0f;     // Game-seconds elapsed in the current day (06:00 -> 06:00)
-    bool dayCutOccurred = false;
     std::string lastCutMessage;
     int winner = 0;             // 0 = None, 1 = P1, 2 = P2, 3 = Draw (equal shares after the final day)
 };
@@ -139,6 +139,7 @@ private:
 
     std::vector<PlacedBuilding> buildings;
     std::vector<LandPlot> landPlots;
+    std::vector<GameEvent> events; // pending events, drained by pollEvents()
 
     void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
@@ -146,11 +147,18 @@ private:
     void processDayEnd();
     void rollDailyWeather();
     int findOwnedBuildingInSlot(int player, sf::Vector2f pos) const;
+    void emitEvent(GameEventType type, int player, float value, const std::string& text = std::string(),
+                   int subtype = 0, float x = 0.0f, float y = 0.0f);
 
 public:
     GameEngine();
     void init(float screenWidth, float screenHeight);
     void update(float dt);
+
+    // Events since the last call (oldest first); the queue is cleared. Call once per frame.
+    // At most MAX_PENDING_EVENTS are kept when nobody drains the queue (the oldest are dropped).
+    std::vector<GameEvent> pollEvents();
+    static constexpr size_t MAX_PENDING_EVENTS = 1024;
 
     void setTimeScale(float scale) { timeScale = (scale > 0.1f ? scale : 1.0f); }
     float getTimeScale() const { return timeScale; }

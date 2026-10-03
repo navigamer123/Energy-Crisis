@@ -36,6 +36,12 @@ sf::Vector2f plotTopLeft(int player, int plotCol, int plotRow) {
              Balance::PLOTS_START_Y + plotRow * (Balance::PLOT_HEIGHT + Balance::PLOT_GAP_Y) };
 }
 
+// Wind speed (4th field of a weather_report, "0" when calm) as a number
+float windSpeedOf(const std::vector<std::string>& report) {
+    if (report.size() < 4) return 0.0f;
+    return static_cast<float>(std::atof(report[3].c_str()));
+}
+
 } // namespace
 
 GameEngine::GameEngine()
@@ -114,8 +120,28 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     p1.cityInfluence = 0.50f;
     p2.cityInfluence = 0.50f;
 
+    emitEvent(GameEventType::MESSAGE, 0, 0.0f, city.lastCutMessage);
+
     std::cout << "[GameEngine] Backend initialized with " << landPlots.size() << " land plots & "
               << buildings.size() << " starter buildings.\n";
+}
+
+void GameEngine::emitEvent(GameEventType type, int player, float value, const std::string& text, int subtype, float x, float y) {
+    if (events.size() >= MAX_PENDING_EVENTS) {
+        // Nobody drains the queue: keep the newest half instead of growing without bound
+        events.erase(events.begin(), events.begin() + static_cast<std::ptrdiff_t>(MAX_PENDING_EVENTS / 2));
+    }
+    GameEvent ev{ type, player, value, text };
+    ev.subtype = subtype;
+    ev.x = x;
+    ev.y = y;
+    events.push_back(std::move(ev));
+}
+
+std::vector<GameEvent> GameEngine::pollEvents() {
+    std::vector<GameEvent> out;
+    out.swap(events);
+    return out;
 }
 
 void GameEngine::rollDailyWeather() {
@@ -123,9 +149,11 @@ void GameEngine::rollDailyWeather() {
 
     auto rep1 = weather_report(sName);
     p1Weather = WeatherSystem::reportToWeatherType(rep1);
+    emitEvent(GameEventType::WEATHER_CHANGED, 1, windSpeedOf(rep1), std::string(), static_cast<int>(p1Weather));
 
     auto rep2 = weather_report(sName);
     p2Weather = WeatherSystem::reportToWeatherType(rep2);
+    emitEvent(GameEventType::WEATHER_CHANGED, 2, windSpeedOf(rep2), std::string(), static_cast<int>(p2Weather));
 }
 
 void GameEngine::update(float dt) {
@@ -161,7 +189,11 @@ void GameEngine::simulateStep(float dt) {
     gameSeconds += dt;
     hour24 = std::fmod((gameSeconds / Balance::SECONDS_PER_DAY) * 24.0f + Balance::CLOCK_HOUR_AT_ZERO, 24.0f);
     // Season flips at midnight (dark in every season), never at the 06:00 rollover
-    currentSeason = Balance::getSeasonAtGameSeconds(gameSeconds);
+    SeasonType seasonNow = Balance::getSeasonAtGameSeconds(gameSeconds);
+    if (seasonNow != currentSeason) {
+        currentSeason = seasonNow;
+        emitEvent(GameEventType::SEASON_CHANGED, 0, 0.0f, std::string(), static_cast<int>(currentSeason));
+    }
 
     // Update building energy outputs based on real-time continuous weather & sun
     updateBuildingsEnergy(dt);
@@ -320,7 +352,8 @@ void GameEngine::updateBuildingsEnergy(float dt) {
 
 void GameEngine::processDayEnd() {
     int endedDay = currentDay - 1;
-    city.dayCutOccurred = true;
+    emitEvent(GameEventType::DAY_END, 0, static_cast<float>(endedDay));
+    float dayShift = 0.0f; // change of the P1 share settled for this day
 
     // The day is judged on the AVERAGE power delivered over the whole day (06:00 -> 06:00),
     // not on an instantaneous snapshot, so daytime-only sources (solar) count fully.
@@ -340,6 +373,7 @@ void GameEngine::processDayEnd() {
         bool p1Succeeded = (p1AvgMW >= city.cityEnergyDemand);
         bool p2Succeeded = (p2AvgMW >= city.cityEnergyDemand);
         float shift = Balance::calculateDailyCityShift(p1AvgMW, p2AvgMW, city.cityEnergyDemand);
+        dayShift = shift;
         city.p1CityShare = std::clamp(city.p1CityShare + shift, 0.0f, 1.0f);
         int shiftPct = static_cast<int>(std::round(std::abs(shift) * 100.0f));
 
@@ -388,6 +422,12 @@ void GameEngine::processDayEnd() {
         }
     }
 
+    int dayWinner = (dayShift > 0.0f) ? 1 : ((dayShift < 0.0f) ? 2 : 0);
+    emitEvent(GameEventType::DAY_RESULT, dayWinner, dayShift, city.lastCutMessage);
+    if (city.winner != 0) {
+        emitEvent(GameEventType::VICTORY, city.winner, city.p1CityShare, city.lastCutMessage);
+    }
+
     p1.cityInfluence = city.p1CityShare;
     p2.cityInfluence = 1.0f - city.p1CityShare;
 
@@ -405,7 +445,11 @@ void GameEngine::processDayEnd() {
 
     // Daily dynamic weather generation using weather_report from weatherF.
     // The new day's season already took effect at the preceding midnight.
-    currentSeason = Balance::getSeasonForDay(currentDay);
+    SeasonType newSeason = Balance::getSeasonForDay(currentDay);
+    if (newSeason != currentSeason) {
+        currentSeason = newSeason;
+        emitEvent(GameEventType::SEASON_CHANGED, 0, 0.0f, std::string(), static_cast<int>(currentSeason));
+    }
     rollDailyWeather();
 }
 
@@ -430,7 +474,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             result.wood = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Дървесина (Гора)" + lvlTag;
-            return true;
+            break;
         }
         case ResourceType::IRON: {
             int amount = static_cast<int>(std::round(Balance::IRON_BASE_YIELD * mult));
@@ -438,7 +482,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             result.iron = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Желязо (Желязна мина)" + lvlTag;
-            return true;
+            break;
         }
         case ResourceType::COPPER: {
             int amount = static_cast<int>(std::round(Balance::COPPER_BASE_YIELD * mult));
@@ -446,7 +490,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             result.copper = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Мед (Медна жила)" + lvlTag;
-            return true;
+            break;
         }
         case ResourceType::COAL: {
             int amount = static_cast<int>(std::round(Balance::COAL_BASE_YIELD * mult));
@@ -454,7 +498,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             result.coal = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Въглища (Въглищен пласт)" + lvlTag;
-            return true;
+            break;
         }
         case ResourceType::SILICON: {
             int amount = static_cast<int>(std::round(Balance::SILICON_BASE_YIELD * mult));
@@ -462,7 +506,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             result.silicon = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Силиций (Силициева кариера)" + lvlTag;
-            return true;
+            break;
         }
         case ResourceType::SILVER: {
             int amount = static_cast<int>(std::round(Balance::SILVER_BASE_YIELD * mult));
@@ -470,7 +514,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             result.silver = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Сребро (Сребърна жила)" + lvlTag;
-            return true;
+            break;
         }
         case ResourceType::GOLD: {
             int amount = static_cast<int>(std::round(Balance::GOLD_BASE_YIELD * mult));
@@ -478,7 +522,7 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             result.gold = amount;
             result.amount = amount;
             outMsg = "+" + std::to_string(amount) + " Злато (Златна жила)" + lvlTag;
-            return true;
+            break;
         }
         case ResourceType::MONEY: {
             outMsg = "Мината за пари е премахната! Печелете пари от доставка на ток към града.";
@@ -494,11 +538,14 @@ bool GameEngine::mineResource(int player, ResourceType type, MineResult& result,
             result.iron = fe; result.copper = cu; result.coal = c; result.gold = au; result.amount = fe + cu + c;
             outMsg = "+" + std::to_string(fe) + " Желязо, +" + std::to_string(cu) + " Мед, +" + std::to_string(c) +
                      " Въглища, +" + std::to_string(au) + " Злато";
-            return true;
+            break;
         }
         default:
             return false;
     }
+
+    emitEvent(GameEventType::RESOURCE_MINED, player, static_cast<float>(result.amount), std::string(), static_cast<int>(type));
+    return true;
 }
 
 int GameEngine::getMineLevel(int player, ResourceType type) const {
@@ -555,6 +602,7 @@ bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg)
     }
 
     outMsg = "НАДГРАДЕНО: " + resName + " (НИВО " + std::to_string(newLvl) + ")! (+75% ДОБИВ)";
+    emitEvent(GameEventType::MINE_UPGRADED, player, static_cast<float>(newLvl), std::string(), static_cast<int>(type));
     return true;
 }
 
@@ -571,6 +619,8 @@ bool GameEngine::buyLandPlot(int player, int plotId, std::string& outMsg) {
                 plot.isPurchased = true;
                 econ.landTier++;
                 outMsg = (player == 1 ? "ИГРАЧ 1 ЗАКУПИ НОВА ЗЕМЯ!" : "ИГРАЧ 2 ЗАКУПИ НОВА ЗЕМЯ!");
+                emitEvent(GameEventType::LAND_BOUGHT, player, static_cast<float>(plot.costGold), std::string(), plot.id,
+                          plot.bounds.position.x + plot.bounds.size.x * 0.5f, plot.bounds.position.y + plot.bounds.size.y * 0.5f);
                 return true;
             } else {
                 outMsg = "НЕДОСТИГ НА ЗЛАТО! НУЖНО: " + std::to_string(plot.costGold) + " G";
@@ -790,6 +840,7 @@ bool GameEngine::removeBuilding(int player, sf::Vector2f pos, std::string& outMs
     buildings.erase(buildings.begin() + closestIdx);
     outMsg = "ПРЕМАХНАТ " + cost.nameBg + "! (Върнати: " + std::to_string(static_cast<int>(std::lround(refund * 100.0f))) +
              "% ресурси)";
+    emitEvent(GameEventType::BUILDING_REMOVED, player, refund, cost.nameBg, static_cast<int>(b.type), b.position.x, b.position.y);
     return true;
 }
 
@@ -932,6 +983,7 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     } else {
         outMsg = "ПОСТРОЕН " + cost.nameBg + "! (+" + std::to_string(cost.basePowerMW) + " MW)";
     }
+    emitEvent(GameEventType::BUILDING_PLACED, player, static_cast<float>(cost.basePowerMW), cost.nameBg, static_cast<int>(type), pos.x, pos.y);
     return true;
 }
 
@@ -969,7 +1021,10 @@ bool GameEngine::breakBuildingAt(sf::Vector2f pos) {
     for (auto it = buildings.begin(); it != buildings.end(); ++it) {
         float dist = std::hypot(it->position.x - pos.x, it->position.y - pos.y);
         if (dist <= Balance::STRIKE_HIT_RADIUS) {
+            PlacedBuilding hit = *it;
             buildings.erase(it);
+            emitEvent(GameEventType::BUILDING_DESTROYED, hit.playerOwner, 0.0f, getBuildingCost(hit.type).nameBg,
+                      static_cast<int>(hit.type), hit.position.x, hit.position.y);
             return true;
         }
     }
@@ -985,8 +1040,11 @@ bool GameEngine::breakRandomBuilding(int playerOwner, sf::Vector2f& outPos) {
     }
     if (candidates.empty()) return false;
     size_t chosenIdx = candidates[rand() % candidates.size()];
+    PlacedBuilding hit = buildings[chosenIdx];
     outPos = buildings[chosenIdx].position;
     buildings.erase(buildings.begin() + chosenIdx);
+    emitEvent(GameEventType::BUILDING_DESTROYED, hit.playerOwner, 0.0f, getBuildingCost(hit.type).nameBg,
+              static_cast<int>(hit.type), hit.position.x, hit.position.y);
     return true;
 }
 
