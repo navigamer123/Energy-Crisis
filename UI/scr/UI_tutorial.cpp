@@ -10,9 +10,9 @@ UI_tutorial::UI_tutorial()
       animTimer(0.0f),
       stepDelayTimer(0.0f),
       initialP1BuildingCount(0) {
-    cardBounds = sf::FloatRect({ 240.0f, 752.0f }, { 540.0f, 130.0f });
+    cardBounds = sf::FloatRect({ 240.0f, 770.0f }, { 540.0f, 118.0f });
     skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 150.0f, cardBounds.position.y + 8.0f }, { 142.0f, 24.0f });
-    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 195.0f, cardBounds.position.y + cardBounds.size.y - 36.0f }, { 185.0f, 28.0f });
+    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - 195.0f, cardBounds.position.y + cardBounds.size.y - 34.0f }, { 185.0f, 26.0f });
 }
 
 void UI_tutorial::reset() {
@@ -162,8 +162,8 @@ void UI_tutorial::drawSpotlight(sf::RenderWindow& window, sf::FloatRect targetRe
 }
 
 void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, const std::string& label,
-                            const sf::Font& font, float animTime, bool pointUp) {
-    float bounce = std::sin(animTime * 6.0f) * 6.0f;
+                            const sf::Font& font, float animTime, ArrowDir dir) {
+    float bounce = std::sin(animTime * 6.0f) * 5.0f;
 
     // Glowing target ring around the objective
     float pulseRadius = 24.0f + std::sin(animTime * 4.0f) * 4.0f;
@@ -177,39 +177,63 @@ void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, co
 
     // Chevron / Arrow Triangle
     sf::ConvexShape arrow(3);
-    if (!pointUp) {
-        sf::Vector2f tip(targetPos.x, targetPos.y - 12.0f + bounce);
+    sf::Vector2f tip;
+    if (dir == ArrowDir::DOWN) {
+        tip = sf::Vector2f(targetPos.x, targetPos.y - 12.0f + bounce);
         arrow.setPoint(0, tip);
-        arrow.setPoint(1, sf::Vector2f(tip.x - 14.0f, tip.y - 24.0f));
-        arrow.setPoint(2, sf::Vector2f(tip.x + 14.0f, tip.y - 24.0f));
-    } else {
-        sf::Vector2f tip(targetPos.x, targetPos.y + 12.0f + bounce);
+        arrow.setPoint(1, sf::Vector2f(tip.x - 14.0f, tip.y - 22.0f));
+        arrow.setPoint(2, sf::Vector2f(tip.x + 14.0f, tip.y - 22.0f));
+    } else if (dir == ArrowDir::UP) {
+        tip = sf::Vector2f(targetPos.x, targetPos.y + 12.0f + bounce);
         arrow.setPoint(0, tip);
-        arrow.setPoint(1, sf::Vector2f(tip.x - 14.0f, tip.y + 24.0f));
-        arrow.setPoint(2, sf::Vector2f(tip.x + 14.0f, tip.y + 24.0f));
+        arrow.setPoint(1, sf::Vector2f(tip.x - 14.0f, tip.y + 22.0f));
+        arrow.setPoint(2, sf::Vector2f(tip.x + 14.0f, tip.y + 22.0f));
+    } else if (dir == ArrowDir::LEFT) {
+        tip = sf::Vector2f(targetPos.x + 10.0f + bounce, targetPos.y);
+        arrow.setPoint(0, tip);
+        arrow.setPoint(1, sf::Vector2f(tip.x + 22.0f, tip.y - 13.0f));
+        arrow.setPoint(2, sf::Vector2f(tip.x + 22.0f, tip.y + 13.0f));
+    } else { // ArrowDir::RIGHT
+        tip = sf::Vector2f(targetPos.x - 10.0f + bounce, targetPos.y);
+        arrow.setPoint(0, tip);
+        arrow.setPoint(1, sf::Vector2f(tip.x - 22.0f, tip.y - 13.0f));
+        arrow.setPoint(2, sf::Vector2f(tip.x - 22.0f, tip.y + 13.0f));
     }
     arrow.setFillColor(sf::Color(255, 215, 0, 240));
     arrow.setOutlineThickness(2.0f);
     arrow.setOutlineColor(sf::Color::White);
     window.draw(arrow);
 
-    // Floating text tag over arrow
+    // Floating text tag over/next to arrow
     if (!label.empty()) {
         sf::Text text(font, toUtf8(label), 12);
         text.setFillColor(sf::Color::White);
         sf::FloatRect tb = text.getLocalBounds();
 
-        float tagY = pointUp ? (targetPos.y + 40.0f + bounce) : (targetPos.y - 58.0f + bounce);
+        float tagX = targetPos.x;
+        float tagY = targetPos.y;
+        if (dir == ArrowDir::DOWN) {
+            tagY = targetPos.y - 56.0f + bounce;
+        } else if (dir == ArrowDir::UP) {
+            tagY = targetPos.y + 40.0f + bounce;
+        } else if (dir == ArrowDir::LEFT) {
+            tagX = tip.x + 22.0f + 6.0f + (tb.size.x + 16.0f) / 2.0f;
+            tagY = targetPos.y;
+        } else { // RIGHT
+            tagX = tip.x - 22.0f - 6.0f - (tb.size.x + 16.0f) / 2.0f;
+            tagY = targetPos.y;
+        }
+
         sf::RectangleShape tagBg({ tb.size.x + 16.0f, 22.0f });
         tagBg.setOrigin({ (tb.size.x + 16.0f) / 2.0f, 11.0f });
-        tagBg.setPosition({ targetPos.x, tagY });
+        tagBg.setPosition({ tagX, tagY });
         tagBg.setFillColor(sf::Color(10, 16, 26, 240));
         tagBg.setOutlineThickness(1.5f);
         tagBg.setOutlineColor(sf::Color(255, 215, 0, 220));
         window.draw(tagBg);
 
         text.setOrigin({ tb.size.x / 2.0f, tb.size.y / 2.0f });
-        text.setPosition({ targetPos.x, tagY - 2.0f });
+        text.setPosition({ tagX, tagY - 2.0f });
         window.draw(text);
     }
 }
@@ -244,7 +268,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                 drawSpotlight(window, spotlightRect, animTime);
                 arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
                 arrowLabel = "СТАНЦИЯ ГОРА [SPACE]";
-                drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
+                drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::DOWN);
             }
             break;
         }
@@ -256,7 +280,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                 drawSpotlight(window, spotlightRect, animTime);
                 arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
                 arrowLabel = "ДОБИВ: ЖЕЛЯЗО [SPACE]";
-                drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
+                drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::DOWN);
             }
             break;
         }
@@ -268,7 +292,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                 drawSpotlight(window, spotlightRect, animTime);
                 arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
                 arrowLabel = "ДОБИВ: МЕД [SPACE]";
-                drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
+                drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::DOWN);
             }
             break;
         }
@@ -280,17 +304,17 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                 drawSpotlight(window, spotlightRect, animTime);
                 arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
                 arrowLabel = "ДОБИВ: СИЛИЦИЙ [SPACE]";
-                drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
+                drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::DOWN);
             }
             break;
         }
         case TutorialStep::SELECT_SOLAR: {
-            // Spotlight on Player 1 Building Bar (Solar Panel card)
-            spotlightRect = sf::FloatRect({ 14.0f, 395.0f }, { 190.0f, 65.0f });
+            // Spotlight on Player 1 Building Bar (Solar Panel card at x=24, y=143, w=218, h=55)
+            spotlightRect = sf::FloatRect({ 20.0f, 140.0f }, { 226.0f, 61.0f });
             drawSpotlight(window, spotlightRect, animTime);
-            arrowTarget = sf::Vector2f(109.0f, 395.0f);
+            arrowTarget = sf::Vector2f(246.0f, 170.5f);
             arrowLabel = "ИЗБЕРЕТЕ: [1] СЛЪНЧЕВ ПАНЕЛ";
-            drawArrow(window, arrowTarget, arrowLabel, font, animTime, false);
+            drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::LEFT);
             break;
         }
         case TutorialStep::PLACE_SOLAR: {
@@ -299,7 +323,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             spotlightRect = sf::FloatRect({ slot.x - 20.0f, slot.y - 20.0f }, { 40.0f, 40.0f });
             drawSpotlight(window, spotlightRect, animTime);
             arrowLabel = "ПОСТАВЕТЕ ТУК [SPACE]";
-            drawArrow(window, slot, arrowLabel, font, animTime, false);
+            drawArrow(window, slot, arrowLabel, font, animTime, ArrowDir::DOWN);
             break;
         }
         case TutorialStep::COMPLETED: {
@@ -316,42 +340,77 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     // 2. Under-Hero Floating Control Badges
     // -------------------------------------------------------------------------
     if (step != TutorialStep::INACTIVE) {
-        // Player 1 Cursor hint
-        std::string p1Hint = isCoop ? "P1: [W/A/S/D] - Движение  |  [SPACE] - Действие"
-                                    : "[W/A/S/D] или [СТРЕЛКИ] - Движение  |  [SPACE] или [ENTER] - Действие";
+        // Context-aware Player 1 Cursor hint
+        std::string p1Hint;
+        if (isCoop) {
+            if (step == TutorialStep::SELECT_SOLAR) {
+                p1Hint = "P1: [1] Избери Слънчев панел  |  [X] Отказ";
+            } else if (step == TutorialStep::PLACE_SOLAR) {
+                p1Hint = "P1: [SPACE] Строеж  |  [X] Отказ";
+            } else if (step == TutorialStep::COMPLETED) {
+                p1Hint = "P1: [SPACE] Продължи";
+            } else {
+                p1Hint = "P1: [W/A/S/D] Движение  |  [SPACE] Добив";
+            }
+        } else {
+            if (step == TutorialStep::SELECT_SOLAR) {
+                p1Hint = "[1] или [E] - Избери Слънчев панел  |  [X] Отказ";
+            } else if (step == TutorialStep::PLACE_SOLAR) {
+                p1Hint = "[SPACE] или [ENTER] - Строеж  |  [X] Отказ";
+            } else if (step == TutorialStep::COMPLETED) {
+                p1Hint = "[SPACE] или [ENTER] - Продължи";
+            } else {
+                p1Hint = "[W/A/S/D] или [СТРЕЛКИ] - Движение  |  [SPACE] - Добив";
+            }
+        }
+
         sf::Text p1Tag(font, toUtf8(p1Hint), 11);
         p1Tag.setFillColor(sf::Color(0, 255, 230));
         sf::FloatRect p1b = p1Tag.getLocalBounds();
 
+        float pillHalfW = (p1b.size.x + 14.0f) / 2.0f;
+        // Clamp pill so its left edge NEVER overlaps the left building panel (x in [18, 248])
+        float pillX = std::max(252.0f + pillHalfW, p1Pos.x);
+        // Clamp pill vertically so it stays within game bounds and above the tutorial card
+        float pillY = std::min(740.0f, std::max(40.0f, p1Pos.y + 28.0f));
+
         sf::RectangleShape p1Pill({ p1b.size.x + 14.0f, 20.0f });
-        p1Pill.setOrigin({ (p1b.size.x + 14.0f) / 2.0f, 10.0f });
-        p1Pill.setPosition({ p1Pos.x, p1Pos.y + 28.0f });
+        p1Pill.setOrigin({ pillHalfW, 10.0f });
+        p1Pill.setPosition({ pillX, pillY });
         p1Pill.setFillColor(sf::Color(10, 16, 26, 235));
         p1Pill.setOutlineThickness(1.2f);
         p1Pill.setOutlineColor(sf::Color(0, 229, 255, 200));
         window.draw(p1Pill);
 
         p1Tag.setOrigin({ p1b.size.x / 2.0f, p1b.size.y / 2.0f });
-        p1Tag.setPosition({ p1Pos.x, p1Pos.y + 26.0f });
+        p1Tag.setPosition({ pillX, pillY - 2.0f });
         window.draw(p1Tag);
 
         // Player 2 Cursor hint in Co-op mode
         if (isCoop) {
-            std::string p2Hint = "P2: [СТРЕЛКИ] - Движение  |  [ENTER] - Действие";
+            std::string p2Hint = (step == TutorialStep::SELECT_SOLAR) ? "P2: [PgDn] Сграда  |  [Del] Отказ"
+                               : (step == TutorialStep::PLACE_SOLAR)  ? "P2: [ENTER] Строеж  |  [Del] Отказ"
+                               : (step == TutorialStep::COMPLETED)    ? "P2: [ENTER] Продължи"
+                                                                      : "P2: [СТРЕЛКИ] Движение  |  [ENTER] Добив";
             sf::Text p2Tag(font, toUtf8(p2Hint), 11);
             p2Tag.setFillColor(sf::Color(255, 140, 220));
             sf::FloatRect p2b = p2Tag.getLocalBounds();
 
+            float p2HalfW = (p2b.size.x + 14.0f) / 2.0f;
+            // Clamp pill so its right edge NEVER overlaps the right building panel (x in [1352, 1582])
+            float p2PillX = std::min(1348.0f - p2HalfW, p2Pos.x);
+            float p2PillY = std::min(740.0f, std::max(40.0f, p2Pos.y + 28.0f));
+
             sf::RectangleShape p2Pill({ p2b.size.x + 14.0f, 20.0f });
-            p2Pill.setOrigin({ (p2b.size.x + 14.0f) / 2.0f, 10.0f });
-            p2Pill.setPosition({ p2Pos.x, p2Pos.y + 28.0f });
+            p2Pill.setOrigin({ p2HalfW, 10.0f });
+            p2Pill.setPosition({ p2PillX, p2PillY });
             p2Pill.setFillColor(sf::Color(20, 14, 26, 235));
             p2Pill.setOutlineThickness(1.2f);
             p2Pill.setOutlineColor(sf::Color(255, 120, 200, 200));
             window.draw(p2Pill);
 
             p2Tag.setOrigin({ p2b.size.x / 2.0f, p2b.size.y / 2.0f });
-            p2Tag.setPosition({ p2Pos.x, p2Pos.y + 26.0f });
+            p2Tag.setPosition({ p2PillX, p2PillY - 2.0f });
             window.draw(p2Tag);
         }
     }
@@ -479,28 +538,28 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     // Badge
     sf::Text badge(font, toUtf8(badgeText), 11);
     badge.setFillColor(sf::Color(0, 229, 255));
-    badge.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 10.0f });
+    badge.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 9.0f });
     window.draw(badge);
 
     // Title
     sf::Text title(font, toUtf8(titleText), 15);
     title.setFillColor(sf::Color(255, 215, 0));
-    title.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 26.0f });
+    title.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 24.0f });
     window.draw(title);
 
     // Description
     sf::Text desc(font, toUtf8(descText), 12);
     desc.setFillColor(sf::Color(215, 225, 235));
     desc.setLineSpacing(1.15f);
-    desc.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 48.0f });
+    desc.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 44.0f });
     window.draw(desc);
 
     // Progress Bar (when applicable)
     if (!progressText.empty()) {
         float barX = cardBounds.position.x + 16.0f;
-        float barY = cardBounds.position.y + cardBounds.size.y - 24.0f;
+        float barY = cardBounds.position.y + cardBounds.size.y - 20.0f;
         float barW = 230.0f;
-        float barH = 10.0f;
+        float barH = 9.0f;
 
         sf::RectangleShape barBg({ barW, barH });
         barBg.setPosition({ barX, barY });

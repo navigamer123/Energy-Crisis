@@ -19,6 +19,13 @@ enum class TutorialStep {
     COMPLETED
 };
 
+enum class ArrowDir {
+    DOWN,
+    UP,
+    LEFT,
+    RIGHT
+};
+
 class UI_tutorial {
 private:
     TutorialStep step = TutorialStep::WELCOME;
@@ -34,7 +41,7 @@ private:
 
     void drawSpotlight(sf::RenderWindow& window, sf::FloatRect targetRect, float animTime);
     void drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, const std::string& label,
-                   const sf::Font& font, float animTime, bool pointUp = false);
+                   const sf::Font& font, float animTime, ArrowDir dir = ArrowDir::DOWN);
 
 public:
     UI_tutorial();
