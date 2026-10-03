@@ -210,6 +210,8 @@ public:
     bool isTutorialActive() const { return tutorial.isActive(); }
     void startTutorial() { tutorial.start(); }
     void skipTutorial() { tutorial.skip(); }
+    // [b-showcase] F-07: open tutorial chapter 2 (night and storage) or 3 (land and mines), e.g. from a pause-menu entry
+    void startTutorialChapter(int chapter) { tutorial.startChapter(chapter); }
 
     const GameEngine& getEngine() const { return engine; }
 

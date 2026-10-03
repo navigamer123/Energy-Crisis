@@ -194,7 +194,7 @@ void UI_skyline::triggerBlackout(bool p1Failed, bool p2Failed, int demandMW, int
     boP2MW = p2AvgMW;
     p1Brownout = p1Brownout || p1Failed;
     p2Brownout = p2Brownout || p2Failed;
-    soundCues.push_back("siren");
+    if (soundCues.size() < 8) soundCues.push_back("siren"); // Bounded: nobody may be draining the cues
 }
 
 bool UI_skyline::takeSoundCue(std::string& outCue) {
