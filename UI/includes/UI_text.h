@@ -12,7 +12,8 @@
 // (energy_crisis.exe --lint) it also records each drawn text's global bounds
 // and the container it has to stay inside, so the last frame can be checked
 // for: text overlapping other text, text leaving its container, text outside
-// the 1600x900 canvas, and empty strings or characters missing from the font.
+// the 1600x900 canvas, empty strings or characters missing from the font, and
+// text smaller than the minimum size (fontsize::Caption).
 // -----------------------------------------------------------------------------
 namespace ui {
 

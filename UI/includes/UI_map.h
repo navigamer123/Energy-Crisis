@@ -230,7 +230,7 @@ public:
     void onFocusLost();                   // Auto-pause when the window loses focus
 
     // Screenshot mode (UI_map_debug.cpp): puts the running match into a named scene
-    // (game, night, winter, storm, victory, pause, help, modal, tutorial) using only the public
+    // (game, mining, night, winter, storm, victory, pause, help, modal, tutorial) using only the public
     // engine API. frames = frames the capture will render (used to time a lightning bolt).
     void setupDebugScene(const std::string& scene, int frames);
 };

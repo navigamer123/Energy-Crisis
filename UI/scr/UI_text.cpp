@@ -1,5 +1,6 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_theme.h"
 #include <algorithm>
 #include <cstdio>
 
@@ -233,6 +234,10 @@ std::vector<std::string> report() {
                 cps += buf;
             }
             out.push_back("LINT glyph: " + quote(r.str) + " " + rectStr(r.bounds) + " has characters missing from the font:" + cps);
+        }
+        if (r.size < fontsize::Caption) {
+            out.push_back("LINT small: " + quote(r.str) + " " + rectStr(r.bounds) + " is " + std::to_string(r.size) +
+                          " px (minimum " + std::to_string(fontsize::Caption) + " px)");
         }
         if (r.alpha < MIN_VISIBLE_ALPHA || r.occluded) continue;
         if (overhang(r.bounds, canvas) > TOL) {

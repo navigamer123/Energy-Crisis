@@ -189,6 +189,14 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         BuildingCost c = engine.getBuildingCost(BuildingType::WIND_TURBINE);
         triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Добив: +" + std::to_string(c.basePowerMW) + " MW ток.",
                            "[SPACE]: Постави в грида | [X]: Отказ", sf::Color(0, 229, 255));
+    } else if (scene == "mining") {
+        // P1 mines wood: prompt over the station, cooldown on the card, 6x time badges, a notice
+        if (const auto* st = nodes.getStation(1, ResourceType::WOOD)) {
+            p1Pos = { st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 30.0f };
+        }
+        p1ResourceCooldown = 0.6f;
+        engine.setTimeScale(Balance::MINE_SPEEDUP_MULT);
+        spawnNotice("+12 Дърво", p1Pos + sf::Vector2f(0.0f, -25.0f), sf::Color(75, 210, 110));
     } else if (scene == "pause") {
         isPaused = true;
         pauseSelectedIdx = 0;

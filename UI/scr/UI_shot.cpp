@@ -6,7 +6,7 @@ namespace {
 bool g_shotActive = false;
 
 const char* const MENU_SCENES[] = { "menu", "modes", "bots", "controls", "settings" };
-const char* const GAME_SCENES[] = { "game", "night", "winter", "storm", "victory", "pause", "help", "modal", "tutorial" };
+const char* const GAME_SCENES[] = { "game", "mining", "night", "winter", "storm", "victory", "pause", "help", "modal", "tutorial" };
 } // namespace
 
 namespace ui {
@@ -16,7 +16,7 @@ void setActive(bool on) { g_shotActive = on; }
 bool isActive() { return g_shotActive; }
 
 const char* sceneNames() {
-    return "menu, modes, bots, controls, settings, game, night, winter, storm, victory, pause, help, modal, tutorial";
+    return "menu, modes, bots, controls, settings, game, mining, night, winter, storm, victory, pause, help, modal, tutorial";
 }
 
 bool isMenuScene(const std::string& scene) {
