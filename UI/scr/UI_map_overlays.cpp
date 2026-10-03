@@ -377,9 +377,9 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     backdrop.setFillColor(sf::Color(8, 12, 20, 215));
     window.draw(backdrop);
 
-    // 2. Pause Card
+    // 2. Pause Card (team info: one row taller for the event log entry)
     float boxW = 500.0f;
-    float boxH = 430.0f;
+    float boxH = 433.0f; // 5 entries + an even bottom margin
     float boxX = (1600.0f - boxW) / 2.0f;
     float boxY = (900.0f - boxH) / 2.0f;
 
@@ -425,7 +425,8 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     pauseResumeBtn  = sf::FloatRect({ btnX, startY }, { btnW, btnH });
     pauseRestartBtn = sf::FloatRect({ btnX, startY + spacing }, { btnW, btnH });
     pauseHelpBtn    = sf::FloatRect({ btnX, startY + 2.0f * spacing }, { btnW, btnH });
-    pauseMenuBtn    = sf::FloatRect({ btnX, startY + 3.0f * spacing }, { btnW, btnH });
+    pauseLogBtn     = sf::FloatRect({ btnX, startY + 3.0f * spacing }, { btnW, btnH }); // team info
+    pauseMenuBtn    = sf::FloatRect({ btnX, startY + 4.0f * spacing }, { btnW, btnH });
 
     struct PauseOption {
         sf::FloatRect bounds;
@@ -435,14 +436,15 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         sf::Color outlineColor;
     };
 
-    PauseOption opts[4] = {
+    PauseOption opts[5] = {
         { pauseResumeBtn,  "ПРОДЪЛЖИ  [ ESC / ENTER ]", sf::Color(20, 120, 85),  sf::Color(30, 175, 120), sf::Color(0, 255, 180) },
         { pauseRestartBtn, "НОВА ИГРА  [ R ]",          sf::Color(45, 90, 130),  sf::Color(65, 130, 185), sf::Color(0, 229, 255) },
         { pauseHelpBtn,    "ПОМОЩ И ПРАВИЛА  [ H ]",    sf::Color(80, 75, 45),   sf::Color(135, 125, 60), sf::Color(255, 215, 0) },
+        { pauseLogBtn,     "ДНЕВНИК НА СЪБИТИЯТА  [ L ]", sf::Color(40, 70, 90), sf::Color(60, 110, 140), sf::Color(120, 200, 255) }, // team info
         { pauseMenuBtn,    "ГЛАВНО МЕНЮ  [ M ]",        sf::Color(70, 45, 55),   sf::Color(120, 65, 80),  sf::Color(255, 120, 140) }
     };
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         if (mouseMoved && opts[i].bounds.contains(mousePos)) {
             pauseSelectedIdx = i;
         }

@@ -200,8 +200,12 @@ private:
     UI_matchStats stats;
     UI_notifications notifications;
     std::vector<InfoEvent> pendingInfoEvents;
+    bool showEventLog = false;          // Event log overlay, opened from the pause menu
+    sf::FloatRect pauseLogBtn;          // Pause menu entry "ДНЕВНИК НА СЪБИТИЯТА"
     void updateInfoUI(float dt);
     void resetInfoUI();
+    void handleEventLogInput(const sf::Event& event);
+    void openEventLog();
 
 public:
     UI_map();

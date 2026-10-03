@@ -376,6 +376,7 @@ void UI_map::render(sf::RenderWindow& window) {
         drawVictoryScreen(window);
     } else if (isPaused) {
         drawPauseMenu(window);
+        if (showEventLog && resourcesLoaded) notifications.drawLog(window, font); // team info
     }
 
     // 21. Help & Rules Manual Overlay — ALWAYS on top of everything (including pause menu)

@@ -256,7 +256,8 @@ void UI_notifications::evaluateAlerts(const GameEngine& engine, bool botActive) 
         if (tomorrow != engine.getSeason() && hour >= 17.0f && hour < 18.0f &&
             alertOnce(player, SEASON_TOMORROW, day)) {
             push(player, ToastPriority::INFO, "alert-season", "УТРЕ", std::string("Утре започва ") + seasonBg(tomorrow),
-                 sunTimes(tomorrow), "", COL_CITY, player == 1);
+                 sunTimes(tomorrow), "", COL_CITY, false);
+            if (player == 1) log(0, ToastPriority::INFO, std::string("Утре започва ") + seasonBg(tomorrow) + ". " + sunTimes(tomorrow));
         }
     }
 }
@@ -370,7 +371,6 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
                          " MW за деня. Отчет всяка сутрин в 06:00.",
                      "", COL_WARN, false);
             }
-            log(0, ToastPriority::WARNING, "Край на гратисния период: градът вече иска ток");
             break;
         case InfoEventType::SEASON_CHANGED: {
             const auto season = static_cast<SeasonType>(ev.value);

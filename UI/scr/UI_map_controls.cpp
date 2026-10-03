@@ -782,6 +782,12 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         return; // swallow all other input while help is open
     }
 
+    // team info: the event log overlay (opened from the pause menu) takes all input until closed
+    if (showEventLog) {
+        handleEventLogInput(event);
+        return;
+    }
+
     // -------------------------------------------------------------------------
     // 1. Pause Menu Event Handling (before the tutorial and the dialogs, so they
     //    never receive keys or clicks meant for the pause menu)
@@ -793,12 +799,13 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 primeInputEdges(0);
                 return;
             }
+            // team info: 5 entries (index 3 = event log, 4 = main menu)
             if (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W) {
-                pauseSelectedIdx = (pauseSelectedIdx + 3) % 4;
+                pauseSelectedIdx = (pauseSelectedIdx + 4) % 5;
                 return;
             }
             if (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S) {
-                pauseSelectedIdx = (pauseSelectedIdx + 1) % 4;
+                pauseSelectedIdx = (pauseSelectedIdx + 1) % 5;
                 return;
             }
             if (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space) {
@@ -812,9 +819,15 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     helpOpenedFromPause = true;
                     showHelpOverlay = true;
                 } else if (pauseSelectedIdx == 3) {
+                    openEventLog();
+                } else if (pauseSelectedIdx == 4) {
                     isPaused = false;
                     requestMenu = true;
                 }
+                return;
+            }
+            if (key->code == sf::Keyboard::Key::L) { // team info
+                openEventLog();
                 return;
             }
             if (key->code == sf::Keyboard::Key::R) {
@@ -848,6 +861,10 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             if (pauseHelpBtn.contains(clickPos)) {
                 helpOpenedFromPause = true;
                 showHelpOverlay = true;
+                return;
+            }
+            if (pauseLogBtn.contains(clickPos)) { // team info
+                openEventLog();
                 return;
             }
             if (pauseMenuBtn.contains(clickPos)) {
