@@ -149,7 +149,7 @@ int main() {
         totalSimTime += frameGameSeconds;
         stepCount++;
 
-        // Exactly one settlement per day, and territory moves at most MAX_DAILY_CITY_SHIFT per day
+        // Exactly one settlement per day, and territory moves at most Econ::VERDICT_MAX_SHIFT per day [b-economy]
         if (engine.getCurrentDay() != dayBefore) {
             assert(engine.getCurrentDay() == dayBefore + 1);
             dayEndsSeen++;
@@ -158,7 +158,7 @@ int main() {
             if (dayBefore <= Balance::GRACE_PERIOD_DAYS) {
                 assert(shift == 0.0f);
             }
-            assert(shift <= Balance::MAX_DAILY_CITY_SHIFT + 1e-4f);
+            assert(shift <= Econ::VERDICT_MAX_SHIFT + 1e-4f);
 
             if (dayBefore % 5 == 0) {
                 std::cout << "  [Day " << dayBefore << " ended @ 100x Speed] "
@@ -401,7 +401,8 @@ int main() {
             if (day <= Balance::GRACE_PERIOD_DAYS) {
                 assert(gain == 0.0f);
             } else {
-                assert(gain >= Balance::MIN_DAILY_CITY_SHIFT - 1e-4f && gain <= Balance::MAX_DAILY_CITY_SHIFT + 1e-4f);
+                // [b-economy] BAL-02/04: full shift every day, gains above 70% count half
+                assert(gain > 0.0f && gain <= Econ::VERDICT_MAX_SHIFT + 1e-4f);
             }
             if (share < Balance::VICTORY_SHARE - 1e-4f) {
                 assert(victoryEngine.getCityState().winner == 0);
@@ -411,7 +412,7 @@ int main() {
         if (victoryEngine.getCityState().winner != 0) break;
     }
     assert(victoryEngine.getCityState().winner == 1);
-    assert(victoryEngine.getCurrentDay() == 6); // decided when day 5 ended
+    assert(victoryEngine.getCurrentDay() == 8); // [b-economy] 62, 72, 78, 84, 90%: decided when day 7 ended
     assert(victoryEngine.getPlayerEconomy(1).cityInfluence >= Balance::VICTORY_SHARE);
     assert(victoryEngine.getPlayerEconomy(2).cityInfluence <= 1.0f - Balance::VICTORY_SHARE + 1e-4f);
     std::cout << "  -> PASS: " << victoryEngine.getCityState().lastCutMessage << "\n";

@@ -123,6 +123,21 @@ void demolishAll(GameEngine& e, int player) {
     }
 }
 
+// [b-economy] Share of a player who serves the whole city while the rival delivers nothing, after
+// `days` judged days: every day moves the full VERDICT_MAX_SHIFT, gains above 70 % count half (BAL-02/04)
+float dominantShareAfter(int days) {
+    float share = 0.5f;
+    for (int i = 0; i < days; ++i) share += Econ::applyLeaderDamping(share, Econ::VERDICT_MAX_SHIFT);
+    return share;
+}
+
+// Number of judged days the dominant player needs to reach VICTORY_SHARE
+int dominantDaysToWin() {
+    int days = 0;
+    while (dominantShareAfter(days) < Balance::VICTORY_SHARE - kShareEps) ++days;
+    return days;
+}
+
 int expectedDemandForDay(int day) {
     if (day <= Balance::GRACE_PERIOD_DAYS) return 0;
     return Balance::STARTING_CITY_DEMAND_MW + (day - Balance::GRACE_PERIOD_DAYS - 1) * Balance::DAILY_DEMAND_INCREASE_MW;
@@ -282,14 +297,17 @@ void testHugeFrames() {
         GameEngine e;
         e.init(1600.0f, 900.0f);
         buildWindFarm(e, 1);
-        e.update(5.5f * Balance::SECONDS_PER_DAY); // one frame of 5.5 game days
-        // grace, grace, +15%, +15%, +15% -> 95% after day 5 -> P1 wins at the end of day 5
-        CHECK(e.getCurrentDay() == 6, "day " << e.getCurrentDay());
+        // [b-economy] grace, grace, then +12% a day (gains above 70% count half): 62, 72, 78, 84, 90%
+        const int winDays = dominantDaysToWin();
+        const int decidedDay = Balance::GRACE_PERIOD_DAYS + winDays; // the day whose end decides the match
+        e.update((static_cast<float>(decidedDay) + 0.5f) * Balance::SECONDS_PER_DAY); // one huge frame
+        CHECK(e.getCurrentDay() == decidedDay + 1, "day " << e.getCurrentDay() << ", expected " << (decidedDay + 1));
         CHECK(e.getCityState().winner == 1, "winner " << e.getCityState().winner);
-        float expected = 0.5f + 3.0f * Balance::MAX_DAILY_CITY_SHIFT;
+        float expected = dominantShareAfter(winDays);
         CHECK(std::abs(e.getCityState().p1CityShare - expected) < kShareEps,
               "share " << e.getCityState().p1CityShare << ", expected " << expected);
-        CHECK(e.getCityState().cityEnergyDemand == expectedDemandForDay(6), "demand " << e.getCityState().cityEnergyDemand);
+        CHECK(e.getCityState().cityEnergyDemand == expectedDemandForDay(decidedDay + 1),
+              "demand " << e.getCityState().cityEnergyDemand);
     }
     {
         GameEngine e;
@@ -320,9 +338,12 @@ void testVictoryAtShare(int champion) {
         if (endedDay <= Balance::GRACE_PERIOD_DAYS) {
             CHECK(std::abs(won) < 1e-6f, "territory moved by " << won << " during grace day " << endedDay);
         } else {
-            CHECK(won >= Balance::MIN_DAILY_CITY_SHIFT - kShareEps && won <= Balance::MAX_DAILY_CITY_SHIFT + kShareEps,
-                  "day " << endedDay << " moved " << won << " (allowed " << Balance::MIN_DAILY_CITY_SHIFT << " - "
-                         << Balance::MAX_DAILY_CITY_SHIFT << ")");
+            // [b-economy] full verdict every day (served 100% vs 0%), damped above 70%
+            const float prevChampionShare = (champion == 1) ? prevShare : 1.0f - prevShare;
+            const float expectedWon = Econ::applyLeaderDamping(prevChampionShare, Econ::VERDICT_MAX_SHIFT);
+            CHECK(won > 0.0f && won <= Econ::VERDICT_MAX_SHIFT + kShareEps,
+                  "day " << endedDay << " moved " << won << " (allowed 0 - " << Econ::VERDICT_MAX_SHIFT << ")");
+            CHECK(std::abs(won - expectedWon) < kShareEps, "day " << endedDay << " moved " << won << ", expected " << expectedWon);
         }
         const float championShare = (champion == 1) ? share : 1.0f - share;
         if (championShare >= Balance::VICTORY_SHARE - kShareEps) {
@@ -336,10 +357,12 @@ void testVictoryAtShare(int champion) {
     const auto& city = e.getCityState();
     const float championShare = (champion == 1) ? city.p1CityShare : 1.0f - city.p1CityShare;
     CHECK(city.winner == champion, "winner " << city.winner);
-    // 50% + 2 x 15% = 80% after day 4 is not enough; 95% after day 5 is
-    CHECK(e.getCurrentDay() == 6, "won when day " << (e.getCurrentDay() - 1) << " ended, expected day 5");
+    // [b-economy] 62, 72, 78, 84% are not enough; 90% after the fifth judged day (day 7) is
+    const int decidedDay = Balance::GRACE_PERIOD_DAYS + dominantDaysToWin();
+    CHECK(e.getCurrentDay() == decidedDay + 1, "won when day " << (e.getCurrentDay() - 1) << " ended, expected day " << decidedDay);
     CHECK(championShare >= Balance::VICTORY_SHARE, "winning share " << championShare);
-    CHECK(std::abs(championShare - 0.95f) < kShareEps, "share was changed on victory: " << championShare);
+    CHECK(std::abs(championShare - dominantShareAfter(dominantDaysToWin())) < kShareEps,
+          "share was changed on victory: " << championShare);
     CHECK(std::abs(e.getPlayerEconomy(champion).cityInfluence - championShare) < 1e-6f, "influence out of sync");
 
     // The match is frozen after the result
@@ -379,7 +402,9 @@ void testFinalDay(int dayThreeWinner, int dayFourWinner, int expectedWinner, flo
     const auto& city = e.getCityState();
     CHECK(e.getCurrentDay() == Balance::FINAL_DAY + 1, "day " << e.getCurrentDay());
     CHECK(city.winner == expectedWinner, "winner " << city.winner << ", expected " << expectedWinner);
-    CHECK(std::abs(city.p1CityShare - expectedShare) < kShareEps, "share " << city.p1CityShare << ", expected " << expectedShare);
+    // [b-economy] the frame in which a fleet is demolished still delivers a little: proportional verdicts
+    // turn that into a shift of about 0.0001, so allow 0.002 here
+    CHECK(std::abs(city.p1CityShare - expectedShare) < 0.002f, "share " << city.p1CityShare << ", expected " << expectedShare);
     if (expectedWinner == 3) {
         CHECK(std::abs(city.p1CityShare - 0.5f) < Balance::DRAW_SHARE_TOLERANCE, "a draw needs a 50/50 split");
     }
@@ -418,7 +443,8 @@ void testSolarOnlyAverage() {
 
     CHECK(averageBeforeSettlement >= Balance::STARTING_CITY_DEMAND_MW, "day-3 average " << averageBeforeSettlement << " MW");
     CHECK(outputAtSettlement < Balance::STARTING_CITY_DEMAND_MW, "output at 06:00 was " << outputAtSettlement << " MW");
-    CHECK(gained >= Balance::MIN_DAILY_CITY_SHIFT - kShareEps && gained <= Balance::MAX_DAILY_CITY_SHIFT + kShareEps,
+    // [b-economy] BAL-02: solar serves the daytime quota only, so it gains part of the maximum shift
+    CHECK(gained > 0.02f && gained <= Econ::VERDICT_MAX_SHIFT + kShareEps,
           "solar-only P1 gained " << gained);
     std::cout << "  day-3 average " << averageBeforeSettlement << " MW, output at 06:00 " << outputAtSettlement
               << " MW, territory gained " << gained << "\n";
@@ -473,8 +499,10 @@ void testBatteryNightWithoutLamps() {
     CHECK(rawGeneration(e, 1) == 0.0f, "solar output at hour " << e.getHour24() << ": " << rawGeneration(e, 1));
     CHECK(storedAtNight > 1.0f, "battery holds only " << storedAtNight << " MWh at nightfall");
     CHECK(bat->currentOutputMW > 0.0f, "battery does not discharge at night");
-    CHECK(e.getPlayerEconomy(1).energyMW == demand,
-          "night delivery " << e.getPlayerEconomy(1).energyMW << " MW, expected exactly the demand " << demand);
+    // [b-economy] BAL-03: the night load is the hourly quota, capped by the battery power
+    const int expectedNight = static_cast<int>(std::lround(std::min(e.getPlayerLoadTargetMW(1), Balance::BATTERY_MAX_POWER_MW)));
+    CHECK(std::abs(e.getPlayerEconomy(1).energyMW - expectedNight) <= 1,
+          "night delivery " << e.getPlayerEconomy(1).energyMW << " MW, expected the quota " << expectedNight);
 
     // (c) It gives back what it stored (no free energy) and can run dry
     const float deliveredStart = e.getCityState().p1DailyDelivered;
@@ -636,14 +664,14 @@ void testRestartResets() {
     GameEngine e;
     e.init(1600.0f, 900.0f);
     buildWindFarm(e, 1);
-    // Frames of 0.25 s: P1 wins at exactly 450 game-seconds (442.5 s after the 08:00 start),
+    // Frames of 0.25 s: P1 wins at exactly 630 game-seconds (622.5 s after the 08:00 start, end of day 7),
     // so half a second is left in the revenue timer at the end of the match
     long frames = 0;
     while (e.getCityState().winner == 0) {
         e.update(0.25f);
         REQUIRE(++frames < 100000, "no winner");
     }
-    REQUIRE(e.getCityState().winner == 1 && e.getCurrentDay() == 6, "winner " << e.getCityState().winner << " day " << e.getCurrentDay());
+    REQUIRE(e.getCityState().winner == 1 && e.getCurrentDay() == Balance::GRACE_PERIOD_DAYS + dominantDaysToWin() + 1, "winner " << e.getCityState().winner << " day " << e.getCurrentDay());
     CHECK(e.getSeason() == SeasonType::SUMMER, "day 6 should be summer, season " << static_cast<int>(e.getSeason()));
     e.setTimeScale(Balance::MINE_SPEEDUP_MULT);
 
@@ -820,9 +848,10 @@ int main() {
     testHugeFrames();
     testVictoryAtShare(1);
     testVictoryAtShare(2);
-    testFinalDay(1, 0, 1, 0.5f + Balance::MAX_DAILY_CITY_SHIFT, "P1 leads, no 85%");
-    testFinalDay(2, 0, 2, 0.5f - Balance::MAX_DAILY_CITY_SHIFT, "P2 leads, no 85%");
-    testFinalDay(1, 2, 3, 0.5f, "equal and opposite shifts = draw");
+    testFinalDay(1, 0, 1, 0.5f + Econ::VERDICT_MAX_SHIFT, "P1 leads, no 85%");
+    testFinalDay(2, 0, 2, 0.5f - Econ::VERDICT_MAX_SHIFT, "P2 leads, no 85%");
+    // [b-economy] 50/50 after equal and opposite shifts: P2 served more MWh (bigger day-4 quota) and wins
+    testFinalDay(1, 2, 2, 0.5f, "equal shares, tie-break by served energy");
     testSolarOnlyAverage();
     testBatteryNightWithoutLamps();
     testNoOreWildcard();

@@ -40,6 +40,7 @@ GameEngine::GameEngine()
       p2Weather(WeatherType::WINDY),
       currentSeason(SeasonType::SPRING),
       timeScale(1.0f) {
+    cityEcon.rules.levyAndSubsidy = readUnderdogAidEnv(); // [b-economy] optional rule, off by default
 }
 
 void GameEngine::init(float screenWidth, float screenHeight) {
@@ -47,7 +48,10 @@ void GameEngine::init(float screenWidth, float screenHeight) {
     (void)screenHeight;
 
     // Reset EVERY piece of match state (clock, season, revenue timer, city, players, buildings)
+    // [b-economy] economy rules (optional levy/subsidy) are a match setting and survive restarts
+    const Econ::Rules keepRules = cityEcon.rules;
     *this = GameEngine();
+    cityEcon.rules = keepRules;
 
     // Seed both the weather RNG and std::rand (lightning, bot, particles) once per match
     bool seedFromEnv = false;
@@ -209,9 +213,14 @@ void GameEngine::payCityRevenue() {
         float p2Share = static_cast<float>(p2.energyMW) / totalGrid;
 
         // City energy contract pool from central Balance formula
-        int contractPool = Balance::calculateContractPool(totalGrid);
-        int p1Payout = Balance::calculatePlayerPayout(contractPool, p1Share);
-        int p2Payout = Balance::calculatePlayerPayout(contractPool, p2Share);
+        // [b-economy] BAL-03 peak pricing: the pool follows the hourly demand curve (x0.67 night,
+        // x1.4 evening peak); BAL-04 optional dominance levy cuts the leader's payout
+        int contractPool = static_cast<int>(std::lround(Balance::calculateContractPool(totalGrid) *
+                                                        Econ::getPeakPriceFactor(hour24)));
+        int p1Payout = static_cast<int>(std::lround(Balance::calculatePlayerPayout(contractPool, p1Share) *
+                                                    Econ::payoutFactor(cityEcon, 1, city.p1CityShare)));
+        int p2Payout = static_cast<int>(std::lround(Balance::calculatePlayerPayout(contractPool, p2Share) *
+                                                    Econ::payoutFactor(cityEcon, 2, city.p1CityShare)));
 
         p1.money += p1Payout;
         p1.data.money = p1.money;
@@ -245,7 +254,9 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     // Battery energy uses ONE unit for charge and discharge: MW x game-hours (MWh)
     // -------------------------------------------------------------------------
     const float stepHours = Balance::gameSecondsToHours(dt);
+    Econ::GridSample samples[2]; // [b-economy] per-step grid data for the city economy
     auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
+        Econ::GridSample& sample = samples[(player == 1) ? 0 : 1];
         float rawGen = 0.0f;
         std::vector<PlacedBuilding*> playerLamps;
         std::vector<PlacedBuilding*> playerBatteries;
@@ -259,14 +270,17 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                 float out = cost.basePowerMW * WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
                 b.currentOutputMW = out;
                 rawGen += out;
+                sample.solarMW += out;
             } else if (b.type == BuildingType::WIND_TURBINE) {
                 float out = cost.basePowerMW * WeatherSystem::getWindMultiplier(w, hour24);
                 b.currentOutputMW = out;
                 rawGen += out;
+                sample.windMW += out;
             } else if (b.type == BuildingType::HYDRO_PLANT) {
                 float out = cost.basePowerMW * WeatherSystem::getHydroMultiplier(w);
                 b.currentOutputMW = out;
                 rawGen += out;
+                sample.hydroMW += out;
             } else if (b.type == BuildingType::LAMP) {
                 playerLamps.push_back(&b);
             } else if (b.type == BuildingType::BATTERY) {
@@ -276,8 +290,12 @@ void GameEngine::updateBuildingsEnergy(float dt) {
 
         // Step B: Load the player is trying to serve: own lamps first (10 MW each), then the city demand
         float lampDemand = playerLamps.size() * LAMP_POWER_MW;
-        float cityTarget = static_cast<float>(std::max(0, city.cityEnergyDemand));
+        // [b-economy] BAL-03/BAL-04/F-36: the city load is this player's quota for the current hour
+        // (district demand x hourly profile x (0.5 + district share)), so batteries serve the evening peak
+        float cityTarget = Econ::playerQuotaMW(cityEcon, player, city.cityEnergyDemand, hour24);
         float loadTarget = lampDemand + cityTarget;
+        // [b-economy] F-37 grid events: brownout x0.7, blackout 0 MW (batteries hold their charge)
+        const float gridFactor = Econ::gridOutputFactor(cityEcon, player);
 
         for (auto* bat : playerBatteries) {
             bat->currentOutputMW = 0.0f;
@@ -287,7 +305,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         float batteryCharge = 0.0f;    // MW put into batteries this step (NOT delivered to the city)
 
         if (stepHours > 0.0f && !playerBatteries.empty()) {
-            if (rawGen < loadTarget) {
+            if (rawGen < loadTarget && gridFactor > 0.0f) {
                 // Step C: Shortfall -> batteries discharge to cover it (never more than needed,
                 // never more than BATTERY_MAX_POWER_MW each, never more than they hold)
                 float deficit = loadTarget - rawGen;
@@ -326,6 +344,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
 
         // Step E: Power lamps first from generation + discharge (minus what went into storage)
         float totalAvailable = std::max(0.0f, rawGen + batteryDischarge - batteryCharge);
+        totalAvailable *= gridFactor; // [b-economy] F-37 brownout / blackout
         int poweredCount = static_cast<int>((totalAvailable + 0.001f) / LAMP_POWER_MW);
         poweredCount = std::min(static_cast<int>(playerLamps.size()), poweredCount);
         for (size_t i = 0; i < playerLamps.size(); i++) {
@@ -343,22 +362,31 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         float netPlayerOutput = std::max(0.0f, totalAvailable - poweredCount * LAMP_POWER_MW);
         econ.energyMW = static_cast<int>(std::lround(netPlayerOutput));
         dailyDelivered += netPlayerOutput * dt; // MW x game-seconds, averaged at the day end
+
+        // [b-economy] grid sample for the city economy (ledger, districts, frequency)
+        float batteryReady = 0.0f;
+        if (stepHours > 0.0f) {
+            for (auto* bat : playerBatteries) {
+                batteryReady += std::max(0.0f, std::min(Balance::BATTERY_MAX_POWER_MW - bat->currentOutputMW,
+                                                        bat->energyStored / stepHours));
+            }
+        }
+        sample.batteryOutMW = batteryDischarge * gridFactor;
+        sample.batteryReadyMW = (gridFactor > 0.0f) ? batteryReady : 0.0f; // fast reserve still unused
+        sample.deliveredMW = netPlayerOutput;
+        sample.loadTargetMW = loadTarget;
     };
 
     processPlayerGrid(1, p1Weather, p1, city.p1DailyDelivered);
     processPlayerGrid(2, p2Weather, p2, city.p2DailyDelivered);
+
+    // [b-economy] districts, served energy, energy ledger and grid frequency (game_economy.cpp)
+    Econ::onSimStep(cityEcon, samples, city.cityEnergyDemand, hour24, gameSeconds, dt);
 }
 
 void GameEngine::processDayEnd() {
     int endedDay = currentDay - 1;
     city.dayCutOccurred = true;
-
-    // The day is judged on the AVERAGE power delivered over the whole day (06:00 -> 06:00),
-    // not on an instantaneous snapshot, so daytime-only sources (solar) count fully.
-    // (+0.01 MW only absorbs float error, e.g. a battery covering exactly the demand all night)
-    float daySeconds = (city.dailySeconds > 0.0f) ? city.dailySeconds : Balance::SECONDS_PER_DAY;
-    int p1AvgMW = static_cast<int>(std::floor(city.p1DailyDelivered / daySeconds + 0.01f));
-    int p2AvgMW = static_cast<int>(std::floor(city.p2DailyDelivered / daySeconds + 0.01f));
 
     if (endedDay <= Balance::GRACE_PERIOD_DAYS) {
         // Grace period for the first 2 days: 0 energy demanded, no penalties or cuts
@@ -367,27 +395,13 @@ void GameEngine::processDayEnd() {
         } else {
             city.lastCutMessage = "ДЕН 2 ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД! ОТ ДЕН 3 ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ!";
         }
+        Econ::resetDay(cityEcon); // [b-economy]
     } else {
-        bool p1Succeeded = (p1AvgMW >= city.cityEnergyDemand);
-        bool p2Succeeded = (p2AvgMW >= city.cityEnergyDemand);
-        float shift = Balance::calculateDailyCityShift(p1AvgMW, p2AvgMW, city.cityEnergyDemand);
-        city.p1CityShare = std::clamp(city.p1CityShare + shift, 0.0f, 1.0f);
-        int shiftPct = static_cast<int>(std::round(std::abs(shift) * 100.0f));
-
-        if (p1Succeeded && !p2Succeeded) {
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 1 ЗАХРАНИ ГРАДА (СРЕДНО " +
-                                  std::to_string(p1AvgMW) + "/" + std::to_string(city.cityEnergyDemand) + " MW) И ВЗЕ +" +
-                                  std::to_string(shiftPct) + "% ТЕРИТОРИЯ!";
-        } else if (p2Succeeded && !p1Succeeded) {
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": ИГРАЧ 2 ЗАХРАНИ ГРАДА (СРЕДНО " +
-                                  std::to_string(p2AvgMW) + "/" + std::to_string(city.cityEnergyDemand) + " MW) И ВЗЕ +" +
-                                  std::to_string(shiftPct) + "% ТЕРИТОРИЯ!";
-        } else if (p1Succeeded && p2Succeeded) {
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": И ДВАМАТА ЗАХРАНИХА ГРАДА! НИТО ЕДИН НЕ ГУБИ ТЕРИТОРИЯ (0% ПРОМЯНА)!";
-        } else {
-            city.lastCutMessage = "ДЕН " + std::to_string(endedDay) + ": НИТО ЕДИН НЕ ЗАХРАНИ ГРАДА (" +
-                                  std::to_string(city.cityEnergyDemand) + " MW)! НЯМА ПРОМЯНА В ТЕРИТОРИЯТА!";
-        }
+        // [b-economy] BAL-02 / BAL-04 / F-36: the day is judged on the energy delivered over the whole
+        // day (06:00 -> 06:00) against each player's hourly district quotas. Every district moves by
+        // clamp(0.08 x (served1 - served2) + 0.05 x (2 x supply1 - 1), +-12 %), gains of a leader
+        // above 70 % count half, and the city share is the weighted sum of the districts.
+        Econ::settleDay(cityEcon, endedDay, city.cityEnergyDemand, city.p1CityShare, city.lastCutMessage);
 
         // Check Victory Conditions only at day end
         const float eps = 1e-4f; // tolerate float error from summed daily shifts
@@ -405,7 +419,16 @@ void GameEngine::processDayEnd() {
                                   std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%)!";
         } else if (endedDay >= Balance::FINAL_DAY) {
             std::string head = "КРАЙ НА ДЕН " + std::to_string(endedDay) + "! ";
-            if (std::abs(p1Share - 0.5f) < Balance::DRAW_SHARE_TOLERANCE) {
+            // [b-economy] BAL-02: an equal split goes to the player who served more energy in the match
+            const int tieWinner = Econ::tieBreakWinner(cityEcon);
+            if (std::abs(p1Share - 0.5f) < Balance::DRAW_SHARE_TOLERANCE && tieWinner != 0) {
+                city.winner = tieWinner;
+                const auto mwh = [this](int i) {
+                    return std::to_string(static_cast<long long>(std::llround(cityEcon.ledger[i].servedMWh)));
+                };
+                city.lastCutMessage = head + "ГРАДЪТ Е РАЗДЕЛЕН ПОРАВНО - ПОБЕДА ЗА ИГРАЧ " + std::to_string(tieWinner) +
+                                      " ПО ОБСЛУЖЕНА ЕНЕРГИЯ (" + mwh(0) + " / " + mwh(1) + " MWh)!";
+            } else if (std::abs(p1Share - 0.5f) < Balance::DRAW_SHARE_TOLERANCE) {
                 city.winner = 3;
                 city.lastCutMessage = head + "РАВЕНСТВО - ГРАДЪТ Е РАЗДЕЛЕН ПОРАВНО (" + std::to_string(p1Pct) + "% / " +
                                       std::to_string(p2Pct) + "%)!";
@@ -968,6 +991,7 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     econ.data.coal = econ.coal;
     econ.data.silicon = econ.silicon;
     econ.data.silver = econ.silver;
+    applyUnderdogRebate(player, cost); // [b-economy] BAL-04 optional underdog subsidy (x0.85 cost)
 
     // Remembers lastly placed building for instant reuse!
     econ.lastPlacedBuilding = static_cast<int>(type);

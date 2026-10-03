@@ -8,6 +8,7 @@
 #include "game_expedition.h"
 #include "game_random.h"
 #include "game_balance.h"
+#include "game_economy.h" // [b-economy] city economy simulation
 
 // -----------------------------------------------------------------------------
 // PlayerData (integrated from weatherF branch)
@@ -165,6 +166,12 @@ private:
     void rollDailyWeather();
     int findOwnedBuildingInSlot(int player, sf::Vector2f pos) const;
 
+    // ---- [b-economy] City economy: districts, demand curve, verdict, grid frequency, ledger ----
+    // State and hooks live in game_economy.h/.cpp; game_main.cpp only calls them.
+    Econ::CityEconomy cityEcon;
+    void applyUnderdogRebate(int player, const BuildingCost& cost); // BAL-04 optional subsidy
+    static bool readUnderdogAidEnv();                               // EC_UNDERDOG_AID=1 default
+
 public:
     GameEngine();
     void init(float screenWidth, float screenHeight);
@@ -231,6 +238,17 @@ public:
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
     SeasonType getSeason() const { return currentSeason; }
+
+    // ---- [b-economy] City economy accessors (defined in game_economy.cpp) ----
+    const Econ::CityEconomy& getCityEconomy() const { return cityEcon; }
+    float getCurrentDemandMW() const;            // base demand x hourly profile (BAL-03)
+    float getPlayerLoadTargetMW(int player) const; // this player's city quota right now (BAL-04)
+    float getGridFrequencyHz(int player) const;  // F-37
+    int getGridState(int player) const;          // Econ::GridState
+    float getSecondsToSettlement() const;        // game-seconds until the 06:00 settlement
+    Econ::Forecast projectPlayerOutput() const;  // UX-01: served so far, quota now, projected shift
+    bool consumeDayCut();                        // UX-01: true once after every day-end settlement
+    void setEconomyRules(const Econ::Rules& rules); // kept across restartGame()
 };
 
 #endif // GAME_MAIN_H

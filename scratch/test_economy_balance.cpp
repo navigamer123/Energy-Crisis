@@ -219,9 +219,10 @@ void testPercentageBasedEnergyRewardsAndGradualProgression() {
     assert(std::abs(p1After.cityInfluence - 0.50f) < 1e-6f);
     assert(std::abs(p2After.cityInfluence - 0.50f) < 1e-6f);
 
-    // Play until day 4 has been settled. Day 3 (30 MW) may be met by both players on a sunny day,
-    // which moves nothing. Day 4 (45 MW) is beyond one solar panel (at most ~33 MW on average on a
-    // sunny spring day) while P1's turbines always meet it, so P1 gains 10-15% that day.
+    // Play until day 4 has been settled. [b-economy] BAL-02: every judged day moves the share in
+    // proportion to how much better each player served the city. P1's turbines always serve their
+    // whole quota and deliver far more energy than P2's single solar panel (which is dark at night),
+    // so P1 gains on day 3 and on day 4, never more than VERDICT_MAX_SHIFT per day.
     float shareAtDayStart = engine.getCityState().p1CityShare;
     while (engine.getCurrentDay() <= 4) {
         const int day = engine.getCurrentDay();
@@ -235,18 +236,15 @@ void testPercentageBasedEnergyRewardsAndGradualProgression() {
                   << (delta * 100.0f) << "%)\n";
         if (day <= Balance::GRACE_PERIOD_DAYS) {
             assert(std::abs(delta) < 1e-6f);
-        } else if (day == Balance::GRACE_PERIOD_DAYS + 1) {
-            assert(std::abs(delta) < 1e-6f ||
-                   (delta >= Balance::MIN_DAILY_CITY_SHIFT - eps && delta <= Balance::MAX_DAILY_CITY_SHIFT + eps));
         } else {
-            assert(delta >= Balance::MIN_DAILY_CITY_SHIFT - eps && delta <= Balance::MAX_DAILY_CITY_SHIFT + eps);
+            assert(delta > 0.0f && delta <= Econ::VERDICT_MAX_SHIFT + eps);
         }
         shareAtDayStart = share;
     }
 
     const float finalShare = engine.getPlayerEconomy(1).cityInfluence;
     assert(finalShare > 0.50f);
-    assert(finalShare <= 0.50f + 2.0f * Balance::MAX_DAILY_CITY_SHIFT + 1e-4f); // Gradual: at most 15% per day
+    assert(finalShare <= 0.50f + 2.0f * Econ::VERDICT_MAX_SHIFT + 1e-4f); // Gradual: at most 12% per day
     assert(engine.getPlayerEconomy(1).cityInfluence > engine.getPlayerEconomy(2).cityInfluence);
     assert(engine.getCityState().winner == 0);
 
