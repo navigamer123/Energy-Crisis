@@ -1,4 +1,7 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_input.h"  // Team b-session (F-10): generated key hints
+#include "../includes/UI_layout.h" // Team b-session (UX-12): shared HUD / pause anchors
+#include "../includes/UI_settings.h" // Team b-session (HX-15): projector mode
 #include <cmath>
 #include <algorithm>
 #include <vector>
@@ -12,7 +15,7 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
 
     // 1. Menu Button
-    sf::FloatRect menuBtn({ 1600.0f - 130.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
+    sf::FloatRect menuBtn = ui::hud::MENU_BTN; // b-session: shared with the click handling
     bool hoverMenu = menuBtn.contains(mousePos);
     sf::RectangleShape mBox(menuBtn.size);
     mBox.setPosition(menuBtn.position);
@@ -22,7 +25,7 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     window.draw(mBox);
 
     // 2. Fullscreen Button [ ⛶ ЦЯЛ ЕКРАН (F11) ]
-    sf::FloatRect fsBtn({ 1600.0f - 275.0f, 900.0f - 34.0f }, { 135.0f, 28.0f });
+    sf::FloatRect fsBtn = ui::hud::FULLSCREEN_BTN;
     bool hoverFs = fsBtn.contains(mousePos);
     sf::RectangleShape fsBox(fsBtn.size);
     fsBox.setPosition(fsBtn.position);
@@ -32,7 +35,7 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     window.draw(fsBox);
 
     // 3. Help Button [ ? ПОМОЩ (H) ]
-    sf::FloatRect helpBtn({ 1600.0f - 405.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
+    sf::FloatRect helpBtn = ui::hud::HELP_BTN;
     bool hoverHelp = helpBtn.contains(mousePos);
     sf::RectangleShape hBox(helpBtn.size);
     hBox.setPosition(helpBtn.position);
@@ -61,19 +64,23 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
         window.draw(htBtn);
 
         // Persistent Controls Reminder Bar
-        sf::RectangleShape helpBar({ 930.0f, 26.0f });
-        helpBar.setPosition({ 250.0f, 900.0f - 30.0f });
+        const sf::FloatRect bar = ui::hud::HINT_BAR; // b-session (UX-12)
+        sf::RectangleShape helpBar(bar.size);
+        helpBar.setPosition(bar.position);
         helpBar.setFillColor(sf::Color(15, 20, 30, 220));
         helpBar.setOutlineThickness(1.0f);
         helpBar.setOutlineColor(sf::Color(60, 85, 120));
         window.draw(helpBar);
 
-        // Q / PgUp step back through buildings; X / Del cancel a selection (or enter demolish mode)
-        std::string helpText = "P1: [E]/[Q] Сграда | [X] Разруши/Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn]/[PgUp] Сграда | [Del] Разруши/Отказ | [ENTER] Действие";
-        sf::Text ht(font, toUtf8(helpText), 11);
-        ht.setFillColor(sf::Color(210, 230, 255));
+        // Team b-session (F-10): generated from the real bindings (rebinding, Single Player merge,
+        // gamepads) and shrunk until it fits; projector mode uses the largest size that fits
+        std::string helpText = hudHintText();
+        unsigned int hs = ui::fitTextSize(font, helpText, gameSettings().projectorMode ? 13u : 11u, 9u, bar.size.x - 12.0f);
+        sf::Text ht(font, toUtf8(helpText), hs);
+        ht.setFillColor(gameSettings().projectorMode ? sf::Color::White : sf::Color(210, 230, 255));
         sf::FloatRect htb = ht.getLocalBounds();
-        ht.setPosition({ 250.0f + (930.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
+        ht.setPosition({ std::round(bar.position.x + (bar.size.x - htb.size.x) / 2.0f - htb.position.x),
+                         std::round(bar.position.y + (bar.size.y - htb.size.y) / 2.0f - htb.position.y) });
         window.draw(ht);
     }
 }
@@ -175,10 +182,18 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
                     " пъти по-бързо (ботът не ускорява времето).",
                     sf::Color(255, 140, 220));
 
-        drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
-                    "- ИГРАЧ 1 (Запад/Син): [W/A/S/D] - Движение  |  [SPACE/Клик] - Строеж/Добив  |  [E]/[Q] - Сграда  |  [F] - Ъпгрейд мина  |  [X] - Разруши\n"
-                    "- ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n"
-                    "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран",
+        // Team b-session (F-10): generated from the current key bindings (НАСТРОЙКИ > УПРАВЛЕНИЕ)
+        auto keyLine = [this](int p) {
+            const InputRouter& r = inputRouter();
+            return r.moveHint(p) + " - Движение  |  " + r.hint(p, InputAction::Action) + " - Строеж/Добив  |  " +
+                   r.hint(p, InputAction::NextBuilding) + "/" + r.hint(p, InputAction::PrevBuilding) + " - Сграда  |  " +
+                   r.hint(p, InputAction::Upgrade) + " - Ъпгрейд  |  " + r.hint(p, InputAction::Cancel) + " - Разруши";
+        };
+        drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ (НАСТРОЙКИ > УПРАВЛЕНИЕ)",
+                    "- ИГРАЧ 1 (Запад/Син): " + keyLine(1) + "\n" +
+                    (bot.isActive() ? std::string("- ИГРАЧ 2 (Изток/Розов): управлява се от бота\n")
+                                    : "- ИГРАЧ 2 (Изток/Розов): " + keyLine(2) + "\n") +
+                    "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран",
                     sf::Color(100, 255, 150));
     }
 }
@@ -377,11 +392,12 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     backdrop.setFillColor(sf::Color(8, 12, 20, 215));
     window.draw(backdrop);
 
-    // 2. Pause Card
-    float boxW = 500.0f;
-    float boxH = 430.0f;
-    float boxX = (1600.0f - boxW) / 2.0f;
-    float boxY = (900.0f - boxH) / 2.0f;
+    // 2. Pause Card (b-session: geometry from ui::pause, shared with the click handling)
+    const sf::FloatRect card = ui::pause::box(PAUSE_COUNT);
+    float boxW = card.size.x;
+    float boxH = card.size.y;
+    float boxX = card.position.x;
+    float boxY = card.position.y;
 
     sf::RectangleShape box({ boxW, boxH });
     box.setPosition({ boxX, boxY });
@@ -415,17 +431,12 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         window.draw(tSub);
     }
 
-    // 4 Menu Options: rects are computed and boxes drawn even without a font, so they stay clickable
-    float btnW = 390.0f;
-    float btnH = 52.0f;
-    float btnX = boxX + (boxW - btnW) / 2.0f;
-    float startY = boxY + 105.0f;
-    float spacing = 62.0f;
-
-    pauseResumeBtn  = sf::FloatRect({ btnX, startY }, { btnW, btnH });
-    pauseRestartBtn = sf::FloatRect({ btnX, startY + spacing }, { btnW, btnH });
-    pauseHelpBtn    = sf::FloatRect({ btnX, startY + 2.0f * spacing }, { btnW, btnH });
-    pauseMenuBtn    = sf::FloatRect({ btnX, startY + 3.0f * spacing }, { btnW, btnH });
+    // Menu options: rects are computed and boxes drawn even without a font, so they stay clickable
+    // (b-session: 6 options incl. ЗАПИС / ЗАРЕЖДАНЕ and НАСТРОЙКИ; rects from ui::pause)
+    pauseResumeBtn  = ui::pause::option(PAUSE_RESUME, PAUSE_COUNT);
+    pauseRestartBtn = ui::pause::option(PAUSE_RESTART, PAUSE_COUNT);
+    pauseHelpBtn    = ui::pause::option(PAUSE_HELP, PAUSE_COUNT);
+    pauseMenuBtn    = ui::pause::option(PAUSE_MENU, PAUSE_COUNT);
 
     struct PauseOption {
         sf::FloatRect bounds;
@@ -435,14 +446,16 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         sf::Color outlineColor;
     };
 
-    PauseOption opts[4] = {
-        { pauseResumeBtn,  "ПРОДЪЛЖИ  [ ESC / ENTER ]", sf::Color(20, 120, 85),  sf::Color(30, 175, 120), sf::Color(0, 255, 180) },
-        { pauseRestartBtn, "НОВА ИГРА  [ R ]",          sf::Color(45, 90, 130),  sf::Color(65, 130, 185), sf::Color(0, 229, 255) },
-        { pauseHelpBtn,    "ПОМОЩ И ПРАВИЛА  [ H ]",    sf::Color(80, 75, 45),   sf::Color(135, 125, 60), sf::Color(255, 215, 0) },
-        { pauseMenuBtn,    "ГЛАВНО МЕНЮ  [ M ]",        sf::Color(70, 45, 55),   sf::Color(120, 65, 80),  sf::Color(255, 120, 140) }
+    PauseOption opts[PAUSE_COUNT] = {
+        { pauseResumeBtn,  "ПРОДЪЛЖИ  [ ESC / ENTER ]",       sf::Color(20, 120, 85),  sf::Color(30, 175, 120), sf::Color(0, 255, 180) },
+        { ui::pause::option(PAUSE_SAVELOAD, PAUSE_COUNT), "ЗАПИС / ЗАРЕЖДАНЕ  [ F5 / F9 ]", sf::Color(30, 80, 100), sf::Color(40, 125, 150), sf::Color(90, 220, 255) },
+        { ui::pause::option(PAUSE_SETTINGS, PAUSE_COUNT), "НАСТРОЙКИ",            sf::Color(50, 60, 90),   sf::Color(75, 90, 140),  sf::Color(160, 180, 255) },
+        { pauseRestartBtn, "НОВА ИГРА  [ R ]",                sf::Color(45, 90, 130),  sf::Color(65, 130, 185), sf::Color(0, 229, 255) },
+        { pauseHelpBtn,    "ПОМОЩ И ПРАВИЛА  [ H ]",          sf::Color(80, 75, 45),   sf::Color(135, 125, 60), sf::Color(255, 215, 0) },
+        { pauseMenuBtn,    "ГЛАВНО МЕНЮ  [ M ]",              sf::Color(70, 45, 55),   sf::Color(120, 65, 80),  sf::Color(255, 120, 140) }
     };
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < PAUSE_COUNT; i++) {
         if (mouseMoved && opts[i].bounds.contains(mousePos)) {
             pauseSelectedIdx = i;
         }

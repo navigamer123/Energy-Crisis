@@ -1,4 +1,6 @@
 #include "../includes/UI_mainMenu.h"
+#include "../includes/UI_layout.h"   // b-session: shared menu anchors
+#include "../includes/UI_settings.h" // b-session: default bot difficulty
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -10,11 +12,7 @@ UI_mainMenu::UI_mainMenu()
       selectedMainIndex(0),
       selectedModeIndex(0),
       selectedDifficultyIndex(1),
-      selectedSettingsIndex(0),
       selectedBotDifficulty(BotDifficulty::NONE),
-      volume(80),
-      soundEffects(true),
-      settingsDifficultyIndex(1),
       fontLoaded(false) {
     if (font.openFromFile("assets/font.ttf")) {
         fontLoaded = true;
@@ -115,7 +113,7 @@ void UI_mainMenu::returnToMain() {
 void UI_mainMenu::onSettings() {
     std::cout << "[UI_mainMenu] Settings opened.\n";
     state = MenuState::SETTINGS;
-    selectedSettingsIndex = 0;
+    settingsScreen.open(false); // Team b-session: persistent settings screen (UI_settingsMenu)
 }
 
 void UI_mainMenu::onQuit() {
@@ -127,37 +125,42 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     drawHeader(window);
 
     float screenWidth = VIRTUAL_WIDTH;
-    float btnWidth = 320.0f;
-    float btnHeight = 54.0f;
-    float btnX = (screenWidth - btnWidth) / 2.0f;
 
+    // Team b-session (F-02, UX-12): one button list (ui::menu anchors) shared with the click
+    // handling; ПРОДЪЛЖИ is added on top while a match can be continued
+    const int count = mainButtonCount();
     sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-    sf::FloatRect playBtn({ btnX, 230.0f }, { btnWidth, btnHeight });
-    sf::FloatRect settingsBtn({ btnX, 306.0f }, { btnWidth, btnHeight });
-    sf::FloatRect quitBtn({ btnX, 382.0f }, { btnWidth, btnHeight });
-
     bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
     if (mouseMoved) {
         lastMenuMousePos = mousePos;
-        if (playBtn.contains(mousePos)) selectedMainIndex = 0;
-        else if (settingsBtn.contains(mousePos)) selectedMainIndex = 1;
-        else if (quitBtn.contains(mousePos)) selectedMainIndex = 2;
+        for (int i = 0; i < count; ++i)
+            if (ui::menu::button(i).contains(mousePos)) selectedMainIndex = i;
     }
+    if (selectedMainIndex >= count) selectedMainIndex = 0;
 
     sf::Color defaultBtn(30, 40, 56);
     sf::Color whiteText(240, 245, 255);
 
-    drawButton(window, playBtn, toUtf8("ИГРА / PLAY"), defaultBtn, sf::Color(35, 120, 70), whiteText, selectedMainIndex == 0);
-    drawButton(window, settingsBtn, toUtf8("НАСТРОЙКИ / SETTINGS"), defaultBtn, sf::Color(35, 80, 140), whiteText, selectedMainIndex == 1);
-    drawButton(window, quitBtn, toUtf8("ИЗХОД / QUIT"), defaultBtn, sf::Color(140, 40, 40), whiteText, selectedMainIndex == 2);
+    for (int i = 0; i < count; ++i) {
+        sf::FloatRect r = ui::menu::button(i);
+        switch (mainButtonAction(i)) {
+            case MainAction::CONTINUE: drawContinueButton(window, r, selectedMainIndex == i); break;
+            case MainAction::PLAY: drawButton(window, r, toUtf8(continueInMemory ? "НОВА ИГРА / NEW GAME" : "ИГРА / PLAY"), defaultBtn, sf::Color(35, 120, 70), whiteText, selectedMainIndex == i); break;
+            case MainAction::SETTINGS: drawButton(window, r, toUtf8("НАСТРОЙКИ / SETTINGS"), defaultBtn, sf::Color(35, 80, 140), whiteText, selectedMainIndex == i); break;
+            case MainAction::QUIT: drawButton(window, r, toUtf8("ИЗХОД / QUIT"), defaultBtn, sf::Color(140, 40, 40), whiteText, selectedMainIndex == i); break;
+        }
+    }
 
     if (fontLoaded) {
+        sf::FloatRect last = ui::menu::button(count - 1);
         sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter]"), 14);
         hint.setFillColor(sf::Color(130, 155, 185));
         sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, 470.0f });
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, last.position.y + last.size.y + 34.0f });
         window.draw(hint);
     }
+
+    if (confirmNewOpen) drawConfirmNew(window);
 }
 
 void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
@@ -268,127 +271,9 @@ void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
 }
 
 void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
-    drawHeader(window);
-
-    float screenWidth = VIRTUAL_WIDTH;
-    float panelWidth = 560.0f;
-    float panelHeight = 370.0f;
-    float panelX = (screenWidth - panelWidth) / 2.0f;
-    float panelY = 200.0f;
-
-    sf::RectangleShape panel({ panelWidth, panelHeight });
-    panel.setPosition({ panelX, panelY });
-    panel.setFillColor(sf::Color(22, 28, 40, 245));
-    panel.setOutlineThickness(2.0f);
-    panel.setOutlineColor(sf::Color(0, 200, 255, 200));
-    window.draw(panel);
-
-    sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-
-    if (fontLoaded) {
-        sf::Text sTitle(font, toUtf8("НАСТРОЙКИ / SETTINGS"), 24);
-        sTitle.setFillColor(sf::Color(0, 229, 255));
-        sf::FloatRect tb = sTitle.getLocalBounds();
-        sTitle.setPosition({ panelX + (panelWidth - tb.size.x) / 2.0f, panelY + 16.0f });
-        window.draw(sTitle);
-    }
-
-    // Row 0: Volume
-    sf::FloatRect volRow({ panelX + 30.0f, panelY + 70.0f }, { panelWidth - 60.0f, 42.0f });
-    bool volSelected = (selectedSettingsIndex == 0);
-    sf::RectangleShape volHighlight(volRow.size);
-    volHighlight.setPosition(volRow.position);
-    volHighlight.setFillColor(volSelected ? sf::Color(40, 55, 80, 200) : sf::Color::Transparent);
-    volHighlight.setOutlineThickness(volSelected ? 1.5f : 0.0f);
-    volHighlight.setOutlineColor(sf::Color(255, 215, 0));
-    window.draw(volHighlight);
-
-    if (fontLoaded) {
-        sf::Text tVol(font, toUtf8(volSelected ? "> Сила на звука:" : "  Сила на звука:"), 17);
-        tVol.setFillColor(volSelected ? sf::Color(255, 240, 150) : sf::Color::White);
-        tVol.setPosition({ panelX + 45.0f, panelY + 78.0f });
-        window.draw(tVol);
-
-        sf::Text volVal(font, toUtf8(std::to_string(volume) + "%"), 18);
-        volVal.setFillColor(sf::Color(255, 204, 0));
-        volVal.setPosition({ panelX + 345.0f, panelY + 78.0f });
-        window.draw(volVal);
-    }
-    sf::FloatRect volDown({ panelX + 280.0f, panelY + 74.0f }, { 36.0f, 32.0f });
-    sf::FloatRect volUp({ panelX + 420.0f, panelY + 74.0f }, { 36.0f, 32.0f });
-    drawButton(window, volDown, "-", sf::Color(40, 50, 70), sf::Color(60, 80, 110), sf::Color::White, volDown.contains(mousePos));
-    drawButton(window, volUp, "+", sf::Color(40, 50, 70), sf::Color(60, 80, 110), sf::Color::White, volUp.contains(mousePos));
-
-    // Row 1: Sound FX
-    sf::FloatRect sfxRow({ panelX + 30.0f, panelY + 125.0f }, { panelWidth - 60.0f, 42.0f });
-    bool sfxSelected = (selectedSettingsIndex == 1);
-    sf::RectangleShape sfxHighlight(sfxRow.size);
-    sfxHighlight.setPosition(sfxRow.position);
-    sfxHighlight.setFillColor(sfxSelected ? sf::Color(40, 55, 80, 200) : sf::Color::Transparent);
-    sfxHighlight.setOutlineThickness(sfxSelected ? 1.5f : 0.0f);
-    sfxHighlight.setOutlineColor(sf::Color(255, 215, 0));
-    window.draw(sfxHighlight);
-
-    if (fontLoaded) {
-        sf::Text tSfx(font, toUtf8(sfxSelected ? "> Звукови ефекти:" : "  Звукови ефекти:"), 17);
-        tSfx.setFillColor(sfxSelected ? sf::Color(255, 240, 150) : sf::Color::White);
-        tSfx.setPosition({ panelX + 45.0f, panelY + 133.0f });
-        window.draw(tSfx);
-    }
-    sf::FloatRect sfxBtn({ panelX + 280.0f, panelY + 129.0f }, { 180.0f, 34.0f });
-    drawButton(window, sfxBtn, toUtf8(soundEffects ? "ВКЛЮЧЕНИ" : "ИЗКЛЮЧЕНИ"),
-               soundEffects ? sf::Color(30, 100, 60) : sf::Color(100, 40, 40),
-               sf::Color(50, 120, 80), sf::Color::White, sfxSelected || sfxBtn.contains(mousePos));
-
-    // Row 2: Difficulty
-    sf::FloatRect diffRow({ panelX + 30.0f, panelY + 180.0f }, { panelWidth - 60.0f, 42.0f });
-    bool diffSelected = (selectedSettingsIndex == 2);
-    sf::RectangleShape diffHighlight(diffRow.size);
-    diffHighlight.setPosition(diffRow.position);
-    diffHighlight.setFillColor(diffSelected ? sf::Color(40, 55, 80, 200) : sf::Color::Transparent);
-    diffHighlight.setOutlineThickness(diffSelected ? 1.5f : 0.0f);
-    diffHighlight.setOutlineColor(sf::Color(255, 215, 0));
-    window.draw(diffHighlight);
-
-    if (fontLoaded) {
-        sf::Text tDiff(font, toUtf8(diffSelected ? "> Трудност на бота:" : "  Трудност на бота:"), 17);
-        tDiff.setFillColor(diffSelected ? sf::Color(255, 240, 150) : sf::Color::White);
-        tDiff.setPosition({ panelX + 45.0f, panelY + 188.0f });
-        window.draw(tDiff);
-    }
-    const char* diffLabels[] = { "ЛЕСНО", "НОРМАЛНО", "ТРУДНО" };
-    sf::FloatRect diffBtn({ panelX + 280.0f, panelY + 184.0f }, { 180.0f, 34.0f });
-    drawButton(window, diffBtn, toUtf8(diffLabels[settingsDifficultyIndex]),
-               sf::Color(40, 55, 80), sf::Color(60, 85, 120), sf::Color::White, diffSelected || diffBtn.contains(mousePos));
-
-    // Honest notes: there is no audio yet, and the difficulty is only the default bot choice
-    if (fontLoaded) {
-        const char* notes[] = {
-            "Звукът все още не е реализиран: звуковите настройки нямат ефект.",
-            "Трудността на бота е избраната по подразбиране в САМОСТОЯТЕЛНА ИГРА."
-        };
-        for (int i = 0; i < 2; ++i) {
-            sf::Text tNote(font, toUtf8(notes[i]), 12);
-            tNote.setFillColor(sf::Color(150, 170, 195));
-            sf::FloatRect nb = tNote.getLocalBounds();
-            tNote.setPosition({ panelX + (panelWidth - nb.size.x) / 2.0f, panelY + 234.0f + i * 20.0f });
-            window.draw(tNote);
-        }
-    }
-
-    // Row 3: Back button
-    sf::FloatRect backBtn({ panelX + (panelWidth - 220.0f) / 2.0f, panelY + 285.0f }, { 220.0f, 46.0f });
-    bool backSelected = (selectedSettingsIndex == 3);
-    drawButton(window, backBtn, toUtf8("НАЗАД"), sf::Color(35, 45, 65), sf::Color(80, 90, 120), sf::Color::White, backSelected || backBtn.contains(mousePos));
-
-    // Hints
-    if (fontLoaded) {
-        sf::Text hint(font, toUtf8("Навигация: [W/S или Стрелки] | Промяна: [A/D или Enter]"), 13);
-        hint.setFillColor(sf::Color(130, 155, 185));
-        sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 14.0f });
-        window.draw(hint);
-    }
+    // Team b-session (F-06): the persistent settings screen (UI_settingsMenu) replaces the old
+    // volume / sound / difficulty panel; it draws its own backdrop, panel and UI-scale zoom.
+    if (fontLoaded) settingsScreen.draw(window, font);
 }
 
 void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
@@ -425,28 +310,32 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
         return;
     }
 
+    // Team b-session (F-06): the settings screen handles its own keys, clicks and gamepad navigation
+    if (state == MenuState::SETTINGS) {
+        settingsScreen.handleEvent(event, window);
+        if (!settingsScreen.isOpen()) state = MenuState::MAIN;
+        return;
+    }
+    // Team b-session (F-02): "start a new match?" dialog owns the input while it is open
+    if (confirmNewOpen) {
+        handleConfirmNewEvent(event, window);
+        return;
+    }
+
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         bool isUp = (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W);
         bool isDown = (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S);
-        bool isLeft = (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::A);
-        bool isRight = (key->code == sf::Keyboard::Key::Right || key->code == sf::Keyboard::Key::D);
         bool isSelect = (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space);
         bool isEscape = (key->code == sf::Keyboard::Key::Escape);
 
         if (state == MenuState::MAIN) {
+            const int count = mainButtonCount(); // b-session: ПРОДЪЛЖИ adds a button
             if (isUp) {
-                selectedMainIndex = (selectedMainIndex + 2) % 3;
+                selectedMainIndex = (selectedMainIndex + count - 1) % count;
             } else if (isDown) {
-                selectedMainIndex = (selectedMainIndex + 1) % 3;
+                selectedMainIndex = (selectedMainIndex + 1) % count;
             } else if (isSelect) {
-                if (selectedMainIndex == 0) {
-                    state = MenuState::MODE_SELECT;
-                    selectedModeIndex = 0;
-                } else if (selectedMainIndex == 1) {
-                    onSettings();
-                } else if (selectedMainIndex == 2) {
-                    onQuit();
-                }
+                activateMainButton(selectedMainIndex);
             }
         } else if (state == MenuState::MODE_SELECT) {
             if (isUp) {
@@ -460,7 +349,7 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     playControls.resetRequests();
                 } else if (selectedModeIndex == 1) {
                     state = MenuState::BOT_DIFFICULTY;
-                    selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
+                    selectedDifficultyIndex = std::max(0, std::min(2, gameSettings().defaultBotDifficulty - 1)); // default from НАСТРОЙКИ (b-session)
                 } else if (selectedModeIndex == 2) {
                     state = MenuState::MAIN;
                 }
@@ -488,43 +377,6 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             } else if (isEscape) {
                 state = MenuState::MODE_SELECT;
             }
-        } else if (state == MenuState::SETTINGS) {
-            if (isEscape) {
-                state = MenuState::MAIN;
-                return;
-            }
-            if (isUp) {
-                selectedSettingsIndex = (selectedSettingsIndex + 3) % 4;
-            } else if (isDown) {
-                selectedSettingsIndex = (selectedSettingsIndex + 1) % 4;
-            } else if (isLeft) {
-                if (selectedSettingsIndex == 0) {
-                    if (volume >= 10) volume -= 10;
-                } else if (selectedSettingsIndex == 1) {
-                    soundEffects = !soundEffects;
-                } else if (selectedSettingsIndex == 2) {
-                    settingsDifficultyIndex = (settingsDifficultyIndex + 2) % 3;
-                }
-            } else if (isRight) {
-                if (selectedSettingsIndex == 0) {
-                    if (volume <= 90) volume += 10;
-                } else if (selectedSettingsIndex == 1) {
-                    soundEffects = !soundEffects;
-                } else if (selectedSettingsIndex == 2) {
-                    settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
-                }
-            } else if (isSelect) {
-                if (selectedSettingsIndex == 0) {
-                    // Step up by 10% and wrap to 0% after 100% (never above 100%)
-                    volume = (volume >= 100) ? 0 : std::min(100, volume + 10);
-                } else if (selectedSettingsIndex == 1) {
-                    soundEffects = !soundEffects;
-                } else if (selectedSettingsIndex == 2) {
-                    settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
-                } else if (selectedSettingsIndex == 3) {
-                    state = MenuState::MAIN;
-                }
-            }
         }
     }
 
@@ -534,17 +386,13 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             float screenWidth = VIRTUAL_WIDTH;
 
             if (state == MenuState::MAIN) {
-                float btnWidth = 320.0f;
-                float btnHeight = 54.0f;
-                float btnX = (screenWidth - btnWidth) / 2.0f;
-
-                if (isPointInside({ { btnX, 230.0f }, { btnWidth, btnHeight } }, clickPos)) {
-                    state = MenuState::MODE_SELECT;
-                    selectedModeIndex = 0;
-                } else if (isPointInside({ { btnX, 306.0f }, { btnWidth, btnHeight } }, clickPos)) {
-                    onSettings();
-                } else if (isPointInside({ { btnX, 382.0f }, { btnWidth, btnHeight } }, clickPos)) {
-                    onQuit();
+                // b-session (UX-12): the same ui::menu rects drawMainMenu() draws
+                for (int i = 0; i < mainButtonCount(); ++i) {
+                    if (isPointInside(ui::menu::button(i), clickPos)) {
+                        selectedMainIndex = i;
+                        activateMainButton(i);
+                        break;
+                    }
                 }
             } else if (state == MenuState::MODE_SELECT) {
                 float btnWidth = 540.0f;
@@ -559,7 +407,7 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     playControls.resetRequests();
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
                     state = MenuState::BOT_DIFFICULTY;
-                    selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
+                    selectedDifficultyIndex = std::max(0, std::min(2, gameSettings().defaultBotDifficulty - 1)); // default from НАСТРОЙКИ (b-session)
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 12.0f }, { 240.0f, 48.0f } }, clickPos)) {
                     state = MenuState::MAIN;
                 }
@@ -581,26 +429,6 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     onPlay();
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 10.0f }, { 240.0f, 46.0f } }, clickPos)) {
                     state = MenuState::MODE_SELECT;
-                }
-            } else if (state == MenuState::SETTINGS) {
-                float panelWidth = 560.0f;
-                float panelX = (screenWidth - panelWidth) / 2.0f;
-                float panelY = 200.0f;
-
-                if (isPointInside({ { panelX + 280.0f, panelY + 74.0f }, { 36.0f, 32.0f } }, clickPos)) {
-                    if (volume >= 10) volume -= 10;
-                    selectedSettingsIndex = 0;
-                } else if (isPointInside({ { panelX + 420.0f, panelY + 74.0f }, { 36.0f, 32.0f } }, clickPos)) {
-                    if (volume <= 90) volume += 10;
-                    selectedSettingsIndex = 0;
-                } else if (isPointInside({ { panelX + 280.0f, panelY + 129.0f }, { 180.0f, 34.0f } }, clickPos)) {
-                    soundEffects = !soundEffects;
-                    selectedSettingsIndex = 1;
-                } else if (isPointInside({ { panelX + 280.0f, panelY + 184.0f }, { 180.0f, 34.0f } }, clickPos)) {
-                    settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
-                    selectedSettingsIndex = 2;
-                } else if (isPointInside({ { panelX + (panelWidth - 220.0f) / 2.0f, panelY + 285.0f }, { 220.0f, 46.0f } }, clickPos)) {
-                    state = MenuState::MAIN;
                 }
             }
         }

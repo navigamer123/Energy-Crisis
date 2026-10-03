@@ -1,4 +1,5 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_settings.h" // Team b-session (F-06): popup duration
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -41,8 +42,8 @@ void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std:
     pop.detail = detail;
     pop.action = action;
     pop.accentColor = accent;
-    pop.timer = 4.0f;
-    pop.maxTimer = 4.0f;
+    pop.timer = gameSettings().popupSeconds; // b-session (F-06): НАСТРОЙКИ > ИГРА
+    pop.maxTimer = gameSettings().popupSeconds;
     pop.active = true;
 }
 
@@ -214,8 +215,9 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         btn.setOutlineColor(btnHover ? sf::Color(100, 255, 180) : sf::Color(70, 210, 110));
         window.draw(btn);
 
-        sf::Text tOk(font, toUtf8(pIdx == 1 ? "OK [SPACE] - РАЗБРАХ" : "OK [ENTER] - РАЗБРАХ"), 12);
+        sf::Text tOk(font, toUtf8("OK " + keyHint(pIdx, InputAction::Action) + " - РАЗБРАХ"), 12); // b-session (F-10)
         tOk.setFillColor(sf::Color::White);
+        while (tOk.getLocalBounds().size.x > m.okBtn.size.x - 8.0f && tOk.getCharacterSize() > 9) tOk.setCharacterSize(tOk.getCharacterSize() - 1);
         sf::FloatRect ob = tOk.getLocalBounds();
         tOk.setPosition({ m.okBtn.position.x + (m.okBtn.size.x - ob.size.x) / 2.0f, m.okBtn.position.y + 6.0f });
         window.draw(tOk);
@@ -270,13 +272,13 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         const auto* st = nodes.getStation(1, p1Res);
         std::string name = st ? st->nameBg + " (" + st->yieldStr + ")" : "ДОБИВ";
         sf::Color c = st ? st->themeColor : sf::Color(0, 229, 255);
-        drawPrompt(p1Pos, name, "[SPACE]", c, p1ResourceCooldown);
+        drawPrompt(p1Pos, name, keyHint(1, InputAction::Action), c, p1ResourceCooldown); // b-session (F-10)
     }
     if (p2Res != ResourceType::NONE) {
         const auto* st = nodes.getStation(2, p2Res);
         std::string name = st ? st->nameBg + " (" + st->yieldStr + ")" : "ДОБИВ";
         sf::Color c = st ? st->themeColor : sf::Color(255, 120, 200);
-        drawPrompt(p2Pos, name, "[ENTER]", c, p2ResourceCooldown);
+        drawPrompt(p2Pos, name, keyHint(2, InputAction::Action), c, p2ResourceCooldown);
     }
 
     // High-speed 6x time badges under the top clocks when active
