@@ -131,18 +131,32 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
     m.active = true;
     m.badge = badge;
-    m.title = title;
-    m.detail = detail;
-    m.tip = tip;
     m.accentColor = accent;
 
-    float w = 340.0f;
-    float h = 210.0f;
-    float x = (player == 1) ? (800.0f - w) / 2.0f : 800.0f + (800.0f - w) / 2.0f;
-    float y = 250.0f;
+    // Wrap every text to the box and grow the box to fit, so long engine messages stay inside
+    const float w = 360.0f;
+    const float textW = w - 24.0f;
+    auto textHeight = [this](const std::string& s, unsigned int size) {
+        if (s.empty() || !resourcesLoaded) return 0.0f;
+        sf::Text t(font, toUtf8(s), size);
+        return t.getLocalBounds().position.y + t.getLocalBounds().size.y;
+    };
+    m.title = resourcesLoaded ? ui::wrapText(font, title, 13, textW) : title;
+    m.detail = resourcesLoaded ? ui::wrapText(font, detail, 11, textW) : detail;
+    std::string tipText = tip.empty() ? std::string() : "СЪВЕТ: " + tip;
+    m.tip = resourcesLoaded ? ui::wrapText(font, tipText, 11, textW) : tipText;
+
+    m.detailY = 38.0f + textHeight(m.title, 13) + 10.0f;
+    m.tipY = m.detailY + textHeight(m.detail, 11) + 12.0f;
+    float okY = m.tipY + (m.tip.empty() ? 0.0f : textHeight(m.tip, 11) + 14.0f);
+    float h = std::max(190.0f, okY + 32.0f + 12.0f);
+
+    // Centred in the player's free map area (between the building panel and the centre line)
+    float x = (player == 1) ? (248.0f + 800.0f - w) / 2.0f : (800.0f + 1352.0f - w) / 2.0f;
+    float y = std::max(120.0f, 355.0f - h / 2.0f);
 
     m.box = sf::FloatRect({ x, y }, { w, h });
-    m.okBtn = sf::FloatRect({ x + (w - 200.0f) / 2.0f, y + h - 42.0f }, { 200.0f, 32.0f });
+    m.okBtn = sf::FloatRect({ x + (w - 200.0f) / 2.0f, y + h - 44.0f }, { 200.0f, 32.0f });
 }
 
 void UI_map::closePlayerModal(int player) {
@@ -201,14 +215,14 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         // Detail explanation
         sf::Text tDetail(font, toUtf8(m.detail), 11);
         tDetail.setFillColor(sf::Color(200, 225, 250));
-        tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 64.0f });
+        tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.detailY });
         ui::drawText(window, tDetail);
 
         // Tip text
         if (!m.tip.empty()) {
-            sf::Text tTip(font, toUtf8("СЪВЕТ: " + m.tip), 10);
+            sf::Text tTip(font, toUtf8(m.tip), 11);
             tTip.setFillColor(sf::Color(255, 225, 110));
-            tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 115.0f });
+            tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.tipY });
             ui::drawText(window, tTip);
         }
 

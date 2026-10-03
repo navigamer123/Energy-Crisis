@@ -5,6 +5,7 @@
 #include "../../Game/includes/game_balance.h"
 #include <cmath>
 #include <string>
+#include <vector>
 
 UI_city::UI_city() {
 }
@@ -126,6 +127,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
     base.setOutlineThickness(2.0f);
     base.setOutlineColor(sf::Color(0, 220, 100, 220));
     window.draw(base);
+    ui::lint::solid(sf::FloatRect({ cityLeft, cityTop }, { cityWidth, cityHeight })); // nothing may hide under the city
 
     // High-rise Skyscraper Buildings
     struct CityBuilding {
@@ -335,18 +337,35 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 
         // Cut notification banner at bottom of city if conquest occurred
         if (!cutMessage.empty()) {
-            sf::RectangleShape cutBar({ cityWidth, 22.0f });
-            cutBar.setPosition({ cityLeft, cityTop + cityHeight - 24.0f });
-            cutBar.setFillColor(sf::Color(45, 15, 20, 230));
+            // The engine's day messages are long: wrap them into centred lines and size the bar to fit
+            const unsigned int cutSize = 11;
+            const float lineH = 14.0f;
+            std::string wrapped = ui::wrapText(font, cutMessage, cutSize, cityWidth - 16.0f);
+            std::vector<std::string> lines;
+            std::size_t start = 0;
+            while (true) {
+                std::size_t nl = wrapped.find('\n', start);
+                lines.push_back(wrapped.substr(start, nl == std::string::npos ? std::string::npos : nl - start));
+                if (nl == std::string::npos) break;
+                start = nl + 1;
+            }
+            const float barH = 8.0f + lineH * static_cast<float>(lines.size());
+            sf::RectangleShape cutBar({ cityWidth, barH });
+            cutBar.setPosition({ cityLeft, cityTop + cityHeight - barH - 2.0f });
+            cutBar.setFillColor(sf::Color(45, 15, 20, 235));
             cutBar.setOutlineThickness(1.0f);
             cutBar.setOutlineColor(sf::Color(255, 100, 100));
             window.draw(cutBar);
+            const sf::FloatRect barRect(cutBar.getPosition(), cutBar.getSize());
 
-            sf::Text cutText(font, toUtf8(cutMessage), 10);
-            cutText.setFillColor(sf::Color(255, 220, 100));
-            sf::FloatRect cb = cutText.getLocalBounds();
-            cutText.setPosition({ midX - cb.size.x / 2.0f, cityTop + cityHeight - 20.0f });
-            ui::drawText(window, cutText, sf::FloatRect(cutBar.getPosition(), cutBar.getSize()));
+            for (std::size_t i = 0; i < lines.size(); ++i) {
+                sf::Text cutText(font, toUtf8(lines[i]), cutSize);
+                cutText.setFillColor(sf::Color(255, 220, 100));
+                sf::FloatRect cb = cutText.getLocalBounds();
+                cutText.setPosition({ midX - cb.size.x / 2.0f - cb.position.x,
+                                      barRect.position.y + 3.0f + lineH * static_cast<float>(i) });
+                ui::drawText(window, cutText, barRect);
+            }
         }
     }
 }

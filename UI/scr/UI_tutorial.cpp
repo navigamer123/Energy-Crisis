@@ -12,7 +12,7 @@ UI_tutorial::UI_tutorial()
       animTimer(0.0f),
       stepDelayTimer(0.0f),
       initialP1BuildingCount(0) {
-    cardBounds = sf::FloatRect({ 240.0f, 770.0f }, { 540.0f, 118.0f });
+    cardBounds = sf::FloatRect({ 240.0f, 770.0f }, { 600.0f, 118.0f });
     float skipW = cardBounds.size.x * 0.26f;
     float skipH = cardBounds.size.y * 0.20f;
     skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - skipW - cardBounds.size.x * 0.02f,
@@ -360,122 +360,6 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         default:
             break;
     }
-
-    // -------------------------------------------------------------------------
-    // 2. Under-Hero Floating Control Badges
-    // -------------------------------------------------------------------------
-    if (step != TutorialStep::INACTIVE) {
-        // Context-aware Player 1 Cursor hint
-        std::string p1Hint;
-        if (isCoop) {
-            if (step == TutorialStep::SELECT_SOLAR) {
-                p1Hint = "P1: [1] Избери Слънчев панел  |  [X] Отказ";
-            } else if (step == TutorialStep::PLACE_SOLAR) {
-                p1Hint = "P1: [SPACE] Строеж  |  [X] Отказ";
-            } else if (step == TutorialStep::COMPLETED) {
-                p1Hint = "P1: [SPACE] Продължи";
-            } else {
-                p1Hint = "P1: [W/A/S/D] Движение  |  [SPACE] Добив";
-            }
-        } else {
-            if (step == TutorialStep::SELECT_SOLAR) {
-                p1Hint = "[1] или [E] - Избери Слънчев панел  |  [X] Отказ";
-            } else if (step == TutorialStep::PLACE_SOLAR) {
-                p1Hint = "[SPACE] или [ENTER] - Строеж  |  [X] Отказ";
-            } else if (step == TutorialStep::COMPLETED) {
-                p1Hint = "[SPACE] или [ENTER] - Продължи";
-            } else {
-                p1Hint = "[W/A/S/D] или [СТРЕЛКИ] - Движение  |  [SPACE] - Добив";
-            }
-        }
-
-        sf::Text p1Tag(font, toUtf8(p1Hint), 11);
-        p1Tag.setFillColor(sf::Color(0, 255, 230));
-        sf::FloatRect p1b = p1Tag.getLocalBounds();
-
-        float pillHalfW = (p1b.size.x + 14.0f) / 2.0f;
-        // Clamp pill so its left edge NEVER overlaps the left building panel (x in [18, 248])
-        float pillX = std::max(252.0f + pillHalfW, p1Pos.x);
-        // Clamp pill vertically so it stays within game bounds and above the tutorial card
-        float pillY = std::min(740.0f, std::max(40.0f, p1Pos.y + 28.0f));
-
-        sf::RectangleShape p1Pill({ p1b.size.x + 14.0f, 20.0f });
-        p1Pill.setOrigin({ pillHalfW, 10.0f });
-        p1Pill.setPosition({ pillX, pillY });
-        p1Pill.setFillColor(sf::Color(10, 16, 26, 235));
-        p1Pill.setOutlineThickness(1.2f);
-        p1Pill.setOutlineColor(sf::Color(0, 229, 255, 200));
-        window.draw(p1Pill);
-        ui::lint::occlude(p1Pill.getGlobalBounds());
-
-        p1Tag.setOrigin({ p1b.size.x / 2.0f, p1b.size.y / 2.0f });
-        p1Tag.setPosition({ pillX, pillY - 2.0f });
-        ui::drawText(window, p1Tag, p1Pill.getGlobalBounds());
-
-        // Player 2 Cursor hint in Co-op mode
-        if (isCoop) {
-            std::string p2Hint = (step == TutorialStep::SELECT_SOLAR) ? "P2: [PgDn] Сграда  |  [Del] Отказ"
-                               : (step == TutorialStep::PLACE_SOLAR)  ? "P2: [ENTER] Строеж  |  [Del] Отказ"
-                               : (step == TutorialStep::COMPLETED)    ? "P2: [ENTER] Продължи"
-                                                                      : "P2: [СТРЕЛКИ] Движение  |  [ENTER] Добив";
-            sf::Text p2Tag(font, toUtf8(p2Hint), 11);
-            p2Tag.setFillColor(sf::Color(255, 140, 220));
-            sf::FloatRect p2b = p2Tag.getLocalBounds();
-
-            float p2HalfW = (p2b.size.x + 14.0f) / 2.0f;
-            // Clamp pill so its right edge NEVER overlaps the right building panel (x in [1352, 1582])
-            float p2PillX = std::min(1348.0f - p2HalfW, p2Pos.x);
-            float p2PillY = std::min(740.0f, std::max(40.0f, p2Pos.y + 28.0f));
-
-            sf::RectangleShape p2Pill({ p2b.size.x + 14.0f, 20.0f });
-            p2Pill.setOrigin({ p2HalfW, 10.0f });
-            p2Pill.setPosition({ p2PillX, p2PillY });
-            p2Pill.setFillColor(sf::Color(20, 14, 26, 235));
-            p2Pill.setOutlineThickness(1.2f);
-            p2Pill.setOutlineColor(sf::Color(255, 120, 200, 200));
-            window.draw(p2Pill);
-            ui::lint::occlude(p2Pill.getGlobalBounds());
-
-            p2Tag.setOrigin({ p2b.size.x / 2.0f, p2b.size.y / 2.0f });
-            p2Tag.setPosition({ p2PillX, p2PillY - 2.0f });
-            ui::drawText(window, p2Tag, p2Pill.getGlobalBounds());
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // 3. Tutorial Glassmorphic Banner Card (Bottom Area)
-    // -------------------------------------------------------------------------
-    sf::RectangleShape card(cardBounds.size);
-    card.setPosition(cardBounds.position);
-    card.setFillColor(sf::Color(10, 16, 26, 248));
-    card.setOutlineThickness(2.0f);
-    card.setOutlineColor(sf::Color(0, 229, 255, 230));
-    window.draw(card);
-    ui::lint::occlude(cardBounds);
-    ui::lint::ContainerScope cardScope(cardBounds);
-
-    // Cyan glowing top accent bar
-    sf::RectangleShape topBar({ cardBounds.size.x, 3.0f });
-    topBar.setPosition(cardBounds.position);
-    topBar.setFillColor(sf::Color(0, 229, 255));
-    window.draw(topBar);
-
-    // Skip button in top right of card
-    bool hoverSkip = skipBtnBounds.contains(mousePos);
-    sf::RectangleShape skipBtn(skipBtnBounds.size);
-    skipBtn.setPosition(skipBtnBounds.position);
-    skipBtn.setFillColor(hoverSkip ? sf::Color(65, 30, 40, 230) : sf::Color(25, 30, 42, 200));
-    skipBtn.setOutlineThickness(1.0f);
-    skipBtn.setOutlineColor(hoverSkip ? sf::Color(255, 100, 100) : sf::Color(150, 160, 180));
-    window.draw(skipBtn);
-
-    sf::Text skipText(font, toUtf8("ПРОПУСНИ [ESC]"), 11);
-    skipText.setFillColor(hoverSkip ? sf::Color(255, 140, 140) : sf::Color(180, 190, 200));
-    sf::FloatRect stb = skipText.getLocalBounds();
-    skipText.setPosition({ skipBtnBounds.position.x + (skipBtnBounds.size.x - stb.size.x) / 2.0f,
-                           skipBtnBounds.position.y + (skipBtnBounds.size.y - stb.size.y) / 2.0f - 2.0f });
-    ui::drawText(window, skipText, skipBtnBounds);
-
     // Step Header & Descriptions
     std::string badgeText = "ТУТОРИАЛ: ОСНОВИ";
     std::string titleText = "";
@@ -564,6 +448,141 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             break;
     }
 
+    // Card layout: the description is wrapped to the card width and the card grows upwards from
+    // the bottom edge, so text never runs past the card or under the button / progress bar.
+    const float cardW = 600.0f;
+    const float cardX = 240.0f;
+    const float cardBottom = 888.0f;
+    const float textW = cardW - 32.0f;
+    const unsigned int descSize = 12;
+    const std::string wrappedDesc = ui::wrapText(font, descText, descSize, textW);
+    sf::Text desc(font, toUtf8(wrappedDesc), descSize);
+    desc.setLineSpacing(1.15f);
+    const float descH = desc.getLocalBounds().position.y + desc.getLocalBounds().size.y;
+    const bool hasBottomRow = showNextBtn || !progressText.empty();
+    const float cardH = 46.0f + descH + 10.0f + (hasBottomRow ? 28.0f : 0.0f) + 8.0f;
+    cardBounds = sf::FloatRect({ cardX, cardBottom - cardH }, { cardW, cardH });
+    skipBtnBounds = sf::FloatRect({ cardX + cardW - 152.0f, cardBounds.position.y + 8.0f }, { 140.0f, 24.0f });
+    nextBtnBounds = sf::FloatRect({ cardX + cardW - 196.0f, cardBottom - 34.0f }, { 184.0f, 26.0f });
+    // Cursor hint pills stay above the card
+    const float pillMaxY = cardBounds.position.y - 14.0f;
+
+    // -------------------------------------------------------------------------
+    // 2. Under-Hero Floating Control Badges
+    // -------------------------------------------------------------------------
+    if (step != TutorialStep::INACTIVE) {
+        // Context-aware Player 1 Cursor hint
+        std::string p1Hint;
+        if (isCoop) {
+            if (step == TutorialStep::SELECT_SOLAR) {
+                p1Hint = "P1: [1] Избери Слънчев панел  |  [X] Отказ";
+            } else if (step == TutorialStep::PLACE_SOLAR) {
+                p1Hint = "P1: [SPACE] Строеж  |  [X] Отказ";
+            } else if (step == TutorialStep::COMPLETED) {
+                p1Hint = "P1: [SPACE] Продължи";
+            } else {
+                p1Hint = "P1: [W/A/S/D] Движение  |  [SPACE] Добив";
+            }
+        } else {
+            if (step == TutorialStep::SELECT_SOLAR) {
+                p1Hint = "[1] или [E] - Избери Слънчев панел  |  [X] Отказ";
+            } else if (step == TutorialStep::PLACE_SOLAR) {
+                p1Hint = "[SPACE] или [ENTER] - Строеж  |  [X] Отказ";
+            } else if (step == TutorialStep::COMPLETED) {
+                p1Hint = "[SPACE] или [ENTER] - Продължи";
+            } else {
+                p1Hint = "[W/A/S/D] или [СТРЕЛКИ] - Движение  |  [SPACE] - Добив";
+            }
+        }
+
+        sf::Text p1Tag(font, toUtf8(p1Hint), 11);
+        p1Tag.setFillColor(sf::Color(0, 255, 230));
+        sf::FloatRect p1b = p1Tag.getLocalBounds();
+
+        float pillHalfW = (p1b.size.x + 14.0f) / 2.0f;
+        // Clamp pill so its left edge NEVER overlaps the left building panel (x in [18, 248])
+        float pillX = std::max(252.0f + pillHalfW, p1Pos.x);
+        // Clamp pill vertically so it stays within game bounds and above the tutorial card
+        float pillY = std::min(pillMaxY, std::max(40.0f, p1Pos.y + 28.0f));
+
+        sf::RectangleShape p1Pill({ p1b.size.x + 14.0f, 20.0f });
+        p1Pill.setOrigin({ pillHalfW, 10.0f });
+        p1Pill.setPosition({ pillX, pillY });
+        p1Pill.setFillColor(sf::Color(10, 16, 26, 235));
+        p1Pill.setOutlineThickness(1.2f);
+        p1Pill.setOutlineColor(sf::Color(0, 229, 255, 200));
+        window.draw(p1Pill);
+        ui::lint::occlude(p1Pill.getGlobalBounds());
+
+        p1Tag.setOrigin({ p1b.size.x / 2.0f, p1b.size.y / 2.0f });
+        p1Tag.setPosition({ pillX, pillY - 2.0f });
+        ui::drawText(window, p1Tag, p1Pill.getGlobalBounds());
+
+        // Player 2 Cursor hint in Co-op mode
+        if (isCoop) {
+            std::string p2Hint = (step == TutorialStep::SELECT_SOLAR) ? "P2: [PgDn] Сграда  |  [Del] Отказ"
+                               : (step == TutorialStep::PLACE_SOLAR)  ? "P2: [ENTER] Строеж  |  [Del] Отказ"
+                               : (step == TutorialStep::COMPLETED)    ? "P2: [ENTER] Продължи"
+                                                                      : "P2: [СТРЕЛКИ] Движение  |  [ENTER] Добив";
+            sf::Text p2Tag(font, toUtf8(p2Hint), 11);
+            p2Tag.setFillColor(sf::Color(255, 140, 220));
+            sf::FloatRect p2b = p2Tag.getLocalBounds();
+
+            float p2HalfW = (p2b.size.x + 14.0f) / 2.0f;
+            // Clamp pill so its right edge NEVER overlaps the right building panel (x in [1352, 1582])
+            float p2PillX = std::min(1348.0f - p2HalfW, p2Pos.x);
+            float p2PillY = std::min(pillMaxY, std::max(40.0f, p2Pos.y + 28.0f));
+
+            sf::RectangleShape p2Pill({ p2b.size.x + 14.0f, 20.0f });
+            p2Pill.setOrigin({ p2HalfW, 10.0f });
+            p2Pill.setPosition({ p2PillX, p2PillY });
+            p2Pill.setFillColor(sf::Color(20, 14, 26, 235));
+            p2Pill.setOutlineThickness(1.2f);
+            p2Pill.setOutlineColor(sf::Color(255, 120, 200, 200));
+            window.draw(p2Pill);
+            ui::lint::occlude(p2Pill.getGlobalBounds());
+
+            p2Tag.setOrigin({ p2b.size.x / 2.0f, p2b.size.y / 2.0f });
+            p2Tag.setPosition({ p2PillX, p2PillY - 2.0f });
+            ui::drawText(window, p2Tag, p2Pill.getGlobalBounds());
+        }
+    }
+
+
+    // -------------------------------------------------------------------------
+    // 3. Tutorial Glassmorphic Banner Card (Bottom Area)
+    // -------------------------------------------------------------------------
+    sf::RectangleShape card(cardBounds.size);
+    card.setPosition(cardBounds.position);
+    card.setFillColor(sf::Color(10, 16, 26, 248));
+    card.setOutlineThickness(2.0f);
+    card.setOutlineColor(sf::Color(0, 229, 255, 230));
+    window.draw(card);
+    ui::lint::occlude(cardBounds);
+    ui::lint::ContainerScope cardScope(cardBounds);
+
+    // Cyan glowing top accent bar
+    sf::RectangleShape topBar({ cardBounds.size.x, 3.0f });
+    topBar.setPosition(cardBounds.position);
+    topBar.setFillColor(sf::Color(0, 229, 255));
+    window.draw(topBar);
+
+    // Skip button in top right of card
+    bool hoverSkip = skipBtnBounds.contains(mousePos);
+    sf::RectangleShape skipBtn(skipBtnBounds.size);
+    skipBtn.setPosition(skipBtnBounds.position);
+    skipBtn.setFillColor(hoverSkip ? sf::Color(65, 30, 40, 230) : sf::Color(25, 30, 42, 200));
+    skipBtn.setOutlineThickness(1.0f);
+    skipBtn.setOutlineColor(hoverSkip ? sf::Color(255, 100, 100) : sf::Color(150, 160, 180));
+    window.draw(skipBtn);
+
+    sf::Text skipText(font, toUtf8("ПРОПУСНИ [ESC]"), 11);
+    skipText.setFillColor(hoverSkip ? sf::Color(255, 140, 140) : sf::Color(180, 190, 200));
+    sf::FloatRect stb = skipText.getLocalBounds();
+    skipText.setPosition({ skipBtnBounds.position.x + (skipBtnBounds.size.x - stb.size.x) / 2.0f - stb.position.x,
+                           skipBtnBounds.position.y + (skipBtnBounds.size.y - stb.size.y) / 2.0f - stb.position.y });
+    ui::drawText(window, skipText, skipBtnBounds);
+
     // Badge
     sf::Text badge(font, toUtf8(badgeText), 11);
     badge.setFillColor(sf::Color(0, 229, 255));
@@ -573,20 +592,18 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     // Title
     sf::Text title(font, toUtf8(titleText), 15);
     title.setFillColor(sf::Color(255, 215, 0));
-    title.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 24.0f });
+    title.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 25.0f });
     ui::drawText(window, title);
 
-    // Description
-    sf::Text desc(font, toUtf8(descText), 12);
+    // Description (wrapped above)
     desc.setFillColor(sf::Color(215, 225, 235));
-    desc.setLineSpacing(1.15f);
-    desc.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 44.0f });
+    desc.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 46.0f });
     ui::drawText(window, desc);
 
     // Progress Bar (when applicable)
     if (!progressText.empty()) {
         float barX = cardBounds.position.x + 16.0f;
-        float barY = cardBounds.position.y + cardBounds.size.y - 20.0f;
+        float barY = cardBottom - 24.0f;
         float barW = 230.0f;
         float barH = 9.0f;
 
@@ -606,7 +623,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
 
         sf::Text progTxt(font, toUtf8(progressText), 11);
         progTxt.setFillColor(progressRatio >= 1.0f ? sf::Color(100, 255, 180) : sf::Color(255, 220, 120));
-        progTxt.setPosition({ barX + barW + 12.0f, barY - 2.0f });
+        progTxt.setPosition({ barX + barW + 12.0f, barY - 3.0f });
         ui::drawText(window, progTxt);
     }
 
@@ -619,12 +636,13 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         nextBtn.setOutlineThickness(1.5f);
         nextBtn.setOutlineColor(sf::Color::White);
         window.draw(nextBtn);
+        ui::lint::solid(nextBtnBounds);
 
         sf::Text nxtTxt(font, toUtf8(nextBtnLabel), 12);
         nxtTxt.setFillColor(sf::Color(10, 20, 30));
         sf::FloatRect ntb = nxtTxt.getLocalBounds();
-        nxtTxt.setPosition({ nextBtnBounds.position.x + (nextBtnBounds.size.x - ntb.size.x) / 2.0f,
-                            nextBtnBounds.position.y + (nextBtnBounds.size.y - ntb.size.y) / 2.0f - 2.0f });
+        nxtTxt.setPosition({ nextBtnBounds.position.x + (nextBtnBounds.size.x - ntb.size.x) / 2.0f - ntb.position.x,
+                            nextBtnBounds.position.y + (nextBtnBounds.size.y - ntb.size.y) / 2.0f - ntb.position.y });
         ui::drawText(window, nxtTxt, nextBtnBounds);
     }
 }

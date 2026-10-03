@@ -33,6 +33,10 @@ public:
     void drawBuildingGhost(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                            BuildingType type, sf::Vector2f pos, bool isValidPlacement,
                            const BuildingCost& cost);
+    // Name, cost and keys of the ghost in a tooltip panel; drawn after the city so nothing covers it
+    void drawBuildingGhostInfo(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+                               BuildingType type, sf::Vector2f pos, bool isValidPlacement,
+                               const BuildingCost& cost);
 
     ResourceType getP1ResourceAt(sf::Vector2f pt) const;
     ResourceType getP2ResourceAt(sf::Vector2f pt) const;

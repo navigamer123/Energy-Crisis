@@ -133,10 +133,10 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         tutorial.skip();
         populate();
         advanceTo(1, 11.0f);
-        // Time one bolt per stormy sector to be on screen in the captured frame
-        float boltAt = std::max(0.05f, static_cast<float>(frames) / 60.0f - 0.12f);
-        lightningStrikeCooldown = (engine.getPlayerWeather(1) == WeatherType::STORMY) ? boltAt : 99.0f;
-        lightningStrikeCooldownP2 = (engine.getPlayerWeather(2) == WeatherType::STORMY) ? boltAt + 0.04f : 99.0f;
+        // No random strikes during the capture; one bolt is fired a few frames before it instead
+        lightningStrikeCooldown = 999.0f;
+        lightningStrikeCooldownP2 = 999.0f;
+        debugBoltCountdown = std::max(0, frames - 6);
         parkCursors();
         return;
     }

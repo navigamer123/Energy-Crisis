@@ -261,6 +261,12 @@ void UI_map::render(sf::RenderWindow& window) {
         tutorial.update(dt, engine);
     }
 
+    // Screenshot storm scene: fire one harmless bolt into the stormy sector just before the capture
+    if (debugBoltCountdown >= 0 && debugBoltCountdown-- == 0) {
+        bool westStorm = engine.getPlayerWeather(1) == WeatherType::STORMY;
+        triggerLightningStrike(westStorm ? sf::Vector2f(430.0f, 470.0f) : sf::Vector2f(1170.0f, 520.0f), false);
+    }
+
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible
     // dialog/tutorial blocking input (or freezing the bot).
     if (!resourcesLoaded) {
@@ -298,23 +304,22 @@ void UI_map::render(sf::RenderWindow& window) {
     // 6. Placed Buildings on the Map
     nodes.drawPlacedBuildings(window, font, resourcesLoaded, engine.getBuildings());
 
-    // 7. Holographic ghost preview if building is selected (snapped to plot grid, hidden if outside purchased land)
+    // 7. Holographic ghost preview if building is selected (snapped to plot grid, hidden if outside purchased land).
+    //    The ghost's tooltip is drawn later (after the city and the mines) so nothing covers it.
+    struct GhostInfo { bool shown = false; BuildingType type = BuildingType::NONE; sf::Vector2f pos; bool valid = false; };
+    GhostInfo ghosts[2];
     BuildingType p1Sel = engine.getSelectedBuilding(1);
-    if (p1Sel != BuildingType::NONE) {
-        sf::Vector2f targetPos = (p1Sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
-        if (p1Sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(1, targetPos)) {
-            std::string reason;
-            bool valid = engine.canPlaceBuilding(1, p1Sel, targetPos, reason);
-            nodes.drawBuildingGhost(window, font, resourcesLoaded, p1Sel, targetPos, valid, engine.getBuildingCost(p1Sel));
-        }
-    }
     BuildingType p2Sel = engine.getSelectedBuilding(2);
-    if (p2Sel != BuildingType::NONE) {
-        sf::Vector2f targetPos = (p2Sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
-        if (p2Sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(2, targetPos)) {
+    for (int player = 1; player <= 2; ++player) {
+        BuildingType sel = (player == 1) ? p1Sel : p2Sel;
+        sf::Vector2f cursor = (player == 1) ? p1Pos : p2Pos;
+        if (sel == BuildingType::NONE) continue;
+        sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? cursor : engine.snapToBuildingGrid(player, cursor);
+        if (sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(player, targetPos)) {
             std::string reason;
-            bool valid = engine.canPlaceBuilding(2, p2Sel, targetPos, reason);
-            nodes.drawBuildingGhost(window, font, resourcesLoaded, p2Sel, targetPos, valid, engine.getBuildingCost(p2Sel));
+            bool valid = engine.canPlaceBuilding(player, sel, targetPos, reason);
+            nodes.drawBuildingGhost(window, font, resourcesLoaded, sel, targetPos, valid, engine.getBuildingCost(sel));
+            ghosts[player - 1] = { true, sel, targetPos, valid };
         }
     }
 
@@ -332,6 +337,11 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // Interactive mining extraction prompts & 6x speed badges
     drawMiningZonesAndBadges(window);
+
+    // Ghost tooltips (name, cost, keys) on top of the city and the mines
+    for (const auto& g : ghosts) {
+        if (g.shown) nodes.drawBuildingGhostInfo(window, font, resourcesLoaded, g.type, g.pos, g.valid, engine.getBuildingCost(g.type));
+    }
 
     // 11. Top-Left & Top-Right Clocks (Continuous 24h cycle & weather)
     p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, sf::Color(0, 229, 255));

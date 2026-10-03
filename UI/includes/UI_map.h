@@ -66,7 +66,9 @@ private:
         std::string badge;
         std::string title;
         std::string detail;
-        std::string tip;
+        std::string tip;          // Already prefixed with "СЪВЕТ: " and wrapped to the box
+        float detailY = 64.0f;    // Text offsets from the top of the box (computed when the modal opens)
+        float tipY = 115.0f;
         sf::FloatRect box;
         sf::FloatRect okBtn;
         sf::Color accentColor = sf::Color(255, 75, 75);
@@ -109,6 +111,7 @@ private:
         sf::Color color = sf::Color(220, 245, 255);
     };
     std::vector<ActiveLightning> activeLightnings;
+    int debugBoltCountdown = -1; // Screenshot storm scene: frames until one bolt is fired (-1 = off)
     void triggerLightningStrike(sf::Vector2f targetPos, bool hitBuilding);
 
     struct WeatherParticle {

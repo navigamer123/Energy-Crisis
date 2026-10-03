@@ -422,6 +422,9 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
                                        BuildingType type, sf::Vector2f pos, bool isValidPlacement,
                                        const BuildingCost& cost) {
     if (type == BuildingType::NONE) return;
+    (void)font;
+    (void)fontLoaded;
+    (void)cost;
 
     sf::Color tint = isValidPlacement ? sf::Color(0, 255, 180, 220) : sf::Color(255, 60, 60, 220);
 
@@ -443,14 +446,16 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
         lampCone.setOutlineColor(isValidPlacement ? sf::Color(255, 220, 100, 120) : sf::Color(255, 80, 80, 100));
         window.draw(lampCone);
     }
+}
+
+void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+                                             BuildingType type, sf::Vector2f pos, bool isValidPlacement,
+                                             const BuildingCost& cost) {
+    if (type == BuildingType::NONE) return;
+    sf::Color tint = isValidPlacement ? sf::Color(0, 255, 180, 220) : sf::Color(255, 60, 60, 220);
 
     if (fontLoaded) {
         std::string label = cost.nameBg + (isValidPlacement ? " [ПОСТАВИ В ГРИДА]" : " [НЕДОПУСТИМО]");
-        sf::Text t(font, toUtf8(label), 12);
-        t.setFillColor(tint);
-        sf::FloatRect tb = t.getLocalBounds();
-        t.setPosition({ pos.x - tb.size.x / 2.0f, pos.y - 38.0f });
-        ui::drawText(window, t);
 
         std::string costStr = "Нужно: " + std::to_string(cost.woodCost) + " Дърво";
         if (cost.ironCost > 0) costStr += ", " + std::to_string(cost.ironCost) + " Жел";
@@ -458,23 +463,44 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
         if (cost.siliconCost > 0) costStr += ", " + std::to_string(cost.siliconCost) + " Сил";
         if (cost.coalCost > 0) costStr += ", " + std::to_string(cost.coalCost) + " Въгл";
         if (cost.silverCost > 0) costStr += ", " + std::to_string(cost.silverCost) + " Среб";
-
         if (type == BuildingType::LAMP) costStr += " | Консумация: 10 MW";
         else if (type == BuildingType::BATTERY) costStr += " | Заряд: 0%";
-        sf::Text tc(font, toUtf8(costStr), 10);
-        tc.setFillColor(sf::Color::White);
-        sf::FloatRect tcb = tc.getLocalBounds();
-        tc.setPosition({ pos.x - tcb.size.x / 2.0f, pos.y + 24.0f });
-        ui::drawText(window, tc);
 
         // Cancel keys are X (P1) / Del (P2); Q / PgUp only step back through the buildings
         std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
                                             : "[X/Del]: Отказ  |  [E]: Смени сграда";
-        sf::Text th(font, toUtf8(hint), 10);
+
+        sf::Text t(font, toUtf8(label), 12);
+        t.setFillColor(tint);
+        sf::Text tc(font, toUtf8(costStr), 11);
+        tc.setFillColor(sf::Color::White);
+        sf::Text th(font, toUtf8(hint), 11);
         th.setFillColor(isValidPlacement ? sf::Color(255, 230, 100) : sf::Color(255, 130, 130));
-        sf::FloatRect thb = th.getLocalBounds();
-        th.setPosition({ pos.x - thb.size.x / 2.0f, pos.y + 38.0f });
-        ui::drawText(window, th);
+
+        // One tooltip panel under the footprint (above it near the bottom edge), kept on the canvas,
+        // so the labels never collide with the cursor tag or the map labels underneath
+        const float lineGap = 16.0f;
+        float w = std::max({ t.getLocalBounds().size.x, tc.getLocalBounds().size.x, th.getLocalBounds().size.x }) + 16.0f;
+        float h = 8.0f + 3.0f * lineGap + 2.0f;
+        float px = std::max(4.0f, std::min(pos.x - w / 2.0f, VIRTUAL_WIDTH - w - 4.0f));
+        float py = pos.y + 26.0f;
+        if (py + h > VIRTUAL_HEIGHT - 4.0f) py = pos.y - 26.0f - h;
+
+        sf::RectangleShape panel({ w, h });
+        panel.setPosition({ px, py });
+        panel.setFillColor(sf::Color(10, 14, 22, 225));
+        panel.setOutlineThickness(1.0f);
+        panel.setOutlineColor(sf::Color(tint.r, tint.g, tint.b, 160));
+        window.draw(panel);
+        const sf::FloatRect panelRect({ px, py }, { w, h });
+        ui::lint::occlude(panelRect);
+
+        sf::Text* lines[3] = { &t, &tc, &th };
+        for (int i = 0; i < 3; ++i) {
+            sf::FloatRect lb = lines[i]->getLocalBounds();
+            lines[i]->setPosition({ px + (w - lb.size.x) / 2.0f - lb.position.x, py + 5.0f + i * lineGap });
+            ui::drawText(window, *lines[i], panelRect);
+        }
     }
 }
 
@@ -578,15 +604,16 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             // Station Name
             sf::Text nameText(font, toUtf8(s.nameBg), 11);
             nameText.setFillColor(s.themeColor);
-            nameText.setPosition({ s.bounds.position.x + 28.0f, s.bounds.position.y + 6.0f });
+            nameText.setPosition({ s.bounds.position.x + 26.0f, s.bounds.position.y + 6.0f });
             ui::drawText(window, nameText);
 
-            // Level Badge in Top-Right
-            std::string lvlStr = "L" + std::to_string(lvl);
+            // Level badge (Н1..Н6)
+            std::string lvlStr = "Н" + std::to_string(lvl); // Н = ниво (level)
             sf::Text tLvl(font, toUtf8(lvlStr), 10);
             tLvl.setFillColor(lvl > 1 ? sf::Color(255, 215, 0) : sf::Color(160, 180, 205));
             sf::FloatRect lb = tLvl.getLocalBounds();
-            tLvl.setPosition({ s.bounds.position.x + s.bounds.size.x - lb.size.x - 6.0f, s.bounds.position.y + 6.0f });
+            // Level sits on the status row (right): long names (ВЪГЛИЩА) and yields need their rows
+            tLvl.setPosition({ s.bounds.position.x + s.bounds.size.x - lb.size.x - 6.0f - lb.position.x, s.bounds.position.y + 48.0f });
             ui::drawText(window, tLvl);
 
             // Dynamic Yield Text
@@ -611,7 +638,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             // Status or Cooldown Bar
             if (onCooldown) {
                 char cdbuf[16];
-                std::snprintf(cdbuf, sizeof(cdbuf), "%.1fs", cd);
+                std::snprintf(cdbuf, sizeof(cdbuf), "%.1fс", cd);
                 sf::Text cdText(font, toUtf8(cdbuf), 9);
                 cdText.setFillColor(sf::Color(255, 170, 70));
                 cdText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 48.0f });
@@ -623,8 +650,8 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
                 cdBar.setFillColor(sf::Color(255, 180, 50));
                 window.draw(cdBar);
             } else {
-                std::string actHint = (s.playerOwner == 1) ? "[SPACE: Добив]" : "[ENTER: Добив]";
-                sf::Text actText(font, toUtf8(hover ? actHint : "[ГОТОВО]"), 9);
+                // The mining key is shown by the prompt tag over the station; the card only shows the state
+                sf::Text actText(font, toUtf8("[ГОТОВО]"), 9);
                 actText.setFillColor(hover ? sf::Color(255, 235, 120) : sf::Color(140, 240, 180));
                 actText.setPosition({ s.bounds.position.x + 8.0f, s.bounds.position.y + 48.0f });
                 ui::drawText(window, actText);

@@ -83,6 +83,25 @@ void UI_map::onFocusLost() {
     helpOpenedFromPause = true; // If help is open, closing it lands on the pause menu
 }
 
+// Name tag above a player cursor, on a dark pill so it stays readable over the map labels
+static void drawCursorTag(sf::RenderWindow& window, sf::Text& tag, sf::Vector2f cursorPos, sf::Color accent) {
+    sf::FloatRect tb = tag.getLocalBounds();
+    sf::Vector2f pillSize(tb.size.x + 10.0f, tb.size.y + 8.0f);
+    sf::Vector2f pillPos(cursorPos.x - pillSize.x / 2.0f, cursorPos.y - 26.0f - pillSize.y);
+    pillPos.x = std::max(2.0f, std::min(pillPos.x, VIRTUAL_WIDTH - pillSize.x - 2.0f));
+    pillPos.y = std::max(2.0f, pillPos.y);
+    sf::RectangleShape pill(pillSize);
+    pill.setPosition(pillPos);
+    pill.setFillColor(sf::Color(10, 14, 22, 215));
+    pill.setOutlineThickness(1.0f);
+    pill.setOutlineColor(sf::Color(accent.r, accent.g, accent.b, 170));
+    window.draw(pill);
+    const sf::FloatRect pillRect(pillPos, pillSize);
+    ui::lint::occlude(pillRect);
+    tag.setPosition({ pillPos.x + 5.0f - tb.position.x, pillPos.y + 4.0f - tb.position.y });
+    ui::drawText(window, tag, pillRect);
+}
+
 void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     float animTime = animClock.getElapsedTime().asSeconds();
 
@@ -122,8 +141,7 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     if (resourcesLoaded) {
         sf::Text p1Tag(font, "P1", 13);
         p1Tag.setFillColor(sf::Color(0, 255, 255));
-        p1Tag.setPosition({ p1Pos.x - 8.0f, p1Pos.y - 28.0f });
-        ui::drawText(window, p1Tag);
+        drawCursorTag(window, p1Tag, p1Pos, sf::Color(0, 229, 255));
     }
 
     // -------------------------------------------------------------------------
@@ -162,15 +180,13 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     if (resourcesLoaded) {
         std::string p2Label = "P2";
         if (bot.isActive()) {
-            if (bot.getDifficulty() == BotDifficulty::EASY) p2Label = "P2 [BOT: ЛЕСЕН]";
-            else if (bot.getDifficulty() == BotDifficulty::MEDIUM) p2Label = "P2 [BOT: СРЕДЕН]";
-            else if (bot.getDifficulty() == BotDifficulty::HARD) p2Label = "P2 [BOT: ТРУДЕН]";
+            if (bot.getDifficulty() == BotDifficulty::EASY) p2Label = "P2 [БОТ: ЛЕСЕН]";
+            else if (bot.getDifficulty() == BotDifficulty::MEDIUM) p2Label = "P2 [БОТ: СРЕДЕН]";
+            else if (bot.getDifficulty() == BotDifficulty::HARD) p2Label = "P2 [БОТ: ТРУДЕН]";
         }
         sf::Text p2Tag(font, toUtf8(p2Label), 13);
         p2Tag.setFillColor(bot.isActive() ? sf::Color(255, 215, 0) : sf::Color(255, 140, 220));
-        sf::FloatRect tb = p2Tag.getLocalBounds();
-        p2Tag.setPosition({ p2Pos.x - tb.size.x / 2.0f, p2Pos.y - 28.0f });
-        ui::drawText(window, p2Tag);
+        drawCursorTag(window, p2Tag, p2Pos, sf::Color(255, 120, 200));
     }
 }
 

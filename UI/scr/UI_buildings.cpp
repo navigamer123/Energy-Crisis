@@ -60,7 +60,7 @@ void UI_buildings::setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size,
                        sl.basePowerMW, 0, {}});
 
   buildings.push_back({BuildingType::DEMOLISH, "Demolish Tool",
-                       "Премахване / Разруши", 0, 0, 0, 0, 0, 0, 0, 0, 0, {}});
+                       "Премахване", 0, 0, 0, 0, 0, 0, 0, 0, 0, {}});
   // Pre-calculate proportional button bounds for click collision
   float marginX = panelSize.x * 0.026f;
   float itemX = panelPos.x + marginX;
