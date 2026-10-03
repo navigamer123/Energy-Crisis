@@ -29,14 +29,15 @@ constexpr float CLOCK_HOUR_AT_ZERO = 6.0f;     // Hour shown at gameSeconds = 0 
 constexpr float MATCH_START_HOUR = 8.0f;       // A new match starts at 08:00 of day 1
 constexpr int DAYS_PER_SEASON = 5;
 
-// Converts game seconds to in-game hours (90 s = 24 h -> 1 game-hour = 3.75 s)
-inline float gameSecondsToHours(float seconds) {
-    return seconds * 24.0f / SECONDS_PER_DAY;
+// Converts game seconds to in-game hours (90 s = 24 h -> 1 game-hour = 3.75 s).
+// daySeconds: length of a day in this match (MatchConfig::daySeconds), standard 90 s.
+inline float gameSecondsToHours(float seconds, float daySeconds = SECONDS_PER_DAY) {
+    return seconds * 24.0f / daySeconds;
 }
 
 // gameSeconds value at which the given clock hour of day 1 is reached (hour >= CLOCK_HOUR_AT_ZERO)
-inline float gameSecondsAtHour(float hour24) {
-    return (hour24 - CLOCK_HOUR_AT_ZERO) / 24.0f * SECONDS_PER_DAY;
+inline float gameSecondsAtHour(float hour24, float daySeconds = SECONDS_PER_DAY) {
+    return (hour24 - CLOCK_HOUR_AT_ZERO) / 24.0f * daySeconds;
 }
 
 inline SeasonType getSeasonForDay(int day) {
@@ -45,9 +46,9 @@ inline SeasonType getSeasonForDay(int day) {
 }
 
 // Season in effect at a given game time: it already belongs to the next day from midnight on
-inline SeasonType getSeasonAtGameSeconds(float gameSeconds) {
-    float secondsFromMidnightToRollover = CLOCK_HOUR_AT_ZERO / 24.0f * SECONDS_PER_DAY; // 00:00 -> 06:00
-    int calendarDay = 1 + static_cast<int>(std::floor((gameSeconds + secondsFromMidnightToRollover) / SECONDS_PER_DAY));
+inline SeasonType getSeasonAtGameSeconds(float gameSeconds, float daySeconds = SECONDS_PER_DAY) {
+    float secondsFromMidnightToRollover = CLOCK_HOUR_AT_ZERO / 24.0f * daySeconds; // 00:00 -> 06:00
+    int calendarDay = 1 + static_cast<int>(std::floor((gameSeconds + secondsFromMidnightToRollover) / daySeconds));
     return getSeasonForDay(calendarDay);
 }
 

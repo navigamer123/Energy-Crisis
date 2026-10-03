@@ -4,12 +4,13 @@
 #include <vector>
 #include <string>
 
-// Teammate's globals from weatherF
-extern std::string weather_state;
-extern bool wind;
-extern std::string wind_direction;
+class GameRng;
 
-// Returns {cloud, precipitation, wind direction, wind speed}
+// Daily weather report (from the weatherF branch): {cloud, precipitation, wind direction, wind speed}.
+// cloud: "clear" / "cloudy"; precipitation: "clear" / "rain" / "thunder_storm" / "snow" / "hail";
+// wind direction: "none" / "left" / "right"; wind speed: number as text ("0" when calm).
+// The GameRng overload is the deterministic one the engine uses; the other draws from randomInt.
+std::vector<std::string> weather_report(const std::string& season, GameRng& rng);
 std::vector<std::string> weather_report(const std::string& season);
 
 // -----------------------------------------------------------------------------
@@ -42,7 +43,6 @@ public:
     static float getSolarMultiplier(WeatherType w, float hour24, SeasonType season = SeasonType::SPRING);
     static float getWindMultiplier(WeatherType w, float hour24);
     static float getHydroMultiplier(WeatherType w);
-    static WeatherType generateDailyWeather(int day, int player);
     static WeatherType reportToWeatherType(const std::vector<std::string>& report);
 };
 

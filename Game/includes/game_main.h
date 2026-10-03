@@ -1,6 +1,7 @@
 #ifndef GAME_MAIN_H
 #define GAME_MAIN_H
 
+#include <iosfwd>
 #include <string>
 #include <vector>
 #include <SFML/Graphics.hpp>
@@ -8,23 +9,8 @@
 #include "game_expedition.h"
 #include "game_random.h"
 #include "game_balance.h"
-
-// -----------------------------------------------------------------------------
-// PlayerData (integrated from weatherF branch)
-// -----------------------------------------------------------------------------
-struct PlayerData {
-    int money = 0;
-    int iron = 0;
-    int coal = 0;
-    int gold = 0;
-    int copper = 0;
-    int silver = 0;
-    int silicon = 0;
-    int wood = 0;
-    int sticks = 0;
-    std::string weather = "clear";
-    std::string wind_speed = "0";
-};
+#include "game_events.h"
+#include "game_config.h"
 
 // -----------------------------------------------------------------------------
 // Resource Types
@@ -77,8 +63,8 @@ struct PlacedBuilding {
     float currentOutputMW;
     float animTimer;
     float energyStored = 0.0f;  // Current stored charge in MWh
-    float maxCapacity = 200.0f; // Max capacity in MWh
-    float lightRadius = 150.0f; // For Lamp light cone
+    float maxCapacity = static_cast<float>(Balance::BATTERY.batteryCapacityMWh); // Max capacity in MWh
+    float lightRadius = Balance::STREET_LAMP.lightRadius; // For Lamp light cone
     bool isBroken = false;      // Damaged/broken by lightning strike
 };
 
@@ -106,7 +92,6 @@ struct PlayerEconomy {
     int selectedBuilding = 0;   // 0 = None, 1 = Solar, 2 = Wind, 3 = Hydro, 4 = Battery, 5 = Lamp, 6 = Demolish
     int lastPlacedBuilding = 1; // Remembers lastly placed building for instant reuse
     int mineLevels[8] = { 1, 1, 1, 1, 1, 1, 1, 1 }; // Upgrade level for each resource mine (1..5)
-    PlayerData data;            // Teammate's detailed inventory from weatherF
 };
 
 struct CityConquestState {
@@ -115,7 +100,6 @@ struct CityConquestState {
     float p1DailyDelivered = 0.0f; // Energy delivered to the city so far today (MW x game-seconds)
     float p2DailyDelivered = 0.0f;
     float dailySeconds = 0.0f;     // Game-seconds elapsed in the current day (06:00 -> 06:00)
-    bool dayCutOccurred = false;
     std::string lastCutMessage;
     int winner = 0;             // 0 = None, 1 = P1, 2 = P2, 3 = Draw (equal shares after the final day)
 };
@@ -141,7 +125,7 @@ public:
     using MineResult = ::MineResult;
 
 private:
-    float gameSeconds;
+    double gameSeconds;         // game time since 06:00 of day 1 (double: fixed steps do not drift over a match)
     int currentDay;
     float hour24;
     float revenueTimer;         // Accumulates game-seconds towards the next 1 s city payout
@@ -150,6 +134,8 @@ private:
     WeatherType p2Weather;
     SeasonType currentSeason;
     float timeScale;
+    double stepAccumulator = 0.0;  // real seconds not yet simulated (less than one fixed step)
+    int maxStepsPerUpdate = 0;     // 0 = unlimited
 
     PlayerEconomy p1;
     PlayerEconomy p2;
@@ -157,21 +143,64 @@ private:
 
     std::vector<PlacedBuilding> buildings;
     std::vector<LandPlot> landPlots;
+    std::vector<GameEvent> events; // pending events, drained by pollEvents()
+    MatchConfig config;            // rules of the current match
+    PlayerModifiers p1Mods;        // neutral unless setPlayerModifiers() was called this match
+    PlayerModifiers p2Mods;
 
+    // Engine-owned random numbers: one independent stream per purpose, all derived from matchSeed, so
+    // UI calls to randInt() never shift the weather sequence of a seeded match
+    uint32_t matchSeed = 0;
+    GameRng weatherRng;            // daily weather rolls
+    GameRng hazardRng;             // random building losses (breakRandomBuilding)
+    GameRng generalRng;            // randInt() / randFloat() for UI, bot and features
+    float p1WindSpeed = 0.0f;      // wind speed of the day per sector (weather report, 0 = calm)
+    float p2WindSpeed = 0.0f;
+    int p1WindDirection = 0;       // -1 = blowing left, 0 = calm, +1 = blowing right
+    int p2WindDirection = 0;
+
+    void advanceGameTime(float gameDt); // game-seconds, split at day ends and into sub-steps
     void simulateStep(float dt);
     void updateBuildingsEnergy(float dt);
     void payCityRevenue();
     void processDayEnd();
     void rollDailyWeather();
     int findOwnedBuildingInSlot(int player, sf::Vector2f pos) const;
+    void emitEvent(GameEventType type, int player, float value, const std::string& text = std::string(),
+                   int subtype = 0, float x = 0.0f, float y = 0.0f);
 
 public:
     GameEngine();
+    // Starts a new match with the standard rules (MatchConfig defaults)
     void init(float screenWidth, float screenHeight);
+    // Starts a new match with the given rules (out-of-range values are clamped, see MatchConfig)
+    void init(const MatchConfig& cfg);
+    const MatchConfig& getConfig() const { return config; }
+    // Advances the match by dt real seconds (x time scale) in fixed steps of FIXED_STEP_SECONDS.
+    // Leftover time below one step is kept for the next call, so any frame rate gives the same result.
     void update(float dt);
+    static constexpr double FIXED_STEP_SECONDS = 1.0 / 60.0;
+    // Spiral-of-death guard for real-time hosts: at most n fixed steps per update() call, a larger
+    // backlog is dropped (8 steps = 133 ms per frame). 0 (default) = unlimited, so headless runs
+    // and tests may pass whole days as one frame.
+    void setMaxStepsPerUpdate(int n) { maxStepsPerUpdate = std::max(0, n); }
+    int getMaxStepsPerUpdate() const { return maxStepsPerUpdate; }
+    static constexpr int RECOMMENDED_MAX_STEPS_PER_UPDATE = 8;
+
+    // Events since the last call (oldest first); the queue is cleared. Call once per frame.
+    // At most MAX_PENDING_EVENTS are kept when nobody drains the queue (the oldest are dropped).
+    std::vector<GameEvent> pollEvents();
+    static constexpr size_t MAX_PENDING_EVENTS = 1024;
 
     void setTimeScale(float scale) { timeScale = (scale > 0.1f ? scale : 1.0f); }
     float getTimeScale() const { return timeScale; }
+
+    // Per-player modifiers (multipliers are clamped to [0, 100], shareBonus to [-0.5, 0.5]; NaN = neutral).
+    // Applied to city income, mining yield, building costs, the mining cooldown and won days.
+    void setPlayerModifiers(int player, const PlayerModifiers& mods);
+    const PlayerModifiers& getPlayerModifiers(int player) const { return (player == 1) ? p1Mods : p2Mods; }
+    // Seconds between two mining actions of this player (Balance::MINE_COOLDOWN_SEC x cooldownMult)
+    float getMineCooldown(int player) const { return Balance::MINE_COOLDOWN_SEC * getPlayerModifiers(player).cooldownMult; }
 
     // Player Actions
     bool mineResource(int player, ResourceType type, std::string& outMsg);
@@ -182,7 +211,8 @@ public:
 
     bool buyLandPlot(int player, int plotId, std::string& outMsg);
     bool buyNextLandTier(int player, std::string& outMsg);
-    void restartGame() { init(1600.0f, 900.0f); }
+    // New match with the same rules (a fixed config seed replays the same weather)
+    void restartGame() { MatchConfig same = config; init(same); }
 
     void cycleBuildingSelection(int player);
     void cycleBuildingSelectionPrev(int player);
@@ -201,10 +231,22 @@ public:
     bool isRiverBankSlot(int player, sf::Vector2f pos) const;
 
     // Lamp consumption constant (MW)
-    static constexpr float LAMP_POWER_MW = 10.0f;
+    static constexpr float LAMP_POWER_MW = static_cast<float>(Balance::STREET_LAMP.lampConsumptionMW);
 
-    // Building Data helper
+    // Building recipes: the single source of building costs for engine, UI and bot.
+    // getBuildingDef: the Balance recipe of a type (nullptr for NONE / DEMOLISH).
+    static constexpr const Balance::BuildingDef* getBuildingDef(BuildingType type) {
+        return (type == BuildingType::SOLAR_PANEL)    ? &Balance::SOLAR_PANEL
+               : (type == BuildingType::WIND_TURBINE) ? &Balance::WIND_TURBINE
+               : (type == BuildingType::HYDRO_PLANT)  ? &Balance::HYDRO_PLANT
+               : (type == BuildingType::BATTERY)      ? &Balance::BATTERY
+               : (type == BuildingType::LAMP)         ? &Balance::STREET_LAMP
+                                                      : nullptr;
+    }
+    // getBuildingCost: name, resource recipe and base MW of a type (base prices, no player modifiers)
     BuildingCost getBuildingCost(BuildingType type) const;
+    // The price this player pays (base recipe x PlayerModifiers::costMult); placement and refunds use it
+    BuildingCost getBuildingCost(int player, BuildingType type) const;
     sf::Vector2f snapToBuildingGrid(int player, sf::Vector2f pos) const;
     sf::Vector2f getGridSlot(int player, int col, int row) const;
     void getClosestGridIndex(int player, sf::Vector2f pos, int& outCol, int& outRow) const;
@@ -227,9 +269,25 @@ public:
     bool isDaylight() const { return Balance::isDaylightAt(hour24, currentSeason); }
     float getSunriseHour() const { return Balance::getSunriseHour(currentSeason); }
     float getSunsetHour() const { return Balance::getSunsetHour(currentSeason); }
-    bool isGracePeriod() const { return currentDay <= Balance::GRACE_PERIOD_DAYS; }
+    bool isGracePeriod() const { return currentDay <= config.graceDays; }
+
+    // Snapshots (Game/scr/game_snapshot.cpp): all match state as versioned text, for save/load,
+    // replays and tests. loadState returns false and leaves the match untouched on bad input; on success
+    // the match continues exactly like the saved one. Pending events and std::rand are not saved.
+    static constexpr int SNAPSHOT_VERSION = 1;
+    bool saveState(std::ostream& out) const;
+    bool loadState(std::istream& in);
 
     WeatherType getPlayerWeather(int player) const { return (player == 1) ? p1Weather : p2Weather; }
+    float getPlayerWindSpeed(int player) const { return (player == 1) ? p1WindSpeed : p2WindSpeed; }
+    int getPlayerWindDirection(int player) const { return (player == 1) ? p1WindDirection : p2WindDirection; }
+
+    // Match seed: MatchConfig::seed when non-zero, else the EC_SEED environment variable, else the clock.
+    // std::rand is seeded with it too, for the legacy rand() calls in the UI (particles, bot, lightning).
+    uint32_t getSeed() const { return matchSeed; }
+    // Deterministic random numbers for UI, bot and features (own stream; the weather does not shift)
+    int randInt(int lo, int hi) { return generalRng.range(lo, hi); } // inclusive range
+    float randFloat() { return generalRng.unit(); }                   // [0, 1)
     SeasonType getSeason() const { return currentSeason; }
 };
 
