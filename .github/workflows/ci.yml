@@ -177,4 +177,42 @@ jobs:
           path: dist/
           retention-days: 14
 
+  android:
+    name: Android (NDK + Gradle APK)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK and CMake
+        run: |
+          sdkmanager --install "ndk;26.1.10909125" "cmake;3.22.1"
+
+      - name: Build Android APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Prepare APK artifact
+        run: |
+          mkdir -p dist/android
+          find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} dist/android/energy-crisis.apk \;
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: energy-crisis-android
+          path: dist/android/
+          retention-days: 14
+
+
 
