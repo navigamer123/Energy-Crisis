@@ -167,6 +167,7 @@ int UI_main::render() {
         if (currentState == UIState::MAIN_MENU) {
             if (mainMenu.isPlayRequested()) {
                 mainMenu.resetPlayRequest();
+                map.setMapPreset(mainMenu.getSelectedMapPreset(), mainMenu.getSelectedMapSeed()); // Team b-power (F-39)
                 map.restartMatch();
                 map.setControlScheme(mainMenu.getSelectedControlScheme());
                 map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());

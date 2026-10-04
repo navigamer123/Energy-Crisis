@@ -53,6 +53,7 @@ void UI_map::primeInputEdges(int player) {
         p1PrevQ = true;
         p1PrevX = true;
         for (int k = 1; k <= 6; ++k) p1PrevNum[k] = true;
+        for (bool& k : p1PrevAdvKey) k = true; // Team b-power: 7 / 8 / 9
     }
     if (player != 1) {
         p2PrevAction = true;
@@ -226,6 +227,7 @@ void UI_map::executeP1Action() {
             reportBuildFailure(1, sel, msg);
         }
     } else {
+        if (tryRepairAt(1, p1Pos)) return; // Team b-power (F-34): repair a damaged building
         ResourceType resType = nodes.getP1ResourceAt(p1Pos);
         if (resType != ResourceType::NONE) {
             if (p1ResourceCooldown > 0.0f) {
@@ -303,6 +305,7 @@ void UI_map::executeP2Action() {
             reportBuildFailure(2, sel, msg);
         }
     } else {
+        if (tryRepairAt(2, p2Pos)) return; // Team b-power (F-34): repair a damaged building
         ResourceType resType = nodes.getP2ResourceAt(p2Pos);
         if (resType != ResourceType::NONE) {
             if (p2ResourceCooldown > 0.0f) {
@@ -431,14 +434,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     p1GridRow = std::max(0, p1GridRow - 1);
                     moved = true;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) {
-                    p1GridRow = std::min(11, p1GridRow + 1);
+                    p1GridRow = std::min(engine.getGridRows() - 1, p1GridRow + 1); // b-power: layout size
                     moved = true;
                 }
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) {
                     p1GridCol = std::max(0, p1GridCol - 1);
                     moved = true;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) {
-                    p1GridCol = std::min(8, p1GridCol + 1);
+                    p1GridCol = std::min(engine.getGridCols() - 1, p1GridCol + 1); // b-power: layout size
                     moved = true;
                 }
                 if (moved) {
@@ -507,14 +510,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p2GridRow = std::max(0, p2GridRow - 1);
                         moved = true;
                     } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
-                        p2GridRow = std::min(11, p2GridRow + 1);
+                        p2GridRow = std::min(engine.getGridRows() - 1, p2GridRow + 1); // b-power: layout size
                         moved = true;
                     }
                     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
                         p2GridCol = std::max(0, p2GridCol - 1);
                         moved = true;
                     } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-                        p2GridCol = std::min(8, p2GridCol + 1);
+                        p2GridCol = std::min(engine.getGridCols() - 1, p2GridCol + 1); // b-power: layout size
                         moved = true;
                     }
                     if (moved) {
@@ -650,6 +653,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
         p1PrevNum[k] = curNum;
     }
+    handleAdvancedHotkeys(); // Team b-power: 7 АЕЦ, 8 геотермална, 9 мегапроекти
 
     // 7. Player 2 Action Input (Human Player 2 only)
     if (!bot.isActive()) {
@@ -1069,6 +1073,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     return;
                 } else {
                     BuildingType sel = engine.getSelectedBuilding(owner);
+                    if (sel == BuildingType::NONE && tryRepairAt(owner, clickPos)) return; // Team b-power: repair
                     if (sel != BuildingType::NONE) {
                         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? clickPos : engine.snapToBuildingGrid(owner, clickPos);
                         std::string msg;

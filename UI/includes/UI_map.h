@@ -12,6 +12,7 @@
 #include "UI_buildings.h"
 #include "UI_bot.h"
 #include "UI_tutorial.h"
+#include "UI_power.h" // Team b-power: terrain, reactor, hazards, mega-projects
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -198,6 +199,20 @@ private:
     bool p2PrevUpgrade = false;
     bool helpOpenedFromPause = false;   // Closing help returns to this pause state
     int mouseOwnerAt(sf::Vector2f pos) const;                          // 0 = nobody, 1 = P1, 2 = P2
+
+    // ---- Team b-power: terrain, reactor, hazards, mega-projects (UI_map_power.cpp) ----
+    UI_powerLayer powerLayer;
+    bool p1PrevAdvKey[3] = { false, false, false }; // 7 / 8 / 9 hotkeys (P1)
+    float botPowerTimer = 4.0f;                    // game-seconds to the bot's next advanced build
+    float botRepairTimer = 3.0f;                   // game-seconds to the bot's next repair
+    void resetPowerSystems();
+    void updatePowerSystems(float dt);             // engine PowerFx -> popups, notices, effects; bot helpers
+    void showPowerFx(const PowerFx& fx);
+    bool tryRepairAt(int player, sf::Vector2f pos); // true when an own broken building was there
+    void handleAdvancedHotkeys();
+    void updateBotPower(float gameDt);
+    void drawPowerOverlays(sf::RenderWindow& window);
+    std::string actionKeyLabel(int player) const;
     bool isModalDismissKey(int player, sf::Keyboard::Key code) const;  // That player's own confirm/cancel keys
 
 public:
@@ -219,6 +234,8 @@ public:
     void skipTutorial() { tutorial.skip(); }
 
     const GameEngine& getEngine() const { return engine; }
+    // Team b-power (F-39): map layout for the next restartMatch()
+    void setMapPreset(MapPreset preset, unsigned seed) { engine.setMapPreset(preset, seed); }
 
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
     void render(sf::RenderWindow& window);

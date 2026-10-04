@@ -1,5 +1,6 @@
 #include "../includes/UI_icons.h"
 #include "../includes/UI_text.h"
+#include "../includes/UI_power.h"
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
@@ -322,6 +323,13 @@ void drawBuildingIcon(sf::RenderTarget& t, BuildingType b, sf::Vector2f center, 
         case BuildingType::BATTERY:      iconBattery(p); break;
         case BuildingType::LAMP:         iconLamp(p); break;
         case BuildingType::DEMOLISH:     iconDemolish(p); break;
+        case BuildingType::NUCLEAR:
+        case BuildingType::GEOTHERMAL:
+        case BuildingType::MEGA_FUSION:
+        case BuildingType::MEGA_SPACE_SOLAR:
+        case BuildingType::MEGA_PUMPED_HYDRO:
+            drawPowerBuildingIcon(t, b, center, size); // Team b-power artwork (UI_powerIcons.cpp)
+            break;
         case BuildingType::NONE:
             break;
     }

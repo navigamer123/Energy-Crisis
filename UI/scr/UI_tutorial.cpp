@@ -346,7 +346,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         }
         case TutorialStep::PLACE_SOLAR: {
             // Highlight free slot on Player 1's starting plot (r=0, c=0, slot index 1,0)
-            sf::Vector2f slot = engine.getGridSlot(1, 1, 0);
+            sf::Vector2f slot = engine.getStartPlotSlot(1, 1, 0); // b-power: start plot of any map layout
             spotlightRect = sf::FloatRect({ slot.x - 20.0f, slot.y - 20.0f }, { 40.0f, 40.0f });
             drawSpotlight(window, spotlightRect, animTime);
             arrowLabel = "ПОСТАВЕТЕ ТУК [SPACE]";

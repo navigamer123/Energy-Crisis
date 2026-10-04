@@ -49,6 +49,19 @@ private:
 
     std::vector<BuildingTypeInfo> buildings;
 
+    // Team b-power: second page with advanced power (UI_buildings_power.cpp)
+    std::vector<BuildingTypeInfo> advancedCards;
+    bool advancedPage = false;
+    BuildingType lastSelection = BuildingType::NONE;
+    sf::FloatRect pageTabBounds;
+    const GameEngine* engineView = nullptr;
+    void setupAdvancedCards();
+    void syncPageWithSelection(BuildingType activeSelection);
+    void drawPageTab(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, sf::Vector2f mousePos);
+    std::string advancedLockReason(const GameEngine& engine, BuildingType type) const; // empty = unlocked
+    std::string advancedHotkey(BuildingType type) const;
+    BuildingType handleAdvancedClick(sf::Vector2f clickPos);
+
 public:
     UI_buildings();
     UI_buildings(int playerIdx, sf::Vector2f pos, sf::Vector2f size, sf::Color accent);
@@ -56,6 +69,9 @@ public:
     void setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size, sf::Color accent);
     void setHotkeys(BuildHotkeys keys) { hotkeys = keys; }
     BuildingType handleClick(sf::Vector2f clickPos);
+    // Team b-power: engine used for lock reasons (plots, day, one per player) on the advanced page
+    void setEngineView(const GameEngine* engine) { engineView = engine; }
+    bool isAdvancedPage() const { return advancedPage; }
 
     // Cards show the building icon, each cost as amount + resource icon (green when the player has
     // enough of it, red when not), the hotkey, how many the player owns and their output right now.

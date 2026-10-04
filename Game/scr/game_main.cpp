@@ -54,13 +54,6 @@ int windDirectionOf(const std::vector<std::string>& report) {
 }
 
 
-// Top-left corner of a land plot (plotCol 0..2 in screen order West->East, plotRow 0..3)
-sf::Vector2f plotTopLeft(int player, int plotCol, int plotRow) {
-    float startX = (player == 1) ? Balance::WEST_PLOTS_START_X : Balance::EAST_PLOTS_START_X;
-    return { startX + plotCol * (Balance::PLOT_WIDTH + Balance::PLOT_GAP_X),
-             Balance::PLOTS_START_Y + plotRow * (Balance::PLOT_HEIGHT + Balance::PLOT_GAP_Y) };
-}
-
 // Wind speed (4th field of a weather_report, "0" when calm) as a number
 float windSpeedOf(const std::vector<std::string>& report) {
     if (report.size() < 4) return 0.0f;
@@ -101,8 +94,15 @@ void GameEngine::init(const MatchConfig& cfg) {
     // Reset EVERY piece of match state (clock, season, revenue timer, city, players, buildings)
     MatchConfig rules = cfg; // cfg may alias this->config, which the reset below overwrites
     const int hostMaxSteps = maxStepsPerUpdate; // a host setting, not match state: survives restarts
+    // Team b-power: the map chosen in the menu and the hazard switch survive the reset
+    const MapPreset keepPreset = mapPreset;
+    const unsigned keepMapSeed = mapSeedOverride;
+    const bool keepHazards = hazardsEnabled;
     *this = GameEngine();
     maxStepsPerUpdate = hostMaxSteps;
+    mapPreset = keepPreset;
+    mapSeedOverride = keepMapSeed;
+    hazardsEnabled = keepHazards;
     // (static_cast copies: std::clamp takes references, and pre-C++17 compilers such as MinGW g++ 6.3 have no
     // inline variables, so binding the static constexpr members directly would need out-of-line definitions)
     rules.finalDay = std::clamp(rules.finalDay, static_cast<int>(MatchConfig::MIN_FINAL_DAY), static_cast<int>(MatchConfig::MAX_FINAL_DAY));
@@ -147,27 +147,12 @@ void GameEngine::init(const MatchConfig& cfg) {
     }
 
     // -------------------------------------------------------------------------
-    // Generate Purchasable Land Grid on West (P1) and East (P2)
-    // 12 land plots per player (3 cols x 4 rows), laid out by the Balance plot constants so they
-    // never touch or go under the city (X in [610.0, 990.0]).
+    // Team b-power (F-39): purchasable land plots of West (P1) and East (P2) come from the map
+    // layout (game_map_layout.cpp). The Classic preset is the original 3x4 grid with the same ids,
+    // prices and river column; other presets change the geometry. East always mirrors West.
+    // Plots never touch the city (x 610..990) or the resource stations (y >= 582).
     // -------------------------------------------------------------------------
-    int idCounter = 1;
-    for (int player = 1; player <= 2; ++player) {
-        for (int r = 0; r < Balance::PLOT_ROWS; r++) {
-            for (int c = 0; c < Balance::PLOT_COLS; c++) {
-                LandPlot plot;
-                plot.id = idCounter++;
-                plot.playerOwner = player;
-                plot.bounds = sf::FloatRect(plotTopLeft(player, c, r), { Balance::PLOT_WIDTH, Balance::PLOT_HEIGHT });
-                // Each player starts with the top plot on the far side from the city (P1 top-left, P2 top-right).
-                // Prices mirror around the river, so both players pay the same for mirrored plots.
-                int ownCol = (player == 1) ? c : (Balance::PLOT_COLS - 1 - c);
-                plot.isPurchased = (r == 0 && ownCol == 0);
-                plot.costGold = Balance::getLandPlotCost(r, ownCol);
-                landPlots.push_back(plot);
-            }
-        }
-    }
+    setupPowerWorld(matchSeed);
 
     // Clear and reset players
     buildings.clear();
@@ -217,12 +202,14 @@ void GameEngine::rollDailyWeather() {
     p1WindSpeed = windSpeedOf(rep1);
     p1WindDirection = windDirectionOf(rep1);
     p1Weather = WeatherSystem::reportToWeatherType(rep1);
+    world.hailToday[1] = (rep1.size() > 1 && rep1[1] == "hail"); // Team b-power: hail hazard
     emitEvent(GameEventType::WEATHER_CHANGED, 1, p1WindSpeed, std::string(), static_cast<int>(p1Weather));
 
     auto rep2 = weather_report(sName, weatherRng);
     p2WindSpeed = windSpeedOf(rep2);
     p2WindDirection = windDirectionOf(rep2);
     p2Weather = WeatherSystem::reportToWeatherType(rep2);
+    world.hailToday[2] = (rep2.size() > 1 && rep2[1] == "hail");
     emitEvent(GameEventType::WEATHER_CHANGED, 2, p2WindSpeed, std::string(), static_cast<int>(p2Weather));
 }
 
@@ -289,6 +276,9 @@ void GameEngine::simulateStep(float dt) {
         emitEvent(GameEventType::SEASON_CHANGED, 0, 0.0f, std::string(), static_cast<int>(currentSeason));
     }
 
+    // Team b-power: reactor ramps, mega-project construction, scheduled hazards
+    updateAdvancedSystems(dt);
+
     // Update building energy outputs based on real-time continuous weather & sun
     updateBuildingsEnergy(dt);
     city.dailySeconds += dt;
@@ -342,6 +332,12 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     // pass 2 applies battery power and lamp states in building order.
     // -------------------------------------------------------------------------
     const float stepHours = Balance::gameSecondsToHours(dt, config.daySeconds);
+    const float riverFlow = getRiverFlowFactor(); // Team b-power (F-15): shared river, all hydro plants
+    // Team b-power: the finished pumped-hydro dam stores energy like a giant battery
+    auto isStorage = [](const PlacedBuilding& b) {
+        return b.type == BuildingType::BATTERY ||
+               (b.type == BuildingType::MEGA_PUMPED_HYDRO && b.constructionLeft <= 0.0f);
+    };
     auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
         // Weather multipliers are the same for every building of the sector this step
         const float solarMult = WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
@@ -356,12 +352,20 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         float canTake = 0.0f; // MW all batteries could absorb this step
         for (auto& b : buildings) {
             if (b.playerOwner != player) continue;
+            // Team b-power (F-34): damaged buildings are offline until repaired (and never count as lamps)
+            if (b.isBroken) {
+                b.currentOutputMW = 0.0f;
+                if (b.type == BuildingType::LAMP) b.lightRadius = 0.0f;
+                continue;
+            }
             switch (b.type) {
                 case BuildingType::SOLAR_PANEL:
                 case BuildingType::WIND_TURBINE:
                 case BuildingType::HYDRO_PLANT: {
-                    const float mult = (b.type == BuildingType::SOLAR_PANEL) ? solarMult
-                                       : (b.type == BuildingType::WIND_TURBINE) ? windMult : hydroMult;
+                    // b-power terrain: meadow solar x1.15, hill wind x1.3; hydro follows the shared river
+                    const float mult = (b.type == BuildingType::SOLAR_PANEL) ? solarMult * terrainOutputMultiplier(b)
+                                       : (b.type == BuildingType::WIND_TURBINE) ? windMult * terrainOutputMultiplier(b)
+                                                                                : hydroMult * riverFlow;
                     float out = basePowerOf(b.type) * mult;
                     b.currentOutputMW = out;
                     rawGen += out;
@@ -371,16 +375,23 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                     ++lampCount;
                     break;
                 case BuildingType::BATTERY:
-                    ++batteryCount;
                     b.currentOutputMW = 0.0f;
-                    if (stepHours > 0.0f) {
-                        canGive += std::min(Balance::BATTERY_MAX_POWER_MW, b.energyStored / stepHours);
-                        canTake += std::min(Balance::BATTERY_MAX_POWER_MW,
-                                            std::max(0.0f, b.maxCapacity - b.energyStored) / stepHours);
-                    }
                     break;
-                default:
+                default: {
+                    // Team b-power: nuclear, geothermal, mega-projects (0 while building / in SCRAM)
+                    float out = advancedOutputMW(b, w);
+                    b.currentOutputMW = out;
+                    rawGen += out;
                     break;
+                }
+            }
+            // Storage (batteries, and the finished pumped-hydro dam as a giant battery): limits per step
+            if (isStorage(b)) {
+                ++batteryCount;
+                if (stepHours > 0.0f) {
+                    canGive += std::min(storageMaxPowerMW(b), b.energyStored / stepHours);
+                    canTake += std::min(storageMaxPowerMW(b), std::max(0.0f, b.maxCapacity - b.energyStored) / stepHours);
+                }
             }
         }
 
@@ -412,15 +423,15 @@ void GameEngine::updateBuildingsEnergy(float dt) {
             const float chargeFraction = (batteryCharge > 0.0f) ? batteryCharge / canTake : 0.0f;
             int lampIndex = 0;
             for (auto& b : buildings) {
-                if (b.playerOwner != player) continue;
-                if (b.type == BuildingType::BATTERY) {
+                if (b.playerOwner != player || b.isBroken) continue; // b-power: broken buildings are offline
+                if (isStorage(b)) {
                     if (batteryDischarge > 0.0f) {
-                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, b.energyStored / stepHours) * dischargeFraction;
+                        float power = std::min(storageMaxPowerMW(b), b.energyStored / stepHours) * dischargeFraction;
                         b.currentOutputMW = power;
                         b.energyStored = std::max(0.0f, b.energyStored - power * stepHours);
                     } else if (batteryCharge > 0.0f) {
                         float room = std::max(0.0f, b.maxCapacity - b.energyStored);
-                        float power = std::min(Balance::BATTERY_MAX_POWER_MW, room / stepHours) * chargeFraction;
+                        float power = std::min(storageMaxPowerMW(b), room / stepHours) * chargeFraction;
                         b.energyStored = std::min(b.maxCapacity, b.energyStored + power * stepHours);
                     }
                 } else if (b.type == BuildingType::LAMP) {
@@ -554,6 +565,9 @@ void GameEngine::processDayEnd() {
     city.p2DailyDelivered = 0.0f;
     city.dailySeconds = 0.0f;
 
+    // Team b-power: reactor fuel and weather streaks of the day that ended
+    advancedDayEnd();
+
     // Daily dynamic weather generation using weather_report from weatherF.
     // The new day's season already took effect at the preceding midnight.
     SeasonType newSeason = Balance::getSeasonForDay(currentDay);
@@ -562,6 +576,9 @@ void GameEngine::processDayEnd() {
         emitEvent(GameEventType::SEASON_CHANGED, 0, 0.0f, std::string(), static_cast<int>(currentSeason));
     }
     rollDailyWeather();
+
+    // Team b-power: hazards for the new day (floods, wildfires, hail, quakes), mega-project unlock
+    advancedNewDay();
 }
 
 bool GameEngine::mineResource(int player, ResourceType type, std::string& outMsg) {
@@ -762,15 +779,24 @@ bool GameEngine::buyNextLandTier(int player, std::string& outMsg) {
     return false;
 }
 
+// Team b-power: the cycle visits the basic buildings, the advanced page (7..11), then Demolish (6)
+static const int kSelectionCycle[] = { 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 6 };
+static const int kSelectionCycleLen = static_cast<int>(sizeof(kSelectionCycle) / sizeof(kSelectionCycle[0]));
+static int selectionCycleIndex(int sel) {
+    for (int i = 0; i < kSelectionCycleLen; ++i) {
+        if (kSelectionCycle[i] == sel) return i;
+    }
+    return -1;
+}
+
 void GameEngine::cycleBuildingSelection(int player) {
     auto& econ = (player == 1) ? p1 : p2;
     if (econ.selectedBuilding == 0) {
         int last = econ.lastPlacedBuilding;
-        econ.selectedBuilding = (last >= 1 && last <= 6) ? last : 1;
-    } else if (econ.selectedBuilding >= 6) {
-        econ.selectedBuilding = 1;
+        econ.selectedBuilding = (selectionCycleIndex(last) >= 0) ? last : 1;
     } else {
-        econ.selectedBuilding++;
+        int i = selectionCycleIndex(econ.selectedBuilding);
+        econ.selectedBuilding = kSelectionCycle[(i + 1) % kSelectionCycleLen];
     }
 }
 
@@ -778,11 +804,11 @@ void GameEngine::cycleBuildingSelectionPrev(int player) {
     auto& econ = (player == 1) ? p1 : p2;
     if (econ.selectedBuilding == 0) {
         int last = econ.lastPlacedBuilding;
-        econ.selectedBuilding = (last >= 1 && last <= 6) ? last : 6;
-    } else if (econ.selectedBuilding <= 1) {
-        econ.selectedBuilding = 6;
+        econ.selectedBuilding = (selectionCycleIndex(last) >= 0) ? last : 6;
     } else {
-        econ.selectedBuilding--;
+        int i = selectionCycleIndex(econ.selectedBuilding);
+        if (i < 0) i = 0;
+        econ.selectedBuilding = kSelectionCycle[(i + kSelectionCycleLen - 1) % kSelectionCycleLen];
     }
 }
 
@@ -802,7 +828,7 @@ BuildingCost GameEngine::getBuildingCost(BuildingType type) const {
     }
     const Balance::BuildingDef* def = getBuildingDef(type);
     if (!def) {
-        return { BuildingType::NONE, "", "", 0, 0, 0, 0, 0, 0, 0, 0 };
+        return getAdvancedBuildingCost(type); // Team b-power: nuclear, geothermal, mega-projects (or NONE)
     }
     // Legacy 'ore' total = every mineral of the recipe (no longer spent, kept for old callers)
     int ore = def->ironCost + def->copperCost + def->coalCost + def->siliconCost + def->silverCost;
@@ -842,30 +868,17 @@ void GameEngine::setPlayerModifiers(int player, const PlayerModifiers& mods) {
 }
 
 sf::Vector2f GameEngine::getGridSlot(int player, int col, int row) const {
-    // 9 columns (0..8) and 12 rows (0..11) for 12 plots x 9 slots each
-    col = std::max(0, std::min(col, Balance::GRID_COLS - 1));
-    row = std::max(0, std::min(row, Balance::GRID_ROWS - 1));
-
-    int plotC = col / Balance::SLOT_COLS_PER_PLOT;
-    int subC = col % Balance::SLOT_COLS_PER_PLOT;
-    int plotR = row / Balance::SLOT_ROWS_PER_PLOT;
-    int subR = row % Balance::SLOT_ROWS_PER_PLOT;
-
-    sf::Vector2f plotPos = plotTopLeft(player, plotC, plotR);
-    float subW = Balance::PLOT_WIDTH / static_cast<float>(Balance::SLOT_COLS_PER_PLOT);
-    float subH = Balance::PLOT_HEIGHT / static_cast<float>(Balance::SLOT_ROWS_PER_PLOT);
-
-    float cx = plotPos.x + (subC + 0.5f) * subW;
-    float cy = plotPos.y + (subR + 0.5f) * subH;
-    return sf::Vector2f(cx, cy);
+    // Team b-power (F-39): geometry comes from the map layout (3x3 slots per plot cell;
+    // Classic = 9 columns x 12 rows). Columns are screen columns for both players.
+    return layout.slotCenter(player, col, row);
 }
 
 void GameEngine::getClosestGridIndex(int player, sf::Vector2f pos, int& outCol, int& outRow) const {
     float bestD2 = 1e12f;
     outCol = 0;
     outRow = 0;
-    for (int r = 0; r < Balance::GRID_ROWS; ++r) {
-        for (int c = 0; c < Balance::GRID_COLS; ++c) {
+    for (int r = 0; r < layout.gridRows(); ++r) {
+        for (int c = 0; c < layout.gridCols(); ++c) {
             sf::Vector2f s = getGridSlot(player, c, r);
             float d2 = (pos.x - s.x) * (pos.x - s.x) + (pos.y - s.y) * (pos.y - s.y);
             if (d2 < bestD2) {
@@ -901,12 +914,10 @@ bool GameEngine::isAreaIlluminated(int player, sf::Vector2f pos) const {
 }
 
 bool GameEngine::isRiverBankSlot(int player, sf::Vector2f pos) const {
-    // The river runs through the city between the two sectors; the plot column touching the city
-    // (P1: right-most column, P2: left-most column) is the river bank.
-    int col = 0, row = 0;
-    getClosestGridIndex(player, pos, col, row);
-    int plotCol = col / 3;
-    return plotCol == ((player == 1) ? Balance::P1_RIVER_BANK_PLOT_COL : Balance::P2_RIVER_BANK_PLOT_COL);
+    // Team b-power (F-15/F-39): river-bank plots come from the map layout terrain. In the Classic
+    // map that is the plot column touching the city (P1: right-most column, P2: left-most column).
+    const LandPlot* plot = findPlotAt(player, snapToBuildingGrid(player, pos));
+    return plot != nullptr && plot->terrain == static_cast<int>(TerrainType::RIVER);
 }
 
 int GameEngine::findOwnedBuildingInSlot(int player, sf::Vector2f pos) const {
@@ -930,6 +941,7 @@ int GameEngine::findOwnedBuildingInSlot(int player, sf::Vector2f pos) const {
             }
         }
     }
+    if (bestIdx < 0) bestIdx = findPlotWideBuildingAt(player, pos); // Team b-power: reactor / mega-project plot
     return bestIdx;
 }
 
@@ -945,7 +957,7 @@ bool GameEngine::removeBuilding(int player, sf::Vector2f pos, std::string& outMs
     // Refund a fraction of what was paid (placement always deducts the full recipe)
     PlacedBuilding b = buildings[closestIdx];
     BuildingCost cost = getBuildingCost(player, b.type);
-    const float refund = Balance::DEMOLISH_REFUND_FRACTION;
+    const float refund = advancedRefundFraction(b.type); // b-power: reactors / mega-projects refund nothing
     int refundWood = static_cast<int>(cost.woodCost * refund);
     int refundIron = static_cast<int>(cost.ironCost * refund);
     int refundCopper = static_cast<int>(cost.copperCost * refund);
@@ -983,8 +995,14 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    // Team b-power: locked advanced buildings say why before anything else (plots / day / one per player)
+    if (!checkAdvancedUnlock(player, type, reason)) {
+        return false;
+    }
+
     // Snap to 2x2 grid slot inside land plot
     pos = snapToBuildingGrid(player, pos);
+    pos = snapAdvanced(player, type, pos); // b-power: reactors and mega-projects use the plot centre
 
     const auto& econ = (player == 1) ? p1 : p2;
     BuildingCost cost = getBuildingCost(player, type);
@@ -1039,6 +1057,11 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    // Team b-power: exclusion zones, vents for geothermal, river for the pumped-hydro dam
+    if (!checkAdvancedPlacement(player, type, pos, reason)) {
+        return false;
+    }
+
     // Hydro plants need the river: only the plot column next to the city river counts as river bank
     if (type == BuildingType::HYDRO_PLANT && !isRiverBankSlot(player, pos)) {
         reason = "ВЕЦ СЕ СТРОИ САМО НА БРЕГА НА РЕКАТА!\nИзползвайте парцелите в колоната до града (до реката).";
@@ -1066,6 +1089,7 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
 
     // Snap to 2x2 grid slot inside land plot
     pos = snapToBuildingGrid(player, pos);
+    pos = snapAdvanced(player, type, pos); // b-power: plot centre for reactors and mega-projects
 
     std::string reason;
     if (!canPlaceBuilding(player, type, pos, reason)) {
@@ -1097,6 +1121,7 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
     b.energyStored = 0.0f;
     b.maxCapacity = static_cast<float>(Balance::BATTERY.batteryCapacityMWh);
     b.lightRadius = (type == BuildingType::LAMP) ? Balance::STREET_LAMP.lightRadius : 0.0f;
+    onAdvancedPlaced(b); // Team b-power: terrain, reactor ramp, mega-project construction
     buildings.push_back(b);
 
     if (type == BuildingType::LAMP) {
@@ -1104,6 +1129,12 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
                  " MW, осветява " + std::to_string(static_cast<int>(Balance::STREET_LAMP.lightRadius)) + " px)";
     } else if (type == BuildingType::BATTERY) {
         outMsg = "ПОСТРОЕН Акумулатор! (0% заряд. Зарежда се от произведената чиста енергия)";
+    } else if (type == BuildingType::NUCLEAR) {
+        outMsg = "ПОСТРОЕН АЕЦ! Реакторът набира мощност цял ден (до +" + std::to_string(cost.basePowerMW) +
+                 " MW). Гориво: " + std::to_string(PowerBalance::NUCLEAR_FUEL_SILVER_PER_DAY) + " сребро на ден.";
+    } else if (isMegaProject(type)) {
+        outMsg = "ЗАПОЧНА СТРОЕЖ: " + cost.nameBg + "! Готов след " +
+                 std::to_string(static_cast<int>(std::lround(b.constructionTotal / config.daySeconds))) + " дни.";
     } else {
         outMsg = "ПОСТРОЕН " + cost.nameBg + "! (+" + std::to_string(cost.basePowerMW) + " MW)";
     }
@@ -1142,6 +1173,8 @@ bool GameEngine::repairBuilding(int player, sf::Vector2f pos, std::string& outMs
 }
 
 bool GameEngine::breakBuildingAt(sf::Vector2f pos) {
+    // Team b-power: a reactor SCRAMs and a mega-project loses progress instead of disappearing
+    if (absorbLightningAt(pos)) return false;
     for (auto it = buildings.begin(); it != buildings.end(); ++it) {
         float dist = std::hypot(it->position.x - pos.x, it->position.y - pos.y);
         if (dist <= Balance::STRIKE_HIT_RADIUS) {
@@ -1173,6 +1206,5 @@ bool GameEngine::breakRandomBuilding(int playerOwner, sf::Vector2f& outPos) {
 }
 
 bool GameEngine::hasBrokenBuilding(int player) const {
-    (void)player;
-    return false;
+    return countBrokenBuildings(player) > 0; // Team b-power (F-34): hazards leave repairable damage
 }

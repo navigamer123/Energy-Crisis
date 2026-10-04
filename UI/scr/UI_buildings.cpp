@@ -118,9 +118,16 @@ void UI_buildings::setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size,
   for (size_t i = 0; i < buildings.size(); i++) {
     buildings[i].btnBounds = sf::FloatRect({itemX, itemStartY + i * spacing}, {itemW, itemH});
   }
+  setupAdvancedCards(); // Team b-power: page 2 (reactor, geothermal, mega-projects)
 }
 
 BuildingType UI_buildings::handleClick(sf::Vector2f clickPos) {
+  // Team b-power: page tab and the advanced page
+  if (pageTabBounds.contains(clickPos)) {
+    advancedPage = !advancedPage;
+    return BuildingType::NONE;
+  }
+  if (advancedPage) return handleAdvancedClick(clickPos);
   for (auto &b : buildings) {
     if (b.btnBounds.contains(clickPos)) {
       return b.type;
@@ -135,6 +142,9 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
                         BuildingType activeSelection) {
   const PlayerEconomy &econ = engine.getPlayerEconomy(playerIndex);
   const WeatherType weather = engine.getPlayerWeather(playerIndex);
+  // Team b-power: the page follows the selection; page 2 = reactor, geothermal, mega-projects
+  syncPageWithSelection(activeSelection);
+  const std::vector<BuildingTypeInfo> &cards = advancedPage ? advancedCards : buildings;
 
   // Panel container
   sf::RectangleShape panel(panelSize);
@@ -147,9 +157,16 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
   ui::lint::ContainerScope panelScope(sf::FloatRect(panelPos, panelSize));
 
   if (fontLoaded) {
-    std::string pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
-                                          : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
-    sf::Text tHeader(font, toUtf8(pTag), fontsize::Label);
+    std::string pTag;
+    if (advancedPage) {
+      pTag = (playerIndex == 1) ? "НАПРЕДНАЛИ (ИГРАЧ 1) [7-9]" : "НАПРЕДНАЛИ (ИГРАЧ 2) [PgDn]";
+    } else {
+      pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]" : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
+    }
+    // The header leaves room for the "1/2" page tab on the right
+    const float headerMaxW = pageTabBounds.position.x - 6.0f - (panelPos.x + 8.0f);
+    sf::Text tHeader(font, toUtf8(pTag),
+                     ui::fitTextSize(font, pTag, fontsize::Label, fontsize::Caption, headerMaxW, true));
     tHeader.setStyle(sf::Text::Bold);
     tHeader.setFillColor(accentColor);
     tHeader.setPosition({panelPos.x + 8.0f, panelPos.y + 6.0f});
@@ -161,8 +178,8 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     window.draw(div);
   }
 
-  for (size_t i = 0; i < buildings.size(); i++) {
-    auto &b = buildings[i];
+  for (size_t i = 0; i < cards.size(); i++) {
+    const auto &b = cards[i];
     const sf::FloatRect &r = b.btnBounds;
     const float x = r.position.x;
     const float y = r.position.y;
@@ -172,8 +189,10 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     const BuildingCost cost = engine.getBuildingCost(b.type);
     const std::vector<ResourceNeed> needs = buildingNeeds(econ, cost);
     const bool isDemolish = (b.type == BuildingType::DEMOLISH);
-    const bool canAfford = std::all_of(needs.begin(), needs.end(),
-                                       [](const ResourceNeed &n) { return n.have >= n.need; });
+    // Team b-power: advanced buildings can be locked (plots, day, one per player)
+    const std::string lock = advancedPage ? advancedLockReason(engine, b.type) : std::string();
+    const bool canAfford = lock.empty() && std::all_of(needs.begin(), needs.end(),
+                                                       [](const ResourceNeed &n) { return n.have >= n.need; });
     const bool isSelected = (b.type == activeSelection);
     const bool hover = r.contains(mousePos);
 
@@ -228,6 +247,9 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     } else if (b.type == BuildingType::BATTERY) {
       badge = std::to_string(Balance::BATTERY.batteryCapacityMWh) + " MWh";
       badgeColor = theme::Good;
+    } else if (b.type == BuildingType::MEGA_PUMPED_HYDRO) {
+      badge = std::to_string(PowerBalance::MEGA_PUMPED_HYDRO.batteryCapacityMWh) + " MWh";
+      badgeColor = theme::Good;
     } else {
       badge = "+" + std::to_string(cost.basePowerMW) + " MW";
     }
@@ -246,16 +268,31 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       tInfo.setPosition({textX, costY + 1.0f});
       ui::drawText(window, tInfo);
     } else {
+      // Long recipes (advanced buildings: 3-digit amounts) step down to a compact size to fit the card
+      unsigned int numSize = fontsize::Label;
+      float iconSize = 14.0f;
+      float gap = 6.0f;
+      auto recipeWidth = [&]() {
+        float wsum = 0.0f;
+        for (const auto &n : needs)
+          wsum += ui::measureText(font, std::to_string(n.need), numSize, true) + 2.0f + iconSize + gap;
+        return wsum - gap;
+      };
+      if (recipeWidth() > rightX - textX) {
+        numSize = fontsize::Caption;
+        iconSize = 12.0f;
+        gap = 4.0f;
+      }
       float cx = textX;
       for (const auto &n : needs) {
-        sf::Text tNum(font, std::to_string(n.need), fontsize::Label);
+        sf::Text tNum(font, std::to_string(n.need), numSize);
         tNum.setFillColor(n.have >= n.need ? theme::Good : theme::Bad);
         tNum.setStyle(sf::Text::Bold);
         tNum.setPosition({cx, costY});
         ui::drawText(window, tNum);
         cx += tNum.getLocalBounds().position.x + tNum.getLocalBounds().size.x + 2.0f;
-        drawResourceIcon(window, n.type, {cx + 7.0f, costY + 8.0f}, 14.0f);
-        cx += 14.0f + 6.0f;
+        drawResourceIcon(window, n.type, {cx + iconSize / 2.0f, costY + 8.0f}, iconSize);
+        cx += iconSize + gap;
       }
     }
 
@@ -278,7 +315,8 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       mult = WeatherSystem::getHydroMultiplier(weather);
 
     std::string hotkeyStr;
-    if (hotkeys == BuildHotkeys::DIGITS) hotkeyStr = "[" + std::to_string(i + 1) + "]";
+    if (advancedPage) hotkeyStr = advancedHotkey(b.type);
+    else if (hotkeys == BuildHotkeys::DIGITS) hotkeyStr = "[" + std::to_string(i + 1) + "]";
     else if (hotkeys == BuildHotkeys::NUMPAD) hotkeyStr = "[Num" + std::to_string(i + 1) + "]";
 
     float hotkeyW = 0.0f;
@@ -293,7 +331,17 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     }
 
     std::string status;
-    if (!isDemolish) {
+    const PlacedBuilding *mega = GameEngine::isMegaProject(b.type) ? engine.getMegaProject(playerIndex) : nullptr;
+    if (!lock.empty()) {
+      // Team b-power: why the advanced building cannot be built yet
+      const float maxW = (rightX - textX) - hotkeyW;
+      sf::Text tLock(font, toUtf8(lock), ui::fitTextSize(font, lock, fontsize::Caption, fontsize::Caption, maxW));
+      tLock.setFillColor(theme::Warn);
+      tLock.setPosition({textX, statusY});
+      ui::drawText(window, tLock);
+    } else if (mega != nullptr && mega->type == b.type && mega->constructionLeft > 0.0f) {
+      status = "Строеж " + std::to_string(static_cast<int>(engine.getConstructionProgress(*mega) * 100.0f)) + "%";
+    } else if (!isDemolish) {
       status = std::to_string(count) + " бр.";
       if (b.type == BuildingType::BATTERY) {
         if (count > 0) status += " · " + std::to_string(static_cast<int>(std::lround(storedMWh))) + " MWh";
@@ -312,4 +360,5 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       ui::drawText(window, tStatus);
     }
   }
+  drawPageTab(window, font, fontLoaded, mousePos); // Team b-power: switch to page 2
 }

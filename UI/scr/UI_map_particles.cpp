@@ -114,7 +114,11 @@ void UI_map::updateWeatherParticles(float dt) {
 
             // Destroy and remove building so it disappears immediately and frees the grid slot!
             // (allBuildings must not be used after this call)
-            engine.breakBuildingAt(strikePos);
+            // Team b-power: a reactor SCRAMs / a mega-project loses progress instead (popup via PowerFx)
+            if (!engine.breakBuildingAt(strikePos)) {
+                triggerLightningStrike(strikePos, true);
+                continue;
+            }
 
             triggerPlayerPopup(sector, "МЪЛНИЯ!", "Унищожено съоръжение!",
                                "Мълния унищожи " + cost.nameBg + "!\nКлетката се освободи за нов строеж (ВЕЦ/друг).",

@@ -45,6 +45,7 @@ UI_map::UI_map()
     }
 
     // Initialize backend game engine at 1600x900
+    engine.setHazardsEnabled(true); // Team b-power: random hazards in real matches (engine default: off)
     engine.init(1600.0f, 900.0f);
     // Real-time host: a stalled frame drops its backlog instead of running hundreds of steps
     engine.setMaxStepsPerUpdate(GameEngine::RECOMMENDED_MAX_STEPS_PER_UPDATE);
@@ -241,6 +242,7 @@ void UI_map::restartMatch() {
     // every key edge flag primed, so the Enter/Space/R that started this match (menu, pause menu or
     // victory screen) is not seen as a fresh in-game press. Idempotent, so callers may repeat it.
     resetMatchInputState();
+    resetPowerSystems(); // Team b-power: effects, bot timers, hotkey edges, stale engine events
 
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
@@ -267,6 +269,7 @@ void UI_map::render(sf::RenderWindow& window) {
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
+        updatePowerSystems(dt); // Team b-power: hazard / reactor / mega-project events, bot helpers
     }
 
     // Screenshot storm scene: fire one harmless bolt into the stormy sector just before the capture
@@ -307,12 +310,14 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 5. Purchasable Land Plots Grid
     nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos, engine.getBuildings());
+    powerLayer.drawTerrain(window, font, resourcesLoaded, engine, animTime); // Team b-power: terrain badges
 
     // Dynamic glowing energy conduit lines connecting generators to metropolis
     drawEnergyConduits(window, animTime);
 
     // 6. Placed Buildings on the Map
     nodes.drawPlacedBuildings(window, font, resourcesLoaded, engine.getBuildings());
+    powerLayer.drawBuildings(window, font, resourcesLoaded, engine, animTime); // Team b-power: new buildings, damage
 
     // 7. Holographic ghost preview if building is selected (snapped to plot grid, hidden if outside purchased land).
     //    The ghost's tooltip is drawn later (after the city and the mines) so nothing covers it.
@@ -331,6 +336,7 @@ void UI_map::render(sf::RenderWindow& window) {
             nodes.drawBuildingGhost(window, font, resourcesLoaded, sel, targetPos, valid, engine.getBuildingCost(sel));
             ghosts[player - 1] = { true, sel, targetPos, valid };
         }
+        powerLayer.drawPlacementHint(window, engine, player, sel, cursor, animTime); // Team b-power
     }
 
     // 8. Compact Metropolis City Center with territorial slicing & conquest
@@ -341,6 +347,7 @@ void UI_map::render(sf::RenderWindow& window) {
     city.drawInfluenceBar(window, font, resourcesLoaded, engine.getCityState().cityEnergyDemand,
                           engine.getPlayerEconomy(1).energyMW, engine.getPlayerEconomy(2).energyMW,
                           engine.getCityState().p1CityShare, engine.getCurrentDay());
+    powerLayer.drawMegaHud(window, font, resourcesLoaded, engine, animTime, bot.isActive()); // Team b-power: shared mega-project strip
 
     // 10. Resource Mines & Timber Forests
     nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
@@ -368,6 +375,8 @@ void UI_map::render(sf::RenderWindow& window) {
     // 12. Left & Right Building Menus
     p1Buildings.setHotkeys(BuildHotkeys::DIGITS);
     p2Buildings.setHotkeys(bot.isActive() ? BuildHotkeys::NONE : BuildHotkeys::NUMPAD);
+    p1Buildings.setEngineView(&engine); // Team b-power: lock reasons on the advanced page
+    p2Buildings.setEngineView(&engine);
     p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p1Sel);
     p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p2Sel);
 
@@ -384,6 +393,8 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // Dynamic Mining sparks and wood chips
     drawMiningParticles(window);
+    powerLayer.drawEffects(window, animTime); // Team b-power: hail, flood, fire, quake effects
+    drawPowerOverlays(window);                // Team b-power: repair prompts
 
     // 17. Interactive Modal Dialogs (Requires player to click OK or confirm)
     drawPlayerModals(window);
