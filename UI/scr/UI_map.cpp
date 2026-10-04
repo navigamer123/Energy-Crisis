@@ -46,6 +46,8 @@ UI_map::UI_map()
 
     // Initialize backend game engine at 1600x900
     engine.init(1600.0f, 900.0f);
+    // Real-time host: a stalled frame drops its backlog instead of running hundreds of steps
+    engine.setMaxStepsPerUpdate(GameEngine::RECOMMENDED_MAX_STEPS_PER_UPDATE);
     std::cout << "[UI_map] 1600x900 map orchestrator with backend GameEngine ready.\n";
 }
 

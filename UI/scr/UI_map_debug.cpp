@@ -39,11 +39,15 @@ void setResources(PlayerEconomy& e, int wood, int iron, int copper, int coal, in
 void UI_map::setupDebugScene(const std::string& scene, int frames) {
     auto advanceGameSeconds = [this](float seconds) {
         engine.setTimeScale(1.0f);
+        // Fast-forward steps are longer than the real-time step cap allows: lift it meanwhile
+        const int hostMaxSteps = engine.getMaxStepsPerUpdate();
+        engine.setMaxStepsPerUpdate(0);
         while (seconds > 0.0f && engine.getCityState().winner == 0) {
             float step = std::min(seconds, SIM_STEP);
             engine.update(step);
             seconds -= step;
         }
+        engine.setMaxStepsPerUpdate(hostMaxSteps);
     };
     // Fast-forward to the given day (1-based) and clock hour
     auto advanceTo = [&](int day, float hour) {
