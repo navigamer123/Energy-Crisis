@@ -245,6 +245,8 @@ void UI_map::restartMatch() {
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
 
+    resetInfoUI(); // team info: clear telemetry, toasts and the event log
+
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, theme::Good);
 }
 
@@ -258,16 +260,20 @@ bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
 }
 
 void UI_map::render(sf::RenderWindow& window) {
-    float dt = ui::shot::frameDt(deltaClock.restart().asSeconds());
+    float realDt = deltaClock.restart().asSeconds();
+    devOverlay.recordFrame(realDt); // team info: real frame time, before the clamp
+    float dt = ui::shot::frameDt(realDt);
     if (dt > 0.05f) dt = 0.05f;
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     if (!isPaused && engine.getCityState().winner == 0) {
-        engine.update(dt);
+        stats.beforeEngineUpdate(engine); // team info: capture the day's average before a settlement
+        engine.update(dt * devOverlay.timeMultiplier()); // team info: x1 unless the [F3] panel speeds it up
         updateControls(window, dt);
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
     }
+    updateInfoUI(dt); // team info: telemetry, notifications, alerts
 
     // Screenshot storm scene: fire one harmless bolt into the stormy sector just before the capture
     if (debugBoltCountdown >= 0 && debugBoltCountdown-- == 0) {
@@ -397,13 +403,20 @@ void UI_map::render(sf::RenderWindow& window) {
     // 19. Floating Notices
     drawFloatingNotices(window);
 
+    // 19.5 team info: energy dashboard while [Tab] is held
+    drawDashboardIfHeld(window);
+
     // 20. Pause Menu (drawn before help so help is layered on top)
     if (engine.getCityState().winner != 0) {
         drawVictoryScreen(window);
     } else if (isPaused) {
         drawPauseMenu(window);
+        if (showEventLog && resourcesLoaded) notifications.drawLog(window, font); // team info
     }
 
     // 21. Help & Rules Manual Overlay — ALWAYS on top of everything (including pause menu)
     drawHelpOverlay(window);
+
+    // 22. team info: developer overlay ([F3]) above everything
+    drawDevOverlay(window);
 }
