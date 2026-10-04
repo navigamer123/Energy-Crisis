@@ -168,6 +168,15 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     sf::Text tHeader(font, toUtf8(pTag),
                      ui::fitTextSize(font, pTag, fontsize::Label, fontsize::Caption, headerMaxW, true));
     tHeader.setStyle(sf::Text::Bold);
+    // Still too wide at the smallest size: drop the key hint so the title stays clear of the tab
+    if (tHeader.getLocalBounds().size.x > headerMaxW) {
+      const size_t hint = pTag.rfind(" [");
+      if (hint != std::string::npos) {
+        pTag.erase(hint);
+        tHeader.setString(toUtf8(pTag));
+        tHeader.setCharacterSize(ui::fitTextSize(font, pTag, fontsize::Label, fontsize::Caption, headerMaxW, true));
+      }
+    }
     tHeader.setFillColor(accentColor);
     tHeader.setPosition({panelPos.x + 8.0f, panelPos.y + 6.0f});
     ui::drawText(window, tHeader);
