@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Energy Crisis · Волтова дъга</title>
+<link rel="stylesheet" href="fonts/faces.css">
+<style>
+/* Arcade Neon deck: navy ground, P1 cyan, P2 pink, logo teal and yellow. 16:9 stage scaled to the window. */
+:root {
+  --ground: #0b1424; --panel: #111d33; --line: #1f3355; --text: #e8f1ff; --muted: #9db0cf;
+  --cyan: #2ee6ff; --pink: #ff4fa3; --teal: #1fc7b6; --volt: #ffd23f;
+  --display: "Unbounded", "Bahnschrift", "Segoe UI", sans-serif;
+  --body: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #050a14; color: var(--text); font-family: var(--body); overflow: hidden; }
+#stage { position: absolute; left: 50%; top: 50%; width: 1600px; height: 900px; transform-origin: 0 0; }
+.slide { position: absolute; inset: 0; display: none; padding: 80px 96px 90px; gap: 56px;
+  background: radial-gradient(1200px 700px at 85% 10%, rgba(46,230,255,.10), transparent 60%),
+              radial-gradient(900px 600px at 0% 100%, rgba(255,79,163,.10), transparent 60%), var(--ground); }
+.slide.active { display: flex; animation: in .45s ease both; }
+@keyframes in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .slide.active { animation: none; } }
+.slide::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 8px;
+  background: repeating-linear-gradient(135deg, var(--volt) 0 18px, transparent 18px 36px); opacity: .55; }
+.copy { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+.media { flex: 1.15 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+.split.two .media figure { max-height: 340px; }
+.kicker { font-family: var(--mono); font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: var(--teal); }
+h2 { font-family: var(--display); font-weight: 700; font-size: 54px; line-height: 1.08; margin: 0; text-wrap: balance;
+  background: linear-gradient(90deg, var(--cyan), #9ff4ff 45%, var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+p { font-size: 27px; line-height: 1.45; margin: 0; color: var(--text); max-width: 34ch; }
+.text p, .title p { max-width: 52ch; }
+ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+li { font-size: 25px; line-height: 1.4; padding-left: 34px; position: relative; color: var(--text); }
+li::before { content: ""; position: absolute; left: 4px; top: .55em; width: 14px; height: 14px; border-radius: 3px;
+  background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+li:nth-child(even)::before { background: var(--pink); box-shadow: 0 0 12px var(--pink); }
+b { color: var(--volt); font-weight: 700; }
+code { font-family: var(--mono); font-size: .85em; color: var(--cyan); background: rgba(46,230,255,.08); padding: 1px 8px; border-radius: 6px; border: 1px solid rgba(46,230,255,.25); }
+figure { margin: 0; border-radius: 14px; overflow: hidden; border: 2px solid var(--line); background: #000;
+  box-shadow: 0 0 0 1px rgba(46,230,255,.25), 0 0 36px rgba(46,230,255,.18), 0 24px 60px rgba(0,0,0,.55); }
+figure img { display: block; width: 100%; height: 100%; object-fit: cover; }
+table { border-collapse: collapse; font-size: 21px; width: 100%; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--mono); font-size: 16px; letter-spacing: .08em; text-transform: uppercase; color: var(--teal); }
+td:first-child { color: var(--volt); font-weight: 700; }
+.title { flex-direction: column; justify-content: center; align-items: flex-start;
+  background: linear-gradient(90deg, rgba(11,20,36,.96) 0 45%, rgba(11,20,36,.55)), url(img/s01-intro.png) center/cover; }
+.title .copy { flex: 0 0 auto; max-width: 900px; }
+.title h2 { font-size: 92px; }
+.title::before { content: ""; position: absolute; right: 90px; top: 50%; width: 420px; height: 420px; transform: translateY(-50%);
+  background: url(img/logo.png) center/contain no-repeat; filter: drop-shadow(0 0 40px rgba(31,199,182,.5)); }
+.title .media { display: none; }
+.notes { display: none; }
+#bar { position: fixed; left: 0; bottom: 0; height: 4px; background: linear-gradient(90deg, var(--cyan), var(--pink)); transition: width .3s; }
+#count { position: fixed; right: 18px; bottom: 12px; font-family: var(--mono); font-size: 14px; color: var(--muted); }
+body.shownotes .slide.active .notes { display: block; position: absolute; left: 96px; right: 96px; bottom: 20px; font-size: 20px; color: var(--muted);
+  background: rgba(5,10,20,.9); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+@media print {
+  @page { size: 1600px 900px; margin: 0; }
+  html, body { overflow: visible; height: auto; background: var(--ground); }
+  #stage { position: static; transform: none !important; width: 1600px; height: auto; }
+  .slide { display: flex !important; position: relative; width: 1600px; height: 900px; page-break-after: always; animation: none !important; }
+  #bar, #count { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="stage">
+<section class="slide title" data-n="1"><div class="copy"><div class="kicker">01 · Енергийна криза</div><h2>Energy Crisis · Енергийна криза</h2><p><b>Битката за тока на града започва.</b></p><ul><li>Стратегия в реално време за двама играчи на един екран</li><li>Отбор „Волтова дъга“</li></ul></div><div class="media"><figure><img src="img/logo.png" alt=""></figure><figure><img src="img/s01-intro.png" alt=""></figure></div><aside class="notes">(0:00–0:15) Здравейте, ние сме отбор „Волтова дъга“, а това е Energy Crisis. Игра, в която двама играчи се борят да захранят един и същ град. Ще ви покажем защо това е по-трудно, отколкото звучи.</aside></section>
+<section class="slide split" data-n="2"><div class="copy"><div class="kicker">02 · Енергийна криза</div><h2>21:00 ч. Зимна вечер. Няма вятър.</h2><p><b>Слънцето залезе преди три часа, а целият град току-що пусна печките и телевизорите. Откъде ще дойде токът?</b></p></div><div class="media"><figure><img src="img/s05-night.png" alt=""></figure></div><aside class="notes">(0:15–0:30) Представете си, че отговаряте за тока на цял град точно в този момент. Слънчевите панели дават нула, турбините стоят. Този въпрос е в основата на нашата игра.</aside></section>
+<section class="slide text" data-n="3"><div class="copy"><div class="kicker">03 · Енергийна криза</div><h2>Проблемът: енергийният преход</h2><ul><li>България произвежда ток главно от АЕЦ „Козлодуй“ и въглищни централи като „Марица-изток“</li><li>Слънцето и вятърът са чисти, но <b>не работят по поръчка</b>: нощ, облаци, безветрие, зима</li><li>Най-голямото търсене е вечер (<b>вечерен пик</b>), точно когато слънцето вече е залязло</li><li>Истинският въпрос: <b>как да сменим източниците, без градът да угасне?</b></li></ul></div><aside class="notes">(0:30–0:55) Чистата енергия е лесна на хартия и трудна в девет вечерта. Слънцето дава най-много по обед, а хората имат нужда от ток вечер. Тази празнина между производството и търсенето е реален проблем за всяка енергийна система, включително нашата.</aside></section>
+<section class="slide split" data-n="4"><div class="copy"><div class="kicker">04 · Енергийна криза</div><h2>Играта с едно изречение</h2><p><b>Двама енергийни магнати захранват един град. Който го захранва по-надеждно, печели територия.</b></p><ul><li><b>Добиваш</b> ресурси → <b>строиш</b> централи → <b>захранваш</b> града</li><li>Всяка сутрин в <b>06:00</b> градът проверява кой се е справил по-добре</li><li>Победа при <b>85%</b> от града или най-голям дял след ден 20</li><li>Срещу приятел на една клавиатура или срещу бот</li></ul></div><div class="media"><figure><img src="img/wave-a-game.png" alt=""></figure></div><aside class="notes">(0:55–1:15) Лявата половина е Западът, дясната е Изтокът, а по средата е градът. Добиваш дърво, желязо, мед и силиций, строиш слънчеви панели, турбини, ВЕЦ и батерии. Цялата игра е тази проста верига, но всяко звено крие решение.</aside></section>
+<section class="slide split two" data-n="5"><div class="copy"><div class="kicker">05 · Енергийна криза</div><h2>Един ден от мача</h2><ul><li>Един игрови ден трае <b>90 секунди</b>, а мачът е около <b>20 дни</b> с <b>4 сезона</b></li><li>Време по сектори: слънце, дъжд, вятър, буря; зимата носи къс ден и сняг</li><li>Нощем слънцето дава 0 MW: печелят батериите, ВЕЦ и вятърът</li><li><b>06:00 · Отчет на града:</b> кой каква част от нуждата е покрил, до <b>12%</b> територия се мести</li></ul></div><div class="media"><figure><img src="img/s05-day.png" alt=""></figure><figure><img src="img/s05-night.png" alt=""></figure></div><aside class="notes">(1:15–1:40) За 20 минути играчът преживява цяла година. Всяка сутрин в 06:00 градът казва честно кой го е захранил. Ако сте пропуснали нощта, губите територия, колкото и мегавати да имате по обед.</aside></section>
+<section class="slide split" data-n="6"><div class="copy"><div class="kicker">06 · Енергийна криза</div><h2>Важно е кога, а не само колко</h2><ul><li><b>Крива на търсенето:</b> вечер (17–22 ч.) градът иска до <b>1,4 пъти</b> повече, а токът се плаща по-скъпо</li><li><b>Четири квартала:</b> болница (24/7), индустрия, бизнес, домове; токът първо отива в болницата</li><li><b>Честота на мрежата 50 Hz:</b> при внезапна загуба на мощност пада; под <b>49,2 Hz</b> мощността е 70%, под <b>48 Hz</b> идва затъмнение</li><li><b>Съхранение:</b> батериите са бърз резерв, ВЕЦ дава „инерция“ на мрежата</li></ul></div><div class="media"><figure><img src="img/s06-grid-center.png" alt=""></figure></div><aside class="notes">(1:40–2:05) Тук играта става истинска енергийна система. Една слънчева централа може да изглежда силна, но ако вечер няма резерв, честотата пада и градът угасва. Точно така работят и реалните мрежи.</aside></section>
+<section class="slide split" data-n="7"><div class="copy"><div class="kicker">07 · Енергийна криза</div><h2>Политика и пари</h2><ul><li><b>Градски събития:</b> 9 събития и 4 празника (Мартеница, Фестивал на розата…), обявени ден по-рано</li><li><b>Градски съвет:</b> три решения, двамата играчи гласуват тайно за 20 секунди</li><li><b>Договори и търгове:</b> градът предлага задачи, например „резерв в батериите за вечерния пик“</li><li><b>Борса и внос на ток:</b> всяка покупка вдига цената и за двамата; можеш да внесеш ток от съперника</li></ul></div><div class="media"><figure><img src="img/s07-council.png" alt=""></figure></div><aside class="notes">(2:05–2:25) Парите вече имат смисъл. Градът провежда търгове, съветът гласува, борсата реагира на търсенето. Съперникът може дори да ви продаде ток, ако реши, че това му е изгодно.</aside></section>
+<section class="slide split two" data-n="8"><div class="copy"><div class="kicker">08 · Енергийна криза</div><h2>Всеки мач е различен</h2><ul><li><b>5 карти и генератор</b>, всички огледални: равни шансове за двамата</li><li><b>Терен:</b> река за ВЕЦ, хълм за вятър, ливада за слънце, гейзер; реката е обща за двамата</li><li><b>Темп, мутатори и харти:</b> БЛИЦ за 10 минути, ВЕЧНА ЗИМА, Соларен кооператив и още</li><li><b>Лаборатория:</b> 3 клона × 3 нива, на всяко ниво избираш <b>1 от 2</b> технологии</li></ul></div><div class="media"><figure><img src="img/s08-match-setup.png" alt=""></figure><figure><img src="img/s08-research.png" alt=""></figure></div><aside class="notes">(2:25–2:40) Преди мача избирате карта, темп, мутатори и стартова харта, а по време на мача и технологии. Не можете да имате всичко: всяка технология затваря друга.</aside></section>
+<section class="slide split two" data-n="9"><div class="copy"><div class="kicker">09 · Енергийна криза</div><h2>Голямата енергия</h2><ul><li><b>АЕЦ:</b> 400 MW, но иска гориво всеки ден, загрява се цял ден и спира аварийно при мълния</li><li><b>Геотермална централа:</b> 70 MW денонощно, но само върху гейзер</li><li><b>Мегапроекти</b> от ден 8: Термоядрен реактор (500 MW), Космическа СЕЦ, ПАВЕЦ</li><li><b>Бедствия:</b> градушка, наводнение, пожар, земетресение; повредената сграда спира до ремонт</li></ul></div><div class="media"><figure><img src="img/s08-mega-site.png" alt=""></figure><figure><img src="img/s08-mega-progress.png" alt=""></figure></div><aside class="notes">(2:40–2:55) В късната игра идват големите решения. АЕЦ дава огромна мощност, но с гориво, бавен старт и риск. Мегапроектът се строи дни наред и двамата играчи виждат кой е по-близо до финала.</aside></section>
+<section class="slide split two" data-n="10"><div class="copy"><div class="kicker">10 · Енергийна криза</div><h2>Съперници с характер</h2><ul><li>Ботът следи нуждата на града като <b>регулатор</b>: ЛЕСНО строи под нея, ТРУДНО с резерв</li><li><b>5 характера:</b> Хидро Барон, Слънчев Спринтер, Буреносец, Скъперника, Минен Магнат</li><li>Ботът ремонтира, проучва технологии, гласува в съвета и строи АЕЦ</li><li><b>НЕВЪЗМОЖНО (ОМЕГА):</b> спечели <b>180 от 180</b> симулирани мача</li></ul></div><div class="media"><figure><img src="img/s09-rivals.png" alt=""></figure><figure><img src="img/s09-omega-banner.png" alt=""></figure></div><aside class="notes">(2:55–3:15) Всеки бот играе по свой начин: Хидро Барон залага на реката, Буреносец чака бурите. Нивото НЕВЪЗМОЖНО не е нагласено на око: пуснахме 180 симулирани мача и то спечели всичките. Тестът пада, ако загуби дори веднъж.</aside></section>
+<section class="slide split two" data-n="11"><div class="copy"><div class="kicker">11 · Енергийна криза</div><h2>Играта се вижда и чува</h2><ul><li><b>Кинематографично начало:</b> мълния удря логото и градът светва</li><li><b>Жив град:</b> небостъргачите растат и светят в цвета на играча, който ги захранва</li><li><b>Видима мрежа:</b> кабели и импулси, които текат по-бързо при повече MW</li><li><b>Авария в енергосистемата:</b> сирена и прозорците гаснат улица по улица</li><li><b>Процедурен звук:</b> 21 звука и музика, синтезирани от кода, без нито един звуков файл</li></ul></div><div class="media"><figure><img src="img/s10-blackout.png" alt=""></figure><figure><img src="img/s10-skyline.png" alt=""></figure></div><aside class="notes">(3:15–3:35) Искахме резултатът да се вижда без цифри. Когато някой не захрани града, чувате сирена и виждате как кварталите му угасват. А всеки звук, който ще чуете, е изчислен от програмата в момента.</aside></section>
+<section class="slide split" data-n="12"><div class="copy"><div class="kicker">12 · Енергийна криза</div><h2>Какво научава играчът</h2><ul><li><b>Енергиен микс:</b> няма един перфектен източник; печели този, който ги съчетава</li><li><b>CO₂:</b> играта брои спестените тонове (около 0,4 т на MWh чиста енергия)</li><li><b>Истински компромиси:</b> мощност срещу надеждност, евтино сега срещу сигурно вечер, риск срещу разнообразие</li><li>Всичко се вижда на живо в <b>енергийното табло</b> (Tab)</li></ul></div><div class="media"><figure><img src="img/s11-dashboard.png" alt=""></figure></div><aside class="notes">(3:35–3:55) Никой не чете учебник, докато играе, но след един мач всеки разбира защо батериите и ВЕЦ са толкова важни. Играчът сам открива, че само слънце или само вятър не стигат. Това е енергийният преход, преживян, а не наизустен.</aside></section>
+<section class="slide text" data-n="13"><div class="copy"><div class="kicker">13 · Енергийна криза</div><h2>Как е направена</h2><ul><li><b>C++17 + SFML 3</b>, без готов game engine</li><li><b>Детерминиран двигател:</b> фиксирана стъпка 1/60 s и RNG със seed; един seed дава един и същ мач при 30, 60 или 144 FPS</li><li><b>Правилата са отделени от графиката:</b> двигателят се тества <b>headless</b>, без прозорец</li><li><b>Процедурно съдържание:</b> иконите се рисуват с код, звукът се синтезира с код</li></ul></div><aside class="notes">(3:55–4:15) Написахме всичко на C++ със SFML, за да разберем как работи една игра отвътре. Правилата живеят отделно от картинката, затова можем да изиграем хиляди дни без прозорец. И понеже двигателят е детерминиран, един и същ seed дава абсолютно същия мач.</aside></section>
+<section class="slide text" data-n="14"><div class="copy"><div class="kicker">14 · Енергийна криза</div><h2>Качество в числа</h2><ul><li><b>48</b> поправени грешки, всяка с регресионен тест</li><li><b>Над 13 000</b> автоматични проверки и стрес тест: <b>360</b> пълни мача, около <b>35 милиона</b> кадъра, <b>21</b> правила след всяка стъпка</li><li><b>Layout lint:</b> автоматична проверка, че всеки текст се побира в своята рамка</li><li><b>Text pooling:</b> кадърът падна от <b>~70 ms</b> на <b>~16 ms</b></li></ul></div><aside class="notes">(4:15–4:35) Отнесохме се към играта като към истински продукт. Например градът отчиташе деня два пъти, а батериите създаваха енергия от нищото; всяка такава грешка вече има тест, който не позволява да се върне. Дори проверката дали надписите се побират е автоматична.</aside></section>
+<section class="slide split two" data-n="15"><div class="copy"><div class="kicker">15 · Енергийна криза</div><h2>Демо на живо: режим за журито (F9)</h2><ul><li><b>Един клавиш</b> пуска готов 3-минутен мач с надписи</li><li>Фиксиран seed и фиксирана стъпка: <b>всеки път е еднакво</b>, на сцената нищо не може да се обърка</li><li>Показва: добив, първи централи, ден и нощ, буря и мълния, отчети в 06:00, сезони, победа</li></ul></div><div class="media"><figure><img src="img/s14-cap-1.png" alt=""></figure><figure><img src="img/s14-cap-5.png" alt=""></figure></div><aside class="notes">(4:35–7:35) Сега ще видите играта на живо: натискаме F9 в главното меню. Говорим върху надписите: „Енергията буквално тече по кабелите към града“, „Слънцето залезе: който има батерии, продължава“, „Всяка сутрин градът проверява кой го е захранил“. Ако времето е малко, спираме след 1:30 с произволен клавиш.</aside></section>
+<section class="slide split two" data-n="16"><div class="copy"><div class="kicker">16 · Енергийна криза</div><h2>Благодарим ви!</h2><p><b>Energy Crisis превръща енергийния преход от урок в състезание.</b></p><ul><li>Отбор „Волтова дъга“</li><li>Кодът и документацията: github.com/navigamer123/Energy-Crisis</li><li>Въпроси?</li></ul></div><div class="media"><figure><img src="img/logo.png" alt=""></figure><figure><img src="img/s01-intro.png" alt=""></figure></div><aside class="notes">(7:35–8:00) Всеки член на отбора казва с едно изречение какво е направил. Завършваме с изречението от слайда и каним журито да опита играта: един от тях срещу друг или срещу бота на ТРУДНО.</aside></section>
+
+</div>
+<div id="bar"></div><div id="count"></div>
+<script>
+(function () {
+  var slides = [].slice.call(document.querySelectorAll('.slide'));
+  var stage = document.getElementById('stage');
+  var i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+  function fit() {
+    var s = Math.min(window.innerWidth / 1600, window.innerHeight / 900);
+    stage.style.transform = 'scale(' + s + ') translate(-50%, -50%)';
+    stage.style.transformOrigin = '0 0';
+    stage.style.left = '50%'; stage.style.top = '50%';
+    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+    stage.style.transformOrigin = 'center center';
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, k) { s.classList.toggle('active', k === i); });
+    document.getElementById('bar').style.width = ((i + 1) / slides.length * 100) + '%';
+    document.getElementById('count').textContent = (i + 1) + ' / ' + slides.length;
+    history.replaceState(null, '', '#' + (i + 1));
+  }
+  document.addEventListener('keydown', function (e) {
+    if (['ArrowRight', 'PageDown', ' ', 'Enter'].indexOf(e.key) >= 0) { e.preventDefault(); show(i + 1); }
+    else if (['ArrowLeft', 'PageUp', 'Backspace'].indexOf(e.key) >= 0) { e.preventDefault(); show(i - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key === 'n' || e.key === 'N') document.body.classList.toggle('shownotes');
+    else if (e.key === 'f' || e.key === 'F') { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+  });
+  document.addEventListener('click', function (e) { show(e.clientX > window.innerWidth / 3 ? i + 1 : i - 1); });
+  window.addEventListener('resize', fit);
+  if (location.search.indexOf('print') < 0) { fit(); show(i); }
+})();
+</script>
+</body>
+</html>
