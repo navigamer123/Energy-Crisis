@@ -4,6 +4,7 @@
 #include <iosfwd>
 #include <string>
 #include <vector>
+#include <iosfwd>
 #include <SFML/Graphics.hpp>
 #include "game_weather.h"
 #include "game_expedition.h"
@@ -289,6 +290,14 @@ public:
     int randInt(int lo, int hi) { return generalRng.range(lo, hi); } // inclusive range
     float randFloat() { return generalRng.unit(); }                   // [0, 1)
     SeasonType getSeason() const { return currentSeason; }
+
+    // --- Team b-session (F-18): disk save/load snapshot (Game/scr/game_save.cpp) ---
+    // Versioned key=value text with every piece of match state. loadSnapshot validates the whole
+    // snapshot first and leaves the engine untouched (returns false, sets *error) when it is bad.
+    // (Wave A adds saveState/loadState; the integrator can keep one of the two.)
+    static constexpr int SNAPSHOT_VERSION = 1;
+    bool saveSnapshot(std::ostream& out) const;
+    bool loadSnapshot(std::istream& in, std::string* error = nullptr);
 };
 
 #endif // GAME_MAIN_H

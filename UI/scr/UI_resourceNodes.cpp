@@ -5,6 +5,7 @@
 #include "../includes/UI_icons.h"
 #include "../includes/UI_buildings.h"
 #include <cstdio>
+#include "../includes/UI_input.h" // Team b-session (F-10): key hints from the real bindings
 #include "../includes/UI_types.h"
 #include <cmath>
 #include <string>
@@ -527,9 +528,13 @@ void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf:
         else if (type == BuildingType::BATTERY) costStr += " · започва от 0%";
         if (!missing.empty()) costStr = missing; // exactly what the player still has to mine
 
-        // Cancel keys are X (P1) / Del (P2); Q / PgUp only step back through the buildings
-        std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
-                                            : "[X/Del]: Отказ  |  [E]: Смени сграда";
+        // b-session (F-10): the keys of the player whose sector the ghost is in (west = P1)
+        const int ghostOwner = (pos.x < 800.0f) ? 1 : 2;
+        const InputRouter& keys = inputRouter();
+        std::string hint = isValidPlacement
+            ? keys.hint(ghostOwner, InputAction::Action, false) + ": Постави  |  " + keys.hint(ghostOwner, InputAction::Cancel, false) +
+                  ": Отказ  |  " + keys.hint(ghostOwner, InputAction::NextBuilding, false) + ": Смени"
+            : keys.hint(ghostOwner, InputAction::Cancel, false) + ": Отказ  |  " + keys.hint(ghostOwner, InputAction::NextBuilding, false) + ": Смени сграда";
 
         sf::Text t(font, toUtf8(label), fontsize::Label);
         t.setStyle(sf::Text::Bold);

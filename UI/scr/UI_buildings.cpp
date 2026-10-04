@@ -1,4 +1,5 @@
 #include "../includes/UI_buildings.h"
+#include "../includes/UI_input.h" // Team b-session (F-10): key hints from the real bindings
 #include "../includes/UI_types.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_icons.h"
@@ -147,8 +148,8 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
   ui::lint::ContainerScope panelScope(sf::FloatRect(panelPos, panelSize));
 
   if (fontLoaded) {
-    std::string pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
-                                          : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
+    std::string pTag = std::string(playerIndex == 1 ? "ПОСТРОЙКИ (ИГРАЧ 1) " : "ПОСТРОЙКИ (ИГРАЧ 2) ") +
+                       inputRouter().hint(playerIndex, InputAction::NextBuilding, false, 1); // b-session (F-10)
     sf::Text tHeader(font, toUtf8(pTag), fontsize::Label);
     tHeader.setStyle(sf::Text::Bold);
     tHeader.setFillColor(accentColor);

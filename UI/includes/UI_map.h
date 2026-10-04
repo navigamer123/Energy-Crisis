@@ -12,6 +12,8 @@
 #include "UI_buildings.h"
 #include "UI_bot.h"
 #include "UI_tutorial.h"
+#include "UI_settingsMenu.h" // Team b-session: settings overlay in the pause menu
+#include "UI_saveSystem.h"   // Team b-session: save slots
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -198,7 +200,52 @@ private:
     bool p2PrevUpgrade = false;
     bool helpOpenedFromPause = false;   // Closing help returns to this pause state
     int mouseOwnerAt(sf::Vector2f pos) const;                          // 0 = nobody, 1 = P1, 2 = P2
-    bool isModalDismissKey(int player, sf::Keyboard::Key code) const;  // That player's own confirm/cancel keys
+    // That player's own (rebindable) action/cancel keys close their dialog (b-session: InputMap)
+    bool isModalDismissKey(int player, const sf::Event::KeyPressed& key) const;
+
+    // --- Team b-session (F-02, F-05, F-06, F-10, F-18, UX-12, HX-15): session, saves, settings,
+    //     gamepads. Implemented in UI_map_session.cpp. ---
+    enum PauseOption { PAUSE_RESUME = 0, PAUSE_SAVELOAD, PAUSE_SETTINGS, PAUSE_RESTART, PAUSE_HELP, PAUSE_MENU, PAUSE_COUNT };
+    bool matchStarted = false;          // restartMatch()/loadFromFile() ran: a real match is in memory
+    int autosaveDay = 1;                // day of the last day-end autosave
+    int lastAutosaveDay = -1;           // clock of the last autosave: leaving the match twice at the
+    float lastAutosaveHour = -1.0f;     // same moment does not push older autosaves out
+    bool tutorialPolicyWatch = false;   // the tutorial policy showed the tutorial: remember when it ends
+    bool tutorialWatchCoop = false;
+    bool p2PrevNum[7] = { false, false, false, false, false, false, false }; // P2 quick-select edges
+    UI_settingsMenu settingsOverlay;    // НАСТРОЙКИ from the pause menu
+    bool savePanelOpen = false;         // ЗАПИС / ЗАРЕЖДАНЕ from the pause menu
+    int saveRow = 0;                    // 0..saves::SLOT_COUNT-1, SLOT_COUNT = НАЗАД
+    int saveCol = 0;                    // 0 = ЗАПИШИ, 1 = ЗАРЕДИ
+    int saveOverwriteArmed = -1;        // slot whose ЗАПИШИ must be pressed again to overwrite
+    std::string saveStatus;
+    bool saveStatusError = false;
+    sf::Clock saveStatusClock;
+    SaveInfo saveSlots[saves::SLOT_COUNT];
+    sf::Vector2f lastSaveMouse{ -999.0f, -999.0f };
+
+    bool shouldShowTutorial(BotDifficulty diff) const;  // tutorial policy from the settings
+    void updateSession(float dt);                       // day-end autosave, tutorial bookkeeping
+    bool handleSessionEvent(const sf::Event& event, const sf::RenderWindow& window); // true = consumed
+    void drawSessionOverlays(sf::RenderWindow& window);
+    void activatePauseOption(int option);
+    void openSavePanel();
+    void refreshSaveSlots();
+    void setSaveStatus(const std::string& text, bool error);
+    bool saveToSlot(int slot);
+    bool loadFromSlot(int slot);
+    bool loadFromText(const std::string& text, const std::string& path, std::string& error); // path: for the log
+    void quickSave();
+    void quickLoad();
+    void handleSavePanelEvent(const sf::Event& event, const sf::RenderWindow& window);
+    void drawSavePanel(sf::RenderWindow& window);
+    sf::FloatRect savePanelRect() const;
+    sf::FloatRect saveButtonRect(int row, int col) const;
+    sf::View pauseView(const sf::RenderWindow& window) const;   // UI-scale zoom of the pause card
+    sf::View victoryView(const sf::RenderWindow& window) const; // ... of the victory card
+    sf::View helpView(const sf::RenderWindow& window) const;    // ... of the help card
+    std::string keyHint(int player, InputAction action) const;  // generated "[E]" / "[E/PgDn] (RB)" hint
+    std::string hudHintText() const;                            // bottom key-hint bar text
 
 public:
     UI_map();
@@ -233,6 +280,17 @@ public:
     // (game, mining, night, winter, storm, victory, pause, help, modal, tutorial) using only the public
     // engine API. frames = frames the capture will render (used to time a lightning bolt).
     void setupDebugScene(const std::string& scene, int frames);
+
+    // --- Team b-session (F-02, F-05, F-18): continue, saves and gamepads (UI_map_session.cpp) ---
+    bool hasMatchInProgress() const;      // a started, unfinished match is in memory
+    std::string matchSummary() const;     // "Ден 5 · 13:30 · Срещу бот (Среден)"
+    void openPauseMenu();                 // ПРОДЪЛЖИ from the main menu lands on the pause menu
+    bool saveToFile(const std::string& path, std::string& error) const;
+    bool loadFromFile(const std::string& path, std::string& error); // the match is untouched on failure
+    bool writeAutosave();                 // oldest of auto1-3; no-op when disabled or nothing to save
+    bool wantsMenuInput() const;          // a menu-like overlay is open (gamepad = menu navigation)
+    void onGamepadPress(unsigned int joystickId, unsigned int button); // A/B for dialogs and the tutorial
+    void onGamepadConnection(unsigned int joystickId, bool connected); // notice / auto-pause
 };
 
 #endif // UI_MAP_H

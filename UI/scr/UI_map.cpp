@@ -67,20 +67,18 @@ void UI_map::setControlScheme(ControlScheme scheme) {
 
 void UI_map::setBotDifficulty(BotDifficulty diff) {
     bot.init(diff);
-    if (!resourcesLoaded) {
-        // No font: the tutorial cannot be drawn, so never leave it active (it would invisibly
-        // swallow input and keep the bot frozen).
-        tutorial.setCoop(diff == BotDifficulty::NONE);
-        tutorial.skip();
-    } else if (diff == BotDifficulty::HARD) {
-        tutorial.setCoop(false);
-        tutorial.skip(); // Hard mode: skip tutorial for advanced players
-    } else if (diff == BotDifficulty::NONE) {
-        tutorial.setCoop(true);
-        tutorial.start(); // Co-op mode: show tutorial for 2 players
+    // Team b-session (F-06): the tutorial policy from НАСТРОЙКИ decides (АВТОМАТИЧНО: until it was
+    // finished or skipped once per mode, never on HARD; ВИНАГИ; НИКОГА). Co-op / single-player hints.
+    tutorial.setCoop(diff == BotDifficulty::NONE);
+    if (resourcesLoaded && shouldShowTutorial(diff)) {
+        tutorial.start();
+        tutorialPolicyWatch = true;
+        tutorialWatchCoop = (diff == BotDifficulty::NONE);
     } else {
-        tutorial.setCoop(false);
-        tutorial.start(); // Easy / Medium: show single player tutorial
+        // Also without a font: the tutorial cannot be drawn, so never leave it active (it would
+        // invisibly swallow input and keep the bot frozen).
+        tutorial.skip();
+        tutorialPolicyWatch = false;
     }
     std::cout << "[UI_map] Bot difficulty set to: " << static_cast<int>(diff) << "\n";
 }
@@ -245,6 +243,12 @@ void UI_map::restartMatch() {
     // Do not let the time spent in menus/pause leak into the first frame of the new match
     deltaClock.restart();
 
+    // Team b-session (F-02, F-18): a real match is now in memory (ПРОДЪЛЖИ, autosaves)
+    matchStarted = true;
+    autosaveDay = engine.getCurrentDay();
+    settingsOverlay.close();
+    savePanelOpen = false;
+
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, theme::Good);
 }
 
@@ -268,6 +272,7 @@ void UI_map::render(sf::RenderWindow& window) {
         updateWeatherParticles(dt);
         tutorial.update(dt, engine);
     }
+    updateSession(dt); // Team b-session: day-end autosave, tutorial policy, gamepad assignment
 
     // Screenshot storm scene: fire one harmless bolt into the stormy sector just before the capture
     if (debugBoltCountdown >= 0 && debugBoltCountdown-- == 0) {
@@ -398,12 +403,22 @@ void UI_map::render(sf::RenderWindow& window) {
     drawFloatingNotices(window);
 
     // 20. Pause Menu (drawn before help so help is layered on top)
+    // Team b-session (UX-12): the cards are drawn with the UI-scale zoom (hit tests use the same views)
+    const sf::View baseView = window.getView();
     if (engine.getCityState().winner != 0) {
+        window.setView(victoryView(window));
         drawVictoryScreen(window);
     } else if (isPaused) {
+        window.setView(pauseView(window));
         drawPauseMenu(window);
     }
+    window.setView(baseView);
 
     // 21. Help & Rules Manual Overlay — ALWAYS on top of everything (including pause menu)
+    if (showHelpOverlay) window.setView(helpView(window));
     drawHelpOverlay(window);
+    window.setView(baseView);
+
+    // 22. Team b-session: settings / save panel / save toast on top of everything
+    drawSessionOverlays(window);
 }

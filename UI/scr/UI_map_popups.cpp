@@ -3,6 +3,7 @@
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
 #include "../includes/UI_icons.h"
+#include "../includes/UI_settings.h" // Team b-session (F-06): popup duration
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -52,8 +53,8 @@ void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std:
     pop.detail = detail;
     pop.action = action;
     pop.accentColor = accent;
-    pop.timer = 4.0f;
-    pop.maxTimer = 4.0f;
+    pop.timer = gameSettings().popupSeconds; // b-session (F-06): НАСТРОЙКИ > ИГРА
+    pop.maxTimer = gameSettings().popupSeconds;
     pop.active = true;
 }
 
@@ -265,9 +266,10 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         btn.setOutlineColor(btnHover ? theme::Focus : theme::Good);
         window.draw(btn);
 
-        sf::Text tOk(font, toUtf8(pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]"), fontsize::Label);
+        sf::Text tOk(font, toUtf8("РАЗБРАХ " + keyHint(pIdx, InputAction::Action)), fontsize::Label); // b-session (F-10)
         tOk.setStyle(sf::Text::Bold);
         tOk.setFillColor(theme::TextPrimary);
+        while (tOk.getLocalBounds().size.x > m.okBtn.size.x - 8.0f && tOk.getCharacterSize() > 9) tOk.setCharacterSize(tOk.getCharacterSize() - 1);
         sf::FloatRect ob = tOk.getLocalBounds();
         tOk.setPosition({ m.okBtn.position.x + (m.okBtn.size.x - ob.size.x) / 2.0f - ob.position.x,
                           m.okBtn.position.y + (m.okBtn.size.y - ob.size.y) / 2.0f - ob.position.y });
@@ -330,8 +332,8 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         }
     };
 
-    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, "[SPACE]", p1ResourceCooldown);
-    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, "[ENTER]", p2ResourceCooldown);
+    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, keyHint(1, InputAction::Action), p1ResourceCooldown); // b-session (F-10)
+    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, keyHint(2, InputAction::Action), p2ResourceCooldown);
 
     // The 6x mining speed-up is shown inside each player's clock card (UI_clock)
 }

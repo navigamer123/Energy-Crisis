@@ -118,7 +118,7 @@ void UI_map::updateWeatherParticles(float dt) {
 
             triggerPlayerPopup(sector, "МЪЛНИЯ!", "Унищожено съоръжение!",
                                "Мълния унищожи " + cost.nameBg + "!\nКлетката се освободи за нов строеж (ВЕЦ/друг).",
-                               "[SPACE/Клик]: Постройте ново съоръжение", sf::Color(255, 230, 80));
+                               keyHint(sector, InputAction::Action) + ": Постройте ново съоръжение" /* b-session (F-10) */, sf::Color(255, 230, 80));
 
             spawnNotice("СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!", strikePos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 80, 80));
             triggerLightningStrike(strikePos, true);

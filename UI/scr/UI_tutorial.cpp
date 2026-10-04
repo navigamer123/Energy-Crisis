@@ -2,6 +2,8 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_input.h" // Team b-session (F-10): key hints from the real bindings
+#include "../includes/UI_settings.h"
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -294,7 +296,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                                              { st->bounds.size.x + 10.0f, st->bounds.size.y + 10.0f });
                 drawSpotlight(window, spotlightRect, animTime);
                 arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                arrowLabel = "СТАНЦИЯ ГОРА [SPACE]";
+                arrowLabel = "СТАНЦИЯ ГОРА " + inputRouter().hint(1, InputAction::Action, false, 1);
                 drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::DOWN);
             }
             break;
@@ -306,7 +308,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                                              { st->bounds.size.x + 10.0f, st->bounds.size.y + 10.0f });
                 drawSpotlight(window, spotlightRect, animTime);
                 arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                arrowLabel = "ДОБИВ: ЖЕЛЯЗО [SPACE]";
+                arrowLabel = "ДОБИВ: ЖЕЛЯЗО " + inputRouter().hint(1, InputAction::Action, false, 1);
                 drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::DOWN);
             }
             break;
@@ -318,7 +320,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                                              { st->bounds.size.x + 10.0f, st->bounds.size.y + 10.0f });
                 drawSpotlight(window, spotlightRect, animTime);
                 arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                arrowLabel = "ДОБИВ: МЕД [SPACE]";
+                arrowLabel = "ДОБИВ: МЕД " + inputRouter().hint(1, InputAction::Action, false, 1);
                 drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::DOWN);
             }
             break;
@@ -330,7 +332,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                                              { st->bounds.size.x + 10.0f, st->bounds.size.y + 10.0f });
                 drawSpotlight(window, spotlightRect, animTime);
                 arrowTarget = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                arrowLabel = "ДОБИВ: СИЛИЦИЙ [SPACE]";
+                arrowLabel = "ДОБИВ: СИЛИЦИЙ " + inputRouter().hint(1, InputAction::Action, false, 1);
                 drawArrow(window, arrowTarget, arrowLabel, font, animTime, ArrowDir::DOWN);
             }
             break;
@@ -349,7 +351,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             sf::Vector2f slot = engine.getGridSlot(1, 1, 0);
             spotlightRect = sf::FloatRect({ slot.x - 20.0f, slot.y - 20.0f }, { 40.0f, 40.0f });
             drawSpotlight(window, spotlightRect, animTime);
-            arrowLabel = "ПОСТАВЕТЕ ТУК [SPACE]";
+            arrowLabel = "ПОСТАВЕТЕ ТУК " + inputRouter().hint(1, InputAction::Action, false, 1);
             drawArrow(window, slot, arrowLabel, font, animTime, ArrowDir::DOWN);
             break;
         }
@@ -372,6 +374,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     std::string nextBtnLabel = "НАПРЕД [SPACE]";
     // Enter and the mouse act for Player 1 only in Single Player (in co-op they belong to P2's scheme)
     const std::string altActionKeys = isCoop ? "" : " (или Enter / Ляв клик)";
+    const std::string actKey = inputRouter().hint(1, InputAction::Action, false, 1); // b-session (F-10): real keys
 
     switch (step) {
         case TutorialStep::WELCOME:
@@ -379,7 +382,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             titleText = "ДОБРЕ ДОШЛИ В ENERGY CRISIS!";
             descText = "Целта е да захраните града с чиста електроенергия!\n"
                        "Започвате от нулата — първо трябва да добиете нужните суровини за Слънчев панел.\n"
-                       "Движете се с [W/A/S/D] или [СТРЕЛКИ]. Действие: [SPACE] или [ENTER].";
+                       "Движение: " + inputRouter().moveHint(1) + ". Действие: " + actKey + ".";
             showNextBtn = true;
             nextBtnLabel = "ЗАПОЧНИ [SPACE]";
             break;
@@ -387,7 +390,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         case TutorialStep::GATHER_WOOD:
             badgeText = "СТЪПКА 1 / 6: СЪБИРАНЕ НА РЕСУРСИ";
             titleText = "ДОБИЙТЕ ДЪРВЕСИНА ОТ СТАНЦИЯ 'ГОРА'";
-            descText = "Застанете върху осветената станция ГОРА и натиснете [SPACE]" + altActionKeys + ".\n"
+            descText = "Застанете върху осветената станция ГОРА и натиснете " + actKey + altActionKeys + ".\n"
                        "Всеки удар добива дърво за склада ви. Нужно за панел: 6 Дърво.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.wood) / 6.0f);
             progressText = "Дървесина: " + std::to_string(econ.wood) + " / 6" + (econ.wood >= 6 ? "  [ГОТОВО!]" : "");
@@ -396,7 +399,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         case TutorialStep::GATHER_IRON:
             badgeText = "СТЪПКА 2 / 6: СЪБИРАНЕ НА РЕСУРСИ";
             titleText = "ДОБИЙТЕ ЖЕЛЯЗО ЗА РАМКАТА";
-            descText = "Отлично! Преместете се върху станция ЖЕЛЯЗО и натиснете [SPACE].\n"
+            descText = "Отлично! Преместете се върху станция ЖЕЛЯЗО и натиснете " + actKey + ".\n"
                        "Желязото осигурява стабилна носеща конструкция. Нужно: 4 Желязо.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.iron) / 4.0f);
             progressText = "Желязо: " + std::to_string(econ.iron) + " / 4" + (econ.iron >= 4 ? "  [ГОТОВО!]" : "");
@@ -405,7 +408,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         case TutorialStep::GATHER_COPPER:
             badgeText = "СТЪПКА 3 / 6: СЪБИРАНЕ НА РЕСУРСИ";
             titleText = "ДОБИЙТЕ МЕД ЗА ЕЛЕКТРОПРОВОДИТЕ";
-            descText = "Чудесно! Отидете върху станция МЕД и натиснете [SPACE] за добив.\n"
+            descText = "Чудесно! Отидете върху станция МЕД и натиснете " + actKey + " за добив.\n"
                        "Медта провежда изработения ток към централната мрежа. Нужно: 6 Мед.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.copper) / 6.0f);
             progressText = "Мед: " + std::to_string(econ.copper) + " / 6" + (econ.copper >= 6 ? "  [ГОТОВО!]" : "");
@@ -414,7 +417,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         case TutorialStep::GATHER_SILICON:
             badgeText = "СТЪПКА 4 / 6: СЪБИРАНЕ НА РЕСУРСИ";
             titleText = "ДОБИЙТЕ СИЛИЦИЙ ЗА СОЛАРНИТЕ КЛЕТКИ";
-            descText = "Силицият е на втория ред. Отидете върху станция СИЛИЦИЙ и натиснете [SPACE].\n"
+            descText = "Силицият е на втория ред. Отидете върху станция СИЛИЦИЙ и натиснете " + actKey + ".\n"
                        "Той преобразува слънчевата светлина в електричество. Нужно: 8 Силиций.";
             progressRatio = std::min(1.0f, static_cast<float>(econ.silicon) / 8.0f);
             progressText = "Силиций: " + std::to_string(econ.silicon) + " / 8" + (econ.silicon >= 8 ? "  [ГОТОВО!]" : "");
@@ -423,8 +426,8 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         case TutorialStep::SELECT_SOLAR:
             badgeText = "СТЪПКА 5 / 6: ИЗБОР И ОТКАЗ";
             titleText = "ИЗБЕРЕТЕ СЛЪНЧЕВ ПАНЕЛ ЗА СТРОЕЖ";
-            descText = "Натиснете клавиш [1] (или [E] / [PgDn]), за да изберете Слънчев панел.\n"
-                       "СЪВЕТ: Ако решите да се откажете от строеж, натиснете [X] (или Десен клик / Delete)!";
+            descText = "Натиснете клавиш " + inputRouter().hint(1, InputAction::Quick1, false, 1) + " (или " + inputRouter().hint(1, InputAction::NextBuilding, false) + "), за да изберете Слънчев панел.\n" +
+                       "СЪВЕТ: Ако решите да се откажете от строеж, натиснете " + inputRouter().hint(1, InputAction::Cancel, false) + " (или десен клик)!";
             progressRatio = 1.0f;
             progressText = "Ресурси: ГОТОВИ!  [Натиснете 1 за избор]";
             break;
@@ -433,7 +436,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             badgeText = "СТЪПКА 6 / 6: СТРОИТЕЛСТВО";
             titleText = "ПОСТАВЕТЕ ПАНЕЛА ВЪРХУ ВАШАТА ЗЕМЯ";
             descText = "Преместете курсора си върху маркираната свободна клетка от вашия парцел.\n"
-                       "Натиснете [SPACE]" + altActionKeys + ", за да завършите строежа!";
+                       "Натиснете " + actKey + altActionKeys + ", за да завършите строежа!";
             progressRatio = 0.5f;
             progressText = "Позиционирайте курсора и натиснете [SPACE] / [ENTER]";
             break;
@@ -479,23 +482,23 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         std::string p1Hint;
         if (isCoop) {
             if (step == TutorialStep::SELECT_SOLAR) {
-                p1Hint = "P1: [1] Избери Слънчев панел  |  [X] Отказ";
+                p1Hint = "P1: " + inputRouter().hint(1, InputAction::Quick1, false) + " Избери Слънчев панел  |  " + inputRouter().hint(1, InputAction::Cancel, false) + " Отказ";
             } else if (step == TutorialStep::PLACE_SOLAR) {
-                p1Hint = "P1: [SPACE] Строеж  |  [X] Отказ";
+                p1Hint = "P1: " + inputRouter().hint(1, InputAction::Action, false) + " Строеж  |  " + inputRouter().hint(1, InputAction::Cancel, false) + " Отказ";
             } else if (step == TutorialStep::COMPLETED) {
                 p1Hint = "P1: [SPACE] Продължи";
             } else {
-                p1Hint = "P1: [W/A/S/D] Движение  |  [SPACE] Добив";
+                p1Hint = "P1: " + inputRouter().moveHint(1) + " Движение  |  " + inputRouter().hint(1, InputAction::Action, false, 1) + " Добив";
             }
         } else {
             if (step == TutorialStep::SELECT_SOLAR) {
-                p1Hint = "[1] или [E] - Избери Слънчев панел  |  [X] Отказ";
+                p1Hint = inputRouter().hint(1, InputAction::Quick1, false, 1) + " или " + inputRouter().hint(1, InputAction::NextBuilding, false, 1) + " - Избери Слънчев панел  |  " + inputRouter().hint(1, InputAction::Cancel, false) + " Отказ";
             } else if (step == TutorialStep::PLACE_SOLAR) {
-                p1Hint = "[SPACE] или [ENTER] - Строеж  |  [X] Отказ";
+                p1Hint = inputRouter().hint(1, InputAction::Action, false) + " - Строеж  |  " + inputRouter().hint(1, InputAction::Cancel, false) + " Отказ";
             } else if (step == TutorialStep::COMPLETED) {
                 p1Hint = "[SPACE] или [ENTER] - Продължи";
             } else {
-                p1Hint = "[W/A/S/D] или [СТРЕЛКИ] - Движение  |  [SPACE] - Добив";
+                p1Hint = inputRouter().moveHint(1) + " или " + inputRouter().moveHint(2) + " - Движение  |  " + inputRouter().hint(1, InputAction::Action, false) + " - Добив";
             }
         }
 
@@ -524,10 +527,11 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
 
         // Player 2 Cursor hint in Co-op mode
         if (isCoop) {
-            std::string p2Hint = (step == TutorialStep::SELECT_SOLAR) ? "P2: [PgDn] Сграда  |  [Del] Отказ"
-                               : (step == TutorialStep::PLACE_SOLAR)  ? "P2: [ENTER] Строеж  |  [Del] Отказ"
-                               : (step == TutorialStep::COMPLETED)    ? "P2: [ENTER] Продължи"
-                                                                      : "P2: [СТРЕЛКИ] Движение  |  [ENTER] Добив";
+            const InputRouter& k2 = inputRouter(); // b-session (F-10): P2's real keys
+            std::string p2Hint = (step == TutorialStep::SELECT_SOLAR) ? "P2: " + k2.hint(2, InputAction::NextBuilding, false, 1) + " Сграда  |  " + k2.hint(2, InputAction::Cancel, false, 1) + " Отказ"
+                               : (step == TutorialStep::PLACE_SOLAR)  ? "P2: " + k2.hint(2, InputAction::Action, false, 1) + " Строеж  |  " + k2.hint(2, InputAction::Cancel, false, 1) + " Отказ"
+                               : (step == TutorialStep::COMPLETED)    ? std::string("P2: [ENTER] Продължи")
+                                                                      : "P2: " + k2.moveHint(2) + " Движение  |  " + k2.hint(2, InputAction::Action, false, 1) + " Добив";
             sf::Text p2Tag(font, toUtf8(p2Hint), fontsize::Caption);
             p2Tag.setFillColor(theme::P2Light);
             sf::FloatRect p2b = p2Tag.getLocalBounds();
