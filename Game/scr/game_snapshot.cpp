@@ -194,7 +194,7 @@ bool GameEngine::saveState(std::ostream& out) const {
         .i(p1WindDirection).i(p2WindDirection);
     w.endl();
 
-    w.tag("city").i(city.cityEnergyDemand).f(city.p1CityShare).f(city.p1DailyDelivered).f(city.p2DailyDelivered)
+    w.tag("city").i(city.cityEnergyDemand).f(city.p1CityShare).d(city.p1DailyDelivered).d(city.p2DailyDelivered)
         .f(city.dailySeconds).i(city.winner).s(city.lastCutMessage);
     w.endl();
 
@@ -279,8 +279,8 @@ bool GameEngine::loadState(std::istream& in) {
     s.p2Weather = static_cast<WeatherType>(w2);
 
     CityConquestState& cs = s.city;
-    if (!r.tag("city") || !r.i(cs.cityEnergyDemand) || !r.f(cs.p1CityShare) || !r.f(cs.p1DailyDelivered) ||
-        !r.f(cs.p2DailyDelivered) || !r.f(cs.dailySeconds) || !r.i(cs.winner, 0, 3) || !r.s(cs.lastCutMessage)) {
+    if (!r.tag("city") || !r.i(cs.cityEnergyDemand) || !r.f(cs.p1CityShare) || !r.d(cs.p1DailyDelivered) ||
+        !r.d(cs.p2DailyDelivered) || !r.f(cs.dailySeconds) || !r.i(cs.winner, 0, 3) || !r.s(cs.lastCutMessage)) {
         return false;
     }
 
