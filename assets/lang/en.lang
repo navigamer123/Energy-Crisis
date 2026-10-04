@@ -113,6 +113,9 @@ menu.hint_difficulty = Navigate: [Arrows / W,S] | Start: [Enter / Space] | Cance
 # ============================================================================
 # UI/scr/UI_mainMenu.cpp:289
 settings.title = SETTINGS
+settings.language = Language:
+settings.lang_bg = BULGARIAN
+settings.lang_en = ENGLISH
 # UI/scr/UI_mainMenu.cpp:307
 settings.volume = Volume:
 # UI/scr/UI_mainMenu.cpp:333
@@ -129,10 +132,12 @@ settings.diff_easy = EASY
 settings.diff_normal = MEDIUM
 # UI/scr/UI_mainMenu.cpp:359
 settings.diff_hard = HARD
+settings.controls = Controls:
+settings.remap = REBIND KEYS
 # UI/scr/UI_mainMenu.cpp:367
-settings.note_audio = Sound is not implemented yet: audio settings have no effect.
+settings.note_audio = Sound and music are synthesised in real-time; changes apply instantly.
 # UI/scr/UI_mainMenu.cpp:368
-settings.note_difficulty = Bot difficulty sets the default choice for SINGLE PLAYER.
+settings.note_difficulty = Rebind individual keys for Player 1 and Player 2 in the Controls menu.
 # UI/scr/UI_mainMenu.cpp:386
 settings.hint = Navigate: [W/S or Arrows] | Change: [A/D or Enter]
 

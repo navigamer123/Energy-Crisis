@@ -3,6 +3,8 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_settings.h"
+#include "../includes/UI_lang.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -32,10 +34,11 @@ UI_mainMenu::UI_mainMenu()
       selectedDifficultyIndex(1),
       selectedSettingsIndex(0),
       selectedBotDifficulty(BotDifficulty::NONE),
-      volume(80),
-      soundEffects(true),
-      settingsDifficultyIndex(1),
+      volume(UI_settings::get().getVolume()),
+      soundEffects(UI_settings::get().isSoundEffectsEnabled()),
+      settingsDifficultyIndex(UI_settings::get().getBotDifficultyIndex()),
       fontLoaded(false) {
+    Lang::load(UI_settings::get().getLanguage());
     if (font.openFromFile("assets/font.ttf")) {
         fontLoaded = true;
     } else {
@@ -47,7 +50,7 @@ UI_mainMenu::UI_mainMenu()
     } else {
         std::cerr << "[UI_mainMenu] Warning: Failed to load assets/logo.png (text title shown instead)\n";
     }
-    std::cout << "[UI_mainMenu] SFML Main Menu with Mode & Difficulty selection ready.\n";
+    std::cout << "[UI_mainMenu] SFML Main Menu with Mode, Difficulty & Settings ready.\n";
 }
 
 UI_mainMenu::~UI_mainMenu() {
@@ -125,7 +128,7 @@ void UI_mainMenu::drawHeader(sf::RenderWindow& window, bool large) {
 
     if (fontLoaded) {
         // Subtitle
-        sf::Text& subtitle = ui::pooledText(font, toUtf8("УПРАВЛЕНИЕ НА ЕНЕРГИЙНАТА МРЕЖА И РЕСУРСИТЕ"), fontsize::H2);
+        sf::Text& subtitle = ui::pooledText(font, toUtf8(Lang::tr("menu.subtitle")), fontsize::H2);
         subtitle.setFillColor(theme::TextSecondary);
         sf::FloatRect subBounds = subtitle.getLocalBounds();
         subtitle.setPosition({ (screenWidth - subBounds.size.x) / 2.0f, subtitleY });
@@ -193,12 +196,12 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     const sf::Color defaultBtn = theme::Button;
     const sf::Color whiteText = theme::TextPrimary;
 
-    drawButton(window, playBtn, toUtf8("ИГРАЙ"), defaultBtn, theme::GoodFill, whiteText, selectedMainIndex == 0);
-    drawButton(window, settingsBtn, toUtf8("НАСТРОЙКИ"), defaultBtn, theme::InfoFill, whiteText, selectedMainIndex == 1);
-    drawButton(window, quitBtn, toUtf8("ИЗХОД"), defaultBtn, theme::BadFill, whiteText, selectedMainIndex == 2);
+    drawButton(window, playBtn, toUtf8(Lang::tr("menu.play")), defaultBtn, theme::GoodFill, whiteText, selectedMainIndex == 0);
+    drawButton(window, settingsBtn, toUtf8(Lang::tr("menu.settings")), defaultBtn, theme::InfoFill, whiteText, selectedMainIndex == 1);
+    drawButton(window, quitBtn, toUtf8(Lang::tr("menu.quit")), defaultBtn, theme::BadFill, whiteText, selectedMainIndex == 2);
 
     if (fontLoaded) {
-        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_main")), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, MAIN_BTN_Y[2] + MAIN_BTN_H + 34.0f });
@@ -232,16 +235,16 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
     const sf::Color defaultBtn = theme::Button;
     const sf::Color whiteText = theme::TextPrimary;
 
-    drawButton(window, coopBtn, toUtf8("ДВАМА ИГРАЧИ (1 СРЕЩУ 1)"), defaultBtn, theme::GoodFill, whiteText, selectedModeIndex == 0);
-    drawButton(window, singleBtn, toUtf8("ЕДИН ИГРАЧ (СРЕЩУ БОТ)"), defaultBtn, theme::InfoFill, whiteText, selectedModeIndex == 1);
-    drawButton(window, backBtn, toUtf8("НАЗАД"), defaultBtn, theme::ButtonHover, whiteText, selectedModeIndex == 2);
+    drawButton(window, coopBtn, toUtf8(Lang::tr("menu.mode_coop")), defaultBtn, theme::GoodFill, whiteText, selectedModeIndex == 0);
+    drawButton(window, singleBtn, toUtf8(Lang::tr("menu.mode_single")), defaultBtn, theme::InfoFill, whiteText, selectedModeIndex == 1);
+    drawButton(window, backBtn, toUtf8(Lang::tr("common.back")), defaultBtn, theme::ButtonHover, whiteText, selectedModeIndex == 2);
 
     if (fontLoaded) {
         std::string desc = (selectedModeIndex == 0)
-            ? "Двама играчи се състезават на един компютър: западен и източен сектор"
+            ? Lang::tr("menu.mode_coop_desc")
             : (selectedModeIndex == 1)
-                ? "Играйте срещу компютърен противник (ботът управлява източния сектор)"
-                : "Връщане към главното меню";
+                ? Lang::tr("menu.mode_single_desc")
+                : Lang::tr("menu.mode_back_desc");
 
         sf::Text& tDesc = ui::pooledText(font, toUtf8(desc), fontsize::Body);
         tDesc.setFillColor(theme::TextSecondary);
@@ -249,7 +252,7 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
         tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 2.0f * spacing + 78.0f });
         ui::drawText(window, tDesc);
 
-        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Space] | Отказ: [ESC]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_mode")), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 112.0f });
@@ -285,19 +288,19 @@ void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
     const sf::Color defaultBtn = theme::Button;
     const sf::Color whiteText = theme::TextPrimary;
 
-    drawButton(window, easyBtn, toUtf8("ЛЕСЕН БОТ"), defaultBtn, theme::GoodFill, whiteText, selectedDifficultyIndex == 0);
-    drawButton(window, medBtn, toUtf8("СРЕДЕН БОТ"), defaultBtn, theme::WarnFill, whiteText, selectedDifficultyIndex == 1);
-    drawButton(window, hardBtn, toUtf8("ТРУДЕН БОТ"), defaultBtn, theme::BadFill, whiteText, selectedDifficultyIndex == 2);
-    drawButton(window, backBtn, toUtf8("НАЗАД"), defaultBtn, theme::ButtonHover, whiteText, selectedDifficultyIndex == 3);
+    drawButton(window, easyBtn, toUtf8(Lang::tr("menu.bot_easy")), defaultBtn, theme::GoodFill, whiteText, selectedDifficultyIndex == 0);
+    drawButton(window, medBtn, toUtf8(Lang::tr("menu.bot_medium")), defaultBtn, theme::WarnFill, whiteText, selectedDifficultyIndex == 1);
+    drawButton(window, hardBtn, toUtf8(Lang::tr("menu.bot_hard")), defaultBtn, theme::BadFill, whiteText, selectedDifficultyIndex == 2);
+    drawButton(window, backBtn, toUtf8(Lang::tr("common.back")), defaultBtn, theme::ButtonHover, whiteText, selectedDifficultyIndex == 3);
 
     if (fontLoaded) {
         std::string desc = (selectedDifficultyIndex == 0)
-            ? "По-бавен бот; строи базови солари и турбини (подходящ за учене)"
+            ? Lang::tr("menu.bot_easy_desc")
             : (selectedDifficultyIndex == 1)
-                ? "Балансиран бот; събира ресурси, строи батерии и нощни лампи"
+                ? Lang::tr("menu.bot_medium_desc")
                 : (selectedDifficultyIndex == 2)
-                    ? "Бърз и агресивен бот; купува земя, ъпгрейдва мини и оптимизира ток"
-                    : "Връщане към избор на режим";
+                    ? Lang::tr("menu.bot_hard_desc")
+                    : Lang::tr("menu.bot_back_desc");
 
         sf::Text& tDesc = ui::pooledText(font, toUtf8(desc), fontsize::Body);
         tDesc.setFillColor(theme::TextSecondary);
@@ -305,7 +308,7 @@ void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
         tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 3.0f * spacing + 70.0f });
         ui::drawText(window, tDesc);
 
-        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [Стрелки / W,S] | Старт: [Enter / Space] | Отказ: [ESC]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_difficulty")), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 3.0f * spacing + 102.0f });
@@ -317,10 +320,10 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     drawHeader(window);
 
     float screenWidth = VIRTUAL_WIDTH;
-    float panelWidth = 560.0f;
-    float panelHeight = 410.0f;
+    float panelWidth = 580.0f;
+    float panelHeight = 460.0f;
     float panelX = (screenWidth - panelWidth) / 2.0f;
-    float panelY = 185.0f;
+    float panelY = 155.0f;
 
     sf::RectangleShape panel({ panelWidth, panelHeight });
     panel.setPosition({ panelX, panelY });
@@ -333,7 +336,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     sf::Vector2f mousePos = ui::pointerPos(window);
 
     if (fontLoaded) {
-        sf::Text& sTitle = ui::pooledText(font, toUtf8("НАСТРОЙКИ"), fontsize::H1);
+        sf::Text& sTitle = ui::pooledText(font, toUtf8(Lang::tr("settings.title")), fontsize::H1);
         sTitle.setStyle(sf::Text::Bold);
         sTitle.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = sTitle.getLocalBounds();
@@ -341,9 +344,33 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
         ui::drawText(window, sTitle);
     }
 
-    // Row 0: Volume
-    sf::FloatRect volRow({ panelX + 30.0f, panelY + 68.0f }, { panelWidth - 60.0f, 40.0f });
-    bool volSelected = (selectedSettingsIndex == 0);
+    std::string curLang = UI_settings::get().getLanguage();
+
+    // Row 0: Language
+    sf::FloatRect langRow({ panelX + 30.0f, panelY + 62.0f }, { panelWidth - 60.0f, 40.0f });
+    bool langSelected = (selectedSettingsIndex == 0);
+    sf::RectangleShape langHighlight(langRow.size);
+    langHighlight.setPosition(langRow.position);
+    langHighlight.setFillColor(langSelected ? theme::withAlpha(theme::CardSelected, 200) : sf::Color::Transparent);
+    langHighlight.setOutlineThickness(langSelected ? 1.5f : 0.0f);
+    langHighlight.setOutlineColor(theme::Focus);
+    window.draw(langHighlight);
+
+    if (fontLoaded) {
+        std::string langLabel = (langSelected ? "> " : "  ") + Lang::tr("settings.language");
+        sf::Text& tLang = ui::pooledText(font, toUtf8(langLabel), fontsize::H2);
+        tLang.setFillColor(langSelected ? theme::TextPrimary : theme::TextSecondary);
+        tLang.setPosition({ panelX + 45.0f, panelY + 68.0f });
+        ui::drawText(window, tLang);
+    }
+    sf::FloatRect langBtn({ panelX + 280.0f, panelY + 66.0f }, { 190.0f, 32.0f });
+    std::string langValText = (curLang == "bg") ? Lang::tr("settings.lang_bg") : Lang::tr("settings.lang_en");
+    drawButton(window, langBtn, toUtf8(langValText),
+               theme::Button, theme::ButtonHover, theme::TextPrimary, langSelected || langBtn.contains(mousePos));
+
+    // Row 1: Volume
+    sf::FloatRect volRow({ panelX + 30.0f, panelY + 110.0f }, { panelWidth - 60.0f, 40.0f });
+    bool volSelected = (selectedSettingsIndex == 1);
     sf::RectangleShape volHighlight(volRow.size);
     volHighlight.setPosition(volRow.position);
     volHighlight.setFillColor(volSelected ? theme::withAlpha(theme::CardSelected, 200) : sf::Color::Transparent);
@@ -352,25 +379,26 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     window.draw(volHighlight);
 
     if (fontLoaded) {
-        sf::Text& tVol = ui::pooledText(font, toUtf8(volSelected ? "> Сила на звука:" : "  Сила на звука:"), fontsize::H2);
+        std::string volLabel = (volSelected ? "> " : "  ") + Lang::tr("settings.volume");
+        sf::Text& tVol = ui::pooledText(font, toUtf8(volLabel), fontsize::H2);
         tVol.setFillColor(volSelected ? theme::TextPrimary : theme::TextSecondary);
-        tVol.setPosition({ panelX + 45.0f, panelY + 74.0f });
+        tVol.setPosition({ panelX + 45.0f, panelY + 116.0f });
         ui::drawText(window, tVol);
 
         sf::Text& volVal = ui::pooledText(font, toUtf8(std::to_string(volume) + "%"), fontsize::H2);
         volVal.setStyle(sf::Text::Bold);
         volVal.setFillColor(theme::TextPrimary);
-        volVal.setPosition({ panelX + 345.0f, panelY + 74.0f });
+        volVal.setPosition({ panelX + 345.0f, panelY + 116.0f });
         ui::drawText(window, volVal);
     }
-    sf::FloatRect volDown({ panelX + 280.0f, panelY + 72.0f }, { 36.0f, 30.0f });
-    sf::FloatRect volUp({ panelX + 420.0f, panelY + 72.0f }, { 36.0f, 30.0f });
+    sf::FloatRect volDown({ panelX + 280.0f, panelY + 114.0f }, { 36.0f, 30.0f });
+    sf::FloatRect volUp({ panelX + 434.0f, panelY + 114.0f }, { 36.0f, 30.0f });
     drawButton(window, volDown, "-", theme::Button, theme::ButtonHover, theme::TextPrimary, volDown.contains(mousePos));
     drawButton(window, volUp, "+", theme::Button, theme::ButtonHover, theme::TextPrimary, volUp.contains(mousePos));
 
-    // Row 1: Sound FX
-    sf::FloatRect sfxRow({ panelX + 30.0f, panelY + 118.0f }, { panelWidth - 60.0f, 40.0f });
-    bool sfxSelected = (selectedSettingsIndex == 1);
+    // Row 2: Sound FX
+    sf::FloatRect sfxRow({ panelX + 30.0f, panelY + 158.0f }, { panelWidth - 60.0f, 40.0f });
+    bool sfxSelected = (selectedSettingsIndex == 2);
     sf::RectangleShape sfxHighlight(sfxRow.size);
     sfxHighlight.setPosition(sfxRow.position);
     sfxHighlight.setFillColor(sfxSelected ? theme::withAlpha(theme::CardSelected, 200) : sf::Color::Transparent);
@@ -379,19 +407,20 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     window.draw(sfxHighlight);
 
     if (fontLoaded) {
-        sf::Text& tSfx = ui::pooledText(font, toUtf8(sfxSelected ? "> Звукови ефекти:" : "  Звукови ефекти:"), fontsize::H2);
+        std::string sfxLabel = (sfxSelected ? "> " : "  ") + Lang::tr("settings.sfx");
+        sf::Text& tSfx = ui::pooledText(font, toUtf8(sfxLabel), fontsize::H2);
         tSfx.setFillColor(sfxSelected ? theme::TextPrimary : theme::TextSecondary);
-        tSfx.setPosition({ panelX + 45.0f, panelY + 124.0f });
+        tSfx.setPosition({ panelX + 45.0f, panelY + 164.0f });
         ui::drawText(window, tSfx);
     }
-    sf::FloatRect sfxBtn({ panelX + 280.0f, panelY + 122.0f }, { 180.0f, 32.0f });
-    drawButton(window, sfxBtn, toUtf8(soundEffects ? "ВКЛЮЧЕНИ" : "ИЗКЛЮЧЕНИ"),
+    sf::FloatRect sfxBtn({ panelX + 280.0f, panelY + 162.0f }, { 190.0f, 32.0f });
+    drawButton(window, sfxBtn, toUtf8(soundEffects ? Lang::tr("settings.on") : Lang::tr("settings.off")),
                soundEffects ? theme::GoodFill : theme::BadFill,
                soundEffects ? theme::GoodFill : theme::BadFill, theme::TextPrimary, sfxSelected || sfxBtn.contains(mousePos));
 
-    // Row 2: Difficulty
-    sf::FloatRect diffRow({ panelX + 30.0f, panelY + 168.0f }, { panelWidth - 60.0f, 40.0f });
-    bool diffSelected = (selectedSettingsIndex == 2);
+    // Row 3: Difficulty
+    sf::FloatRect diffRow({ panelX + 30.0f, panelY + 206.0f }, { panelWidth - 60.0f, 40.0f });
+    bool diffSelected = (selectedSettingsIndex == 3);
     sf::RectangleShape diffHighlight(diffRow.size);
     diffHighlight.setPosition(diffRow.position);
     diffHighlight.setFillColor(diffSelected ? theme::withAlpha(theme::CardSelected, 200) : sf::Color::Transparent);
@@ -400,19 +429,20 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     window.draw(diffHighlight);
 
     if (fontLoaded) {
-        sf::Text& tDiff = ui::pooledText(font, toUtf8(diffSelected ? "> Трудност на бота:" : "  Трудност на бота:"), fontsize::H2);
+        std::string diffLabel = (diffSelected ? "> " : "  ") + Lang::tr("settings.bot_difficulty");
+        sf::Text& tDiff = ui::pooledText(font, toUtf8(diffLabel), fontsize::H2);
         tDiff.setFillColor(diffSelected ? theme::TextPrimary : theme::TextSecondary);
-        tDiff.setPosition({ panelX + 45.0f, panelY + 174.0f });
+        tDiff.setPosition({ panelX + 45.0f, panelY + 212.0f });
         ui::drawText(window, tDiff);
     }
-    const char* diffLabels[] = { "ЛЕСЕН", "СРЕДЕН", "ТРУДЕН" };
-    sf::FloatRect diffBtn({ panelX + 280.0f, panelY + 172.0f }, { 180.0f, 32.0f });
-    drawButton(window, diffBtn, toUtf8(diffLabels[settingsDifficultyIndex]),
+    std::string diffKeys[] = { "settings.diff_easy", "settings.diff_normal", "settings.diff_hard" };
+    sf::FloatRect diffBtn({ panelX + 280.0f, panelY + 210.0f }, { 190.0f, 32.0f });
+    drawButton(window, diffBtn, toUtf8(Lang::tr(diffKeys[settingsDifficultyIndex])),
                theme::Button, theme::ButtonHover, theme::TextPrimary, diffSelected || diffBtn.contains(mousePos));
 
-    // Row 3: Controls Remapping
-    sf::FloatRect ctrlRow({ panelX + 30.0f, panelY + 218.0f }, { panelWidth - 60.0f, 40.0f });
-    bool ctrlSelected = (selectedSettingsIndex == 3);
+    // Row 4: Controls Remapping
+    sf::FloatRect ctrlRow({ panelX + 30.0f, panelY + 254.0f }, { panelWidth - 60.0f, 40.0f });
+    bool ctrlSelected = (selectedSettingsIndex == 4);
     sf::RectangleShape ctrlHighlight(ctrlRow.size);
     ctrlHighlight.setPosition(ctrlRow.position);
     ctrlHighlight.setFillColor(ctrlSelected ? theme::withAlpha(theme::CardSelected, 200) : sf::Color::Transparent);
@@ -421,41 +451,42 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     window.draw(ctrlHighlight);
 
     if (fontLoaded) {
-        sf::Text& tCtrl = ui::pooledText(font, toUtf8(ctrlSelected ? "> Управление / Клавиши:" : "  Управление / Клавиши:"), fontsize::H2);
+        std::string ctrlLabel = (ctrlSelected ? "> " : "  ") + Lang::tr("settings.controls");
+        sf::Text& tCtrl = ui::pooledText(font, toUtf8(ctrlLabel), fontsize::H2);
         tCtrl.setFillColor(ctrlSelected ? theme::TextPrimary : theme::TextSecondary);
-        tCtrl.setPosition({ panelX + 45.0f, panelY + 224.0f });
+        tCtrl.setPosition({ panelX + 45.0f, panelY + 260.0f });
         ui::drawText(window, tCtrl);
     }
-    sf::FloatRect ctrlBtn({ panelX + 280.0f, panelY + 222.0f }, { 180.0f, 32.0f });
-    drawButton(window, ctrlBtn, toUtf8("ПРЕНАЗНАЧАВАНЕ"),
+    sf::FloatRect ctrlBtn({ panelX + 280.0f, panelY + 258.0f }, { 190.0f, 32.0f });
+    drawButton(window, ctrlBtn, toUtf8(Lang::tr("settings.remap")),
                theme::Button, theme::ButtonHover, theme::TextPrimary, ctrlSelected || ctrlBtn.contains(mousePos));
 
     // Notes
     if (fontLoaded) {
-        const char* notes[] = {
-            "Звукът и музиката се синтезират в играта; промените важат веднага.",
-            "Преназначете индивидуални клавиши за Играч 1 и Играч 2 от меню Управление."
+        std::string notes[2] = {
+            Lang::tr("settings.note_audio"),
+            Lang::tr("settings.note_difficulty")
         };
         for (int i = 0; i < 2; ++i) {
             sf::Text& tNote = ui::pooledText(font, toUtf8(notes[i]), fontsize::Label);
             tNote.setFillColor(theme::TextMuted);
             sf::FloatRect nb = tNote.getLocalBounds();
-            tNote.setPosition({ panelX + (panelWidth - nb.size.x) / 2.0f, panelY + 274.0f + i * 19.0f });
+            tNote.setPosition({ panelX + (panelWidth - nb.size.x) / 2.0f, panelY + 308.0f + i * 20.0f });
             ui::drawText(window, tNote);
         }
     }
 
-    // Row 4: Back button
-    sf::FloatRect backBtn({ panelX + (panelWidth - 220.0f) / 2.0f, panelY + 332.0f }, { 220.0f, 44.0f });
-    bool backSelected = (selectedSettingsIndex == 4);
-    drawButton(window, backBtn, toUtf8("НАЗАД"), theme::Button, theme::ButtonHover, theme::TextPrimary, backSelected || backBtn.contains(mousePos));
+    // Row 5: Back button
+    sf::FloatRect backBtn({ panelX + (panelWidth - 220.0f) / 2.0f, panelY + 395.0f }, { 220.0f, 44.0f });
+    bool backSelected = (selectedSettingsIndex == 5);
+    drawButton(window, backBtn, toUtf8(Lang::tr("common.back")), theme::Button, theme::ButtonHover, theme::TextPrimary, backSelected || backBtn.contains(mousePos));
 
     // Hints
     if (fontLoaded) {
-        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S или Стрелки] | Промяна / Избор: [A/D или Enter]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("settings.hint")), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 14.0f });
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 12.0f });
         ui::drawText(window, hint);
     }
 }
@@ -748,38 +779,60 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 return;
             }
             if (isUp) {
-                selectedSettingsIndex = (selectedSettingsIndex + 4) % 5;
+                selectedSettingsIndex = (selectedSettingsIndex + 5) % 6;
             } else if (isDown) {
-                selectedSettingsIndex = (selectedSettingsIndex + 1) % 5;
+                selectedSettingsIndex = (selectedSettingsIndex + 1) % 6;
             } else if (isLeft) {
                 if (selectedSettingsIndex == 0) {
-                    if (volume >= 10) volume -= 10;
+                    std::string nextLang = (UI_settings::get().getLanguage() == "bg") ? "en" : "bg";
+                    UI_settings::get().setLanguage(nextLang);
                 } else if (selectedSettingsIndex == 1) {
-                    soundEffects = !soundEffects;
+                    if (volume >= 10) {
+                        volume -= 10;
+                        UI_settings::get().setVolume(volume);
+                    }
                 } else if (selectedSettingsIndex == 2) {
+                    soundEffects = !soundEffects;
+                    UI_settings::get().setSoundEffectsEnabled(soundEffects);
+                } else if (selectedSettingsIndex == 3) {
                     settingsDifficultyIndex = (settingsDifficultyIndex + 2) % 3;
+                    UI_settings::get().setBotDifficultyIndex(settingsDifficultyIndex);
                 }
             } else if (isRight) {
                 if (selectedSettingsIndex == 0) {
-                    if (volume <= 90) volume += 10;
+                    std::string nextLang = (UI_settings::get().getLanguage() == "bg") ? "en" : "bg";
+                    UI_settings::get().setLanguage(nextLang);
                 } else if (selectedSettingsIndex == 1) {
-                    soundEffects = !soundEffects;
+                    if (volume <= 90) {
+                        volume += 10;
+                        UI_settings::get().setVolume(volume);
+                    }
                 } else if (selectedSettingsIndex == 2) {
+                    soundEffects = !soundEffects;
+                    UI_settings::get().setSoundEffectsEnabled(soundEffects);
+                } else if (selectedSettingsIndex == 3) {
                     settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
+                    UI_settings::get().setBotDifficultyIndex(settingsDifficultyIndex);
                 }
             } else if (isSelect) {
                 if (selectedSettingsIndex == 0) {
-                    volume = (volume >= 100) ? 0 : std::min(100, volume + 10);
+                    std::string nextLang = (UI_settings::get().getLanguage() == "bg") ? "en" : "bg";
+                    UI_settings::get().setLanguage(nextLang);
                 } else if (selectedSettingsIndex == 1) {
-                    soundEffects = !soundEffects;
+                    volume = (volume >= 100) ? 0 : std::min(100, volume + 10);
+                    UI_settings::get().setVolume(volume);
                 } else if (selectedSettingsIndex == 2) {
-                    settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
+                    soundEffects = !soundEffects;
+                    UI_settings::get().setSoundEffectsEnabled(soundEffects);
                 } else if (selectedSettingsIndex == 3) {
+                    settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
+                    UI_settings::get().setBotDifficultyIndex(settingsDifficultyIndex);
+                } else if (selectedSettingsIndex == 4) {
                     state = MenuState::SETTINGS_CONTROLS;
                     remapSelectedPlayer = 1;
                     remapSelectedRow = 0;
                     isRebinding = false;
-                } else if (selectedSettingsIndex == 4) {
+                } else if (selectedSettingsIndex == 5) {
                     state = MenuState::MAIN;
                 }
             }
@@ -883,30 +936,45 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     state = MenuState::MODE_SELECT;
                 }
             } else if (state == MenuState::SETTINGS) {
-                float panelWidth = 560.0f;
+                float panelWidth = 580.0f;
                 float panelX = (screenWidth - panelWidth) / 2.0f;
-                float panelY = 185.0f;
+                float panelY = 155.0f;
 
-                if (isPointInside({ { panelX + 280.0f, panelY + 72.0f }, { 36.0f, 30.0f } }, clickPos)) {
-                    if (volume >= 10) volume -= 10;
+                if (isPointInside({ { panelX + 280.0f, panelY + 66.0f }, { 190.0f, 32.0f } }, clickPos) ||
+                    isPointInside({ { panelX + 30.0f, panelY + 62.0f }, { panelWidth - 60.0f, 40.0f } }, clickPos)) {
+                    std::string nextLang = (UI_settings::get().getLanguage() == "bg") ? "en" : "bg";
+                    UI_settings::get().setLanguage(nextLang);
                     selectedSettingsIndex = 0;
-                } else if (isPointInside({ { panelX + 420.0f, panelY + 72.0f }, { 36.0f, 30.0f } }, clickPos)) {
-                    if (volume <= 90) volume += 10;
-                    selectedSettingsIndex = 0;
-                } else if (isPointInside({ { panelX + 280.0f, panelY + 122.0f }, { 180.0f, 32.0f } }, clickPos)) {
-                    soundEffects = !soundEffects;
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 114.0f }, { 36.0f, 30.0f } }, clickPos)) {
+                    if (volume >= 10) {
+                        volume -= 10;
+                        UI_settings::get().setVolume(volume);
+                    }
                     selectedSettingsIndex = 1;
-                } else if (isPointInside({ { panelX + 280.0f, panelY + 172.0f }, { 180.0f, 32.0f } }, clickPos)) {
-                    settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
+                } else if (isPointInside({ { panelX + 434.0f, panelY + 114.0f }, { 36.0f, 30.0f } }, clickPos)) {
+                    if (volume <= 90) {
+                        volume += 10;
+                        UI_settings::get().setVolume(volume);
+                    }
+                    selectedSettingsIndex = 1;
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 162.0f }, { 190.0f, 32.0f } }, clickPos) ||
+                           isPointInside({ { panelX + 30.0f, panelY + 158.0f }, { panelWidth - 60.0f, 40.0f } }, clickPos)) {
+                    soundEffects = !soundEffects;
+                    UI_settings::get().setSoundEffectsEnabled(soundEffects);
                     selectedSettingsIndex = 2;
-                } else if (isPointInside({ { panelX + 280.0f, panelY + 222.0f }, { 180.0f, 32.0f } }, clickPos) ||
-                           isPointInside({ { panelX + 30.0f, panelY + 218.0f }, { panelWidth - 60.0f, 40.0f } }, clickPos)) {
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 210.0f }, { 190.0f, 32.0f } }, clickPos) ||
+                           isPointInside({ { panelX + 30.0f, panelY + 206.0f }, { panelWidth - 60.0f, 40.0f } }, clickPos)) {
+                    settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
+                    UI_settings::get().setBotDifficultyIndex(settingsDifficultyIndex);
+                    selectedSettingsIndex = 3;
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 258.0f }, { 190.0f, 32.0f } }, clickPos) ||
+                           isPointInside({ { panelX + 30.0f, panelY + 254.0f }, { panelWidth - 60.0f, 40.0f } }, clickPos)) {
                     state = MenuState::SETTINGS_CONTROLS;
                     remapSelectedPlayer = 1;
                     remapSelectedRow = 0;
                     isRebinding = false;
-                    selectedSettingsIndex = 3;
-                } else if (isPointInside({ { panelX + (panelWidth - 220.0f) / 2.0f, panelY + 332.0f }, { 220.0f, 44.0f } }, clickPos)) {
+                    selectedSettingsIndex = 4;
+                } else if (isPointInside({ { panelX + (panelWidth - 220.0f) / 2.0f, panelY + 395.0f }, { 220.0f, 44.0f } }, clickPos)) {
                     state = MenuState::MAIN;
                 }
             } else if (state == MenuState::SETTINGS_CONTROLS) {

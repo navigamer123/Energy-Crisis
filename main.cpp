@@ -9,6 +9,8 @@
 #include <mach-o/dyld.h>
 #endif
 #include "UI/includes/UI_main.h"
+#include "UI/includes/UI_settings.h"
+#include "UI/includes/UI_lang.h"
 
 namespace {
 
@@ -16,6 +18,7 @@ namespace {
 // Resolve them against the directory of the executable first, so the game also works when it
 // is started from another working directory (shortcut, IDE, build folder); fall back to the
 // current working directory when the executable directory has no assets/ folder.
+#if !defined(__ANDROID__)
 void selectAssetDirectory(const char* argv0) {
     namespace fs = std::filesystem;
     try {
@@ -70,6 +73,7 @@ void selectAssetDirectory(const char* argv0) {
         std::cerr << "[Main] Warning: could not resolve the assets folder (" << e.what() << ").\n";
     }
 }
+#endif
 
 void printUsage() {
     std::cout << "Usage: energy_crisis [--shot <out.png> | --record <dir>] [--scene NAME] [--frames N] [--seed S] [--lint]\n"
@@ -155,6 +159,10 @@ int main(int argc, char* argv[]) {
 #if !defined(__ANDROID__)
     selectAssetDirectory(argc > 0 ? argv[0] : nullptr);
 #endif
+
+    std::cout << "[Main] Loading game settings...\n";
+    UI_settings::get().load();
+    Lang::load(UI_settings::get().getLanguage());
 
     std::cout << "[Main] Initializing UI_main...\n";
     UI_main ui(shotOptions);

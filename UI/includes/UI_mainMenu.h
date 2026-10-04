@@ -24,7 +24,7 @@ private:
     int selectedMainIndex;       // 0: Play, 1: Settings, 2: Quit
     int selectedModeIndex;       // 0: Co-op (2P), 1: Single Player (VS Bot), 2: Back
     int selectedDifficultyIndex; // 0: Easy, 1: Medium, 2: Hard, 3: Back
-    int selectedSettingsIndex;   // 0: Volume, 1: SoundFX, 2: Difficulty, 3: Controls, 4: Back
+    int selectedSettingsIndex;   // 0: Language, 1: Volume, 2: SoundFX, 3: Difficulty, 4: Controls, 5: Back
     sf::Vector2f lastMenuMousePos = { -999.0f, -999.0f };
 
     BotDifficulty selectedBotDifficulty;

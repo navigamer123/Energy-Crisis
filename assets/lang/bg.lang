@@ -68,34 +68,33 @@ cost.item = {0} {1}
 menu.title = ENERGY CRISIS
 # UI/scr/UI_mainMenu.cpp:78
 menu.subtitle = УПРАВЛЕНИЕ НА ЕНЕРГИЙНАТА МРЕЖА И РЕСУРСИТЕ
-# UI/scr/UI_mainMenu.cpp:150
-menu.play = ИГРА / PLAY
+menu.play = ИГРАЙ
 # UI/scr/UI_mainMenu.cpp:151
-menu.settings = НАСТРОЙКИ / SETTINGS
+menu.settings = НАСТРОЙКИ
 # UI/scr/UI_mainMenu.cpp:152
-menu.quit = ИЗХОД / QUIT
+menu.quit = ИЗХОД
 # UI/scr/UI_mainMenu.cpp:155
 menu.hint_main = Навигация: [Стрелки / W,S] | Избор: [Enter]
 # UI/scr/UI_mainMenu.cpp:189
-menu.mode_coop = ДВАМА ИГРАЧИ / CO-OP (1v1)
+menu.mode_coop = ДВАМА ИГРАЧИ (1v1)
 # UI/scr/UI_mainMenu.cpp:190
-menu.mode_single = САМОСТОЯТЕЛНА ИГРА / SINGLE PLAYER (VS BOT)
+menu.mode_single = ЕДИН ИГРАЧ (СРЕЩУ БОТ)
 # UI/scr/UI_mainMenu.cpp:191, :245
-menu.back = НАЗАД / BACK
+menu.back = НАЗАД
 # UI/scr/UI_mainMenu.cpp:195
-menu.mode_coop_desc = Двама играчи се състезават на една машина (Разделен екран / Сектори)
+menu.mode_coop_desc = Двама играчи се състезават на един компютър: западен и източен сектор
 # UI/scr/UI_mainMenu.cpp:197
-menu.mode_single_desc = Играйте срещу автономен изкуствен интелект (Бот в East сектора)
+menu.mode_single_desc = Играйте срещу компютърен противник (ботът управлява източния сектор)
 # UI/scr/UI_mainMenu.cpp:198
 menu.mode_back_desc = Връщане към главното меню
 # UI/scr/UI_mainMenu.cpp:206
 menu.hint_mode = Навигация: [Стрелки / W,S] | Избор: [Enter / Space] | Отказ: [ESC]
 # UI/scr/UI_mainMenu.cpp:242
-menu.bot_easy = ЛЕСНО / EASY BOT
+menu.bot_easy = ЛЕСЕН БОТ
 # UI/scr/UI_mainMenu.cpp:243
-menu.bot_medium = СРЕДНО / MEDIUM BOT
+menu.bot_medium = СРЕДЕН БОТ
 # UI/scr/UI_mainMenu.cpp:244
-menu.bot_hard = ТРУДНО / HARD BOT
+menu.bot_hard = ТРУДЕН БОТ
 # UI/scr/UI_mainMenu.cpp:249
 menu.bot_easy_desc = По-бавен бот; строи базови солари и турбини (подходящ за учене)
 # UI/scr/UI_mainMenu.cpp:251
@@ -112,7 +111,10 @@ menu.hint_difficulty = Навигация: [Стрелки / W,S] | Старт: 
 # Маркерът за избран ред ("> " или "  ") остава в кода.
 # ============================================================================
 # UI/scr/UI_mainMenu.cpp:289
-settings.title = НАСТРОЙКИ / SETTINGS
+settings.title = НАСТРОЙКИ
+settings.language = Език:
+settings.lang_bg = БЪЛГАРСКИ
+settings.lang_en = ENGLISH
 # UI/scr/UI_mainMenu.cpp:307
 settings.volume = Сила на звука:
 # UI/scr/UI_mainMenu.cpp:333
@@ -126,13 +128,15 @@ settings.bot_difficulty = Трудност на бота:
 # UI/scr/UI_mainMenu.cpp:359
 settings.diff_easy = ЛЕСНО
 # UI/scr/UI_mainMenu.cpp:359
-settings.diff_normal = НОРМАЛНО
+settings.diff_normal = СРЕДНО
 # UI/scr/UI_mainMenu.cpp:359
 settings.diff_hard = ТРУДНО
+settings.controls = Управление:
+settings.remap = ПРЕНАЗНАЧАВАНЕ
 # UI/scr/UI_mainMenu.cpp:367
-settings.note_audio = Звукът все още не е реализиран: звуковите настройки нямат ефект.
+settings.note_audio = Звукът и музиката се синтезират в играта; промените важат веднага.
 # UI/scr/UI_mainMenu.cpp:368
-settings.note_difficulty = Трудността на бота е избраната по подразбиране в САМОСТОЯТЕЛНА ИГРА.
+settings.note_difficulty = Преназначете индивидуални клавиши за Играч 1 и Играч 2 от меню Управление.
 # UI/scr/UI_mainMenu.cpp:386
 settings.hint = Навигация: [W/S или Стрелки] | Промяна: [A/D или Enter]
 
