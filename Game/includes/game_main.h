@@ -326,7 +326,7 @@ public:
     // Snapshots (Game/scr/game_snapshot.cpp): all match state as versioned text, for save/load,
     // replays and tests. loadState returns false and leaves the match untouched on bad input; on success
     // the match continues exactly like the saved one. Pending events and std::rand are not saved.
-    static constexpr int SNAPSHOT_VERSION = 1;
+    static constexpr int SNAPSHOT_VERSION = 2; // 2: power world (layout, terrain, reactors, mega, hazards)
     bool saveState(std::ostream& out) const;
     bool loadState(std::istream& in);
 

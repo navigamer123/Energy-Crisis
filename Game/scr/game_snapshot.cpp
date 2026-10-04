@@ -1,9 +1,11 @@
 // =============================================================================
 // ENERGY CRISIS - MATCH SNAPSHOTS (save / load)
 // A versioned, line-based text format covering all match state: rules, RNG streams, clock,
-// weather, city, both economies, modifiers, land plots and buildings. Floats are written with
+// weather, city, both economies, modifiers, land plots, buildings and the power world (map layout,
+// terrain, reactors, mega-projects, hazard plans and the hazard stream). Floats are written with
 // enough digits to read back bit-exactly, so a loaded match continues exactly like the original.
-// Not saved: the pending event queue, host settings (setMaxStepsPerUpdate) and std::rand,
+// Not saved: the pending event and power-FX queues, host settings (setMaxStepsPerUpdate,
+// setHazardsEnabled) and std::rand,
 // which only drives cosmetic UI randomness.
 // =============================================================================
 #include "../includes/game_main.h"
@@ -207,7 +209,8 @@ bool GameEngine::saveState(std::ostream& out) const {
     w.endl();
     for (const auto& plot : landPlots) {
         w.tag("plot").i(plot.id).i(plot.playerOwner).f(plot.bounds.position.x).f(plot.bounds.position.y)
-            .f(plot.bounds.size.x).f(plot.bounds.size.y).i(plot.isPurchased ? 1 : 0).i(plot.costGold);
+            .f(plot.bounds.size.x).f(plot.bounds.size.y).i(plot.isPurchased ? 1 : 0).i(plot.costGold).i(plot.terrain)
+            .i(plot.screenCol).i(plot.row);
         w.endl();
     }
 
@@ -215,9 +218,30 @@ bool GameEngine::saveState(std::ostream& out) const {
     w.endl();
     for (const auto& b : buildings) {
         w.tag("building").i(static_cast<int>(b.type)).f(b.position.x).f(b.position.y).i(b.playerOwner)
-            .f(b.currentOutputMW).f(b.animTimer).f(b.energyStored).f(b.maxCapacity).f(b.lightRadius).i(b.isBroken ? 1 : 0);
+            .f(b.currentOutputMW).f(b.animTimer).f(b.energyStored).f(b.maxCapacity).f(b.lightRadius).i(b.isBroken ? 1 : 0)
+            .i(b.terrain).i(b.damageKind).f(b.rampProgress).f(b.scramTimer).i(b.needsFuel ? 1 : 0).f(b.constructionLeft)
+            .f(b.constructionTotal);
         w.endl();
     }
+
+    // Team b-power: map layout, terrain, reactors, mega-projects, hazard plans and the hazard stream
+    w.tag("power").i(static_cast<int>(mapPreset)).u(mapSeedOverride).i(static_cast<int>(layout.preset)).u(layout.seed)
+        .i(layout.plotCols).i(layout.plotRows).f(layout.plotW).f(layout.plotH).f(layout.gapX).f(layout.gapY)
+        .f(layout.westStartX).f(layout.startY).i(layout.startCol).i(layout.startRow).i(layout.landCostGrowth)
+        .i(static_cast<long long>(layout.cells.size()));
+    for (int c : layout.cells) w.i(c);
+    w.endl();
+    w.tag("world");
+    for (int k = 0; k < 3; ++k) w.i(world.rainStreak[k]).i(world.dryStreak[k]).i(world.hailToday[k] ? 1 : 0);
+    w.i(world.megaUnlockAnnounced ? 1 : 0).i(static_cast<long long>(world.plans.size()));
+    w.endl();
+    for (const auto& h : world.plans) {
+        w.tag("hazard").i(static_cast<int>(h.kind)).i(h.player).f(h.atDaySeconds).i(h.westCol).i(h.row).i(h.fired ? 1 : 0);
+        w.endl();
+    }
+    w.tag("worldrng");
+    w.os << ' ' << world.rng;
+    w.endl();
 
     w.tag("end");
     w.endl();
@@ -294,7 +318,8 @@ bool GameEngine::loadState(std::istream& in) {
     for (auto& plot : s.landPlots) {
         float x = 0.0f, y = 0.0f, wdt = 0.0f, hgt = 0.0f;
         if (!r.tag("plot") || !r.i(plot.id) || !r.i(plot.playerOwner, 1, 2) || !r.f(x) || !r.f(y) || !r.f(wdt) || !r.f(hgt) ||
-            !r.b(plot.isPurchased) || !r.i(plot.costGold)) {
+            !r.b(plot.isPurchased) || !r.i(plot.costGold) || !r.i(plot.terrain, 0, 4) || !r.i(plot.screenCol) ||
+            !r.i(plot.row)) {
             return false;
         }
         plot.bounds = sf::FloatRect({ x, y }, { wdt, hgt });
@@ -306,19 +331,61 @@ bool GameEngine::loadState(std::istream& in) {
     for (auto& b : s.buildings) {
         int type = 0;
         float x = 0.0f, y = 0.0f;
-        if (!r.tag("building") || !r.i(type, static_cast<int>(BuildingType::SOLAR_PANEL), static_cast<int>(BuildingType::LAMP)) ||
+        if (!r.tag("building") || !r.i(type, static_cast<int>(BuildingType::SOLAR_PANEL), static_cast<int>(BuildingType::MEGA_PUMPED_HYDRO)) ||
+            type == static_cast<int>(BuildingType::DEMOLISH) ||
             !r.f(x) || !r.f(y) || !r.i(b.playerOwner, 1, 2) || !r.f(b.currentOutputMW) || !r.f(b.animTimer) ||
-            !r.f(b.energyStored) || !r.f(b.maxCapacity) || !r.f(b.lightRadius) || !r.b(b.isBroken)) {
+            !r.f(b.energyStored) || !r.f(b.maxCapacity) || !r.f(b.lightRadius) || !r.b(b.isBroken) || !r.i(b.terrain, 0, 4) ||
+            !r.i(b.damageKind, 0, static_cast<int>(HazardKind::QUAKE)) || !r.f(b.rampProgress) || !r.f(b.scramTimer) ||
+            !r.b(b.needsFuel) || !r.f(b.constructionLeft) || !r.f(b.constructionTotal)) {
             return false;
         }
         b.type = static_cast<BuildingType>(type);
         b.position = { x, y };
     }
 
+    int preset = 0, lpreset = 0, cellCount = 0;
+    uint64_t mapSeed = 0, layoutSeed = 0;
+    const int maxPreset = static_cast<int>(MapPreset::COUNT) - 1;
+    MapLayout& L = s.layout;
+    if (!r.tag("power") || !r.i(preset, 0, maxPreset) || !r.u64(mapSeed) || mapSeed > 0xFFFFFFFFull ||
+        !r.i(lpreset, 0, maxPreset) || !r.u64(layoutSeed) || layoutSeed > 0xFFFFFFFFull || !r.i(L.plotCols, 1, 64) ||
+        !r.i(L.plotRows, 1, 64) || !r.f(L.plotW) || !r.f(L.plotH) || !r.f(L.gapX) || !r.f(L.gapY) || !r.f(L.westStartX) ||
+        !r.f(L.startY) || !r.i(L.startCol) || !r.i(L.startRow) || !r.i(L.landCostGrowth) || !r.i(cellCount, 0, 64 * 64)) {
+        return false;
+    }
+    s.mapPreset = static_cast<MapPreset>(preset);
+    s.mapSeedOverride = static_cast<unsigned>(mapSeed);
+    L.preset = static_cast<MapPreset>(lpreset);
+    L.seed = static_cast<unsigned>(layoutSeed);
+    L.cells.resize(static_cast<size_t>(cellCount));
+    for (int& c : L.cells) {
+        if (!r.i(c, -1, 4)) return false;
+    }
+    PowerWorldState& W = s.world;
+    int planCount = 0;
+    if (!r.tag("world")) return false;
+    for (int k = 0; k < 3; ++k) {
+        if (!r.i(W.rainStreak[k], 0, 1000000) || !r.i(W.dryStreak[k], 0, 1000000) || !r.b(W.hailToday[k])) return false;
+    }
+    if (!r.b(W.megaUnlockAnnounced) || !r.i(planCount, 0, MAX_SNAPSHOT_MUTATORS)) return false;
+    W.plans.resize(static_cast<size_t>(planCount));
+    for (auto& h : W.plans) {
+        int kind = 0;
+        if (!r.tag("hazard") || !r.i(kind, 0, static_cast<int>(HazardKind::QUAKE)) || !r.i(h.player, 0, 2) ||
+            !r.f(h.atDaySeconds) || !r.i(h.westCol) || !r.i(h.row) || !r.b(h.fired)) {
+            return false;
+        }
+        h.kind = static_cast<HazardKind>(kind);
+    }
+    if (!r.tag("worldrng") || !(in >> W.rng)) return false;
+    W.fx.clear();
+
     if (!r.tag("end")) return false;
 
-    // Commit: host settings stay, pending events of the old match are dropped
+    // Commit: host settings stay (step cap, random hazards on/off), pending events and power FX of the old match
+    // are dropped
     s.maxStepsPerUpdate = maxStepsPerUpdate;
+    s.hazardsEnabled = hazardsEnabled;
     *this = std::move(s);
     return true;
 }

@@ -758,12 +758,12 @@ void testSnapshots() {
     CHECK(!loadFrom(b, "hello world"), "garbage accepted");
     CHECK(!loadFrom(b, s1.substr(0, s1.size() / 2)), "truncated snapshot accepted");
     std::string wrongVersion = s1;
-    wrongVersion.replace(0, std::string("ENERGY_CRISIS_STATE 1").size(), "ENERGY_CRISIS_STATE 99");
+    wrongVersion.replace(0, std::string("ENERGY_CRISIS_STATE 2").size(), "ENERGY_CRISIS_STATE 99");
     CHECK(!loadFrom(b, wrongVersion), "unknown version accepted");
     std::string badBuilding = s1;
     size_t pos = badBuilding.find("\nbuilding ");
     REQUIRE(pos != std::string::npos, "snapshot without buildings");
-    badBuilding.replace(pos, 11, "\nbuilding 9");
+    badBuilding.replace(pos, 11, "\nbuilding 99"); // 7..11 are the power buildings since snapshot v2
     CHECK(!loadFrom(b, badBuilding), "invalid building type accepted");
     CHECK(snapshotOf(b) == before, "a rejected load changed the match");
     endGroup();
