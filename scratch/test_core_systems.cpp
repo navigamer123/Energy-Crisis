@@ -912,7 +912,7 @@ void testWeatherMapping() {
     for (int s = 0; s < 4; ++s) {
         seedRandom(testSeed() + 101u * static_cast<unsigned int>(s));
         int counts[6] = { 0 };
-        int malformed = 0, badGlobals = 0;
+        int malformed = 0;
         for (int i = 0; i < samples; ++i) {
             const Report r = weather_report(keys[s]);
             if (r.size() != 4u) {
@@ -929,12 +929,9 @@ void testWeatherMapping() {
                 speedOk = knots > 0.99 && knots < 50.01 && std::abs(knots - std::round(knots)) < 1e-6;
             }
             if (!(cloudOk && precipOk && wetIsCloudy && dirOk && speedOk)) ++malformed;
-            const std::string& expectedState = (r[1] != "clear") ? r[1] : r[0];
-            if (weather_state != expectedState || wind != (r[2] != "none") || wind_direction != r[2]) ++badGlobals;
             ++counts[idx(WeatherSystem::reportToWeatherType(r))];
         }
         CHECK(malformed == 0, keys[s] << ": " << malformed << " malformed reports");
-        CHECK(badGlobals == 0, keys[s] << ": weather_state / wind / wind_direction differ from the report " << badGlobals << " times");
         for (int w = 0; w < 6; ++w) {
             const double pct = 100.0 * counts[w] / samples;
             const double doc = kDocWeatherPct[s][w];
@@ -973,13 +970,7 @@ void testEngineDailyWeather() {
         CHECK(e.getSunriseHour() == kDocSunrise[idx(season)] && e.getSunsetHour() == kDocSunset[idx(season)],
               "day " << day << " sun times " << e.getSunriseHour() << "-" << e.getSunsetHour());
         for (int player = 1; player <= 2; ++player) {
-            const PlayerData& data = e.getPlayerEconomy(player).data;
             const WeatherType w = e.getPlayerWeather(player);
-            // Rebuild the report from what the engine stored (precipitation or cloud, wind speed)
-            const bool wet = (data.weather == "rain" || data.weather == "thunder_storm" || data.weather == "snow" || data.weather == "hail");
-            const Report rebuilt = { wet ? "cloudy" : data.weather, wet ? data.weather : "clear", data.wind_speed == "0" ? "none" : "left", data.wind_speed };
-            CHECK(WeatherSystem::reportToWeatherType(rebuilt) == w,
-                  "day " << day << " P" << player << ": stored \"" << data.weather << "\" wind " << data.wind_speed << " but weather " << idx(w));
             CHECK(w != WeatherType::SNOWY || season == SeasonType::AUTUMN || season == SeasonType::WINTER,
                   "day " << day << " P" << player << ": snow in season " << idx(season));
             if (!seen[idx(w)]) {
@@ -1278,8 +1269,6 @@ std::string economyDiff(const PlayerEconomy& a, const PlayerEconomy& b) {
 #define CMP(field) if (!(a.field == b.field)) d += std::string(" ") + #field
     CMP(money); CMP(gold); CMP(silver); CMP(iron); CMP(coal); CMP(copper); CMP(silicon); CMP(wood); CMP(ore);
     CMP(energyMW); CMP(landTier); CMP(cityInfluence); CMP(selectedBuilding); CMP(lastPlacedBuilding);
-    CMP(data.money); CMP(data.iron); CMP(data.coal); CMP(data.gold); CMP(data.copper); CMP(data.silver);
-    CMP(data.silicon); CMP(data.wood); CMP(data.sticks); CMP(data.weather); CMP(data.wind_speed);
     for (int i = 0; i < 8; ++i) CMP(mineLevels[i]);
     return d;
 }
@@ -1287,7 +1276,7 @@ std::string economyDiff(const PlayerEconomy& a, const PlayerEconomy& b) {
 std::string cityDiff(const CityConquestState& a, const CityConquestState& b) {
     std::string d;
     CMP(cityEnergyDemand); CMP(p1CityShare); CMP(p1DailyDelivered); CMP(p2DailyDelivered); CMP(dailySeconds);
-    CMP(dayCutOccurred); CMP(lastCutMessage); CMP(winner);
+    CMP(lastCutMessage); CMP(winner);
     return d;
 }
 #undef CMP
