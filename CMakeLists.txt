@@ -59,6 +59,9 @@ endif()
 # SFML 3 (only for the game; the engine needs just sf::Vector2f / sf::FloatRect)
 # -----------------------------------------------------------------------------
 set(EC_SFML_COMPONENTS Graphics Window System Audio)
+if(ANDROID)
+    list(APPEND EC_SFML_COMPONENTS Main)
+endif()
 
 function(ec_fetch_sfml)
     include(FetchContent)
@@ -164,51 +167,67 @@ if(EC_BUILD_GAME)
     file(GLOB EC_UI_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/UI/scr/*.cpp")
     file(GLOB EC_UI_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/UI/includes/*.h")
 
-    add_executable(energy_crisis "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" ${EC_UI_SOURCES} ${EC_UI_HEADERS})
-    target_include_directories(energy_crisis PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/UI/includes")
-    target_link_libraries(energy_crisis PRIVATE ec_engine ec_options
-        SFML::Graphics SFML::Window SFML::System SFML::Audio)
-    ec_copy_runtime_dlls(energy_crisis)
+    if(ANDROID)
+        add_library(energy_crisis SHARED "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" ${EC_UI_SOURCES} ${EC_UI_HEADERS})
+        target_include_directories(energy_crisis PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/UI/includes")
+        target_link_libraries(energy_crisis PRIVATE ec_engine ec_options
+            SFML::Graphics SFML::Window SFML::System SFML::Audio
+            android log OpenSLES)
+        target_link_libraries(energy_crisis PUBLIC
+            -Wl,--whole-archive
+            SFML::Main
+            -Wl,--no-whole-archive
+        )
+        target_link_options(energy_crisis PRIVATE "-Wl,-z,max-page-size=16384")
+    else()
+        add_executable(energy_crisis "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" ${EC_UI_SOURCES} ${EC_UI_HEADERS})
+        target_include_directories(energy_crisis PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/UI/includes")
+        target_link_libraries(energy_crisis PRIVATE ec_engine ec_options
+            SFML::Graphics SFML::Window SFML::System SFML::Audio)
+        ec_copy_runtime_dlls(energy_crisis)
 
-    # assets/ next to the executable. Re-copied (old files removed) whenever an asset is added,
-    # changed or deleted; the asset list file changes when CONFIGURE_DEPENDS sees a new/removed file.
-    file(GLOB_RECURSE EC_ASSET_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*")
-    set(EC_ASSET_LIST "${CMAKE_CURRENT_BINARY_DIR}/ec_assets.list")
-    string(REPLACE ";" "\n" _ec_asset_lines "${EC_ASSET_FILES}")
-    file(CONFIGURE OUTPUT "${EC_ASSET_LIST}" CONTENT "${_ec_asset_lines}\n" @ONLY)
-    set(EC_ASSET_STAMP "${CMAKE_CURRENT_BINARY_DIR}/ec_assets_$<CONFIG>.stamp")
-    add_custom_command(
-        OUTPUT "${EC_ASSET_STAMP}"
-        COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:energy_crisis>/assets"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:energy_crisis>/assets"
-        COMMAND ${CMAKE_COMMAND} -E touch "${EC_ASSET_STAMP}"
-        DEPENDS ${EC_ASSET_FILES} "${EC_ASSET_LIST}"
-        COMMENT "Copying assets/ next to energy_crisis"
-        VERBATIM)
-    add_custom_target(ec_assets ALL DEPENDS "${EC_ASSET_STAMP}")
-    add_dependencies(energy_crisis ec_assets)
+        # assets/ next to the executable. Re-copied (old files removed) whenever an asset is added,
+        # changed or deleted; the asset list file changes when CONFIGURE_DEPENDS sees a new/removed file.
+        file(GLOB_RECURSE EC_ASSET_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*")
+        set(EC_ASSET_LIST "${CMAKE_CURRENT_BINARY_DIR}/ec_assets.list")
+        string(REPLACE ";" "\n" _ec_asset_lines "${EC_ASSET_FILES}")
+        file(CONFIGURE OUTPUT "${EC_ASSET_LIST}" CONTENT "${_ec_asset_lines}\n" @ONLY)
+        set(EC_ASSET_STAMP "${CMAKE_CURRENT_BINARY_DIR}/ec_assets_$<CONFIG>.stamp")
+        add_custom_command(
+            OUTPUT "${EC_ASSET_STAMP}"
+            COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:energy_crisis>/assets"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:energy_crisis>/assets"
+            COMMAND ${CMAKE_COMMAND} -E touch "${EC_ASSET_STAMP}"
+            DEPENDS ${EC_ASSET_FILES} "${EC_ASSET_LIST}"
+            COMMENT "Copying assets/ next to energy_crisis"
+            VERBATIM)
+        add_custom_target(ec_assets ALL DEPENDS "${EC_ASSET_STAMP}")
+        add_dependencies(energy_crisis ec_assets)
 
-    add_custom_target(run
-        COMMAND energy_crisis
-        WORKING_DIRECTORY "$<TARGET_FILE_DIR:energy_crisis>"
-        USES_TERMINAL
-        COMMENT "Starting Energy Crisis")
+        add_custom_target(run
+            COMMAND energy_crisis
+            WORKING_DIRECTORY "$<TARGET_FILE_DIR:energy_crisis>"
+            USES_TERMINAL
+            COMMENT "Starting Energy Crisis")
 
-    # cmake --install build --prefix dist  ->  a folder that can be zipped and played
-    install(TARGETS energy_crisis RUNTIME DESTINATION .)
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)
-    if(WIN32 AND EC_SFML_SHARED)
-        install(FILES $<TARGET_RUNTIME_DLLS:energy_crisis> DESTINATION .)
+        # cmake --install build --prefix dist  ->  a folder that can be zipped and played
+        install(TARGETS energy_crisis RUNTIME DESTINATION .)
+        install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)
+        if(WIN32 AND EC_SFML_SHARED)
+            install(FILES $<TARGET_RUNTIME_DLLS:energy_crisis> DESTINATION .)
+        endif()
+        if(EC_MINGW_RUNTIME_DLLS)
+            install(FILES ${EC_MINGW_RUNTIME_DLLS} DESTINATION .)
+        endif()
+
+        set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT energy_crisis)
+        set_target_properties(energy_crisis PROPERTIES
+            VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:energy_crisis>")
     endif()
-    if(EC_MINGW_RUNTIME_DLLS)
-        install(FILES ${EC_MINGW_RUNTIME_DLLS} DESTINATION .)
-    endif()
-
-    set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT energy_crisis)
-    set_target_properties(energy_crisis PROPERTIES
-        VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:energy_crisis>")
 endif()
 
 # -----------------------------------------------------------------------------
@@ -216,7 +235,7 @@ endif()
 #   ctest --test-dir build --output-on-failure
 #   EC_SEED=42 ctest --test-dir build      (same weather on every run)
 # -----------------------------------------------------------------------------
-if(EC_BUILD_TESTS)
+if(EC_BUILD_TESTS AND NOT ANDROID)
     enable_testing()
     file(GLOB EC_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/scratch/test_*.cpp")
     list(SORT EC_TEST_SOURCES)
