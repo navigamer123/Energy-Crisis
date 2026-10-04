@@ -409,10 +409,10 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     drawButton(window, diffBtn, toUtf8(diffLabels[settingsDifficultyIndex]),
                theme::Button, theme::ButtonHover, theme::TextPrimary, diffSelected || diffBtn.contains(mousePos));
 
-    // Honest notes: there is no audio yet, and the difficulty is only the default bot choice
+    // Notes: audio is synthesised in-game ([b-effects]); the difficulty is only the default bot choice
     if (fontLoaded) {
         const char* notes[] = {
-            "Звукът все още не е реализиран: звуковите настройки нямат ефект.",
+            "Звукът и музиката се синтезират в играта; промените важат веднага.",
             "Трудността на бота е избраната по подразбиране в ЕДИН ИГРАЧ."
         };
         for (int i = 0; i < 2; ++i) {

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
+#include "../includes/UI_audio.h" // [b-effects]
 #include <iostream>
 
 UI_main::UI_main(const ShotOptions& shotOptions)
@@ -15,6 +16,7 @@ UI_main::UI_main(const ShotOptions& shotOptions)
     window.setFramerateLimit(60);
     window.setKeyRepeatEnabled(false); // A held key must not re-trigger menu/pause/hotkey events
     updateViewport();
+    if (!shot.enabled) UI_audio::get().init(); // [b-effects] synthesised sound and music (screenshots stay silent)
     std::cout << "[UI_main] SFML RenderWindow (1600x900 virtual canvas) initialized.\n";
 }
 
@@ -86,6 +88,7 @@ int UI_main::finishShot() {
 }
 
 UI_main::~UI_main() {
+    UI_audio::get().shutdown(); // [b-effects] release audio before SFML tears down
     if (window.isOpen()) {
         window.close();
     }
@@ -143,12 +146,18 @@ int UI_main::render() {
         std::error_code ec;
         std::filesystem::create_directories(shot.recordDir, ec);
     }
+    sf::Clock audioClock; // [b-effects] frame time for the audio crossfades
 
     while (window.isOpen() && currentState != UIState::QUIT) {
         ui::beginTextFrame();
         ui::lint::beginFrame();
         ui::shot::tickFrame();
         while (const auto event = window.pollEvent()) {
+            // [b-effects] Menu navigation clicks
+            if (currentState == UIState::MAIN_MENU && !shot.enabled &&
+                (event->is<sf::Event::KeyPressed>() || event->is<sf::Event::MouseButtonPressed>())) {
+                UI_audio::get().play(AudioSynth::Sfx::UiClick);
+            }
             if (event->is<sf::Event::Closed>()) {
                 window.close();
             }
@@ -189,6 +198,7 @@ int UI_main::render() {
                 map.setControlScheme(mainMenu.getSelectedControlScheme());
                 map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
                 map.resetMatchInputState(); // The Enter/Space/click that started the match must not act in it
+                UI_audio::get().play(AudioSynth::Sfx::UiConfirm); // [b-effects]
                 currentState = UIState::PLAYING;
             } else if (mainMenu.isQuitRequested()) {
                 currentState = UIState::QUIT;
@@ -206,6 +216,20 @@ int UI_main::render() {
                 toggleFullscreen();
                 map.primeInputEdges();
             }
+        }
+
+        // [b-effects] Audio: apply the Settings values and crossfade day/night music
+        {
+            UI_audio& audio = UI_audio::get();
+            audio.setMasterVolume(mainMenu.getVolume());
+            audio.setSfxEnabled(mainMenu.isSoundEffectsEnabled());
+            UI_audio::Scene scene = UI_audio::Scene::Menu;
+            if (currentState == UIState::PLAYING) {
+                if (map.getEngine().getCityState().winner != 0) scene = UI_audio::Scene::Silent;
+                else if (map.isMatchPaused()) scene = UI_audio::Scene::Paused;
+                else scene = UI_audio::Scene::Match;
+            }
+            audio.update(audioClock.restart().asSeconds(), scene, map.getNightAmount());
         }
 
         window.setView(gameView);

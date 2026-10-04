@@ -104,89 +104,8 @@ void UI_map::drawBackground(sf::RenderWindow& window) {
         ground.setFillColor(theme::GroundFallback);
         window.draw(ground);
     }
-
-    // Dynamic atmospheric tint based on seasonal adaptive sunrise & sunset
-    float hour = engine.getHour24();
-    float sunrise = engine.getSunriseHour();
-    float sunset = engine.getSunsetHour();
-
-    sf::RectangleShape skyOverlay({ screenWidth, screenHeight });
-    skyOverlay.setPosition({ 0.0f, 0.0f });
-
-    // 1. Dawn / Sunrise transition (morning warm rose/peach glow)
-    if (hour >= (sunrise - 0.75f) && hour < (sunrise + 0.5f)) {
-        float t = (hour - (sunrise - 0.75f)) / 1.25f;
-        float intensity = std::sin(t * 3.14159f);
-        skyOverlay.setFillColor(theme::withAlpha(theme::Dawn, static_cast<std::uint8_t>(50 * intensity)));
-        window.draw(skyOverlay);
-    }
-    // 2. Dusk / Sunset transition (warm amber/crimson evening glow)
-    else if (hour >= (sunset - 0.75f) && hour <= (sunset + 0.85f)) {
-        float t = (hour - (sunset - 0.75f)) / 1.6f;
-        float intensity = std::sin(t * 3.14159f);
-        skyOverlay.setFillColor(theme::withAlpha(theme::Dusk, static_cast<std::uint8_t>(65 * intensity)));
-        window.draw(skyOverlay);
-    }
-    // 3. Nighttime (deep midnight indigo overlay)
-    else if (hour > (sunset + 0.85f) || hour < (sunrise - 0.75f)) {
-        std::uint8_t nightAlpha = 110;
-        if (engine.getSeason() == SeasonType::WINTER) {
-            nightAlpha = 130; // Darker winter nights
-        }
-        skyOverlay.setFillColor(theme::withAlpha(theme::Night, nightAlpha));
-        window.draw(skyOverlay);
-    }
-}
-
-void UI_map::drawEnergyConduits(sf::RenderWindow& window, float animTime) {
-    const auto& bList = engine.getBuildings();
-    if (bList.empty()) return;
-
-    // Conduits end at the city's bottom edge (not on the border tag below it)
-    sf::Vector2f cityEntranceP1(730.0f, 392.0f);
-    sf::Vector2f cityEntranceP2(870.0f, 392.0f);
-
-    for (size_t i = 0; i < bList.size(); ++i) {
-        const auto& b = bList[i];
-        if (b.type == BuildingType::LAMP) continue;
-
-        sf::Vector2f dest = (b.playerOwner == 1) ? cityEntranceP1 : cityEntranceP2;
-        sf::Color conduitColor = theme::withAlpha(theme::player(b.playerOwner), 90);
-        sf::Color packetColor = theme::withAlpha(theme::playerLight(b.playerOwner), 230);
-
-        // Draw base conduit line
-        sf::Vertex conduitLine[2];
-        conduitLine[0].position = b.position;
-        conduitLine[0].color = conduitColor;
-        conduitLine[1].position = dest;
-        conduitLine[1].color = conduitColor;
-        window.draw(conduitLine, 2, sf::PrimitiveType::Lines);
-
-        // Draw animated energy pulse packets traveling along the conduit
-        sf::Vector2f delta = dest - b.position;
-        float dist = std::sqrt(delta.x * delta.x + delta.y * delta.y);
-        if (dist > 10.0f) {
-            int numPackets = std::max(1, static_cast<int>(dist / 140.0f));
-            for (int k = 0; k < numPackets; ++k) {
-                float offset = static_cast<float>(k) / static_cast<float>(numPackets);
-                float progress = std::fmod(animTime * 0.8f + offset + (static_cast<float>(i) * 0.17f), 1.0f);
-                sf::Vector2f packetPos = b.position + delta * progress;
-
-                sf::CircleShape packet(3.5f);
-                packet.setOrigin({ 3.5f, 3.5f });
-                packet.setPosition(packetPos);
-                packet.setFillColor(packetColor);
-                window.draw(packet);
-
-                // Subtle energy packet aura
-                sf::CircleShape aura(7.0f);
-                aura.setOrigin({ 7.0f, 7.0f });
-                aura.setPosition(packetPos);
-                aura.setFillColor(theme::withAlpha(packetColor, 65));
-                window.draw(aura);
-            }
-        }
-    }
+    // [b-effects] The dawn/dusk/night tint moved to the lighting pass (UI_fx::applyLighting, DS-11)
+    // and the straight energy conduits became the visible power grid (UI_fx::drawPowerGrid, HX-07).
 }
 
 void UI_map::restartMatch() {
@@ -246,6 +165,7 @@ void UI_map::restartMatch() {
     deltaClock.restart();
 
     resetInfoUI(); // team info: clear telemetry, toasts and the event log
+    fx.reset(engine); // [b-effects] clear effects and resync the feedback event tracker
 
     spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, theme::Good);
 }
@@ -266,7 +186,8 @@ void UI_map::render(sf::RenderWindow& window) {
     if (dt > 0.05f) dt = 0.05f;
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
-    if (!isPaused && engine.getCityState().winner == 0) {
+    bool simulationRunning = !isPaused && engine.getCityState().winner == 0;
+    if (simulationRunning) {
         stats.beforeEngineUpdate(engine); // team info: capture the day's average before a settlement
         engine.update(dt * devOverlay.timeMultiplier()); // team info: x1 unless the [F3] panel speeds it up
         updateControls(window, dt);
@@ -280,6 +201,10 @@ void UI_map::render(sf::RenderWindow& window) {
         bool westStorm = engine.getPlayerWeather(1) == WeatherType::STORMY;
         triggerLightningStrike(westStorm ? sf::Vector2f(430.0f, 470.0f) : sf::Vector2f(1170.0f, 520.0f), false);
     }
+
+    // [b-effects] Effects + audio feedback, after the simulation so this frame's actions are seen
+    fx.setSinglePlayer(bot.isActive());
+    fx.update(dt, engine, nodes, simulationRunning);
 
     // Without a font, modal dialogs and the tutorial cannot be drawn: never leave an invisible
     // dialog/tutorial blocking input (or freezing the bot).
@@ -305,20 +230,34 @@ void UI_map::render(sf::RenderWindow& window) {
     float animTime = ui::shot::clockSeconds(animClock.getElapsedTime().asSeconds());
     sf::Vector2f mousePos = ui::pointerPos(window);
 
-    // 3. Render terrain & atmosphere
-    drawBackground(window);
+    // ===== [b-effects] WORLD LAYER: screen shake applies only here; the UI layer below stays still =====
+    const sf::View uiView = window.getView();
+    window.setView(fx.worldView(uiView));
 
-    // 4. Central dividing line & river
-    city.drawDividingRiver(window, font, resourcesLoaded, animTime, engine.isDaylight());
+    // 3. Render terrain & atmosphere (seasonal ground: snow, leaves, blossoms, heat shimmer)
+    drawBackground(window); // background.png + theme ground tint (Wave A)
+    fx.drawGround(window);
+
+    // 4. Full-height river with canals to the hydro bank, bridges and traffic (DS-10)
+    fx.drawRiver(window);
+
+    // Day/night light map over the terrain (DS-11)
+    fx.applyLighting(window, false);
 
     // 5. Purchasable Land Plots Grid
     nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos, engine.getBuildings());
 
-    // Dynamic glowing energy conduit lines connecting generators to metropolis
-    drawEnergyConduits(window, animTime);
+    // Visible power grid: hydro pipes, catenary cables, pylons, transformers (HX-07)
+    fx.drawPowerGrid(window);
 
-    // 6. Placed Buildings on the Map
-    nodes.drawPlacedBuildings(window, font, resourcesLoaded, engine.getBuildings());
+    // 6. Placed Buildings on the Map (new ones pop in, DS-08)
+    fx.drawBuildings(window, nodes, font, resourcesLoaded, engine.getBuildings());
+
+    // Mild light pass over plots and buildings, then emissive power pulses and lamp halos
+    fx.applyLighting(window, true);
+    fx.drawEmissive(window);
+    fx.drawWorldFx(window);
+    fx.drawBorderTag(window, font, resourcesLoaded);
 
     // 7. Holographic ghost preview if building is selected (snapped to plot grid, hidden if outside purchased land).
     //    The ghost's tooltip is drawn later (after the city and the mines) so nothing covers it.
@@ -339,20 +278,25 @@ void UI_map::render(sf::RenderWindow& window) {
         }
     }
 
-    // 8. Compact Metropolis City Center with territorial slicing & conquest
-    city.drawCity(window, font, resourcesLoaded, animTime, engine.getCityState().p1CityShare,
+    // 8. Compact Metropolis City Center with territorial slicing & conquest ([b-effects] tweened share)
+    city.drawCity(window, font, resourcesLoaded, animTime, fx.displayedShare(),
                   engine.getCityState().lastCutMessage, engine.isDaylight(), engine.getHour24(), engine.getSeason());
-
-    // 9. City Demand & Influence Tug-of-War Bar (Above City)
-    city.drawInfluenceBar(window, font, resourcesLoaded, engine.getCityState().cityEnergyDemand,
-                          engine.getPlayerEconomy(1).energyMW, engine.getPlayerEconomy(2).energyMW,
-                          engine.getCityState().p1CityShare, engine.getCurrentDay());
 
     // 10. Resource Mines & Timber Forests
     nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
 
     // Interactive mining extraction prompts & 6x speed badges
     drawMiningZonesAndBadges(window);
+
+    // [b-effects] UX-09: weather (rain, snow, leaves, petals, fireflies) and lightning stay in the world
+    // layer, below every HUD panel and popup
+    drawWeatherParticles(window);
+
+    // Dynamic Mining sparks and wood chips
+    drawMiningParticles(window);
+
+    window.setView(uiView);
+    // ===== [b-effects] UI LAYER =====
 
     // Ghost tooltips (name, cost, keys) on top of the city and the mines
     for (const auto& g : ghosts) {
@@ -363,9 +307,11 @@ void UI_map::render(sf::RenderWindow& window) {
         nodes.drawBuildingGhostInfo(window, font, resourcesLoaded, g.type, g.pos, g.valid, engine.getBuildingCost(g.type), missing);
     }
 
-    // 10.5 Dynamic Weather Particles (rain, snow, wind leaves, night stars/fireflies) & Lightning.
-    //      Drawn over the map but under the HUD panels, so no speck or flash hides panel text.
-    drawWeatherParticles(window);
+    // 9. City Demand & Influence Tug-of-War Bar (Above City), animated needle + trailing change segment
+    city.drawInfluenceBar(window, font, resourcesLoaded, engine.getCityState().cityEnergyDemand,
+                          engine.getPlayerEconomy(1).energyMW, engine.getPlayerEconomy(2).energyMW,
+                          fx.displayedShare(), engine.getCurrentDay());
+    fx.drawInfluenceTrail(window);
 
     // 11. Top-Left & Top-Right Clocks (Continuous 24h cycle & weather)
     p1Clock.draw(window, font, resourcesLoaded, { 20.0f, 10.0f }, { 230.0f, 100.0f }, theme::P1);
@@ -381,15 +327,14 @@ void UI_map::render(sf::RenderWindow& window) {
     resourceHUD.drawQuarterCircle(window, font, resourcesLoaded, engine.getPlayerEconomy(1), true);
     resourceHUD.drawQuarterCircle(window, font, resourcesLoaded, engine.getPlayerEconomy(2), false);
 
+    // [b-effects] Mined resources fly from the station into the HUD counter
+    fx.drawFlyingResources(window, font, resourcesLoaded);
+
     // 14. Player Side Popups (rendered on player's sector)
     drawPlayerPopups(window);
 
     // 15. Menu button & persistent HUD
     drawHUD(window);
-
-
-    // Dynamic Mining sparks and wood chips
-    drawMiningParticles(window);
 
     // 17. Interactive Modal Dialogs (Requires player to click OK or confirm)
     drawPlayerModals(window);

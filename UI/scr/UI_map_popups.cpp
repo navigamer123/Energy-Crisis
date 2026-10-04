@@ -58,6 +58,7 @@ void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std:
     } else if (badge == "ГРЕШКА" || badge.rfind("НЕДОСТИГ", 0) == 0 || badge.rfind("ГРЕШКА", 0) == 0) {
         prio = ToastPriority::WARNING;
         channel = "error";
+        fx.onPlayerError(player); // [b-effects] error popups buzz for that player
     } else if (badge == "СТРОЕЖ" || badge == "ПРЕМАХВАНЕ" || badge == "ОСВЕТЛЕНИЕ" || badge == "ОТКАЗ") {
         channel = "select";
     }
@@ -75,6 +76,7 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
         triggerPlayerPopup(2, badge, title, detail, tip, accent);
         return;
     }
+    fx.onPlayerError(player); // [b-effects] every modal is a refusal: build denied / not enough gold
     PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
     m.active = true;
     m.badge = badge;
