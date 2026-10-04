@@ -2,6 +2,7 @@
 #define UI_TEXT_H
 
 #include <SFML/Graphics.hpp>
+#include "UI_textpool.h"
 #include <string>
 #include <vector>
 
@@ -18,7 +19,7 @@
 namespace ui {
 
 // Builds a text from a UTF-8 string (Cyrillic safe) with colour and position.
-sf::Text makeText(const sf::Font& font, const std::string& utf8, unsigned int size,
+sf::Text& makeText(const sf::Font& font, const std::string& utf8, unsigned int size,
                   sf::Color color = sf::Color::White, sf::Vector2f pos = { 0.0f, 0.0f });
 
 // Width in px of a single line of UTF-8 text (same layout rules as sf::Text).

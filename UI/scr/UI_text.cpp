@@ -107,8 +107,8 @@ void record(const sf::Text& text, const sf::FloatRect* explicitContainer) {
 
 namespace ui {
 
-sf::Text makeText(const sf::Font& font, const std::string& utf8, unsigned int size, sf::Color color, sf::Vector2f pos) {
-    sf::Text t(font, toUtf8(utf8), size);
+sf::Text& makeText(const sf::Font& font, const std::string& utf8, unsigned int size, sf::Color color, sf::Vector2f pos) {
+    sf::Text& t = ui::pooledText(font, toUtf8(utf8), size);
     t.setFillColor(color);
     t.setPosition(pos);
     return t;

@@ -27,7 +27,7 @@ void UI_map::drawFloatingNotices(sf::RenderWindow& window) {
     for (const auto& n : notices) {
         float alphaFrac = n.timer / n.maxTimer;
         std::uint8_t alpha = static_cast<std::uint8_t>(alphaFrac * 255);
-        sf::Text t(font, toUtf8(n.text), fontsize::Body);
+        sf::Text& t = ui::pooledText(font, toUtf8(n.text), fontsize::Body);
         t.setStyle(sf::Text::Bold);
         t.setFillColor(theme::withAlpha(n.color, alpha));
         sf::FloatRect b = t.getLocalBounds();
@@ -85,7 +85,7 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     const float textW = w - 24.0f;
     auto textHeight = [this](const std::string& s, unsigned int size) {
         if (s.empty() || !resourcesLoaded) return 0.0f;
-        sf::Text t(font, toUtf8(s), size);
+        sf::Text& t = ui::pooledText(font, toUtf8(s), size);
         return t.getLocalBounds().position.y + t.getLocalBounds().size.y;
     };
     m.title = resourcesLoaded ? ui::wrapText(font, title, fontsize::Body, textW, true) : title;
@@ -168,27 +168,27 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         window.draw(hBar);
 
         // Badge / Alert Icon
-        sf::Text tBadge(font, toUtf8("! " + m.badge), fontsize::Label);
+        sf::Text& tBadge = ui::pooledText(font, toUtf8("! " + m.badge), fontsize::Label);
         tBadge.setStyle(sf::Text::Bold);
         tBadge.setFillColor(m.accentColor);
         tBadge.setPosition({ m.box.position.x + 10.0f, m.box.position.y + 6.0f });
         ui::drawText(window, tBadge);
 
         // Title
-        sf::Text tTitle(font, toUtf8(m.title), fontsize::Body);
+        sf::Text& tTitle = ui::pooledText(font, toUtf8(m.title), fontsize::Body);
         tTitle.setStyle(sf::Text::Bold);
         tTitle.setFillColor(theme::TextPrimary);
         tTitle.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 40.0f });
         ui::drawText(window, tTitle);
 
         // Detail explanation
-        sf::Text tDetail(font, toUtf8(m.detail), fontsize::Label);
+        sf::Text& tDetail = ui::pooledText(font, toUtf8(m.detail), fontsize::Label);
         tDetail.setFillColor(theme::TextPrimary);
         tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.detailY });
         ui::drawText(window, tDetail);
 
         if (!m.tip.empty()) {
-            sf::Text tTip(font, toUtf8(m.tip), fontsize::Caption);
+            sf::Text& tTip = ui::pooledText(font, toUtf8(m.tip), fontsize::Caption);
             tTip.setFillColor(theme::Warn);
             tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.tipY });
             ui::drawText(window, tTip);
@@ -203,7 +203,7 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         btn.setOutlineColor(btnHover ? theme::Focus : theme::Good);
         window.draw(btn);
 
-        sf::Text tOk(font, toUtf8(pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]"), fontsize::Label);
+        sf::Text& tOk = ui::pooledText(font, toUtf8(pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]"), fontsize::Label);
         tOk.setStyle(sf::Text::Bold);
         tOk.setFillColor(theme::TextPrimary);
         sf::FloatRect ob = tOk.getLocalBounds();
@@ -237,7 +237,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
             promptText = name + " +" + std::to_string(yield) + " " + resourceNameBg(res) + " · " + keyStr;
         }
 
-        sf::Text t(font, toUtf8(promptText), fontsize::Label);
+        sf::Text& t = ui::pooledText(font, toUtf8(promptText), fontsize::Label);
         t.setFillColor(cooling ? theme::Warn : theme::TextPrimary);
         sf::FloatRect tb = t.getLocalBounds();
         const float iconSize = 16.0f;

@@ -45,21 +45,21 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     window.draw(hBox);
 
     if (resourcesLoaded) {
-        sf::Text mt(font, toUtf8("ESC / МЕНЮ"), fontsize::Label);
+        sf::Text& mt = ui::pooledText(font, toUtf8("ESC / МЕНЮ"), fontsize::Label);
         mt.setStyle(sf::Text::Bold);
         mt.setFillColor(theme::TextPrimary);
         sf::FloatRect mb = mt.getLocalBounds();
         mt.setPosition({ menuBtn.position.x + (menuBtn.size.x - mb.size.x) / 2.0f, menuBtn.position.y + 5.0f });
         ui::drawText(window, mt, menuBtn);
 
-        sf::Text fst(font, toUtf8("ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
+        sf::Text& fst = ui::pooledText(font, toUtf8("ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
         fst.setStyle(sf::Text::Bold);
         fst.setFillColor(theme::TextPrimary);
         sf::FloatRect fsb = fst.getLocalBounds();
         fst.setPosition({ fsBtn.position.x + (fsBtn.size.x - fsb.size.x) / 2.0f, fsBtn.position.y + 6.0f });
         ui::drawText(window, fst, fsBtn);
 
-        sf::Text htBtn(font, toUtf8("? ПОМОЩ (H)"), fontsize::Label);
+        sf::Text& htBtn = ui::pooledText(font, toUtf8("? ПОМОЩ (H)"), fontsize::Label);
         htBtn.setStyle(sf::Text::Bold);
         htBtn.setFillColor(theme::TextPrimary);
         sf::FloatRect htbBtn = htBtn.getLocalBounds();
@@ -76,7 +76,7 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
 
         // Q / PgUp step back through buildings; X / Del cancel a selection (or enter demolish mode)
         std::string helpText = "P1: [E]/[Q] Сграда | [X] Разруши/Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn]/[PgUp] Сграда | [Del] Разруши/Отказ | [ENTER] Действие";
-        sf::Text ht(font, toUtf8(helpText), fontsize::Caption);
+        sf::Text& ht = ui::pooledText(font, toUtf8(helpText), fontsize::Caption);
         ht.setFillColor(theme::TextSecondary);
         sf::FloatRect htb = ht.getLocalBounds();
         ht.setPosition({ 250.0f + (930.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
@@ -112,7 +112,7 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
 
     if (resourcesLoaded) {
         // Title
-        sf::Text title(font, toUtf8("НАРЪЧНИК: ПРАВИЛА И УПРАВЛЕНИЕ"), fontsize::H1);
+        sf::Text& title = ui::pooledText(font, toUtf8("НАРЪЧНИК: ПРАВИЛА И УПРАВЛЕНИЕ"), fontsize::H1);
         title.setStyle(sf::Text::Bold);
         title.setFillColor(theme::TextPrimary);
         title.setPosition({ card.position.x + 25.0f, card.position.y + 12.0f });
@@ -130,7 +130,7 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         cb.setOutlineColor(hClose ? theme::Focus : theme::Bad);
         window.draw(cb);
 
-        sf::Text cbText(font, toUtf8("ЗАТВОРИ [H]"), fontsize::Label);
+        sf::Text& cbText = ui::pooledText(font, toUtf8("ЗАТВОРИ [H]"), fontsize::Label);
         cbText.setStyle(sf::Text::Bold);
         cbText.setFillColor(theme::TextPrimary);
         sf::FloatRect cbb = cbText.getLocalBounds();
@@ -140,14 +140,14 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         // Content Sections
         float y = card.position.y + 70.0f;
         auto drawSection = [&](const std::string& h, const std::string& body, sf::Color accent) {
-            sf::Text st(font, toUtf8(h), fontsize::H2);
+            sf::Text& st = ui::pooledText(font, toUtf8(h), fontsize::H2);
             st.setStyle(sf::Text::Bold);
             st.setFillColor(accent);
             st.setPosition({ card.position.x + 35.0f, y });
             ui::drawText(window, st);
             y += 24.0f;
 
-            sf::Text bt(font, toUtf8(body), fontsize::Label);
+            sf::Text& bt = ui::pooledText(font, toUtf8(body), fontsize::Label);
             bt.setFillColor(theme::TextPrimary);
             bt.setLineSpacing(1.25f);
             bt.setPosition({ card.position.x + 45.0f, y });
@@ -241,14 +241,14 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     window.draw(glowLine);
 
     if (resourcesLoaded) {
-        sf::Text tHeader(font, toUtf8("ПАУЗА"), fontsize::H1);
+        sf::Text& tHeader = ui::pooledText(font, toUtf8("ПАУЗА"), fontsize::H1);
         tHeader.setStyle(sf::Text::Bold);
         tHeader.setFillColor(theme::TextPrimary);
         sf::FloatRect hb = tHeader.getLocalBounds();
         tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 16.0f });
         ui::drawText(window, tHeader);
 
-        sf::Text tSub(font, toUtf8("Използвайте [Стрелки] / [Enter] или мишката за избор"), fontsize::Label);
+        sf::Text& tSub = ui::pooledText(font, toUtf8("Използвайте [Стрелки] / [Enter] или мишката за избор"), fontsize::Label);
         tSub.setFillColor(theme::TextSecondary);
         sf::FloatRect sb = tSub.getLocalBounds();
         tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f, boxY + 70.0f });
@@ -298,7 +298,7 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         window.draw(bShape);
 
         if (resourcesLoaded) {
-            sf::Text tBtn(font, toUtf8(opts[i].label), fontsize::Body);
+            sf::Text& tBtn = ui::pooledText(font, toUtf8(opts[i].label), fontsize::Body);
             tBtn.setStyle(sf::Text::Bold);
             tBtn.setFillColor(theme::TextPrimary);
             sf::FloatRect bb = tBtn.getLocalBounds();

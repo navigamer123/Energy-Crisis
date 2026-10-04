@@ -477,7 +477,7 @@ void UI_notifications::drawPlayerStack(sf::RenderTarget& target, const sf::Font&
         pill.setFillColor(withAlpha(pillCol, fade));
         target.draw(pill);
 
-        sf::Text tBadge(font, toUtf8(t.badge), badgeSize);
+        sf::Text& tBadge = ui::pooledText(font, toUtf8(t.badge), badgeSize);
         tBadge.setStyle(sf::Text::Bold);
         tBadge.setString(infoText::ellipsize(font, toUtf8(t.badge), badgeSize, badgeW - 8.0f, true));
         tBadge.setFillColor(withAlpha(sf::Color(12, 16, 24), fade)); // dark text on the bright pill (contrast)
@@ -488,7 +488,7 @@ void UI_notifications::drawPlayerStack(sf::RenderTarget& target, const sf::Font&
         const unsigned titleSize = expanded ? 12u : 11u;
         const float titleX = bx + badgeW + 6.0f;
         const float titleW = x + TOAST_W - TOAST_PAD - titleX;
-        sf::Text tTitle(font, infoText::ellipsize(font, toUtf8(t.title), titleSize, titleW), titleSize);
+        sf::Text& tTitle = ui::pooledText(font, infoText::ellipsize(font, toUtf8(t.title), titleSize, titleW), titleSize);
         tTitle.setFillColor(withAlpha(COL_TITLE, fade));
         tTitle.setPosition({ titleX, expanded ? y + 7.0f : y + 3.0f });
         target.draw(tTitle);
@@ -501,7 +501,7 @@ void UI_notifications::drawPlayerStack(sf::RenderTarget& target, const sf::Font&
 
             float ly = y + 32.0f;
             for (const sf::String& line : t.detailLines) {
-                sf::Text tl(font, line, 11);
+                sf::Text& tl = ui::pooledText(font, line, 11);
                 tl.setFillColor(withAlpha(COL_DETAIL, fade));
                 tl.setPosition({ bx, ly });
                 target.draw(tl);
@@ -510,7 +510,7 @@ void UI_notifications::drawPlayerStack(sf::RenderTarget& target, const sf::Font&
             if (!t.actionLines.empty()) {
                 ly += 3.0f;
                 for (const sf::String& line : t.actionLines) {
-                    sf::Text tl(font, line, 10);
+                    sf::Text& tl = ui::pooledText(font, line, 10);
                     tl.setFillColor(withAlpha(COL_ACTION, fade));
                     tl.setPosition({ bx, ly });
                     target.draw(tl);
@@ -556,7 +556,7 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
     header.setFillColor(sf::Color(22, 35, 58));
     target.draw(header);
 
-    sf::Text title(font, toUtf8("ДНЕВНИК НА СЪБИТИЯТА"), 20);
+    sf::Text& title = ui::pooledText(font, toUtf8("ДНЕВНИК НА СЪБИТИЯТА"), 20);
     title.setStyle(sf::Text::Bold);
     title.setFillColor(COL_P1);
     title.setPosition({ pos.x + 24.0f, pos.y + 13.0f });
@@ -564,7 +564,7 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
 
     std::string countStr = std::to_string(entries.size()) + (entries.size() == 1 ? " запис" : " записа") +
                            " · най-новите са най-отгоре";
-    sf::Text count(font, toUtf8(countStr), 12);
+    sf::Text& count = ui::pooledText(font, toUtf8(countStr), 12);
     count.setFillColor(COL_LOG_DIM);
     float cw = infoText::width(count);
     count.setPosition({ pos.x + size.x - 24.0f - cw, pos.y + 19.0f });
@@ -572,7 +572,7 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
 
     const float listTop = pos.y + 64.0f;
     if (entries.empty()) {
-        sf::Text empty(font, toUtf8("Още няма събития. Те се появяват тук по време на мача."), 14);
+        sf::Text& empty = ui::pooledText(font, toUtf8("Още няма събития. Те се появяват тук по време на мача."), 14);
         empty.setFillColor(COL_LOG_DIM);
         empty.setPosition({ pos.x + 30.0f, listTop + 10.0f });
         target.draw(empty);
@@ -593,7 +593,7 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
         }
 
         std::string stamp = "Д" + std::to_string(e.day) + "  " + Balance::formatHourMinute(e.hour);
-        sf::Text tStamp(font, toUtf8(stamp), 12);
+        sf::Text& tStamp = ui::pooledText(font, toUtf8(stamp), 12);
         tStamp.setFillColor(COL_LOG_DIM);
         tStamp.setPosition({ pos.x + 26.0f, ry + 3.0f });
         target.draw(tStamp);
@@ -605,7 +605,7 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
         chip.setPosition({ pos.x + 116.0f, ry + 3.0f });
         chip.setFillColor(whoCol);
         target.draw(chip);
-        sf::Text tWho(font, toUtf8(who), 10);
+        sf::Text& tWho = ui::pooledText(font, toUtf8(who), 10);
         tWho.setStyle(sf::Text::Bold);
         tWho.setFillColor(sf::Color(12, 16, 24));
         float ww = infoText::width(tWho);
@@ -616,7 +616,7 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
                           : (e.priority == ToastPriority::WARNING ? sf::Color(255, 205, 120) : sf::Color(225, 238, 255));
         const float textX = pos.x + 172.0f;
         const float textW = pos.x + size.x - 26.0f - textX;
-        sf::Text tText(font, infoText::ellipsize(font, toUtf8(e.text), 12, textW), 12);
+        sf::Text& tText = ui::pooledText(font, infoText::ellipsize(font, toUtf8(e.text), 12, textW), 12);
         tText.setFillColor(textCol);
         tText.setPosition({ textX, ry + 3.0f });
         target.draw(tText);
@@ -629,7 +629,7 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
         int to = std::min(total, logScroll + visibleRows);
         footer = std::to_string(from) + "-" + std::to_string(to) + " от " + std::to_string(total) + "   ·   " + footer;
     }
-    sf::Text tFoot(font, toUtf8(footer), 12);
+    sf::Text& tFoot = ui::pooledText(font, toUtf8(footer), 12);
     tFoot.setFillColor(COL_ACTION);
     float fw = infoText::width(tFoot);
     tFoot.setPosition({ pos.x + (size.x - fw) / 2.0f, pos.y + size.y - 30.0f });

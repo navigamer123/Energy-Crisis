@@ -128,6 +128,7 @@ int UI_main::render() {
     int exitCode = 0;
 
     while (window.isOpen() && currentState != UIState::QUIT) {
+        ui::beginTextFrame();
         ui::lint::beginFrame();
         ui::shot::tickFrame();
         while (const auto event = window.pollEvent()) {
