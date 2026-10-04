@@ -123,8 +123,9 @@ make test EC_SEED=42  # същото време и същите случайни
 
 | Документ | Съдържание |
 | :--- | :--- |
-| [GAMEPLAY.md](docs/GAMEPLAY.md) | Всички правила и системи с числа: ресурси, сгради, енергия, град, време, победа |
-| [CONTROLS.md](docs/CONTROLS.md) | Клавиатура, мишка и геймпад за двамата играчи |
+| [BUILD.md](docs/BUILD.md) | Компилиране за Windows и Linux (CMake / Makefile) |
+| [ANDROID.md](docs/ANDROID.md) | Компилиране и инсталиране на Android APK (Gradle + NDK) |
+| [CONTROLS.md](docs/CONTROLS.md) | Клавиатура, мишка, сензорен екран (Touch) и геймпад |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Двигател и интерфейс, основни класове, поток на данните |
 | [AI.md](docs/AI.md) | Как мисли ботът, нива на трудност и личности |
 | [TESTING.md](docs/TESTING.md) | Тестове без графика, детерминизъм, CI |
@@ -138,7 +139,8 @@ make test EC_SEED=42  # същото време и същите случайни
 
 ```
 Energy-Crisis/
-├── assets/        # шрифт, текстури, лого, фон
+├── android/       # Android проект (Gradle, NativeActivity manifest, ресурси, APK)
+├── assets/        # шрифт, текстури, лого, фон, езикови пакети (bg/en)
 ├── Game/          # двигател на играта (правила, икономика, време, град), без графика
 │   ├── includes/  # game_main.h, game_balance.h, game_time.h, game_weather.h ...
 │   └── scr/       # game_main.cpp, game_weather.cpp, game_random.cpp ...
@@ -146,8 +148,9 @@ Energy-Crisis/
 │   ├── includes/
 │   └── scr/
 ├── scratch/       # тестове на двигателя (make test)
-├── docs/          # документация
+├── docs/          # документация (вкл. ANDROID.md, BUILD.md, CONTROLS.md)
 ├── main.cpp
+├── CMakeLists.txt
 └── Makefile
 ```
 
