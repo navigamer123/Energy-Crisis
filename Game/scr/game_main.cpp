@@ -78,6 +78,9 @@ int scaleByMult(int amount, float mult) {
     return std::max(0, static_cast<int>(std::lround(static_cast<float>(amount) * mult)));
 }
 
+// [wave-c-soak] Only players 1 and 2 exist; any other id used to act on player 2's economy
+bool isValidPlayerId(int player) { return player == 1 || player == 2; }
+
 } // namespace
 
 GameEngine::GameEngine()
@@ -291,7 +294,11 @@ void GameEngine::simulateStep(float dt) {
 
     // Update building energy outputs based on real-time continuous weather & sun
     updateBuildingsEnergy(dt);
-    city.dailySeconds += dt;
+    // [wave-c-soak] Derived from the clock instead of summing frames, so a day lasts 90 s at any FPS
+    // (day 1 starts at 08:00, every later day at 06:00)
+    double dayStartSeconds = (currentDay <= 1) ? Balance::gameSecondsAtHour(Balance::MATCH_START_HOUR, config.daySeconds)
+                                               : (currentDay - 1) * static_cast<double>(config.daySeconds);
+    city.dailySeconds = static_cast<float>(std::max(0.0, gameSeconds - dayStartSeconds));
 
     // Percentage-based city energy revenue, paid once per full game-second (remainder carried over)
     revenueTimer += dt;
@@ -342,7 +349,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
     // pass 2 applies battery power and lamp states in building order.
     // -------------------------------------------------------------------------
     const float stepHours = Balance::gameSecondsToHours(dt, config.daySeconds);
-    auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, float& dailyDelivered) {
+    auto processPlayerGrid = [&](int player, WeatherType w, PlayerEconomy& econ, double& dailyDelivered) {
         // Weather multipliers are the same for every building of the sector this step
         const float solarMult = WeatherSystem::getSolarMultiplier(w, hour24, currentSeason);
         const float windMult = WeatherSystem::getWindMultiplier(w, hour24);
@@ -440,7 +447,7 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         // Step F: Whatever is left goes to the city
         float netPlayerOutput = std::max(0.0f, totalAvailable - poweredCount * LAMP_POWER_MW);
         econ.energyMW = static_cast<int>(std::lround(netPlayerOutput));
-        dailyDelivered += netPlayerOutput * dt; // MW x game-seconds, averaged at the day end
+        dailyDelivered += static_cast<double>(netPlayerOutput) * dt; // MW x game-seconds, averaged at the day end
     };
 
     processPlayerGrid(1, p1Weather, p1, city.p1DailyDelivered);
@@ -570,9 +577,13 @@ bool GameEngine::mineResource(int player, ResourceType type, std::string& outMsg
 }
 
 bool GameEngine::mineResource(int player, ResourceType type, MineResult& result, std::string& outMsg) {
-    auto& econ = (player == 1) ? p1 : p2;
     result = MineResult();
     result.type = type;
+    if (!isValidPlayerId(player)) { // [wave-c-soak]
+        outMsg = "НЕВАЛИДЕН ИГРАЧ!";
+        return false;
+    }
+    auto& econ = (player == 1) ? p1 : p2;
 
     int lvl = getMineLevel(player, type);
     const float yieldMult = getPlayerModifiers(player).mineYieldMult;
@@ -677,6 +688,10 @@ int GameEngine::getMineUpgradeCost(int player, ResourceType type) const {
 }
 
 bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg) {
+    if (!isValidPlayerId(player)) { // [wave-c-soak]
+        outMsg = "НЕВАЛИДЕН ИГРАЧ!";
+        return false;
+    }
     if (type == ResourceType::NONE || type == ResourceType::MONEY) {
         outMsg = "ТОВА НЕ Е МИНА ЗА НАДГРАЖДАНЕ!";
         return false;
@@ -763,6 +778,7 @@ bool GameEngine::buyNextLandTier(int player, std::string& outMsg) {
 }
 
 void GameEngine::cycleBuildingSelection(int player) {
+    if (!isValidPlayerId(player)) return; // [wave-c-soak]
     auto& econ = (player == 1) ? p1 : p2;
     if (econ.selectedBuilding == 0) {
         int last = econ.lastPlacedBuilding;
@@ -775,6 +791,7 @@ void GameEngine::cycleBuildingSelection(int player) {
 }
 
 void GameEngine::cycleBuildingSelectionPrev(int player) {
+    if (!isValidPlayerId(player)) return; // [wave-c-soak]
     auto& econ = (player == 1) ? p1 : p2;
     if (econ.selectedBuilding == 0) {
         int last = econ.lastPlacedBuilding;
@@ -787,6 +804,7 @@ void GameEngine::cycleBuildingSelectionPrev(int player) {
 }
 
 void GameEngine::clearBuildingSelection(int player) {
+    if (!isValidPlayerId(player)) return; // [wave-c-soak]
     auto& econ = (player == 1) ? p1 : p2;
     econ.selectedBuilding = 0;
 }
@@ -974,6 +992,18 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
         return false;
     }
 
+    // [wave-c-soak] Values outside the enum got an all-zero recipe and were built for free
+    if (getBuildingCost(type).type != type) {
+        reason = "НЕПОЗНАТ ВИД СГРАДА!";
+        return false;
+    }
+
+    // [wave-c-soak] NaN / infinite positions used to snap to the first grid slot and build there
+    if (!std::isfinite(pos.x) || !std::isfinite(pos.y)) {
+        reason = "НЕВАЛИДНА ПОЗИЦИЯ ЗА СТРОЕЖ!";
+        return false;
+    }
+
     if (type == BuildingType::DEMOLISH) {
         // Demolish tool checks if there is an owned building on this slot (same rule as removeBuilding)
         if (findOwnedBuildingInSlot(player, pos) >= 0) {
@@ -1064,14 +1094,16 @@ bool GameEngine::placeBuilding(int player, BuildingType type, sf::Vector2f pos, 
         return removeBuilding(player, pos, outMsg);
     }
 
-    // Snap to 2x2 grid slot inside land plot
-    pos = snapToBuildingGrid(player, pos);
-
+    // [wave-c-soak] Validate the raw position (canPlaceBuilding snaps it itself), so the preview and
+    // the placement always agree, also for a NaN / infinite position
     std::string reason;
     if (!canPlaceBuilding(player, type, pos, reason)) {
         outMsg = reason;
         return false;
     }
+
+    // Snap to 2x2 grid slot inside land plot
+    pos = snapToBuildingGrid(player, pos);
 
     // canPlaceBuilding guaranteed that every resource is available: pay the full recipe
     auto& econ = (player == 1) ? p1 : p2;
