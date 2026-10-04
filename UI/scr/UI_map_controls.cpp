@@ -99,7 +99,7 @@ static void drawCursorTag(sf::RenderWindow& window, sf::Text& tag, sf::Vector2f 
 }
 
 void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
-    float animTime = animClock.getElapsedTime().asSeconds();
+    float animTime = ui::shot::clockSeconds(animClock.getElapsedTime().asSeconds());
 
     // -------------------------------------------------------------------------
     // PLAYER 1 CURSOR (WEST SECTOR - CYAN)

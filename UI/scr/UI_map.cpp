@@ -258,7 +258,7 @@ bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
 }
 
 void UI_map::render(sf::RenderWindow& window) {
-    float dt = deltaClock.restart().asSeconds();
+    float dt = ui::shot::frameDt(deltaClock.restart().asSeconds());
     if (dt > 0.05f) dt = 0.05f;
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
@@ -296,7 +296,7 @@ void UI_map::render(sf::RenderWindow& window) {
     p2Clock.setSeason(engine.getSeason());
     p2Clock.setTimeScale(engine.getTimeScale());
 
-    float animTime = animClock.getElapsedTime().asSeconds();
+    float animTime = ui::shot::clockSeconds(animClock.getElapsedTime().asSeconds());
     sf::Vector2f mousePos = ui::pointerPos(window);
 
     // 3. Render terrain & atmosphere

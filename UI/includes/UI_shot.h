@@ -31,6 +31,13 @@ bool isMenuScene(const std::string& scene);
 bool isKnownScene(const std::string& scene);
 // Sets EC_SEED so the next GameEngine::init() replays the same match.
 void setSeedEnv(unsigned int seed);
+// Screenshot mode runs on a fixed 1/60 s step, so a capture shows the same moment on a fast or a
+// slow machine. frameDt: the real frame time normally, 1/60 s in screenshot mode. clockSeconds: an
+// animation clock's real reading normally, rendered frames / 60 in screenshot mode. tickFrame:
+// advances the screenshot clock; the main loop calls it once per rendered frame.
+float frameDt(float realDt);
+float clockSeconds(float realSeconds);
+void tickFrame();
 } // namespace shot
 
 // Pointer position on the 1600x900 canvas. In screenshot mode the real mouse is ignored and a
