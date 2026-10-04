@@ -4,6 +4,7 @@
 #include "../includes/UI_theme.h"
 #include <cstdio>
 #include "../includes/UI_types.h"
+#include "../includes/UI_infoText.h" // team info (UX-03)
 #include <cmath>
 #include <algorithm>
 #include <sstream>

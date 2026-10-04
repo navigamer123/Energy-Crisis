@@ -187,194 +187,17 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
                     "- ИГРАЧ 1 (Запад/Син): [W/A/S/D] - Движение  |  [SPACE/Клик] - Строеж/Добив  |  [E]/[Q] или [1-6] - Сграда  |  [F] - Ъпгрейд мина  |  [X] - Разруши\n"
                     "- ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] или [Num1-6] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n"
-                    "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран",
+                    "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран\n"
+                    "- ИНФОРМАЦИЯ: задръжте [Tab] - Енергийно табло  |  [L] в паузата - Дневник на събитията  |  [F3] - Панел за разработчици", // team info
                     theme::Good);
     }
 }
 
 void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
+    // team info (F-04): the post-match report (awards, P1/P2 table, charts, energy mix) replaces the
+    // old victory box. It also publishes victoryRestartBtn / victoryMenuBtn for the click handling.
     sf::Vector2f mousePos = ui::pointerPos(window);
-
-    // 1. Dark frosted backdrop
-    sf::RectangleShape backdrop({ 1600.0f, 900.0f });
-    backdrop.setFillColor(theme::withAlpha(theme::Dim, 235));
-    window.draw(backdrop);
-    ui::lint::occlude(sf::FloatRect({ 0.0f, 0.0f }, { VIRTUAL_WIDTH, VIRTUAL_HEIGHT }));
-
-    // Winner codes: 1 = P1, 2 = P2, 3 = draw (tie after the final day)
-    const auto& cityState = engine.getCityState();
-    int winner = cityState.winner;
-    bool isDraw = (winner == 3);
-    int finalDay = static_cast<int>(Balance::FINAL_DAY);
-    int victoryPct = static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f));
-    int p1Pct = static_cast<int>(std::lround(cityState.p1CityShare * 100.0f));
-    int p2Pct = 100 - p1Pct;
-    int winnerPct = (winner == 1) ? p1Pct : p2Pct;
-    int loserPct = 100 - winnerPct;
-    float winnerShare = (winner == 1) ? cityState.p1CityShare : (1.0f - cityState.p1CityShare);
-    // Won by reaching the target share; otherwise the larger share won after the final day
-    bool wonByShare = !isDraw && (winnerShare + 0.0005f >= Balance::VICTORY_SHARE);
-    // The deciding settlement runs at the 06:00 rollover, so the settled day is the previous one
-    int decidedDay = std::max(1, std::min(engine.getCurrentDay() - 1, finalDay));
-
-    sf::Color winColor = isDraw ? theme::TextPrimary : theme::player(winner);
-    std::string winPlayerStr = isDraw ? "РАВЕНСТВО!"
-                             : ((winner == 1) ? "ИГРАЧ 1 (ЗАПАД) СПЕЧЕЛИ!" : "ИГРАЧ 2 (ИЗТОК) СПЕЧЕЛИ!");
-    std::string headerStr = wonByShare
-        ? "ЕНЕРГИЙНА КРИЗА: ПОБЕДА С " + std::to_string(victoryPct) + "% ОТ ГРАДА"
-        : "ЕНЕРГИЙНА КРИЗА: КРАЙ НА ДЕН " + std::to_string(finalDay);
-    std::string subStr;
-    if (isDraw) {
-        subStr = "След края на ден " + std::to_string(finalDay) + " градът е разделен поравно: P1 " +
-                 std::to_string(p1Pct) + "% / P2 " + std::to_string(p2Pct) + "%.";
-    } else if (wonByShare) {
-        subStr = "Играчът достигна " + std::to_string(winnerPct) + "% контрол над града (нужни: " +
-                 std::to_string(victoryPct) + "%) и го захрани с чиста енергия!";
-    } else {
-        subStr = "След края на ден " + std::to_string(finalDay) + " играчът държи по-голям дял от града: " +
-                 std::to_string(winnerPct) + "% срещу " + std::to_string(loserPct) + "%.";
-    }
-
-    // 2. Victory Modal Box
-    float boxW = 740.0f;
-    float boxH = 480.0f;
-    float boxX = (1600.0f - boxW) / 2.0f;
-    float boxY = (900.0f - boxH) / 2.0f;
-
-    sf::RectangleShape box({ boxW, boxH });
-    box.setPosition({ boxX, boxY });
-    box.setFillColor(theme::withAlpha(theme::Panel, 252));
-    box.setOutlineThickness(3.0f);
-    box.setOutlineColor(winColor);
-    window.draw(box);
-    ui::lint::ContainerScope boxScope(sf::FloatRect({ boxX, boxY }, { boxW, boxH }));
-
-    // Top Header Banner
-    sf::RectangleShape header({ boxW, 52.0f });
-    header.setPosition({ boxX, boxY });
-    header.setFillColor(theme::PanelHeader);
-    window.draw(header);
-
-    // Glowing accent line
-    sf::RectangleShape topGlow({ boxW, 3.0f });
-    topGlow.setPosition({ boxX, boxY + 52.0f });
-    topGlow.setFillColor(winColor);
-    window.draw(topGlow);
-
-    // Action Buttons: rects are computed and boxes drawn even without a font, so they stay clickable
-    victoryRestartBtn = sf::FloatRect({ boxX + 60.0f, boxY + boxH - 65.0f }, { 280.0f, 44.0f });
-    victoryMenuBtn = sf::FloatRect({ boxX + boxW - 340.0f, boxY + boxH - 65.0f }, { 280.0f, 44.0f });
-
-    bool hoverRestart = victoryRestartBtn.contains(mousePos);
-    sf::RectangleShape btnR(victoryRestartBtn.size);
-    btnR.setPosition(victoryRestartBtn.position);
-    btnR.setFillColor(theme::GoodFill);
-    btnR.setOutlineThickness(hoverRestart ? 2.5f : 1.5f);
-    btnR.setOutlineColor(hoverRestart ? theme::Focus : theme::Good);
-    window.draw(btnR);
-
-    bool hoverMenu = victoryMenuBtn.contains(mousePos);
-    sf::RectangleShape btnM(victoryMenuBtn.size);
-    btnM.setPosition(victoryMenuBtn.position);
-    btnM.setFillColor(hoverMenu ? theme::ButtonHover : theme::Button);
-    btnM.setOutlineThickness(hoverMenu ? 2.5f : 1.5f);
-    btnM.setOutlineColor(hoverMenu ? theme::Focus : theme::LineStrong);
-    window.draw(btnM);
-
-    if (resourcesLoaded) {
-        // Header Text
-        sf::Text tHeader(font, toUtf8(headerStr), fontsize::H2);
-        tHeader.setStyle(sf::Text::Bold);
-        tHeader.setFillColor(theme::TextPrimary);
-        sf::FloatRect hb = tHeader.getLocalBounds();
-        tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 14.0f });
-        ui::drawText(window, tHeader);
-
-        // Huge Winner Title
-        sf::Text tWinner(font, toUtf8(winPlayerStr), fontsize::H1);
-        tWinner.setStyle(sf::Text::Bold);
-        tWinner.setFillColor(winColor);
-        sf::FloatRect wb = tWinner.getLocalBounds();
-        tWinner.setPosition({ boxX + (boxW - wb.size.x) / 2.0f, boxY + 80.0f });
-        ui::drawText(window, tWinner);
-
-        // Subtitle
-        sf::Text tSub(font, toUtf8(subStr), fontsize::Body);
-        tSub.setFillColor(theme::TextSecondary);
-        sf::FloatRect sb = tSub.getLocalBounds();
-        tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f, boxY + 125.0f });
-        ui::drawText(window, tSub);
-
-        // Stats Box
-        sf::RectangleShape statsBox({ boxW - 60.0f, 180.0f });
-        statsBox.setPosition({ boxX + 30.0f, boxY + 165.0f });
-        statsBox.setFillColor(theme::withAlpha(theme::Card, 230));
-        statsBox.setOutlineThickness(1.0f);
-        statsBox.setOutlineColor(theme::Line);
-        window.draw(statsBox);
-
-        auto countPlots = [&](int player, bool purchasedOnly) {
-            int n = 0;
-            for (const auto& p : engine.getLandPlots()) {
-                if (p.playerOwner == player && (!purchasedOnly || p.isPurchased)) n++;
-            }
-            return n;
-        };
-        auto countBuildings = [&](int player) {
-            int n = 0;
-            for (const auto& b : engine.getBuildings()) {
-                if (b.playerOwner == player) n++;
-            }
-            return n;
-        };
-
-        std::vector<std::string> statLines;
-        if (isDraw) {
-            const auto& e1 = engine.getPlayerEconomy(1);
-            const auto& e2 = engine.getPlayerEconomy(2);
-            statLines = {
-                "Край на мача: Ден " + std::to_string(decidedDay),
-                "Произведена мощност: P1 " + std::to_string(e1.energyMW) + " MW | P2 " + std::to_string(e2.energyMW) + " MW",
-                "Закупени парцели земя: P1 " + std::to_string(countPlots(1, true)) + " / " + std::to_string(countPlots(1, false)) +
-                    " | P2 " + std::to_string(countPlots(2, true)) + " / " + std::to_string(countPlots(2, false)),
-                "Построени съоръжения: P1 " + std::to_string(countBuildings(1)) + " | P2 " + std::to_string(countBuildings(2)) + " сгради",
-                "Налично злато: P1 " + std::to_string(e1.gold) + " G | P2 " + std::to_string(e2.gold) + " G"
-            };
-        } else {
-            const auto& winEcon = engine.getPlayerEconomy(winner);
-            statLines = {
-                "Ден на победата: Ден " + std::to_string(decidedDay),
-                "Произведена мощност: " + std::to_string(winEcon.energyMW) + " MW",
-                "Закупени парцели земя: " + std::to_string(countPlots(winner, true)) + " / " +
-                    std::to_string(countPlots(winner, false)) + " парцела",
-                "Построени съоръжения: " + std::to_string(countBuildings(winner)) + " сгради",
-                "Налично злато: " + std::to_string(winEcon.gold) + " G | Градска хазна: " + std::to_string(winEcon.money) + " $"
-            };
-        }
-
-        for (size_t i = 0; i < statLines.size(); i++) {
-            sf::Text tStat(font, toUtf8(statLines[i]), fontsize::Body);
-            tStat.setFillColor(theme::TextPrimary);
-            tStat.setPosition({ boxX + 50.0f, boxY + 180.0f + i * 28.0f });
-            ui::drawText(window, tStat);
-        }
-
-        sf::Text tR(font, toUtf8("НОВА ИГРА [R]"), fontsize::Body);
-        tR.setStyle(sf::Text::Bold);
-        tR.setFillColor(theme::TextPrimary);
-        sf::FloatRect rb = tR.getLocalBounds();
-        tR.setPosition({ victoryRestartBtn.position.x + (victoryRestartBtn.size.x - rb.size.x) / 2.0f,
-                         victoryRestartBtn.position.y + (victoryRestartBtn.size.y - rb.size.y) / 2.0f - 2.0f });
-        ui::drawText(window, tR, victoryRestartBtn);
-
-        sf::Text tM(font, toUtf8("ГЛАВНО МЕНЮ [ESC / M]"), fontsize::Body);
-        tM.setStyle(sf::Text::Bold);
-        tM.setFillColor(theme::TextPrimary);
-        sf::FloatRect mb = tM.getLocalBounds();
-        tM.setPosition({ victoryMenuBtn.position.x + (victoryMenuBtn.size.x - mb.size.x) / 2.0f,
-                         victoryMenuBtn.position.y + (victoryMenuBtn.size.y - mb.size.y) / 2.0f - 2.0f });
-        ui::drawText(window, tM, victoryMenuBtn);
-    }
+    postMatch.draw(window, font, resourcesLoaded, engine, stats, mousePos, victoryRestartBtn, victoryMenuBtn);
 }
 
 void UI_map::drawPauseMenu(sf::RenderWindow& window) {
@@ -392,9 +215,9 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     window.draw(backdrop);
     ui::lint::occlude(sf::FloatRect({ 0.0f, 0.0f }, { VIRTUAL_WIDTH, VIRTUAL_HEIGHT }));
 
-    // 2. Pause Card
+    // 2. Pause Card (team info: one row taller for the event log entry)
     float boxW = 500.0f;
-    float boxH = 430.0f;
+    float boxH = 433.0f; // 5 entries + an even bottom margin
     float boxX = (1600.0f - boxW) / 2.0f;
     float boxY = (900.0f - boxH) / 2.0f;
 
@@ -442,7 +265,8 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     pauseResumeBtn  = sf::FloatRect({ btnX, startY }, { btnW, btnH });
     pauseRestartBtn = sf::FloatRect({ btnX, startY + spacing }, { btnW, btnH });
     pauseHelpBtn    = sf::FloatRect({ btnX, startY + 2.0f * spacing }, { btnW, btnH });
-    pauseMenuBtn    = sf::FloatRect({ btnX, startY + 3.0f * spacing }, { btnW, btnH });
+    pauseLogBtn     = sf::FloatRect({ btnX, startY + 3.0f * spacing }, { btnW, btnH }); // team info
+    pauseMenuBtn    = sf::FloatRect({ btnX, startY + 4.0f * spacing }, { btnW, btnH });
 
     struct PauseOption {
         sf::FloatRect bounds;
@@ -452,14 +276,15 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         sf::Color outlineColor;
     };
 
-    PauseOption opts[4] = {
-        { pauseResumeBtn,  "ПРОДЪЛЖИ  [ESC / ENTER]", theme::GoodFill, theme::GoodFill, theme::Good },
-        { pauseRestartBtn, "НОВА ИГРА  [R]",          theme::InfoFill, theme::InfoFill, theme::Info },
-        { pauseHelpBtn,    "ПОМОЩ И ПРАВИЛА  [H]",    theme::Button, theme::ButtonHover, theme::LineStrong },
-        { pauseMenuBtn,    "ГЛАВНО МЕНЮ  [M]",        theme::BadFill, theme::BadFill, theme::Bad }
+    PauseOption opts[5] = {
+        { pauseResumeBtn,  "ПРОДЪЛЖИ  [ESC / ENTER]",    theme::GoodFill, theme::GoodFill, theme::Good },
+        { pauseRestartBtn, "НОВА ИГРА  [R]",             theme::InfoFill, theme::InfoFill, theme::Info },
+        { pauseHelpBtn,    "ПОМОЩ И ПРАВИЛА  [H]",       theme::Button, theme::ButtonHover, theme::LineStrong },
+        { pauseLogBtn,     "ДНЕВНИК НА СЪБИТИЯТА  [L]",  theme::Button, theme::ButtonHover, theme::LineStrong }, // team info
+        { pauseMenuBtn,    "ГЛАВНО МЕНЮ  [M]",           theme::BadFill, theme::BadFill, theme::Bad }
     };
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         if (mouseMoved && opts[i].bounds.contains(mousePos)) {
             pauseSelectedIdx = i;
         }

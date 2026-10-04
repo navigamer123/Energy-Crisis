@@ -12,6 +12,12 @@
 #include "UI_buildings.h"
 #include "UI_bot.h"
 #include "UI_tutorial.h"
+#include "UI_infoEvents.h"   // team info
+#include "UI_matchStats.h"   // team info
+#include "UI_notifications.h" // team info
+#include "UI_dashboard.h"     // team info
+#include "UI_postmatch.h"     // team info
+#include "UI_devOverlay.h"    // team info
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -200,6 +206,23 @@ private:
     int mouseOwnerAt(sf::Vector2f pos) const;                          // 0 = nobody, 1 = P1, 2 = P2
     bool isModalDismissKey(int player, sf::Keyboard::Key code) const;  // That player's own confirm/cancel keys
 
+    // team info: information UI (UI_map_info.cpp) - telemetry, notifications, dashboard, report, dev overlay
+    UI_matchStats stats;
+    UI_notifications notifications;
+    std::vector<InfoEvent> pendingInfoEvents;
+    bool showEventLog = false;          // Event log overlay, opened from the pause menu
+    sf::FloatRect pauseLogBtn;          // Pause menu entry "ДНЕВНИК НА СЪБИТИЯТА"
+    void updateInfoUI(float dt);
+    void resetInfoUI();
+    void handleEventLogInput(const sf::Event& event);
+    void openEventLog();
+    UI_dashboard dashboard;             // Energy dashboard while [Tab] is held
+    float dashboardOpenedAt = -1.0f;    // animClock time when Tab went down (-1 = closed)
+    void drawDashboardIfHeld(sf::RenderWindow& window);
+    UI_postmatch postMatch;             // Post-match report (replaces the victory box)
+    UI_devOverlay devOverlay;           // Developer overlay ([F3])
+    void drawDevOverlay(sf::RenderWindow& window);
+
 public:
     UI_map();
     ~UI_map();
@@ -233,6 +256,8 @@ public:
     // (game, mining, night, winter, storm, victory, pause, help, modal, tutorial) using only the public
     // engine API. frames = frames the capture will render (used to time a lightning bolt).
     void setupDebugScene(const std::string& scene, int frames);
+    // team info: entry point of the information-UI event hook (see UI_infoEvents.h)
+    void onInfoEvent(const InfoEvent& ev);
 };
 
 #endif // UI_MAP_H

@@ -44,90 +44,29 @@ void UI_map::drawFloatingNotices(sf::RenderWindow& window) {
     }
 }
 
+// team info: player popups are toasts of the notification system (UX-06). The badge decides the
+// priority and the channel (a newer hint replaces the older one on the same channel). Routine
+// mining results are not toasts any more: the floating "+12 Дърво" notice already shows them.
 void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std::string& title,
                                 const std::string& detail, const std::string& action, sf::Color accent) {
-    PlayerPopup& pop = (player == 1) ? p1Popup : p2Popup;
-    pop.badge = badge;
-    pop.title = title;
-    pop.detail = detail;
-    pop.action = action;
-    pop.accentColor = accent;
-    pop.timer = 4.0f;
-    pop.maxTimer = 4.0f;
-    pop.active = true;
+    if (badge == "ДОБИВ") return;
+    ToastPriority prio = ToastPriority::INFO;
+    std::string channel = badge;
+    if (badge == "МЪЛНИЯ!") {
+        prio = ToastPriority::CRITICAL;
+        channel.clear();
+    } else if (badge == "ГРЕШКА" || badge.rfind("НЕДОСТИГ", 0) == 0 || badge.rfind("ГРЕШКА", 0) == 0) {
+        prio = ToastPriority::WARNING;
+        channel = "error";
+    } else if (badge == "СТРОЕЖ" || badge == "ПРЕМАХВАНЕ" || badge == "ОСВЕТЛЕНИЕ" || badge == "ОТКАЗ") {
+        channel = "select";
+    }
+    notifications.push(player, prio, channel, badge, title, detail, action, accent, false);
 }
 
 void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
     if (!resourcesLoaded) return;
-
-    auto drawOnePopup = [&](const PlayerPopup& pop, float x, float y) {
-        if (!pop.active) return;
-
-        float alphaRatio = std::min(1.0f, pop.timer / 0.8f);
-        std::uint8_t alpha = static_cast<std::uint8_t>(alphaRatio * 245);
-        const float w = 225.0f;
-        const float textW = w - 16.0f;
-
-        // Texts are wrapped to the box; the box grows to fit them
-        sf::Text tBadge(font, toUtf8(pop.badge), fontsize::Caption);
-        tBadge.setStyle(sf::Text::Bold);
-        sf::Text tTitle(font, toUtf8(ui::wrapText(font, pop.title, fontsize::Label, textW, true)), fontsize::Label);
-        tTitle.setStyle(sf::Text::Bold);
-        sf::Text tDetail(font, toUtf8(ui::wrapText(font, pop.detail, fontsize::Caption, textW)), fontsize::Caption);
-        sf::Text tAct(font, toUtf8(ui::wrapText(font, pop.action, fontsize::Caption, textW)), fontsize::Caption);
-        auto bottomOf = [](const sf::Text& t) { return t.getLocalBounds().position.y + t.getLocalBounds().size.y; };
-
-        const float badgeH = 18.0f;
-        float titleY = 8.0f + badgeH + 6.0f;
-        float detailY = titleY + bottomOf(tTitle) + 8.0f;
-        float actY = detailY + (pop.detail.empty() ? 0.0f : bottomOf(tDetail) + 8.0f);
-        float h = actY + (pop.action.empty() ? 0.0f : bottomOf(tAct) + 8.0f) + 6.0f;
-
-        sf::RectangleShape box({ w, h });
-        box.setPosition({ x, y });
-        box.setFillColor(theme::withAlpha(theme::Panel, alpha));
-        box.setOutlineThickness(1.5f);
-        box.setOutlineColor(theme::withAlpha(pop.accentColor, alpha));
-        window.draw(box);
-        const sf::FloatRect popupRect({ x, y }, { w, h });
-        ui::lint::occlude(popupRect);
-        ui::lint::ContainerScope popupScope(popupRect);
-
-        // Badge: saturated accent fill with dark text (readable contrast)
-        sf::FloatRect bb = tBadge.getLocalBounds();
-        sf::RectangleShape badgeBox({ bb.size.x + 14.0f, badgeH });
-        badgeBox.setPosition({ x + 8.0f, y + 8.0f });
-        badgeBox.setFillColor(theme::withAlpha(pop.accentColor, alpha));
-        window.draw(badgeBox);
-        tBadge.setFillColor(theme::withAlpha(theme::TextOnLight, alpha));
-        tBadge.setPosition({ x + 15.0f - bb.position.x, y + 8.0f + (badgeH - bb.size.y) / 2.0f - bb.position.y });
-        ui::drawText(window, tBadge, sf::FloatRect(badgeBox.getPosition(), badgeBox.getSize()));
-
-        tTitle.setFillColor(theme::withAlpha(theme::TextPrimary, alpha));
-        tTitle.setPosition({ x + 8.0f, y + titleY });
-        ui::drawText(window, tTitle);
-
-        if (!pop.detail.empty()) {
-            tDetail.setFillColor(theme::withAlpha(theme::TextSecondary, alpha));
-            tDetail.setPosition({ x + 8.0f, y + detailY });
-            ui::drawText(window, tDetail);
-        }
-        if (!pop.action.empty()) {
-            tAct.setFillColor(theme::withAlpha(theme::Info, alpha));
-            tAct.setPosition({ x + 8.0f, y + actY });
-            ui::drawText(window, tAct);
-        }
-
-        // Timer progress bar along the bottom edge
-        float pWidth = (w - 16.0f) * (pop.timer / pop.maxTimer);
-        sf::RectangleShape prog({ std::max(0.0f, pWidth), 2.5f });
-        prog.setPosition({ x + 8.0f, y + h - 5.0f });
-        prog.setFillColor(theme::withAlpha(pop.accentColor, alpha));
-        window.draw(prog);
-    };
-
-    drawOnePopup(p1Popup, 20.0f, 518.0f);
-    drawOnePopup(p2Popup, 1600.0f - 245.0f, 518.0f);
+    notifications.draw(window, font); // team info
 }
 
 void UI_map::triggerPlayerModal(int player, const std::string& badge, const std::string& title,
@@ -248,7 +187,6 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.detailY });
         ui::drawText(window, tDetail);
 
-        // Tip text
         if (!m.tip.empty()) {
             sf::Text tTip(font, toUtf8(m.tip), fontsize::Caption);
             tTip.setFillColor(theme::Warn);
