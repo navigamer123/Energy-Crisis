@@ -71,7 +71,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
     auto drawSlot = [&](const Slot& s, float x, float y) {
         drawResourceIcon(window, s.type, { x + 8.0f, y + 8.0f }, 16.0f);
         if (!fontLoaded) return;
-        sf::Text t(font, toUtf8(std::to_string(s.value) + s.suffix), fontsize::H2);
+        sf::Text& t = ui::pooledText(font, toUtf8(std::to_string(s.value) + s.suffix), fontsize::H2);
         t.setStyle(sf::Text::Bold);
         t.setFillColor(s.color);
         sf::FloatRect tb = t.getLocalBounds();
@@ -97,7 +97,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
     if (fontLoaded) {
         int sharePct = static_cast<int>(std::lround(econ.cityInfluence * 100.0f));
         std::string pStr = std::to_string(econ.energyMW) + " MW · град " + std::to_string(sharePct) + "%";
-        sf::Text tPwr(font, toUtf8(pStr), fontsize::Label);
+        sf::Text& tPwr = ui::pooledText(font, toUtf8(pStr), fontsize::Label);
         tPwr.setStyle(sf::Text::Bold);
         tPwr.setFillColor(theme::Energy);
         sf::FloatRect pb = tPwr.getLocalBounds();
@@ -118,7 +118,7 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
     landBtn.setOutlineColor(hoverLand ? theme::Focus : accent);
     window.draw(landBtn);
     if (fontLoaded) {
-        sf::Text tLand(font, toUtf8("+ КУПИ ЗЕМЯ"), fontsize::Label);
+        sf::Text& tLand = ui::pooledText(font, toUtf8("+ КУПИ ЗЕМЯ"), fontsize::Label);
         tLand.setStyle(sf::Text::Bold);
         tLand.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = tLand.getLocalBounds();

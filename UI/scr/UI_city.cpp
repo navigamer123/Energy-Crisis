@@ -99,7 +99,7 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
     window.draw(tag);
 
     if (fontLoaded) {
-        sf::Text bText(font, toUtf8("ЦЕНТРАЛНА ГРАНИЦА"), fontsize::Label);
+        sf::Text& bText = ui::pooledText(font, toUtf8("ЦЕНТРАЛНА ГРАНИЦА"), fontsize::Label);
         bText.setStyle(sf::Text::Bold);
         bText.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = bText.getLocalBounds();
@@ -331,7 +331,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
         int p2Pct = 100 - p1Pct;
         std::string phaseStr = isDaylight ? "ДЕН" : "НОЩ";
         std::string titleStr = "ГРАД · " + phaseStr + " · P1 " + std::to_string(p1Pct) + "% · P2 " + std::to_string(p2Pct) + "%";
-        sf::Text cLabel(font, toUtf8(titleStr), fontsize::Label);
+        sf::Text& cLabel = ui::pooledText(font, toUtf8(titleStr), fontsize::Label);
         cLabel.setStyle(sf::Text::Bold);
         cLabel.setFillColor(theme::TextPrimary);
         sf::FloatRect lb = cLabel.getLocalBounds();
@@ -362,7 +362,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
             const sf::FloatRect barRect(cutBar.getPosition(), cutBar.getSize());
 
             for (std::size_t i = 0; i < lines.size(); ++i) {
-                sf::Text cutText(font, toUtf8(lines[i]), cutSize);
+                sf::Text& cutText = ui::pooledText(font, toUtf8(lines[i]), cutSize);
                 cutText.setFillColor(theme::TextPrimary);
                 sf::FloatRect cb = cutText.getLocalBounds();
                 cutText.setPosition({ midX - cb.size.x / 2.0f - cb.position.x,
@@ -405,7 +405,7 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
             demandColor = theme::TextPrimary;
         }
 
-        sf::Text tDemand(font, toUtf8(dStr), fontsize::Label);
+        sf::Text& tDemand = ui::pooledText(font, toUtf8(dStr), fontsize::Label);
         tDemand.setStyle(sf::Text::Bold);
         tDemand.setFillColor(demandColor);
         sf::FloatRect db = tDemand.getLocalBounds();
@@ -452,13 +452,13 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         int p1Pct = static_cast<int>(std::lround(p1Share * 100.0f));
         int p2Pct = 100 - p1Pct;
 
-        sf::Text p1Tag(font, toUtf8("P1 " + std::to_string(p1Pct) + "%"), fontsize::Caption);
+        sf::Text& p1Tag = ui::pooledText(font, toUtf8("P1 " + std::to_string(p1Pct) + "%"), fontsize::Caption);
         p1Tag.setStyle(sf::Text::Bold);
         p1Tag.setFillColor(theme::P1Light);
         p1Tag.setPosition({ barX - 48.0f, barY - 2.0f });
         ui::drawText(window, p1Tag);
 
-        sf::Text p2Tag(font, toUtf8("P2 " + std::to_string(p2Pct) + "%"), fontsize::Caption);
+        sf::Text& p2Tag = ui::pooledText(font, toUtf8("P2 " + std::to_string(p2Pct) + "%"), fontsize::Caption);
         p2Tag.setStyle(sf::Text::Bold);
         p2Tag.setFillColor(theme::P2Light);
         p2Tag.setPosition({ barX + barW + 8.0f, barY - 2.0f });

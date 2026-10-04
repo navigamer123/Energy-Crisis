@@ -73,7 +73,7 @@ void tile(sf::RenderTarget& t, const sf::Font& f, sf::FloatRect r, const std::st
           const std::string& value2 = "", sf::Color value2Col = sf::Color::White) {
     rect(t, r, COL_TILE, PANEL_EDGE, 1.0f);
     text(t, f, label, 11, { r.position.x + 14.0f, r.position.y + 10.0f }, AXIS_TEXT, true, r.size.x - 28.0f);
-    sf::Text v(f, toUtf8(value), 28);
+    sf::Text& v = ui::pooledText(f, toUtf8(value), 28);
     v.setStyle(sf::Text::Bold);
     v.setFillColor(valueCol);
     v.setPosition({ r.position.x + 14.0f, r.position.y + 26.0f });
@@ -101,7 +101,7 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
     const float hy = CARD.position.y + 14.0f;
     text(target, font, "ЕНЕРГИЙНО ТАБЛО", 22, { hx, hy }, COL_CARD_EDGE, true);
     {
-        sf::Text title(font, toUtf8("ЕНЕРГИЙНО ТАБЛО"), 22);
+        sf::Text& title = ui::pooledText(font, toUtf8("ЕНЕРГИЙНО ТАБЛО"), 22);
         title.setStyle(sf::Text::Bold);
         float lx = hx + infoText::width(title) + 18.0f;
         float pulse = 0.5f + 0.5f * std::sin(animTime * 5.0f);
@@ -313,7 +313,7 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
                 if (w <= 0.5f) continue;
                 rect(target, sf::FloatRect({ x, by }, { w, 36.0f }), COL_SOURCE[s]);
                 std::string lbl = fmtInt(stats.getLiveSourceMW(p + 1, s));
-                sf::Text tl(font, toUtf8(lbl), 12);
+                sf::Text& tl = ui::pooledText(font, toUtf8(lbl), 12);
                 tl.setStyle(sf::Text::Bold);
                 if (infoText::width(tl) + 8.0f < w) {
                     tl.setFillColor(sf::Color(12, 16, 24));

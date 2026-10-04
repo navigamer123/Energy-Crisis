@@ -135,7 +135,7 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     }
 
     if (resourcesLoaded) {
-        sf::Text p1Tag(font, "P1", fontsize::Label);
+        sf::Text& p1Tag = ui::pooledText(font, "P1", fontsize::Label);
         p1Tag.setStyle(sf::Text::Bold);
         p1Tag.setFillColor(theme::P1Light);
         drawCursorTag(window, p1Tag, p1Pos, theme::P1);
@@ -181,7 +181,7 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
             else if (bot.getDifficulty() == BotDifficulty::MEDIUM) p2Label = "P2 [БОТ: СРЕДЕН]";
             else if (bot.getDifficulty() == BotDifficulty::HARD) p2Label = "P2 [БОТ: ТРУДЕН]";
         }
-        sf::Text p2Tag(font, toUtf8(p2Label), fontsize::Label);
+        sf::Text& p2Tag = ui::pooledText(font, toUtf8(p2Label), fontsize::Label);
         p2Tag.setStyle(sf::Text::Bold);
         p2Tag.setFillColor(theme::P2Light);
         drawCursorTag(window, p2Tag, p2Pos, theme::P2);

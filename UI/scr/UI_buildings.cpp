@@ -149,7 +149,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
   if (fontLoaded) {
     std::string pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
                                           : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
-    sf::Text tHeader(font, toUtf8(pTag), fontsize::Label);
+    sf::Text& tHeader = ui::pooledText(font, toUtf8(pTag), fontsize::Label);
     tHeader.setStyle(sf::Text::Bold);
     tHeader.setFillColor(accentColor);
     tHeader.setPosition({panelPos.x + 8.0f, panelPos.y + 6.0f});
@@ -211,7 +211,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     const float rightX = x + w - 6.0f;
 
     // Row 1: short name + output badge
-    sf::Text tName(font, toUtf8(b.shortName), fontsize::Label);
+    sf::Text& tName = ui::pooledText(font, toUtf8(b.shortName), fontsize::Label);
     tName.setStyle(sf::Text::Bold);
     tName.setFillColor(isDemolish ? theme::Bad : theme::TextPrimary);
     tName.setPosition({textX, y + 3.0f});
@@ -231,7 +231,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     } else {
       badge = "+" + std::to_string(cost.basePowerMW) + " MW";
     }
-    sf::Text tBadge(font, toUtf8(badge), fontsize::Label);
+    sf::Text& tBadge = ui::pooledText(font, toUtf8(badge), fontsize::Label);
     tBadge.setStyle(sf::Text::Bold);
     tBadge.setFillColor(badgeColor);
     sf::FloatRect bb = tBadge.getLocalBounds();
@@ -241,14 +241,14 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     // Row 2: costs as amount + resource icon, each green (enough) or red (missing)
     const float costY = y + 20.0f;
     if (isDemolish) {
-      sf::Text tInfo(font, toUtf8("Връща половината ресурси"), fontsize::Caption);
+      sf::Text& tInfo = ui::pooledText(font, toUtf8("Връща половината ресурси"), fontsize::Caption);
       tInfo.setFillColor(theme::TextSecondary);
       tInfo.setPosition({textX, costY + 1.0f});
       ui::drawText(window, tInfo);
     } else {
       float cx = textX;
       for (const auto &n : needs) {
-        sf::Text tNum(font, std::to_string(n.need), fontsize::Label);
+        sf::Text& tNum = ui::pooledText(font, std::to_string(n.need), fontsize::Label);
         tNum.setFillColor(n.have >= n.need ? theme::Good : theme::Bad);
         tNum.setStyle(sf::Text::Bold);
         tNum.setPosition({cx, costY});
@@ -284,7 +284,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     float hotkeyW = 0.0f;
     const float statusY = y + 37.0f;
     if (!hotkeyStr.empty()) {
-      sf::Text tKey(font, toUtf8(hotkeyStr), fontsize::Caption);
+      sf::Text& tKey = ui::pooledText(font, toUtf8(hotkeyStr), fontsize::Caption);
       tKey.setFillColor(theme::TextMuted);
       sf::FloatRect kb = tKey.getLocalBounds();
       hotkeyW = kb.size.x + 6.0f;
@@ -306,7 +306,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       }
     }
     if (!status.empty()) {
-      sf::Text tStatus(font, toUtf8(status), fontsize::Caption);
+      sf::Text& tStatus = ui::pooledText(font, toUtf8(status), fontsize::Caption);
       tStatus.setFillColor(count > 0 ? theme::TextSecondary : theme::TextMuted);
       tStatus.setPosition({textX, statusY});
       ui::drawText(window, tStatus);

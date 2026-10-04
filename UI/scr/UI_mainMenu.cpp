@@ -69,7 +69,7 @@ void UI_mainMenu::drawButton(sf::RenderWindow& window, sf::FloatRect bounds, con
 
     if (fontLoaded) {
         sf::String displayText = isSelected ? (toUtf8("> ") + text + toUtf8(" <")) : text;
-        sf::Text label(font, displayText, fontsize::H2);
+        sf::Text& label = ui::pooledText(font, displayText, fontsize::H2);
         label.setFillColor(isSelected ? theme::TextPrimary : textColor);
         if (isSelected) label.setStyle(sf::Text::Bold);
 
@@ -115,7 +115,7 @@ void UI_mainMenu::drawHeader(sf::RenderWindow& window, bool large) {
         window.draw(logo);
     } else if (fontLoaded) {
         // Fallback when assets/logo.png is missing: the old text title
-        sf::Text title(font, "ENERGY CRISIS", fontsize::Display);
+        sf::Text& title = ui::pooledText(font, "ENERGY CRISIS", fontsize::Display);
         title.setFillColor(theme::Energy);
         sf::FloatRect tb = title.getLocalBounds();
         title.setPosition({ (screenWidth - tb.size.x) / 2.0f - tb.position.x, logoTop + (logoH - tb.size.y) / 2.0f - tb.position.y });
@@ -124,7 +124,7 @@ void UI_mainMenu::drawHeader(sf::RenderWindow& window, bool large) {
 
     if (fontLoaded) {
         // Subtitle
-        sf::Text subtitle(font, toUtf8("УПРАВЛЕНИЕ НА ЕНЕРГИЙНАТА МРЕЖА И РЕСУРСИТЕ"), fontsize::H2);
+        sf::Text& subtitle = ui::pooledText(font, toUtf8("УПРАВЛЕНИЕ НА ЕНЕРГИЙНАТА МРЕЖА И РЕСУРСИТЕ"), fontsize::H2);
         subtitle.setFillColor(theme::TextSecondary);
         sf::FloatRect subBounds = subtitle.getLocalBounds();
         subtitle.setPosition({ (screenWidth - subBounds.size.x) / 2.0f, subtitleY });
@@ -197,7 +197,7 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     drawButton(window, quitBtn, toUtf8("ИЗХОД"), defaultBtn, theme::BadFill, whiteText, selectedMainIndex == 2);
 
     if (fontLoaded) {
-        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter]"), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, MAIN_BTN_Y[2] + MAIN_BTN_H + 34.0f });
@@ -242,13 +242,13 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
                 ? "Играйте срещу компютърен противник (ботът управлява източния сектор)"
                 : "Връщане към главното меню";
 
-        sf::Text tDesc(font, toUtf8(desc), fontsize::Body);
+        sf::Text& tDesc = ui::pooledText(font, toUtf8(desc), fontsize::Body);
         tDesc.setFillColor(theme::TextSecondary);
         sf::FloatRect db = tDesc.getLocalBounds();
         tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 2.0f * spacing + 78.0f });
         ui::drawText(window, tDesc);
 
-        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Space] | Отказ: [ESC]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Space] | Отказ: [ESC]"), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 112.0f });
@@ -298,13 +298,13 @@ void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
                     ? "Бърз и агресивен бот; купува земя, ъпгрейдва мини и оптимизира ток"
                     : "Връщане към избор на режим";
 
-        sf::Text tDesc(font, toUtf8(desc), fontsize::Body);
+        sf::Text& tDesc = ui::pooledText(font, toUtf8(desc), fontsize::Body);
         tDesc.setFillColor(theme::TextSecondary);
         sf::FloatRect db = tDesc.getLocalBounds();
         tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 3.0f * spacing + 70.0f });
         ui::drawText(window, tDesc);
 
-        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Старт: [Enter / Space] | Отказ: [ESC]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [Стрелки / W,S] | Старт: [Enter / Space] | Отказ: [ESC]"), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 3.0f * spacing + 102.0f });
@@ -332,7 +332,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     sf::Vector2f mousePos = ui::pointerPos(window);
 
     if (fontLoaded) {
-        sf::Text sTitle(font, toUtf8("НАСТРОЙКИ"), fontsize::H1);
+        sf::Text& sTitle = ui::pooledText(font, toUtf8("НАСТРОЙКИ"), fontsize::H1);
         sTitle.setStyle(sf::Text::Bold);
         sTitle.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = sTitle.getLocalBounds();
@@ -351,12 +351,12 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     window.draw(volHighlight);
 
     if (fontLoaded) {
-        sf::Text tVol(font, toUtf8(volSelected ? "> Сила на звука:" : "  Сила на звука:"), fontsize::H2);
+        sf::Text& tVol = ui::pooledText(font, toUtf8(volSelected ? "> Сила на звука:" : "  Сила на звука:"), fontsize::H2);
         tVol.setFillColor(volSelected ? theme::TextPrimary : theme::TextSecondary);
         tVol.setPosition({ panelX + 45.0f, panelY + 78.0f });
         ui::drawText(window, tVol);
 
-        sf::Text volVal(font, toUtf8(std::to_string(volume) + "%"), fontsize::H2);
+        sf::Text& volVal = ui::pooledText(font, toUtf8(std::to_string(volume) + "%"), fontsize::H2);
         volVal.setStyle(sf::Text::Bold);
         volVal.setFillColor(theme::TextPrimary);
         volVal.setPosition({ panelX + 345.0f, panelY + 78.0f });
@@ -378,7 +378,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     window.draw(sfxHighlight);
 
     if (fontLoaded) {
-        sf::Text tSfx(font, toUtf8(sfxSelected ? "> Звукови ефекти:" : "  Звукови ефекти:"), fontsize::H2);
+        sf::Text& tSfx = ui::pooledText(font, toUtf8(sfxSelected ? "> Звукови ефекти:" : "  Звукови ефекти:"), fontsize::H2);
         tSfx.setFillColor(sfxSelected ? theme::TextPrimary : theme::TextSecondary);
         tSfx.setPosition({ panelX + 45.0f, panelY + 133.0f });
         ui::drawText(window, tSfx);
@@ -399,7 +399,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     window.draw(diffHighlight);
 
     if (fontLoaded) {
-        sf::Text tDiff(font, toUtf8(diffSelected ? "> Трудност на бота:" : "  Трудност на бота:"), fontsize::H2);
+        sf::Text& tDiff = ui::pooledText(font, toUtf8(diffSelected ? "> Трудност на бота:" : "  Трудност на бота:"), fontsize::H2);
         tDiff.setFillColor(diffSelected ? theme::TextPrimary : theme::TextSecondary);
         tDiff.setPosition({ panelX + 45.0f, panelY + 188.0f });
         ui::drawText(window, tDiff);
@@ -416,7 +416,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
             "Трудността на бота е избраната по подразбиране в ЕДИН ИГРАЧ."
         };
         for (int i = 0; i < 2; ++i) {
-            sf::Text tNote(font, toUtf8(notes[i]), fontsize::Label);
+            sf::Text& tNote = ui::pooledText(font, toUtf8(notes[i]), fontsize::Label);
             tNote.setFillColor(theme::TextMuted);
             sf::FloatRect nb = tNote.getLocalBounds();
             tNote.setPosition({ panelX + (panelWidth - nb.size.x) / 2.0f, panelY + 234.0f + i * 20.0f });
@@ -431,7 +431,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
 
     // Hints
     if (fontLoaded) {
-        sf::Text hint(font, toUtf8("Навигация: [W/S или Стрелки] | Промяна: [A/D или Enter]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S или Стрелки] | Промяна: [A/D или Enter]"), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 14.0f });

@@ -144,7 +144,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     // Keep the title clear of the sun/moon dial on the right edge of the card
     const float maxTitleW = size.x - 20.0f - 26.0f;
     unsigned int titleSize = ui::fitTextSize(font, dayStr, fontsize::Label, fontsize::Caption, maxTitleW, true);
-    sf::Text tTitle(font, toUtf8(dayStr), titleSize);
+    sf::Text& tTitle = ui::pooledText(font, toUtf8(dayStr), titleSize);
     tTitle.setStyle(sf::Text::Bold);
     tTitle.setFillColor(accentColor);
     tTitle.setPosition({ textX, pos.y + 6.0f });
@@ -157,19 +157,19 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     window.draw(div);
 
     // Weather (colour by weather), season and day / night
-    sf::Text tWeather(font, toUtf8(std::string("Време: ") + weatherNameBg(weather, daylight)), fontsize::Label);
+    sf::Text& tWeather = ui::pooledText(font, toUtf8(std::string("Време: ") + weatherNameBg(weather, daylight)), fontsize::Label);
     tWeather.setFillColor(weatherColor(weather, daylight));
     tWeather.setPosition({ textX, pos.y + 29.0f });
     ui::drawText(window, tWeather);
 
     std::string sStr = std::string("Сезон: ") + seasonNameBg(season) + (daylight ? " · ден" : " · нощ");
-    sf::Text tSeason(font, toUtf8(sStr), fontsize::Label);
+    sf::Text& tSeason = ui::pooledText(font, toUtf8(sStr), fontsize::Label);
     tSeason.setFillColor(theme::TextSecondary);
     tSeason.setPosition({ textX, pos.y + 45.0f });
     ui::drawText(window, tSeason);
 
     // 24-hour clock; while the mining speed-up runs: a fast-forward mark and the factor
-    sf::Text tHour(font, toUtf8("Час: " + Balance::formatHourMinute(currentHour)), fontsize::Body);
+    sf::Text& tHour = ui::pooledText(font, toUtf8("Час: " + Balance::formatHourMinute(currentHour)), fontsize::Body);
     tHour.setStyle(sf::Text::Bold);
     tHour.setFillColor(daylight ? theme::TextPrimary : theme::Info);
     tHour.setPosition({ textX, pos.y + 60.0f });
@@ -178,7 +178,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     if (timeScale > 1.5f) {
         char buf[24];
         std::snprintf(buf, sizeof(buf), "%dx добив", static_cast<int>(std::lround(timeScale)));
-        sf::Text tFast(font, toUtf8(buf), fontsize::Label);
+        sf::Text& tFast = ui::pooledText(font, toUtf8(buf), fontsize::Label);
         tFast.setStyle(sf::Text::Bold);
         tFast.setFillColor(theme::Warn);
         sf::FloatRect fb = tFast.getLocalBounds();
@@ -192,7 +192,7 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
     std::string sLine = "Слънце: " + Balance::formatHourMinute(Balance::getSunriseHour(season)) + " - " +
                         Balance::formatHourMinute(Balance::getSunsetHour(season));
     if (grace) sLine += " · гратис";
-    sf::Text tSun(font, toUtf8(sLine), fontsize::Caption);
+    sf::Text& tSun = ui::pooledText(font, toUtf8(sLine), fontsize::Caption);
     tSun.setFillColor(grace ? theme::Good : theme::TextSecondary);
     tSun.setPosition({ textX, pos.y + 81.0f });
     ui::drawText(window, tSun);

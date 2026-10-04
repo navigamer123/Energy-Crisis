@@ -24,7 +24,7 @@ void UI_playControls::drawButton(sf::RenderWindow& window, const sf::Font& font,
 
     if (fontLoaded) {
         sf::String displayText = isSelected ? (toUtf8("> ") + text + toUtf8(" <")) : text;
-        sf::Text label(font, displayText, fontsize::H2);
+        sf::Text& label = ui::pooledText(font, displayText, fontsize::H2);
         label.setFillColor(isSelected ? theme::TextPrimary : textColor);
         if (isSelected) label.setStyle(sf::Text::Bold);
 
@@ -55,7 +55,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
 
     if (fontLoaded) {
         // Modal title
-        sf::Text title(font, toUtf8("ИЗБЕРЕТЕ УПРАВЛЕНИЕ ЗА ДВАМА ИГРАЧИ"), fontsize::H1);
+        sf::Text& title = ui::pooledText(font, toUtf8("ИЗБЕРЕТЕ УПРАВЛЕНИЕ ЗА ДВАМА ИГРАЧИ"), fontsize::H1);
         title.setStyle(sf::Text::Bold);
         title.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = title.getLocalBounds();
@@ -63,7 +63,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
         ui::drawText(window, title, cardRect);
 
         // Subtitle
-        sf::Text sub(font, toUtf8("Изберете схема за Играч 1 (Западен сектор) и Играч 2 (Източен сектор)"), fontsize::Body);
+        sf::Text& sub = ui::pooledText(font, toUtf8("Изберете схема за Играч 1 (Западен сектор) и Играч 2 (Източен сектор)"), fontsize::Body);
         sub.setFillColor(theme::TextSecondary);
         sf::FloatRect sb = sub.getLocalBounds();
         sub.setPosition({ cardX + (cardWidth - sb.size.x) / 2.0f, cardY + 48.0f });
@@ -159,18 +159,18 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
         window.draw(radio);
 
         if (fontLoaded) {
-            sf::Text tTitle(font, toUtf8(options[i].title), fontsize::H2);
+            sf::Text& tTitle = ui::pooledText(font, toUtf8(options[i].title), fontsize::H2);
             tTitle.setStyle(sf::Text::Bold);
             tTitle.setFillColor((isActive || isNavSelected) ? theme::TextPrimary : theme::TextSecondary);
             tTitle.setPosition({ optX + 44.0f, y + 8.0f });
             ui::drawText(window, tTitle);
 
-            sf::Text tP1(font, toUtf8(options[i].p1Text), fontsize::Label);
+            sf::Text& tP1 = ui::pooledText(font, toUtf8(options[i].p1Text), fontsize::Label);
             tP1.setFillColor(theme::P1Light);
             tP1.setPosition({ optX + 44.0f, y + 34.0f });
             ui::drawText(window, tP1);
 
-            sf::Text tP2(font, toUtf8(options[i].p2Text), fontsize::Label);
+            sf::Text& tP2 = ui::pooledText(font, toUtf8(options[i].p2Text), fontsize::Label);
             tP2.setFillColor(theme::P2Light);
             tP2.setPosition({ optX + 44.0f, y + 54.0f });
             ui::drawText(window, tP2);
@@ -188,7 +188,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
             badge.setOutlineColor(isActive ? theme::Good : theme::Line);
             window.draw(badge);
 
-            sf::Text bText(font, toUtf8(isActive ? "ИЗБРАНО" : options[i].badgeText), fontsize::Label);
+            sf::Text& bText = ui::pooledText(font, toUtf8(isActive ? "ИЗБРАНО" : options[i].badgeText), fontsize::Label);
             bText.setFillColor(isActive ? theme::TextPrimary : theme::TextSecondary);
             sf::FloatRect bb = bText.getLocalBounds();
             bText.setPosition({ badgeX + (badgeW - bb.size.x) / 2.0f, badgeY + 4.0f });
@@ -216,7 +216,7 @@ void UI_playControls::draw(sf::RenderWindow& window, const sf::Font& font, bool 
 
     // Keyboard hints
     if (fontLoaded) {
-        sf::Text hint(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Клик] | Назад: [ESC]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [Стрелки / W,S] | Избор: [Enter / Клик] | Назад: [ESC]"), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, cardY + cardHeight + 10.0f });

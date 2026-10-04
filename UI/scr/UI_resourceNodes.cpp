@@ -257,7 +257,7 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                                           [&](const PlacedBuilding& b) { return plot.bounds.contains(b.position); });
             if (fontLoaded && plotEmpty) {
                 std::string tag = (plot.playerOwner == 1) ? "ЗЕМЯ НА P1" : "ЗЕМЯ НА P2";
-                sf::Text t(font, toUtf8(tag), fontsize::Caption);
+                sf::Text& t = ui::pooledText(font, toUtf8(tag), fontsize::Caption);
                 t.setFillColor(theme::playerLight(plot.playerOwner));
                 t.setPosition({ plot.bounds.position.x + 6.0f, plot.bounds.position.y + 4.0f });
                 ui::drawText(window, t);
@@ -270,14 +270,14 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
             window.draw(box);
 
             if (fontLoaded) {
-                sf::Text t(font, toUtf8("+ КУПИ ЗЕМЯ"), fontsize::Caption);
+                sf::Text& t = ui::pooledText(font, toUtf8("+ КУПИ ЗЕМЯ"), fontsize::Caption);
                 t.setFillColor(hover ? theme::TextPrimary : theme::TextSecondary);
                 sf::FloatRect tb = t.getLocalBounds();
                 t.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - tb.size.x) / 2.0f, plot.bounds.position.y + 28.0f });
                 ui::drawText(window, t);
 
                 std::string cStr = std::to_string(plot.costGold) + " G";
-                sf::Text tCost(font, toUtf8(cStr), fontsize::Body);
+                sf::Text& tCost = ui::pooledText(font, toUtf8(cStr), fontsize::Body);
                 tCost.setStyle(sf::Text::Bold);
                 tCost.setFillColor(theme::Gold);
                 sf::FloatRect cb = tCost.getLocalBounds();
@@ -431,7 +431,7 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
     for (const auto& b : buildings) {
         if (b.type != BuildingType::BATTERY) continue;
         float pct = std::min(1.0f, std::max(0.0f, b.energyStored / b.maxCapacity));
-        sf::Text tPct(font, std::to_string(static_cast<int>(pct * 100.0f)) + "%", fontsize::Caption);
+        sf::Text& tPct = ui::pooledText(font, std::to_string(static_cast<int>(pct * 100.0f)) + "%", fontsize::Caption);
         tPct.setStyle(sf::Text::Bold);
         tPct.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = tPct.getLocalBounds();
@@ -531,12 +531,12 @@ void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf:
         std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
                                             : "[X/Del]: Отказ  |  [E]: Смени сграда";
 
-        sf::Text t(font, toUtf8(label), fontsize::Label);
+        sf::Text& t = ui::pooledText(font, toUtf8(label), fontsize::Label);
         t.setStyle(sf::Text::Bold);
         t.setFillColor(tint);
-        sf::Text tc(font, toUtf8(costStr), fontsize::Caption);
+        sf::Text& tc = ui::pooledText(font, toUtf8(costStr), fontsize::Caption);
         tc.setFillColor(missing.empty() ? theme::TextPrimary : theme::Bad);
-        sf::Text th(font, toUtf8(hint), fontsize::Caption);
+        sf::Text& th = ui::pooledText(font, toUtf8(hint), fontsize::Caption);
         th.setFillColor(theme::TextSecondary);
 
         // One tooltip panel under the footprint (above it near the bottom edge), kept on the canvas,
@@ -634,21 +634,21 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         if (!fontLoaded) continue;
 
         // Row 1: station name (primary text; the colour is carried by the icon and the outline)
-        sf::Text nameText(font, toUtf8(s.nameBg), fontsize::Caption);
+        sf::Text& nameText = ui::pooledText(font, toUtf8(s.nameBg), fontsize::Caption);
         nameText.setFillColor(theme::TextPrimary);
         nameText.setPosition({ x + 23.0f, y + 6.0f });
         ui::drawText(window, nameText);
 
         // Row 2: what one mining action gives at the current level
         std::string yieldStr = "+" + std::to_string(mineYield(s.type, lvl)) + " " + resourceNameBg(s.type);
-        sf::Text yieldText(font, toUtf8(yieldStr), fontsize::Label);
+        sf::Text& yieldText = ui::pooledText(font, toUtf8(yieldStr), fontsize::Label);
         yieldText.setFillColor(theme::TextPrimary);
         yieldText.setPosition({ x + 6.0f, y + 23.0f });
         ui::drawText(window, yieldText);
 
         // Row 3: ready / cooldown (left) and the mine level (right)
         std::string lvlStr = "Н" + std::to_string(lvl); // Н = ниво (level)
-        sf::Text tLvl(font, toUtf8(lvlStr), fontsize::Caption);
+        sf::Text& tLvl = ui::pooledText(font, toUtf8(lvlStr), fontsize::Caption);
         tLvl.setFillColor(lvl > 1 ? theme::Info : theme::TextSecondary);
         sf::FloatRect lb = tLvl.getLocalBounds();
         tLvl.setPosition({ x + w - lb.size.x - 6.0f - lb.position.x, y + 40.0f });
@@ -657,7 +657,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         if (onCooldown) {
             char cdbuf[16];
             std::snprintf(cdbuf, sizeof(cdbuf), "%.1fс", cd);
-            sf::Text cdText(font, toUtf8(cdbuf), fontsize::Caption);
+            sf::Text& cdText = ui::pooledText(font, toUtf8(cdbuf), fontsize::Caption);
             cdText.setFillColor(theme::Warn);
             cdText.setPosition({ x + 6.0f, y + 40.0f });
             ui::drawText(window, cdText);
@@ -669,7 +669,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             window.draw(cdBar);
         } else {
             // The mining key is shown by the prompt tag over the station; the card only shows the state
-            sf::Text actText(font, toUtf8("готово"), fontsize::Caption);
+            sf::Text& actText = ui::pooledText(font, toUtf8("готово"), fontsize::Caption);
             actText.setFillColor(theme::Good);
             actText.setPosition({ x + 6.0f, y + 40.0f });
             ui::drawText(window, actText);
@@ -678,7 +678,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         // Upgrade button: next level and its gold price (gold coin icon)
         const sf::FloatRect& ub = s.upgradeBtnBounds;
         std::string upLabel = maxed ? "МАКС. НИВО" : ("Н" + std::to_string(lvl + 1) + " за " + std::to_string(upCost));
-        sf::Text tUp(font, toUtf8(upLabel), fontsize::Caption);
+        sf::Text& tUp = ui::pooledText(font, toUtf8(upLabel), fontsize::Caption);
         tUp.setStyle(sf::Text::Bold);
         tUp.setFillColor(maxed ? theme::TextSecondary : theme::TextPrimary);
         sf::FloatRect upb = tUp.getLocalBounds();

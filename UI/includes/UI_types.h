@@ -3,6 +3,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <string>
+#include "UI_textpool.h"
 
 // Virtual Canvas Resolution (16:9)
 constexpr float VIRTUAL_WIDTH = 1600.0f;

@@ -231,7 +231,7 @@ void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, co
 
     // Floating text tag over/next to arrow
     if (!label.empty()) {
-        sf::Text text(font, toUtf8(label), fontsize::Label);
+        sf::Text& text = ui::pooledText(font, toUtf8(label), fontsize::Label);
         text.setStyle(sf::Text::Bold);
         text.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = text.getLocalBounds();
@@ -460,7 +460,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     const float textW = cardW - 32.0f;
     const unsigned int descSize = fontsize::Label;
     const std::string wrappedDesc = ui::wrapText(font, descText, descSize, textW);
-    sf::Text desc(font, toUtf8(wrappedDesc), descSize);
+    sf::Text& desc = ui::pooledText(font, toUtf8(wrappedDesc), descSize);
     desc.setLineSpacing(1.15f);
     const float descH = desc.getLocalBounds().position.y + desc.getLocalBounds().size.y;
     const bool hasBottomRow = showNextBtn || !progressText.empty();
@@ -499,7 +499,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             }
         }
 
-        sf::Text p1Tag(font, toUtf8(p1Hint), fontsize::Caption);
+        sf::Text& p1Tag = ui::pooledText(font, toUtf8(p1Hint), fontsize::Caption);
         p1Tag.setFillColor(theme::P1Light);
         sf::FloatRect p1b = p1Tag.getLocalBounds();
 
@@ -528,7 +528,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                                : (step == TutorialStep::PLACE_SOLAR)  ? "P2: [ENTER] Строеж  |  [Del] Отказ"
                                : (step == TutorialStep::COMPLETED)    ? "P2: [ENTER] Продължи"
                                                                       : "P2: [СТРЕЛКИ] Движение  |  [ENTER] Добив";
-            sf::Text p2Tag(font, toUtf8(p2Hint), fontsize::Caption);
+            sf::Text& p2Tag = ui::pooledText(font, toUtf8(p2Hint), fontsize::Caption);
             p2Tag.setFillColor(theme::P2Light);
             sf::FloatRect p2b = p2Tag.getLocalBounds();
 
@@ -580,7 +580,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     skipBtn.setOutlineColor(hoverSkip ? theme::Focus : theme::LineStrong);
     window.draw(skipBtn);
 
-    sf::Text skipText(font, toUtf8("ПРОПУСНИ [ESC]"), fontsize::Caption);
+    sf::Text& skipText = ui::pooledText(font, toUtf8("ПРОПУСНИ [ESC]"), fontsize::Caption);
     skipText.setStyle(sf::Text::Bold);
     skipText.setFillColor(theme::TextPrimary);
     sf::FloatRect stb = skipText.getLocalBounds();
@@ -589,14 +589,14 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     ui::drawText(window, skipText, skipBtnBounds);
 
     // Badge
-    sf::Text badge(font, toUtf8(badgeText), fontsize::Caption);
+    sf::Text& badge = ui::pooledText(font, toUtf8(badgeText), fontsize::Caption);
     badge.setStyle(sf::Text::Bold);
     badge.setFillColor(theme::Info);
     badge.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 9.0f });
     ui::drawText(window, badge);
 
     // Title
-    sf::Text title(font, toUtf8(titleText), fontsize::H2);
+    sf::Text& title = ui::pooledText(font, toUtf8(titleText), fontsize::H2);
     title.setStyle(sf::Text::Bold);
     title.setFillColor(theme::TextPrimary);
     title.setPosition({ cardBounds.position.x + 16.0f, cardBounds.position.y + 25.0f });
@@ -628,7 +628,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             window.draw(barFill);
         }
 
-        sf::Text progTxt(font, toUtf8(progressText), fontsize::Caption);
+        sf::Text& progTxt = ui::pooledText(font, toUtf8(progressText), fontsize::Caption);
         progTxt.setFillColor(progressRatio >= 1.0f ? theme::Good : theme::Warn);
         progTxt.setPosition({ barX + barW + 12.0f, barY - 3.0f });
         ui::drawText(window, progTxt);
@@ -645,7 +645,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         window.draw(nextBtn);
         ui::lint::solid(nextBtnBounds);
 
-        sf::Text nxtTxt(font, toUtf8(nextBtnLabel), fontsize::Label);
+        sf::Text& nxtTxt = ui::pooledText(font, toUtf8(nextBtnLabel), fontsize::Label);
         nxtTxt.setStyle(sf::Text::Bold);
         nxtTxt.setFillColor(theme::TextOnLight);
         sf::FloatRect ntb = nxtTxt.getLocalBounds();
