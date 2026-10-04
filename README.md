@@ -1,8 +1,11 @@
-<!-- Чернова — ще бъде финализирана след приключване на разработката. -->
 
 <p align="center">
   <img src="assets/logo.png" alt="Energy Crisis" width="520">
 </p>
+
+<p align="center"><img src="presentation/media/trailer-loop.gif" alt="Energy Crisis gameplay" width="720"></p>
+
+<p align="center"><b>Отбор „Волтова дъга“</b> · <a href="presentation/index.html">Презентация</a> · <a href="presentation/media/trailer.mp4">Трейлър</a> · <a href="NEW_FEATURES.md">Какво е новото</a></p>
 
 <h3 align="center">Енергийна криза: състезание за тока на един растящ град</h3>
 
