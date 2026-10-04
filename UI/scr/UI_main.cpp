@@ -3,6 +3,8 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_theme.h"
 #include <algorithm>
+#include <cstdio>
+#include <filesystem>
 #include <iostream>
 
 UI_main::UI_main(const ShotOptions& shotOptions)
@@ -38,8 +40,18 @@ void UI_main::setupShotScene() {
     map.setControlScheme(ControlScheme::BOTH_KEYBOARD);
     map.setBotDifficulty(BotDifficulty::MEDIUM);
     map.resetMatchInputState();
-    map.setupDebugScene(shot.scene, shot.frames);
+    // A recording shows the scene's one-off moment (the storm bolt) at 60% of the clip, not at its end
+    map.setupDebugScene(shot.scene, shot.recordDir.empty() ? shot.frames : (shot.frames * 3) / 5);
     currentState = UIState::PLAYING;
+}
+
+bool UI_main::saveRecordFrame(int index) {
+    sf::Texture capture;
+    if (!capture.resize(window.getSize())) return false;
+    capture.update(window);
+    char name[32];
+    std::snprintf(name, sizeof(name), "frame_%05d.png", index);
+    return capture.copyToImage().saveToFile((std::filesystem::path(shot.recordDir) / name).string());
 }
 
 int UI_main::finishShot() {
@@ -126,6 +138,11 @@ int UI_main::render() {
     if (shot.enabled) setupShotScene();
     int frame = 0;
     int exitCode = 0;
+    int recordErrors = 0;
+    if (!shot.recordDir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(shot.recordDir, ec);
+    }
 
     while (window.isOpen() && currentState != UIState::QUIT) {
         ui::beginTextFrame();
@@ -201,8 +218,17 @@ int UI_main::render() {
         }
 
         // Screenshot mode: capture the finished frame before display() (the back buffer is still valid)
-        if (shot.enabled && ++frame >= shot.frames) {
-            exitCode = finishShot();
+        if (shot.enabled) ++frame;
+        if (!shot.recordDir.empty() && frame % shot.recordEvery == 0 && !saveRecordFrame(frame / shot.recordEvery)) {
+            std::cerr << "[Shot] ERROR: could not write frame " << frame << " to " << shot.recordDir << "\n";
+            recordErrors++;
+        }
+        if (shot.enabled && frame >= shot.frames) {
+            exitCode = std::max(finishShot(), recordErrors > 0 ? 1 : 0);
+            if (!shot.recordDir.empty()) {
+                std::cout << "[Shot] Recorded " << frame / shot.recordEvery << " frames of scene " << shot.scene
+                          << " to " << shot.recordDir << "\n";
+            }
             window.close();
             break;
         }
