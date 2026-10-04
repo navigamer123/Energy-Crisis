@@ -28,8 +28,9 @@ int UI_map::mouseOwnerAt(sf::Vector2f pos) const {
         case ControlScheme::P1_MOUSE_P2_KEYBOARD: return 1;
         case ControlScheme::P1_KEYBOARD_P2_MOUSE: return 2;
         case ControlScheme::BOTH_MOUSE:           return (pos.x < 800.0f) ? 1 : 2;
+        case ControlScheme::DEVHUB_ARCADE:
         case ControlScheme::BOTH_KEYBOARD:
-        default:                                  return 0; // Keyboard-only co-op: the mouse drives no player
+        default:                                  return 0; // Arcade & Keyboard-only co-op: the mouse drives no player
     }
 }
 
@@ -529,13 +530,18 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     bool p1OnPurchased = isPosOnPurchasedLand(1, p1Pos);
 
+    bool joyUp1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_UP);
+    bool joyDown1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_DOWN);
+    bool joyLeft1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_LEFT);
+    bool joyRight1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_RIGHT);
+
     if (p1BuildingMode && p1OnPurchased) {
-        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || allowArrowsForP1) {
+        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || controlScheme == ControlScheme::DEVHUB_ARCADE || allowArrowsForP1) {
             if (p1GridStepCooldown <= 0.0f) {
                 bool moved = false;
                 int nextRow = p1GridRow;
                 int nextCol = p1GridCol;
-                if (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) {
+                if (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) || joyUp1) {
                     if (p1GridRow > 0) {
                         nextRow = p1GridRow - 1;
                         moved = true;
@@ -543,7 +549,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p1Pos.y -= 35.0f;
                         p1GridStepCooldown = 0.14f;
                     }
-                } else if (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) {
+                } else if (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) || joyDown1) {
                     if (p1GridRow < 11) {
                         nextRow = p1GridRow + 1;
                         moved = true;
@@ -552,7 +558,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p1GridStepCooldown = 0.14f;
                     }
                 }
-                if (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) {
+                if (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) || joyLeft1) {
                     if (p1GridCol > 0) {
                         nextCol = p1GridCol - 1;
                         moved = true;
@@ -560,7 +566,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p1Pos.x -= 35.0f;
                         p1GridStepCooldown = 0.14f;
                     }
-                } else if (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) {
+                } else if (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) || joyRight1) {
                     if (p1GridCol < 8) {
                         nextCol = p1GridCol + 1;
                         moved = true;
@@ -584,11 +590,17 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             }
         }
     } else {
-        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || allowArrowsForP1) {
+        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || controlScheme == ControlScheme::DEVHUB_ARCADE || allowArrowsForP1) {
             if (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) p1Pos.y -= speed * dt;
             if (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) p1Pos.y += speed * dt;
             if (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) p1Pos.x -= speed * dt;
             if (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) p1Pos.x += speed * dt;
+
+            sf::Vector2f joyVec1 = UI_controlsConfig::get().getJoystickMoveVector(1);
+            if (std::abs(joyVec1.x) > 0.05f || std::abs(joyVec1.y) > 0.05f) {
+                p1Pos.x += joyVec1.x * speed * dt;
+                p1Pos.y += joyVec1.y * speed * dt;
+            }
         } else if (controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
             if (mouseOnCanvas) p1Pos = mPos;
         } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
@@ -654,13 +666,18 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
         bool p2OnPurchased = isPosOnPurchasedLand(2, p2Pos);
 
+        bool joyUp2 = UI_controlsConfig::get().isJoystickDirectionPressed(2, ControlAction::MOVE_UP);
+        bool joyDown2 = UI_controlsConfig::get().isJoystickDirectionPressed(2, ControlAction::MOVE_DOWN);
+        bool joyLeft2 = UI_controlsConfig::get().isJoystickDirectionPressed(2, ControlAction::MOVE_LEFT);
+        bool joyRight2 = UI_controlsConfig::get().isJoystickDirectionPressed(2, ControlAction::MOVE_RIGHT);
+
         if (p2BuildingMode && p2OnPurchased) {
-            if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
+            if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD || controlScheme == ControlScheme::DEVHUB_ARCADE) {
                 if (p2GridStepCooldown <= 0.0f) {
                     bool moved = false;
                     int nextRow = p2GridRow;
                     int nextCol = p2GridCol;
-                    if (sf::Keyboard::isKeyPressed(p2Bindings.up)) {
+                    if (sf::Keyboard::isKeyPressed(p2Bindings.up) || joyUp2) {
                         if (p2GridRow > 0) {
                             nextRow = p2GridRow - 1;
                             moved = true;
@@ -668,7 +685,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p2Pos.y -= 35.0f;
                             p2GridStepCooldown = 0.14f;
                         }
-                    } else if (sf::Keyboard::isKeyPressed(p2Bindings.down)) {
+                    } else if (sf::Keyboard::isKeyPressed(p2Bindings.down) || joyDown2) {
                         if (p2GridRow < 11) {
                             nextRow = p2GridRow + 1;
                             moved = true;
@@ -677,7 +694,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p2GridStepCooldown = 0.14f;
                         }
                     }
-                    if (sf::Keyboard::isKeyPressed(p2Bindings.left)) {
+                    if (sf::Keyboard::isKeyPressed(p2Bindings.left) || joyLeft2) {
                         if (p2GridCol > 0) {
                             nextCol = p2GridCol - 1;
                             moved = true;
@@ -685,7 +702,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p2Pos.x -= 35.0f;
                             p2GridStepCooldown = 0.14f;
                         }
-                    } else if (sf::Keyboard::isKeyPressed(p2Bindings.right)) {
+                    } else if (sf::Keyboard::isKeyPressed(p2Bindings.right) || joyRight2) {
                         if (p2GridCol < 8) {
                             nextCol = p2GridCol + 1;
                             moved = true;
@@ -709,11 +726,17 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                 }
             }
         } else {
-            if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
+            if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD || controlScheme == ControlScheme::DEVHUB_ARCADE) {
                 if (sf::Keyboard::isKeyPressed(p2Bindings.up)) p2Pos.y -= speed * dt;
                 if (sf::Keyboard::isKeyPressed(p2Bindings.down)) p2Pos.y += speed * dt;
                 if (sf::Keyboard::isKeyPressed(p2Bindings.left)) p2Pos.x -= speed * dt;
                 if (sf::Keyboard::isKeyPressed(p2Bindings.right)) p2Pos.x += speed * dt;
+
+                sf::Vector2f joyVec2 = UI_controlsConfig::get().getJoystickMoveVector(2);
+                if (std::abs(joyVec2.x) > 0.05f || std::abs(joyVec2.y) > 0.05f) {
+                    p2Pos.x += joyVec2.x * speed * dt;
+                    p2Pos.y += joyVec2.y * speed * dt;
+                }
             } else if (controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE) {
                 if (mouseOnCanvas) p2Pos = mPos;
             } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
@@ -741,8 +764,10 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     if (p2SelectCooldown > 0.0f) p2SelectCooldown -= dt;
 
     // 6. Player 1 Action Input (Single Press only, NO continuous hold-to-mine!)
+    bool p1JoyAction = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::ACTION);
     bool p1PressingAction = sf::Keyboard::isKeyPressed(p1Bindings.action) ||
-                            (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter));
+                            (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) ||
+                            p1JoyAction;
     bool p1JustPressed = p1PressingAction && !p1PrevAction;
     p1PrevAction = p1PressingAction;
 
@@ -752,21 +777,26 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     }
 
     // P1 Upgrade Mine with Gold
+    bool p1JoyUpgrade = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::UPGRADE);
     bool p1PressingUpgrade = sf::Keyboard::isKeyPressed(p1Bindings.upgrade) ||
-                             (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End)));
+                             (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End))) ||
+                             p1JoyUpgrade;
     if (p1PressingUpgrade && !p1PrevUpgrade && !p1Modal.active && !showHelpOverlay) {
         executeP1Upgrade();
     }
     p1PrevUpgrade = p1PressingUpgrade;
 
     // Key names shown in P1's popups: Enter/PgDn/Del belong to P1 only in Single Player
-    const std::string p1ActKeys = "[" + keyToString(p1Bindings.action) + (allowArrowsForP1 ? "/ENTER]" : "]");
-    const std::string p1NextKeys = "[" + keyToString(p1Bindings.nextBuilding) + (allowArrowsForP1 ? "/PgDn]" : "]");
-    const std::string p1CancelKeys = "[" + keyToString(p1Bindings.cancel) + (allowArrowsForP1 ? "/Del]" : "]");
+    const bool isArcade1 = (controlScheme == ControlScheme::DEVHUB_ARCADE) || UI_controlsConfig::get().isJoystickConnected(1);
+    const std::string p1ActKeys = isArcade1 ? "[1/A]" : ("[" + keyToString(p1Bindings.action) + (allowArrowsForP1 ? "/ENTER]" : "]"));
+    const std::string p1NextKeys = isArcade1 ? "[4/Y]" : ("[" + keyToString(p1Bindings.nextBuilding) + (allowArrowsForP1 ? "/PgDn]" : "]"));
+    const std::string p1CancelKeys = isArcade1 ? "[2/B]" : ("[" + keyToString(p1Bindings.cancel) + (allowArrowsForP1 ? "/Del]" : "]"));
 
     // P1: Cycle Forward
+    bool p1JoyNext = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::NEXT_BUILDING);
     bool curE = sf::Keyboard::isKeyPressed(p1Bindings.nextBuilding) ||
-                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown));
+                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown)) ||
+                p1JoyNext;
     if (curE && !p1PrevE && p1SelectCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         engine.cycleBuildingSelection(1);
         p1SelectCooldown = 0.16f;
@@ -786,8 +816,10 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     p1PrevE = curE;
 
     // P1: Cycle Backward / Cancel
+    bool p1JoyPrev = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::PREV_BUILDING);
     bool curQ = sf::Keyboard::isKeyPressed(p1Bindings.prevBuilding) ||
-                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp));
+                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp)) ||
+                p1JoyPrev;
     if (curQ && !p1PrevQ && p1SelectCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
             engine.cycleBuildingSelectionPrev(1);
@@ -808,8 +840,10 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     }
     p1PrevQ = curQ;
 
+    bool p1JoyCancel = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::CANCEL);
     bool curX = sf::Keyboard::isKeyPressed(p1Bindings.cancel) ||
-                (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Backspace)));
+                (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Backspace))) ||
+                p1JoyCancel;
     if (curX && !p1PrevX && !p1Modal.active && !showHelpOverlay) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
             engine.clearBuildingSelection(1);
@@ -839,12 +873,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     // 7. Player 2 Action Input (Human Player 2 only)
     if (!bot.isActive()) {
-        const std::string p2ActKeys = "[" + keyToString(p2Bindings.action) + "]";
-        const std::string p2NextKeys = "[" + keyToString(p2Bindings.nextBuilding) + "]";
-        const std::string p2PrevKeys = "[" + keyToString(p2Bindings.prevBuilding) + "]";
-        const std::string p2CancelKeys = "[" + keyToString(p2Bindings.cancel) + "]";
+        const bool isArcade2 = (controlScheme == ControlScheme::DEVHUB_ARCADE) || UI_controlsConfig::get().isJoystickConnected(2);
+        const std::string p2ActKeys = isArcade2 ? "[1/A]" : ("[" + keyToString(p2Bindings.action) + "]");
+        const std::string p2NextKeys = isArcade2 ? "[4/Y]" : ("[" + keyToString(p2Bindings.nextBuilding) + "]");
+        const std::string p2PrevKeys = isArcade2 ? "[3/X]" : ("[" + keyToString(p2Bindings.prevBuilding) + "]");
+        const std::string p2CancelKeys = isArcade2 ? "[2/B]" : ("[" + keyToString(p2Bindings.cancel) + "]");
 
-        bool p2PressingAction = sf::Keyboard::isKeyPressed(p2Bindings.action);
+        bool p2JoyAction = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::ACTION);
+        bool p2PressingAction = sf::Keyboard::isKeyPressed(p2Bindings.action) || p2JoyAction;
         bool p2JustPressed = p2PressingAction && !p2PrevAction;
         p2PrevAction = p2PressingAction;
 
@@ -854,14 +890,16 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
 
         // P2 Upgrade Mine with Gold
-        bool p2PressingUpgrade = sf::Keyboard::isKeyPressed(p2Bindings.upgrade);
+        bool p2JoyUpgrade = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::UPGRADE);
+        bool p2PressingUpgrade = sf::Keyboard::isKeyPressed(p2Bindings.upgrade) || p2JoyUpgrade;
         if (p2PressingUpgrade && !p2PrevUpgrade && !p2Modal.active && !showHelpOverlay) {
             executeP2Upgrade();
         }
         p2PrevUpgrade = p2PressingUpgrade;
 
         // P2: Cycle Forward
-        bool curPgDn = sf::Keyboard::isKeyPressed(p2Bindings.nextBuilding);
+        bool p2JoyNext = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::NEXT_BUILDING);
+        bool curPgDn = sf::Keyboard::isKeyPressed(p2Bindings.nextBuilding) || p2JoyNext;
         if (curPgDn && !p2PrevPgDn && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
             engine.cycleBuildingSelection(2);
             p2SelectCooldown = 0.16f;
@@ -881,7 +919,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p2PrevPgDn = curPgDn;
 
         // P2: Cycle Backward
-        bool curPgUp = sf::Keyboard::isKeyPressed(p2Bindings.prevBuilding);
+        bool p2JoyPrev = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::PREV_BUILDING);
+        bool curPgUp = sf::Keyboard::isKeyPressed(p2Bindings.prevBuilding) || p2JoyPrev;
         if (curPgUp && !p2PrevPgUp && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay &&
             engine.getSelectedBuilding(2) != BuildingType::NONE) {
             engine.cycleBuildingSelectionPrev(2);
@@ -902,7 +941,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p2PrevPgUp = curPgUp;
 
         // P2: Cancel / Demolish mode
-        bool curDel = sf::Keyboard::isKeyPressed(p2Bindings.cancel);
+        bool p2JoyCancel = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::CANCEL);
+        bool curDel = sf::Keyboard::isKeyPressed(p2Bindings.cancel) || p2JoyCancel;
         if (curDel && !p2PrevDel && !p2Modal.active && !showHelpOverlay) {
             if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
                 engine.clearBuildingSelection(2);
@@ -966,6 +1006,16 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     // -1. If Victory Screen is active, handle Restart [R], Menu [ESC/M], or button clicks
     // -------------------------------------------------------------------------
     if (engine.getCityState().winner != 0) {
+        if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+            if (jb->button == 0 || jb->button == 7) {
+                restartMatch();
+                return;
+            }
+            if (jb->button == 1 || jb->button == 6) {
+                requestMenu = true;
+                return;
+            }
+        }
         if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
             if (postMatch.handleKey(key->code)) return; // team info: report tabs (1/2/3, arrows)
             if (key->code == sf::Keyboard::Key::R) {
@@ -1002,7 +1052,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             isPaused = helpOpenedFromPause;
             primeInputEdges(0); // The Enter/Space that closed help must not act in-game
         };
-        if (event.is<sf::Event::MouseButtonPressed>()) {
+        if (event.is<sf::Event::MouseButtonPressed>() || event.is<sf::Event::JoystickButtonPressed>()) {
             closeHelp();
             return;
         }
@@ -1028,6 +1078,42 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     //    never receive keys or clicks meant for the pause menu)
     // -------------------------------------------------------------------------
     if (isPaused) {
+        if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+            if (jb->button == 1 || jb->button == 6) { // Back / Coin -> Resume
+                isPaused = false;
+                primeInputEdges(0);
+                return;
+            }
+            if (jb->button == 0 || jb->button == 7) { // A / Start -> Select item
+                if (pauseSelectedIdx == 0) {
+                    isPaused = false;
+                    primeInputEdges(0);
+                } else if (pauseSelectedIdx == 1) {
+                    isPaused = false;
+                    restartMatch();
+                } else if (pauseSelectedIdx == 2) {
+                    helpOpenedFromPause = true;
+                    showHelpOverlay = true;
+                } else if (pauseSelectedIdx == 3) {
+                    openEventLog();
+                } else if (pauseSelectedIdx == 4) {
+                    isPaused = false;
+                    requestMenu = true;
+                }
+                return;
+            }
+        }
+        if (const auto* jm = event.getIf<sf::Event::JoystickMoved>()) {
+            if (jm->axis == sf::Joystick::Axis::Y || jm->axis == sf::Joystick::Axis::PovY) {
+                if (jm->position < -55.0f) {
+                    pauseSelectedIdx = (pauseSelectedIdx + 4) % 5;
+                    return;
+                } else if (jm->position > 55.0f) {
+                    pauseSelectedIdx = (pauseSelectedIdx + 1) % 5;
+                    return;
+                }
+            }
+        }
         if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
             if (key->code == sf::Keyboard::Key::Escape) {
                 isPaused = false;
@@ -1113,8 +1199,19 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 
     // -------------------------------------------------------------------------
     // 2. Player modal dialogs: each one closes only with its own player's
-    //    confirm/cancel keys (mouse: that player's click on its OK button, below)
+    //    confirm/cancel keys or joystick buttons
     // -------------------------------------------------------------------------
+    if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+        if (p1Modal.active && (jb->joystickId == 0) && (jb->button == 0 || jb->button == 1 || jb->button == 6 || jb->button == 7)) {
+            closePlayerModal(1);
+            return;
+        }
+        if (p2Modal.active && (jb->joystickId == 1 || (jb->joystickId == 0 && jb->button >= 10)) &&
+            (jb->button == 0 || jb->button == 1 || jb->button == 6 || jb->button == 7 || jb->button == 10 || jb->button == 11)) {
+            closePlayerModal(2);
+            return;
+        }
+    }
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         if (p1Modal.active && isModalDismissKey(1, key->code)) {
             closePlayerModal(1);
@@ -1127,13 +1224,25 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     }
 
     // -------------------------------------------------------------------------
-    // 3. Interactive Tutorial Clicks & Keypresses
+    // 3. Interactive Tutorial Clicks & Keypresses / Joystick
     // -------------------------------------------------------------------------
     if (tutorial.isActive()) {
         if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
             sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
             if (tutorial.handleClick(clickPos)) {
                 return;
+            }
+        }
+        if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+            if (jb->button == 1 || jb->button == 6) { // Back / Coin skips tutorial
+                tutorial.skip();
+                return;
+            }
+            if (jb->button == 0 || jb->button == 7) { // A / Start advances tutorial
+                if (tutorial.handleKey(sf::Keyboard::Key::Space)) {
+                    primeInputEdges(0);
+                    return;
+                }
             }
         }
         if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
@@ -1151,6 +1260,14 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         if (key->code == sf::Keyboard::Key::F11) {
             requestFullscreenToggle = true;
+            return;
+        }
+    }
+
+    if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+        if (jb->button == 7 || jb->button == 6) { // Start or Coin pauses match
+            isPaused = true;
+            pauseSelectedIdx = 0;
             return;
         }
     }

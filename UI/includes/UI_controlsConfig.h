@@ -2,6 +2,8 @@
 #define UI_CONTROLSCONFIG_H
 
 #include <SFML/Window/Keyboard.hpp>
+#include <SFML/Window/Joystick.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <string>
 
 enum class ControlAction {
@@ -47,6 +49,17 @@ public:
     const PlayerBindings& getPlayer(int player) const;
 
     bool isActionPressed(int player, ControlAction actionType, bool allowP1Arrows = false) const;
+
+    // DevHub One Arcade Console & Gamepad Support
+    bool isJoystickConnected(int player) const;
+    bool isAnyJoystickConnected() const;
+    int getConnectedJoystickCount() const;
+    std::string getJoystickName(int player) const;
+    std::string getJoystickStatusBg() const;
+
+    sf::Vector2f getJoystickMoveVector(int player) const;
+    bool isJoystickDirectionPressed(int player, ControlAction actionType) const;
+    bool isJoystickActionPressed(int player, ControlAction actionType) const;
 
 private:
     UI_controlsConfig();

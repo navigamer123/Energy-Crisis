@@ -150,6 +150,9 @@ const PlayerBindings& UI_controlsConfig::getPlayer(int player) const {
     return (player == 1 ? p1 : p2);
 }
 
+#include <cmath>
+#include <algorithm>
+
 bool UI_controlsConfig::isActionPressed(int player, ControlAction actionType, bool allowP1Arrows) const {
     const PlayerBindings& b = getPlayer(player);
     sf::Keyboard::Key k = b.getKey(actionType);
@@ -158,17 +161,203 @@ bool UI_controlsConfig::isActionPressed(int player, ControlAction actionType, bo
     }
     if (player == 1 && allowP1Arrows) {
         switch (actionType) {
-            case ControlAction::MOVE_UP:       return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up);
-            case ControlAction::MOVE_DOWN:     return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down);
-            case ControlAction::MOVE_LEFT:     return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left);
-            case ControlAction::MOVE_RIGHT:    return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right);
-            case ControlAction::ACTION:        return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
-            case ControlAction::UPGRADE:       return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End);
-            case ControlAction::NEXT_BUILDING: return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown);
-            case ControlAction::PREV_BUILDING: return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp);
-            case ControlAction::CANCEL:        return sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Backspace);
+            case ControlAction::MOVE_UP:       if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) return true; break;
+            case ControlAction::MOVE_DOWN:     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) return true; break;
+            case ControlAction::MOVE_LEFT:     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) return true; break;
+            case ControlAction::MOVE_RIGHT:    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) return true; break;
+            case ControlAction::ACTION:        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) return true; break;
+            case ControlAction::UPGRADE:       if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End)) return true; break;
+            case ControlAction::NEXT_BUILDING: if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown)) return true; break;
+            case ControlAction::PREV_BUILDING: if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp)) return true; break;
+            case ControlAction::CANCEL:        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Backspace)) return true; break;
             default: break;
         }
     }
+    if (isJoystickActionPressed(player, actionType) || isJoystickDirectionPressed(player, actionType)) {
+        return true;
+    }
     return false;
+}
+
+bool UI_controlsConfig::isJoystickConnected(int player) const {
+    if (player == 1) {
+        return sf::Joystick::isConnected(0);
+    }
+    if (sf::Joystick::isConnected(1)) {
+        return true;
+    }
+    // Check if Joystick 0 is a dual-player arcade encoder board (e.g. XinMo 2-Player USB)
+    if (sf::Joystick::isConnected(0)) {
+        unsigned int btnCount = sf::Joystick::getButtonCount(0);
+        if (btnCount >= 12 || sf::Joystick::hasAxis(0, sf::Joystick::Axis::U) || sf::Joystick::hasAxis(0, sf::Joystick::Axis::Z)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool UI_controlsConfig::isAnyJoystickConnected() const {
+    for (unsigned int i = 0; i < sf::Joystick::Count; ++i) {
+        if (sf::Joystick::isConnected(i)) return true;
+    }
+    return false;
+}
+
+int UI_controlsConfig::getConnectedJoystickCount() const {
+    int count = 0;
+    for (unsigned int i = 0; i < sf::Joystick::Count; ++i) {
+        if (sf::Joystick::isConnected(i)) count++;
+    }
+    return count;
+}
+
+std::string UI_controlsConfig::getJoystickName(int player) const {
+    if (player == 1) {
+        if (sf::Joystick::isConnected(0)) {
+            auto id = sf::Joystick::getIdentification(0);
+            std::string name = id.name.toAnsiString();
+            return name.empty() ? "DevHub Joy 1" : name;
+        }
+        return "Няма";
+    }
+    if (sf::Joystick::isConnected(1)) {
+        auto id = sf::Joystick::getIdentification(1);
+        std::string name = id.name.toAnsiString();
+        return name.empty() ? "DevHub Joy 2" : name;
+    }
+    if (sf::Joystick::isConnected(0) && isJoystickConnected(2)) {
+        return "DevHub Dual (P2)";
+    }
+    return "Няма";
+}
+
+std::string UI_controlsConfig::getJoystickStatusBg() const {
+    bool p1Connected = isJoystickConnected(1);
+    bool p2Connected = isJoystickConnected(2);
+    if (p1Connected && p2Connected) {
+        return "DevHub One Аркада: ИГРАЧ 1 [СВЪРЗАН]  ·  ИГРАЧ 2 [СВЪРЗАН]";
+    } else if (p1Connected) {
+        return "DevHub One Аркада: ИГРАЧ 1 [СВЪРЗАН]  ·  ИГРАЧ 2 [КЛАВИАТУРА]";
+    } else if (p2Connected) {
+        return "DevHub One Аркада: ИГРАЧ 1 [КЛАВИАТУРА]  ·  ИГРАЧ 2 [СВЪРЗАН]";
+    }
+    return "DevHub One Аркада: В готовност (Включете контролери/аркадни стикове)";
+}
+
+sf::Vector2f UI_controlsConfig::getJoystickMoveVector(int player) const {
+    float x = 0.0f;
+    float y = 0.0f;
+
+    if (player == 1 && sf::Joystick::isConnected(0)) {
+        float rawX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::X);
+        float rawY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::Y);
+        float povX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::PovX);
+        float povY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::PovY);
+
+        if (std::abs(rawX) > 20.0f) x = rawX / 100.0f;
+        if (std::abs(rawY) > 20.0f) y = rawY / 100.0f;
+
+        if (std::abs(x) < 0.1f && std::abs(povX) > 30.0f) x = (povX > 0.0f ? 1.0f : -1.0f);
+        if (std::abs(y) < 0.1f && std::abs(povY) > 30.0f) y = (povY > 0.0f ? 1.0f : -1.0f);
+
+        // Standard D-pad buttons fallback on some DirectInput/arcade encoders
+        unsigned int btnCount = sf::Joystick::getButtonCount(0);
+        if (btnCount > 14) {
+            if (sf::Joystick::isButtonPressed(0, 11)) y = -1.0f;
+            if (sf::Joystick::isButtonPressed(0, 12)) y = 1.0f;
+            if (sf::Joystick::isButtonPressed(0, 13)) x = -1.0f;
+            if (sf::Joystick::isButtonPressed(0, 14)) x = 1.0f;
+        }
+    } else if (player == 2) {
+        if (sf::Joystick::isConnected(1)) {
+            float rawX = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::X);
+            float rawY = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::Y);
+            float povX = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::PovX);
+            float povY = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::PovY);
+
+            if (std::abs(rawX) > 20.0f) x = rawX / 100.0f;
+            if (std::abs(rawY) > 20.0f) y = rawY / 100.0f;
+
+            if (std::abs(x) < 0.1f && std::abs(povX) > 30.0f) x = (povX > 0.0f ? 1.0f : -1.0f);
+            if (std::abs(y) < 0.1f && std::abs(povY) > 30.0f) y = (povY > 0.0f ? 1.0f : -1.0f);
+
+            unsigned int btnCount = sf::Joystick::getButtonCount(1);
+            if (btnCount > 14) {
+                if (sf::Joystick::isButtonPressed(1, 11)) y = -1.0f;
+                if (sf::Joystick::isButtonPressed(1, 12)) y = 1.0f;
+                if (sf::Joystick::isButtonPressed(1, 13)) x = -1.0f;
+                if (sf::Joystick::isButtonPressed(1, 14)) x = 1.0f;
+            }
+        } else if (sf::Joystick::isConnected(0)) {
+            // Dual-player single arcade board fallback (XinMo / DragonRise 2-player)
+            float rawX = 0.0f;
+            float rawY = 0.0f;
+            if (sf::Joystick::hasAxis(0, sf::Joystick::Axis::U) && sf::Joystick::hasAxis(0, sf::Joystick::Axis::V)) {
+                rawX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::U);
+                rawY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::V);
+            } else if (sf::Joystick::hasAxis(0, sf::Joystick::Axis::Z) && sf::Joystick::hasAxis(0, sf::Joystick::Axis::R)) {
+                rawX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::Z);
+                rawY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::R);
+            } else {
+                rawX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::PovX);
+                rawY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::PovY);
+            }
+
+            if (std::abs(rawX) > 20.0f) x = rawX / 100.0f;
+            if (std::abs(rawY) > 20.0f) y = rawY / 100.0f;
+        }
+    }
+
+    x = std::max(-1.0f, std::min(1.0f, x));
+    y = std::max(-1.0f, std::min(1.0f, y));
+    return sf::Vector2f(x, y);
+}
+
+bool UI_controlsConfig::isJoystickDirectionPressed(int player, ControlAction actionType) const {
+    sf::Vector2f vec = getJoystickMoveVector(player);
+    switch (actionType) {
+        case ControlAction::MOVE_UP:    return vec.y < -0.40f;
+        case ControlAction::MOVE_DOWN:  return vec.y > 0.40f;
+        case ControlAction::MOVE_LEFT:  return vec.x < -0.40f;
+        case ControlAction::MOVE_RIGHT: return vec.x > 0.40f;
+        default: return false;
+    }
+}
+
+bool UI_controlsConfig::isJoystickActionPressed(int player, ControlAction actionType) const {
+    unsigned int joyId = (player == 1) ? 0 : (sf::Joystick::isConnected(1) ? 1 : 0);
+    if (!sf::Joystick::isConnected(joyId)) return false;
+
+    unsigned int btnOffset = (player == 2 && joyId == 0) ? 10 : 0;
+    unsigned int btnCount = sf::Joystick::getButtonCount(joyId);
+
+    auto isBtn = [&](unsigned int b) -> bool {
+        unsigned int actualBtn = b + btnOffset;
+        return (actualBtn < btnCount) && sf::Joystick::isButtonPressed(joyId, actualBtn);
+    };
+
+    switch (actionType) {
+        case ControlAction::ACTION:
+            // Arcade Button 1 (A) or Start (Button 7)
+            return isBtn(0) || isBtn(7);
+
+        case ControlAction::CANCEL:
+            // Arcade Button 2 (B) or Select / Coin (Button 6)
+            return isBtn(1) || isBtn(6);
+
+        case ControlAction::UPGRADE:
+            // Arcade Button 3 (X) or LB / Button 4
+            return isBtn(2) || isBtn(4);
+
+        case ControlAction::NEXT_BUILDING:
+            // Arcade Button 4 (Y) or RB / Button 5
+            return isBtn(3) || isBtn(5);
+
+        case ControlAction::PREV_BUILDING:
+            // LB / Button 4 or Arcade Button 3 (X) if RB is Next
+            return isBtn(4);
+
+        default:
+            return false;
+    }
 }

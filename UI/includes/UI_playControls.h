@@ -6,8 +6,8 @@
 
 class UI_playControls {
 private:
-    int selectedIndex;   // 0..3: Options, 4: Start, 5: Back
-    int activeScheme;    // 0..3 ControlScheme
+    int selectedIndex;   // 0..4: Options, 5: Start, 6: Back
+    int activeScheme;    // 0..4 ControlScheme
     bool requestStart;
     bool requestBack;
     sf::Vector2f lastMousePos = { -999.0f, -999.0f };

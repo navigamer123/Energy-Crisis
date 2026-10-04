@@ -607,10 +607,17 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
                theme::Button, theme::ButtonHover, theme::TextPrimary, backSelected || (!isRebinding && backBtn.contains(mousePos)));
 
     if (fontLoaded) {
-        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S/A/D или Стрелки] | Избор: [Enter] | Отказ: [Esc]"), fontsize::Label);
+        std::string joyStatus = cfg.getJoystickStatusBg();
+        sf::Text& joyText = ui::pooledText(font, toUtf8(joyStatus), fontsize::Label);
+        joyText.setFillColor(cfg.isAnyJoystickConnected() ? theme::Good : theme::TextSecondary);
+        sf::FloatRect jb = joyText.getLocalBounds();
+        joyText.setPosition({ (screenWidth - jb.size.x) / 2.0f, panelY + panelHeight + 8.0f });
+        ui::drawText(window, joyText);
+
+        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S/A/D, Стрелки, Аркаден стик] | Избор: [Enter / Бутон 1] | Отказ: [Esc / Бутон 2]"), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 12.0f });
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 26.0f });
         ui::drawText(window, hint);
     }
 }
@@ -649,13 +656,36 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
         return;
     }
 
+    bool isUp = false;
+    bool isDown = false;
+    bool isLeft = false;
+    bool isRight = false;
+    bool isSelect = false;
+    bool isEscape = false;
+
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
-        bool isUp = (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W);
-        bool isDown = (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S);
-        bool isLeft = (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::A);
-        bool isRight = (key->code == sf::Keyboard::Key::Right || key->code == sf::Keyboard::Key::D);
-        bool isSelect = (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space);
-        bool isEscape = (key->code == sf::Keyboard::Key::Escape);
+        isUp = (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W);
+        isDown = (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S);
+        isLeft = (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::A);
+        isRight = (key->code == sf::Keyboard::Key::Right || key->code == sf::Keyboard::Key::D);
+        isSelect = (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space);
+        isEscape = (key->code == sf::Keyboard::Key::Escape);
+    }
+    if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+        if (jb->button == 0 || jb->button == 7) isSelect = true; // Button 1 (A) or Start
+        if (jb->button == 1 || jb->button == 6) isEscape = true; // Button 2 (B) or Back / Coin
+    }
+    if (const auto* jm = event.getIf<sf::Event::JoystickMoved>()) {
+        if (jm->axis == sf::Joystick::Axis::Y || jm->axis == sf::Joystick::Axis::PovY) {
+            if (jm->position < -55.0f) isUp = true;
+            else if (jm->position > 55.0f) isDown = true;
+        } else if (jm->axis == sf::Joystick::Axis::X || jm->axis == sf::Joystick::Axis::PovX) {
+            if (jm->position < -55.0f) isLeft = true;
+            else if (jm->position > 55.0f) isRight = true;
+        }
+    }
+
+    if (isUp || isDown || isLeft || isRight || isSelect || isEscape) {
 
         if (state == MenuState::MAIN) {
             if (isUp) {

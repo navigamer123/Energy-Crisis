@@ -156,7 +156,7 @@ int UI_main::render() {
         while (const auto event = window.pollEvent()) {
             // [b-effects] Menu navigation clicks
             if (currentState == UIState::MAIN_MENU && !shot.enabled &&
-                (event->is<sf::Event::KeyPressed>() || event->is<sf::Event::MouseButtonPressed>())) {
+                (event->is<sf::Event::KeyPressed>() || event->is<sf::Event::MouseButtonPressed>() || event->is<sf::Event::JoystickButtonPressed>())) {
                 UI_audio::get().play(AudioSynth::Sfx::UiClick);
             }
             if (event->is<sf::Event::Closed>()) {
