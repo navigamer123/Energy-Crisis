@@ -4,6 +4,9 @@
 #include <iostream>
 #include <unordered_map>
 #include <unordered_set>
+#if defined(__ANDROID__)
+#include <SFML/System/FileInputStream.hpp>
+#endif
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -79,6 +82,20 @@ std::string unescape(const std::string& s) {
 }
 
 bool readWholeFile(const std::string& path, std::string& out) {
+#if defined(__ANDROID__)
+    sf::FileInputStream stream;
+    if (stream.open(path)) {
+        auto size = stream.getSize();
+        if (size.has_value() && *size > 0) {
+            out.resize(static_cast<std::size_t>(*size));
+            auto readBytes = stream.read(out.data(), *size);
+            if (readBytes.has_value() && *readBytes > 0) {
+                out.resize(static_cast<std::size_t>(*readBytes));
+                return true;
+            }
+        }
+    }
+#endif
     std::ifstream in(path.c_str(), std::ios::binary);
     if (!in) return false;
     std::ostringstream ss;

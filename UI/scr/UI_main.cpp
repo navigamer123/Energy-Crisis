@@ -9,10 +9,17 @@
 #include <iostream>
 
 UI_main::UI_main(const ShotOptions& shotOptions)
+#if defined(__ANDROID__)
+    : window(sf::VideoMode::getDesktopMode(), "Energy Crisis", sf::State::Fullscreen),
+      currentState(UIState::MAIN_MENU),
+      isFullscreen(true),
+      shot(shotOptions) {
+#else
     : window(sf::VideoMode({ 1600, 900 }), "Energy Crisis"),
       currentState(UIState::MAIN_MENU),
       isFullscreen(false),
       shot(shotOptions) {
+#endif
     window.setFramerateLimit(60);
     window.setKeyRepeatEnabled(false); // A held key must not re-trigger menu/pause/hotkey events
     updateViewport();
@@ -183,6 +190,45 @@ int UI_main::render() {
                     if (currentState == UIState::PLAYING) map.primeInputEdges();
                     continue;
                 }
+            }
+
+            // Touch input support for mobile / touchscreens
+            if (const auto* touchBegan = event->getIf<sf::Event::TouchBegan>()) {
+                if (currentState == UIState::MAIN_MENU && !shot.enabled) {
+                    UI_audio::get().play(AudioSynth::Sfx::UiClick);
+                }
+                // Finger 0 is mapped to Left Click; Finger 1 (two-finger tap) maps to Right Click (Cancel)
+                sf::Mouse::Button btn = (touchBegan->finger == 0) ? sf::Mouse::Button::Left : sf::Mouse::Button::Right;
+                sf::Event mouseEv = sf::Event::MouseButtonPressed{ btn, touchBegan->position };
+                if (currentState == UIState::MAIN_MENU) {
+                    mainMenu.handleEvent(mouseEv, window);
+                } else if (currentState == UIState::PLAYING) {
+                    map.handleEvent(mouseEv, window);
+                }
+                continue;
+            }
+
+            if (const auto* touchMoved = event->getIf<sf::Event::TouchMoved>()) {
+                if (touchMoved->finger == 0) {
+                    sf::Event mouseEv = sf::Event::MouseMoved{ touchMoved->position };
+                    if (currentState == UIState::MAIN_MENU) {
+                        mainMenu.handleEvent(mouseEv, window);
+                    } else if (currentState == UIState::PLAYING) {
+                        map.handleEvent(mouseEv, window);
+                    }
+                }
+                continue;
+            }
+
+            if (const auto* touchEnded = event->getIf<sf::Event::TouchEnded>()) {
+                sf::Mouse::Button btn = (touchEnded->finger == 0) ? sf::Mouse::Button::Left : sf::Mouse::Button::Right;
+                sf::Event mouseEv = sf::Event::MouseButtonReleased{ btn, touchEnded->position };
+                if (currentState == UIState::MAIN_MENU) {
+                    mainMenu.handleEvent(mouseEv, window);
+                } else if (currentState == UIState::PLAYING) {
+                    map.handleEvent(mouseEv, window);
+                }
+                continue;
             }
 
             if (currentState == UIState::MAIN_MENU) {

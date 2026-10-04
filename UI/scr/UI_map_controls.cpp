@@ -23,6 +23,9 @@ static std::string formatCost(const BuildingCost& c) {
 // Which player the mouse acts for. Single Player: the human (P1). Co-op: only the player whose
 // scheme includes the mouse; in the shared-mouse scheme, the player whose half the pointer is in.
 int UI_map::mouseOwnerAt(sf::Vector2f pos) const {
+#if defined(__ANDROID__)
+    if (bot.isActive() || controlScheme != ControlScheme::BOTH_MOUSE) return 1;
+#endif
     if (bot.isActive()) return 1;
     switch (controlScheme) {
         case ControlScheme::P1_MOUSE_P2_KEYBOARD: return 1;
@@ -1339,25 +1342,35 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         // Active in all control schemes so clicking cards always works smoothly
         BuildingType clickedP1 = p1Buildings.handleClick(clickPos);
         if (clickedP1 != BuildingType::NONE) {
+            if (engine.getPlayerEconomy(1).selectedBuilding == static_cast<int>(clickedP1)) {
+                engine.clearBuildingSelection(1);
+                triggerPlayerPopup(1, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "", theme::TextSecondary);
+                return;
+            }
             engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(clickedP1);
             syncBuildingSelectionPos(1);
             BuildingCost c = engine.getBuildingCost(clickedP1);
             triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                     : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
-                               "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", theme::P1);
+                               "[КЛИК НА ЗЕМЯ]: Постави | [КЛИК КАРТА / ДЕСЕН КЛИК]: Отказ", theme::P1);
             return;
         }
 
         BuildingType clickedP2 = p2Buildings.handleClick(clickPos);
         if (clickedP2 != BuildingType::NONE) {
+            if (engine.getPlayerEconomy(2).selectedBuilding == static_cast<int>(clickedP2)) {
+                engine.clearBuildingSelection(2);
+                triggerPlayerPopup(2, "ОТКАЗ", "Отменен строеж", "Режимът за поставяне е прекратен.", "", theme::TextSecondary);
+                return;
+            }
             engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
             syncBuildingSelectionPos(2);
             BuildingCost c = engine.getBuildingCost(clickedP2);
             triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                     : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
-                               "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", theme::P2);
+                               "[КЛИК НА ЗЕМЯ]: Постави | [КЛИК КАРТА / ДЕСЕН КЛИК]: Отказ", theme::P2);
             return;
         }
 

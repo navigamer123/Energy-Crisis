@@ -152,7 +152,9 @@ int main(int argc, char* argv[]) {
         return 2;
     }
 
+#if !defined(__ANDROID__)
     selectAssetDirectory(argc > 0 ? argv[0] : nullptr);
+#endif
 
     std::cout << "[Main] Initializing UI_main...\n";
     UI_main ui(shotOptions);
