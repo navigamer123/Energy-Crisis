@@ -106,7 +106,9 @@ const char* getSeasonName(SeasonType s) {
 float WeatherSystem::getSolarMultiplier(WeatherType w, float hour24, SeasonType season) {
     float sunrise = Balance::getSunriseHour(season);
     float sunset = Balance::getSunsetHour(season);
-    if (hour24 < sunrise || hour24 > sunset) {
+    // Same daylight window as Balance::isDaylightAt: night from the sunset minute on
+    // (sin(float pi) is slightly negative, so the sun arc must not be evaluated at sunset)
+    if (hour24 < sunrise || hour24 >= sunset) {
         return 0.0f;
     }
     float dayDuration = sunset - sunrise;
