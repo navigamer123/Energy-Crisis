@@ -4,7 +4,11 @@ test_game
 *.exe
 # Build folders (CMake: build/, Makefile objects: build/make/)
 build/
+build-*/
+dist/
 out/
 cmake-build-*/
 CMakeUserPresets.json
 *.dll
+*.zip
+

@@ -5,6 +5,9 @@
 #include <filesystem>
 #include <string>
 #include <system_error>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 #include "UI/includes/UI_main.h"
 
 namespace {
@@ -18,7 +21,18 @@ void selectAssetDirectory(const char* argv0) {
     try {
         std::error_code ec;
 
-        fs::path exePath = fs::read_symlink("/proc/self/exe", ec); // Linux: exact executable path
+        fs::path exePath;
+#if defined(__APPLE__)
+        char applePath[1024];
+        uint32_t appleSize = sizeof(applePath);
+        if (_NSGetExecutablePath(applePath, &appleSize) == 0) {
+            exePath = fs::canonical(applePath, ec);
+            if (ec) exePath = applePath;
+        }
+#else
+        exePath = fs::read_symlink("/proc/self/exe", ec); // Linux: exact executable path
+#endif
+
         if (ec || exePath.empty()) {
             ec.clear();
             exePath.clear();

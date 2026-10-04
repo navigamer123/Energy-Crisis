@@ -2,6 +2,7 @@
 #   engine   : headless engine tests (no SFML) with CMake and with the Makefile, ~1 minute
 #   linux    : full game build on Ubuntu (GCC + SFML 3.1.0 built from source), tests, playable artifact
 #   windows  : full game build on Windows (WinLibs GCC 14.2 + SFML 3.1.0 built from source), tests, playable artifact
+#   macos    : full game build on macOS (Apple Clang + SFML 3.1.0 built from source), tests, playable artifact
 # SFML is compiled once and kept in the Actions cache (the whole CMake build folder), so later runs only
 # rebuild the game. Tests use a fixed EC_SEED so every run sees the same weather.
 name: CI
@@ -148,3 +149,37 @@ jobs:
           name: energy-crisis-windows
           path: dist/
           retention-days: 14
+
+  macos:
+    name: macOS (Apple Clang, SFML 3.1.0)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache CMake build (SFML ${{ env.SFML_VERSION }})
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-${{ runner.os }}-clang-sfml${{ env.SFML_VERSION }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: build-${{ runner.os }}-clang-sfml${{ env.SFML_VERSION }}-
+
+      - name: Configure (EC_FETCH_SFML=ON)
+        run: cmake -S . -B build -DEC_FETCH_SFML=ON -DEC_SFML_VERSION=${{ env.SFML_VERSION }} -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: CTest
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: |
+          cmake --install build --prefix dist/energy-crisis
+          chmod +x dist/energy-crisis/energy_crisis
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: energy-crisis-macos
+          path: dist/
+          retention-days: 14
+
