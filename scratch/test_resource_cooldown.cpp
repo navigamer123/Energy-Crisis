@@ -61,6 +61,9 @@ int main() {
     assert(p1ResourceCooldown == 1.0f);
     std::cout << "  -> Fifth harvest attempt at t=1.05s (cooldown expired): SUCCEEDED. New 1.0s cooldown started.\n";
 
+    (void)h1; (void)h2; (void)h3; (void)h4; (void)h5;
+
     std::cout << "\n>>> 1-SECOND COOLDOWN TEST PASSED! <<<\n";
+
     return 0;
 }

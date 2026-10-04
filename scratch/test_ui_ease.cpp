@@ -1,8 +1,10 @@
 // [b-effects] Headless test for the easing helpers used by the juice pack (UI/includes/UI_ease.h).
 #include <cmath>
 #include <cstdio>
+#include <initializer_list>
 
 #include "../UI/includes/UI_ease.h"
+
 
 static int failures = 0;
 #define CHECK(cond, msg)                                                  \
