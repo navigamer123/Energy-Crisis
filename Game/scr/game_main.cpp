@@ -576,7 +576,19 @@ bool GameEngine::mineResource(int player, ResourceType type, std::string& outMsg
     return mineResource(player, type, ignored, outMsg);
 }
 
+// [b-effects] Public wrapper: records each successful mining action for sound/visual feedback
 bool GameEngine::mineResource(int player, ResourceType type, MineResult& result, std::string& outMsg) {
+    bool ok = mineResourceInternal(player, type, result, outMsg);
+    if (ok) {
+        MineActionRecord& rec = lastMineAction[(player == 1) ? 0 : 1];
+        rec.count++;
+        rec.type = type;
+        rec.amount = result.amount;
+    }
+    return ok;
+}
+
+bool GameEngine::mineResourceInternal(int player, ResourceType type, MineResult& result, std::string& outMsg) {
     result = MineResult();
     result.type = type;
     if (!isValidPlayerId(player)) { // [wave-c-soak]

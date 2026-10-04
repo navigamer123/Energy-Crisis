@@ -29,8 +29,8 @@ private:
     BotDifficulty selectedBotDifficulty;
 
     // Settings state
-    int volume;                  // 0..100 % (no audio subsystem yet: stored only)
-    bool soundEffects;           // no audio subsystem yet: stored only
+    int volume;                  // 0..100 % master volume ([b-effects] applied by UI_main to UI_audio)
+    bool soundEffects;           // sound effects on/off ([b-effects] applied by UI_main to UI_audio)
     int settingsDifficultyIndex; // 0..2: default bot difficulty preselected in the single-player menu
 
     // Enter/Space must be released before they can select again (filters key auto-repeat)
@@ -84,6 +84,9 @@ public:
     BotDifficulty getSelectedBotDifficulty() const {
         return selectedBotDifficulty;
     }
+    // [b-effects] Audio settings read every frame by UI_main
+    int getVolume() const { return volume; }
+    bool isSoundEffectsEnabled() const { return soundEffects; }
 };
 
 #endif // UI_MAINMENU_H

@@ -18,6 +18,7 @@
 #include "UI_dashboard.h"     // team info
 #include "UI_postmatch.h"     // team info
 #include "UI_devOverlay.h"    // team info
+#include "UI_fx.h" // [b-effects]
 #include "../../Game/includes/game_main.h"
 
 class UI_map {
@@ -44,6 +45,7 @@ private:
     UI_resourceNodes nodes;
     UIBot bot;
     UI_tutorial tutorial;
+    UI_fx fx; // [b-effects] juice, power grid, lighting, river, seasons and audio feedback
 
     // Player cursor / drone positions and pulse animations
     sf::Vector2f p1Pos;
@@ -179,7 +181,6 @@ private:
 
     void updateWeatherParticles(float dt);
     void drawWeatherParticles(sf::RenderWindow& window);
-    void drawEnergyConduits(sf::RenderWindow& window, float animTime);
     void drawHelpOverlay(sf::RenderWindow& window);
     void drawVictoryScreen(sf::RenderWindow& window);
     void drawPauseMenu(sf::RenderWindow& window);
@@ -242,6 +243,11 @@ public:
     void skipTutorial() { tutorial.skip(); }
 
     const GameEngine& getEngine() const { return engine; }
+
+    // [b-effects] Audio scene for UI_main: night amount (0 day .. 1 night) and paused state
+    float getNightAmount() const { return fx.nightAmount(); }
+    bool isMatchPaused() const { return isPaused || showHelpOverlay; }
+    UI_fx& getFx() { return fx; }
 
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
     void render(sf::RenderWindow& window);
