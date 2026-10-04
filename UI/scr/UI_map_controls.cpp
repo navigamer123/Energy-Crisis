@@ -67,6 +67,8 @@ void UI_map::primeInputEdges(int player) {
 void UI_map::resetMatchInputState() {
     tutorialBotHoldLeft = TUTORIAL_BOT_HOLD_SEC;
     helpOpenedFromPause = false;
+    p1WasInResourceArea = false;
+    p2WasInResourceArea = false;
     primeInputEdges(0);
 }
 
@@ -188,75 +190,28 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     }
 }
 
-sf::Vector2f UI_map::snapToPurchasedLandOrFirst(int player, sf::Vector2f currentPos, int& outCol, int& outRow) const {
-    if (isPosOnPurchasedLand(player, currentPos)) {
-        engine.getClosestGridIndex(player, currentPos, outCol, outRow);
-        return engine.getGridSlot(player, outCol, outRow);
-    }
-
-    float bestEmptyDist2 = 1e12f;
-    int bestEmptyCol = -1, bestEmptyRow = -1;
-    sf::Vector2f bestEmptyPos;
-
-    float bestAnyDist2 = 1e12f;
-    int bestAnyCol = -1, bestAnyRow = -1;
-    sf::Vector2f bestAnyPos;
-
-    const auto& buildings = engine.getBuildings();
-
-    for (int r = 0; r < Balance::GRID_ROWS; ++r) {
-        for (int c = 0; c < Balance::GRID_COLS; ++c) {
-            sf::Vector2f slotPos = engine.getGridSlot(player, c, r);
-            if (isPosOnPurchasedLand(player, slotPos)) {
-                float dx = slotPos.x - currentPos.x;
-                float dy = slotPos.y - currentPos.y;
-                float d2 = dx * dx + dy * dy;
-
-                if (d2 < bestAnyDist2) {
-                    bestAnyDist2 = d2;
-                    bestAnyCol = c;
-                    bestAnyRow = r;
-                    bestAnyPos = slotPos;
-                }
-
-                bool slotOccupied = false;
-                for (const auto& b : buildings) {
-                    if (b.playerOwner == player) {
-                        float bdx = b.position.x - slotPos.x;
-                        float bdy = b.position.y - slotPos.y;
-                        if (bdx * bdx + bdy * bdy < 25.0f * 25.0f) {
-                            slotOccupied = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!slotOccupied) {
-                    if (d2 < bestEmptyDist2) {
-                        bestEmptyDist2 = d2;
-                        bestEmptyCol = c;
-                        bestEmptyRow = r;
-                        bestEmptyPos = slotPos;
-                    }
-                }
-            }
+void UI_map::syncBuildingSelectionPos(int player) {
+    if (player == 1) {
+        if (isPosOnPurchasedLand(1, p1Pos)) {
+            engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
+            p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
         }
+        p1WasInResourceArea = (p1Pos.y >= 540.0f ||
+                               nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE ||
+                               nodes.getP1UpgradeAt(p1Pos) != ResourceType::NONE ||
+                               nodes.getP1ForestBounds().contains(p1Pos) ||
+                               nodes.getP1MineBounds().contains(p1Pos));
+    } else {
+        if (isPosOnPurchasedLand(2, p2Pos)) {
+            engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
+            p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+        }
+        p2WasInResourceArea = (p2Pos.y >= 540.0f ||
+                               nodes.getP2ResourceAt(p2Pos) != ResourceType::NONE ||
+                               nodes.getP2UpgradeAt(p2Pos) != ResourceType::NONE ||
+                               nodes.getP2ForestBounds().contains(p2Pos) ||
+                               nodes.getP2MineBounds().contains(p2Pos));
     }
-
-    if (bestEmptyCol >= 0) {
-        outCol = bestEmptyCol;
-        outRow = bestEmptyRow;
-        return bestEmptyPos;
-    }
-    if (bestAnyCol >= 0) {
-        outCol = bestAnyCol;
-        outRow = bestAnyRow;
-        return bestAnyPos;
-    }
-
-    outCol = (player == 1) ? 1 : 7;
-    outRow = 1;
-    return engine.getGridSlot(player, outCol, outRow);
 }
 
 void UI_map::executeP1Action() {
@@ -266,7 +221,7 @@ void UI_map::executeP1Action() {
     BuildingType pickedCard = p1Buildings.handleClick(p1Pos);
     if (pickedCard != BuildingType::NONE) {
         engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(pickedCard);
-        p1Pos = snapToPurchasedLandOrFirst(1, p1Pos, p1GridCol, p1GridRow);
+        syncBuildingSelectionPos(1);
         BuildingCost c = engine.getBuildingCost(pickedCard);
         triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                            (pickedCard == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
@@ -284,7 +239,7 @@ void UI_map::executeP1Action() {
                 float dy = b.position.y - p1Pos.y;
                 if (std::sqrt(dx * dx + dy * dy) <= 28.0f) {
                     engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(b.type);
-                    p1Pos = snapToPurchasedLandOrFirst(1, p1Pos, p1GridCol, p1GridRow);
+                    syncBuildingSelectionPos(1);
                     BuildingCost c = engine.getBuildingCost(b.type);
                     triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                        formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
@@ -298,12 +253,20 @@ void UI_map::executeP1Action() {
 
     BuildingType sel = engine.getSelectedBuilding(1);
 
-    if (sel != BuildingType::NONE && sel != BuildingType::DEMOLISH) {
-        if (!isPosOnPurchasedLand(1, p1Pos)) {
-            // Disallow placement confirmation clicks over unpurchased land!
-            triggerPlayerPopup(1, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
-            spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p1Pos, theme::Warn);
-            return;
+    if (sel != BuildingType::NONE) {
+        // If player is at a resource node while building is selected, switch directly to gathering!
+        if (nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE || nodes.getP1UpgradeAt(p1Pos) != ResourceType::NONE ||
+            nodes.getP1ForestBounds().contains(p1Pos) || nodes.getP1MineBounds().contains(p1Pos) || p1Pos.y >= 540.0f) {
+            engine.clearBuildingSelection(1);
+            spawnNotice("РЕЖИМ ДОБИВ", p1Pos, theme::P1);
+            sel = BuildingType::NONE;
+        } else if (sel != BuildingType::DEMOLISH) {
+            if (!isPosOnPurchasedLand(1, p1Pos)) {
+                // Disallow placement confirmation clicks over unpurchased land!
+                triggerPlayerPopup(1, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
+                spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p1Pos, theme::Warn);
+                return;
+            }
         }
     }
 
@@ -364,7 +327,7 @@ void UI_map::executeP2Action() {
     BuildingType pickedCard2 = p2Buildings.handleClick(p2Pos);
     if (pickedCard2 != BuildingType::NONE) {
         engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(pickedCard2);
-        p2Pos = snapToPurchasedLandOrFirst(2, p2Pos, p2GridCol, p2GridRow);
+        syncBuildingSelectionPos(2);
         BuildingCost c = engine.getBuildingCost(pickedCard2);
         triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                            (pickedCard2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
@@ -382,7 +345,7 @@ void UI_map::executeP2Action() {
                 float dy = b.position.y - p2Pos.y;
                 if (std::sqrt(dx * dx + dy * dy) <= 28.0f) {
                     engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(b.type);
-                    p2Pos = snapToPurchasedLandOrFirst(2, p2Pos, p2GridCol, p2GridRow);
+                    syncBuildingSelectionPos(2);
                     BuildingCost c = engine.getBuildingCost(b.type);
                     triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                        formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
@@ -396,12 +359,20 @@ void UI_map::executeP2Action() {
 
     BuildingType sel = engine.getSelectedBuilding(2);
 
-    if (sel != BuildingType::NONE && sel != BuildingType::DEMOLISH) {
-        if (!isPosOnPurchasedLand(2, p2Pos)) {
-            // Disallow placement confirmation clicks over unpurchased land!
-            triggerPlayerPopup(2, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
-            spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p2Pos, theme::Warn);
-            return;
+    if (sel != BuildingType::NONE) {
+        // If player 2 is at a resource node while building is selected, switch directly to gathering!
+        if (nodes.getP2ResourceAt(p2Pos) != ResourceType::NONE || nodes.getP2UpgradeAt(p2Pos) != ResourceType::NONE ||
+            nodes.getP2ForestBounds().contains(p2Pos) || nodes.getP2MineBounds().contains(p2Pos) || p2Pos.y >= 540.0f) {
+            engine.clearBuildingSelection(2);
+            spawnNotice("РЕЖИМ ДОБИВ", p2Pos, theme::P2);
+            sel = BuildingType::NONE;
+        } else if (sel != BuildingType::DEMOLISH) {
+            if (!isPosOnPurchasedLand(2, p2Pos)) {
+                // Disallow placement confirmation clicks over unpurchased land!
+                triggerPlayerPopup(2, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
+                spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p2Pos, theme::Warn);
+                return;
+            }
         }
     }
 
@@ -536,25 +507,65 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     bool p1BuildingMode = (engine.getSelectedBuilding(1) != BuildingType::NONE);
     bool allowArrowsForP1 = bot.isActive(); // In Single Player, player can use WASD OR Arrow keys!
 
-    if (p1BuildingMode) {
+    bool p1InResourceArea = (p1Pos.y >= 540.0f ||
+                             nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE ||
+                             nodes.getP1UpgradeAt(p1Pos) != ResourceType::NONE ||
+                             nodes.getP1ForestBounds().contains(p1Pos) ||
+                             nodes.getP1MineBounds().contains(p1Pos));
+
+    // Only when player enters the resource collection area, turn off build mode!
+    if (p1BuildingMode && p1InResourceArea && !p1WasInResourceArea) {
+        engine.clearBuildingSelection(1);
+        p1BuildingMode = false;
+        spawnNotice("РЕЖИМ ДОБИВ", p1Pos, theme::P1);
+    }
+    p1WasInResourceArea = p1InResourceArea;
+
+    bool p1OnPurchased = isPosOnPurchasedLand(1, p1Pos);
+
+    if (p1BuildingMode && p1OnPurchased) {
         if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || allowArrowsForP1) {
             if (p1GridStepCooldown <= 0.0f) {
                 bool moved = false;
+                int nextRow = p1GridRow;
+                int nextCol = p1GridCol;
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) {
-                    p1GridRow = std::max(0, p1GridRow - 1);
-                    moved = true;
+                    if (p1GridRow > 0) {
+                        nextRow = p1GridRow - 1;
+                        moved = true;
+                    } else {
+                        p1Pos.y -= 35.0f;
+                        p1GridStepCooldown = 0.14f;
+                    }
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) {
-                    p1GridRow = std::min(11, p1GridRow + 1);
-                    moved = true;
+                    if (p1GridRow < 11) {
+                        nextRow = p1GridRow + 1;
+                        moved = true;
+                    } else {
+                        p1Pos.y += 35.0f;
+                        p1GridStepCooldown = 0.14f;
+                    }
                 }
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) {
-                    p1GridCol = std::max(0, p1GridCol - 1);
-                    moved = true;
+                    if (p1GridCol > 0) {
+                        nextCol = p1GridCol - 1;
+                        moved = true;
+                    } else {
+                        p1Pos.x -= 35.0f;
+                        p1GridStepCooldown = 0.14f;
+                    }
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) {
-                    p1GridCol = std::min(8, p1GridCol + 1);
-                    moved = true;
+                    if (p1GridCol < 8) {
+                        nextCol = p1GridCol + 1;
+                        moved = true;
+                    } else {
+                        p1Pos.x += 35.0f;
+                        p1GridStepCooldown = 0.14f;
+                    }
                 }
                 if (moved) {
+                    p1GridCol = nextCol;
+                    p1GridRow = nextRow;
                     p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
                     p1GridStepCooldown = 0.14f;
                 }
@@ -579,7 +590,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
         p1Pos.x = std::max(20.0f, std::min(p1Pos.x, 780.0f));
         p1Pos.y = std::max(40.0f, std::min(p1Pos.y, 860.0f));
-        engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
+
+        if (p1BuildingMode && isPosOnPurchasedLand(1, p1Pos)) {
+            engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
+            p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+            p1GridStepCooldown = 0.14f;
+        } else {
+            engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
+        }
     }
 
     // 4. Player 2 Movement (Bot AI or Human Input)
@@ -614,24 +632,56 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
     } else {
         bool p2BuildingMode = (engine.getSelectedBuilding(2) != BuildingType::NONE);
+        bool p2InResourceArea = (p2Pos.y >= 540.0f ||
+                                 nodes.getP2ResourceAt(p2Pos) != ResourceType::NONE ||
+                                 nodes.getP2UpgradeAt(p2Pos) != ResourceType::NONE ||
+                                 nodes.getP2ForestBounds().contains(p2Pos) ||
+                                 nodes.getP2MineBounds().contains(p2Pos));
 
-        if (p2BuildingMode) {
+        // Only when player enters the resource collection area, turn off build mode!
+        if (p2BuildingMode && p2InResourceArea && !p2WasInResourceArea) {
+            engine.clearBuildingSelection(2);
+            p2BuildingMode = false;
+            spawnNotice("РЕЖИМ ДОБИВ", p2Pos, theme::P2);
+        }
+        p2WasInResourceArea = p2InResourceArea;
+
+        bool p2OnPurchased = isPosOnPurchasedLand(2, p2Pos);
+
+        if (p2BuildingMode && p2OnPurchased) {
             if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
                 if (p2GridStepCooldown <= 0.0f) {
                     bool moved = false;
+                    int nextRow = p2GridRow;
+                    int nextCol = p2GridCol;
                     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
-                        p2GridRow = std::max(0, p2GridRow - 1);
-                        moved = true;
+                        if (p2GridRow > 0) {
+                            nextRow = p2GridRow - 1;
+                            moved = true;
+                        } else {
+                            p2Pos.y -= 35.0f;
+                            p2GridStepCooldown = 0.14f;
+                        }
                     } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
-                        p2GridRow = std::min(11, p2GridRow + 1);
-                        moved = true;
+                        if (p2GridRow < 11) {
+                            nextRow = p2GridRow + 1;
+                            moved = true;
+                        } else {
+                            p2Pos.y += 35.0f;
+                            p2GridStepCooldown = 0.14f;
+                        }
                     }
                     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
-                        p2GridCol = std::max(0, p2GridCol - 1);
-                        moved = true;
+                        if (p2GridCol > 0) {
+                            nextCol = p2GridCol - 1;
+                            moved = true;
+                        } else {
+                            p2Pos.x -= 35.0f;
+                            p2GridStepCooldown = 0.14f;
+                        }
                     } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
                         if (p2GridCol < 8) {
-                            p2GridCol++;
+                            nextCol = p2GridCol + 1;
                             moved = true;
                         } else {
                             p2Pos.x += 35.0f;
@@ -639,6 +689,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         }
                     }
                     if (moved) {
+                        p2GridCol = nextCol;
+                        p2GridRow = nextRow;
                         p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
                         p2GridStepCooldown = 0.14f;
                     }
@@ -663,7 +715,14 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             }
             p2Pos.x = std::max(820.0f, std::min(p2Pos.x, 1580.0f));
             p2Pos.y = std::max(40.0f, std::min(p2Pos.y, 860.0f));
-            engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
+
+            if (p2BuildingMode && isPosOnPurchasedLand(2, p2Pos)) {
+                engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
+                p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+                p2GridStepCooldown = 0.14f;
+            } else {
+                engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
+            }
         }
     }
 
@@ -707,7 +766,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p1SelectCooldown = 0.16f;
         BuildingType newSel = engine.getSelectedBuilding(1);
         BuildingCost c = engine.getBuildingCost(newSel);
-        p1Pos = snapToPurchasedLandOrFirst(1, p1Pos, p1GridCol, p1GridRow);
+        syncBuildingSelectionPos(1);
         if (newSel == BuildingType::DEMOLISH) {
             triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", theme::Bad);
         } else if (newSel == BuildingType::LAMP) {
@@ -729,7 +788,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             p1SelectCooldown = 0.16f;
             BuildingType newSel = engine.getSelectedBuilding(1);
             BuildingCost c = engine.getBuildingCost(newSel);
-            p1Pos = snapToPurchasedLandOrFirst(1, p1Pos, p1GridCol, p1GridRow);
+            syncBuildingSelectionPos(1);
             if (newSel == BuildingType::DEMOLISH) {
                 triggerPlayerPopup(1, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", p1ActKeys + ": Премахни | " + p1NextKeys + ": Следваща | " + p1CancelKeys + ": Отказ", theme::Bad);
             } else if (newSel == BuildingType::LAMP) {
@@ -751,7 +810,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             triggerPlayerPopup(1, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", p1NextKeys + ": Избери сграда", theme::TextSecondary);
         } else {
             engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
-            p1Pos = snapToPurchasedLandOrFirst(1, p1Pos, p1GridCol, p1GridRow);
+            syncBuildingSelectionPos(1);
             triggerPlayerPopup(1, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", p1ActKeys + ": Премахни | " + p1CancelKeys + ": Отказ", theme::Bad);
         }
     }
@@ -764,7 +823,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         if (curNum && !p1PrevNum[k] && !p1Modal.active && !showHelpOverlay) {
             engine.getPlayerEconomyMut(1).selectedBuilding = k;
             BuildingCost c = engine.getBuildingCost(static_cast<BuildingType>(k));
-            p1Pos = snapToPurchasedLandOrFirst(1, p1Pos, p1GridCol, p1GridRow);
+            syncBuildingSelectionPos(1);
             triggerPlayerPopup(1, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
                                (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
                                "[SPACE]: Постави в грида | [X]: Отказ", (k == 6 ? theme::Bad : theme::P1));
@@ -797,7 +856,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             p2SelectCooldown = 0.16f;
             BuildingType newSel = engine.getSelectedBuilding(2);
             BuildingCost c = engine.getBuildingCost(newSel);
-            p2Pos = snapToPurchasedLandOrFirst(2, p2Pos, p2GridCol, p2GridRow);
+            syncBuildingSelectionPos(2);
             if (newSel == BuildingType::DEMOLISH) {
                 triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", theme::Bad);
             } else if (newSel == BuildingType::LAMP) {
@@ -818,7 +877,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             p2SelectCooldown = 0.16f;
             BuildingType newSel = engine.getSelectedBuilding(2);
             BuildingCost c = engine.getBuildingCost(newSel);
-            p2Pos = snapToPurchasedLandOrFirst(2, p2Pos, p2GridCol, p2GridRow);
+            syncBuildingSelectionPos(2);
             if (newSel == BuildingType::DEMOLISH) {
                 triggerPlayerPopup(2, "ПРЕМАХВАНЕ", c.nameBg, "Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.", "[ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна", theme::Bad);
             } else if (newSel == BuildingType::LAMP) {
@@ -839,7 +898,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                 triggerPlayerPopup(2, "ОТКАЗ", "Изборът е прекратен", "Свободен режим.", "[PgDn]: Избери сграда", theme::TextSecondary);
             } else {
                 engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(BuildingType::DEMOLISH);
-                p2Pos = snapToPurchasedLandOrFirst(2, p2Pos, p2GridCol, p2GridRow);
+                syncBuildingSelectionPos(2);
                 triggerPlayerPopup(2, "ПРЕМАХВАНЕ", "Режим Разрушаване", "Посочете сградата, която искате да махнете.", "[ENTER]: Премахни | [Del]: Отказ", theme::Bad);
             }
         }
@@ -852,7 +911,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             if (curNum && !p2PrevNum[k] && !p2Modal.active && !showHelpOverlay) {
                 engine.getPlayerEconomyMut(2).selectedBuilding = k;
                 BuildingCost c = engine.getBuildingCost(static_cast<BuildingType>(k));
-                p2Pos = snapToPurchasedLandOrFirst(2, p2Pos, p2GridCol, p2GridRow);
+                syncBuildingSelectionPos(2);
                 triggerPlayerPopup(2, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
                                    (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
                                    "[ENTER]: Постави в грида | [Del]: Отказ", (k == 6 ? theme::Bad : theme::P2));
@@ -1153,7 +1212,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         BuildingType clickedP1 = p1Buildings.handleClick(clickPos);
         if (clickedP1 != BuildingType::NONE) {
             engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(clickedP1);
-            p1Pos = snapToPurchasedLandOrFirst(1, p1Pos, p1GridCol, p1GridRow);
+            syncBuildingSelectionPos(1);
             BuildingCost c = engine.getBuildingCost(clickedP1);
             triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
@@ -1165,7 +1224,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         BuildingType clickedP2 = p2Buildings.handleClick(clickPos);
         if (clickedP2 != BuildingType::NONE) {
             engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
-            p2Pos = snapToPurchasedLandOrFirst(2, p2Pos, p2GridCol, p2GridRow);
+            syncBuildingSelectionPos(2);
             BuildingCost c = engine.getBuildingCost(clickedP2);
             triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
@@ -1181,8 +1240,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             if (std::sqrt(dx * dx + dy * dy) <= 28.0f) {
                 int targetPlayer = (owner != 0 ? owner : b.playerOwner);
                 engine.getPlayerEconomyMut(targetPlayer).selectedBuilding = static_cast<int>(b.type);
-                if (targetPlayer == 1) p1Pos = snapToPurchasedLandOrFirst(1, p1Pos, p1GridCol, p1GridRow);
-                else p2Pos = snapToPurchasedLandOrFirst(2, p2Pos, p2GridCol, p2GridRow);
+                syncBuildingSelectionPos(targetPlayer);
                 BuildingCost c = engine.getBuildingCost(b.type);
                 triggerPlayerPopup(targetPlayer, "СТРОЕЖ", c.nameBg,
                                    formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
