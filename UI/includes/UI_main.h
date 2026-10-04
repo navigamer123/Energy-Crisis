@@ -26,6 +26,7 @@ private:
     void toggleFullscreen();
     void setupShotScene();
     int finishShot(); // Saves the screenshot, prints the lint report; returns the exit code
+    bool saveRecordFrame(int index); // --record: writes the finished frame as frame_<index>.png
 
 public:
     explicit UI_main(const ShotOptions& shotOptions = ShotOptions());

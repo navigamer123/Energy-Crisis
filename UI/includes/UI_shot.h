@@ -7,8 +7,10 @@
 // -----------------------------------------------------------------------------
 // Screenshot / layout-lint mode for automated visual checks:
 //   energy_crisis.exe --shot <out.png> [--scene NAME] [--frames N] [--seed S] [--lint]
+//   energy_crisis.exe --record <dir> [--every K] [--scene NAME] [--frames N] [--seed S]
 // renders N frames of one scene, saves the window to a PNG and exits. --lint also
 // prints every text layout problem of the last frame; the exit code is their count.
+// --record saves every K-th of the N frames as <dir>/frame_00001.png, frame_00002.png ... (video frames).
 // -----------------------------------------------------------------------------
 struct ShotOptions {
     bool enabled = false;       // --shot or --lint given
@@ -17,6 +19,8 @@ struct ShotOptions {
     int frames = 90;            // frames rendered before the capture
     unsigned int seed = 1;      // match seed (EC_SEED), fixed so captures are reproducible
     bool lint = false;          // print layout problems, exit code = number of problems
+    std::string recordDir;      // --record: folder for the frame sequence (empty: no recording)
+    int recordEvery = 2;        // --every: keep every K-th frame (2 = 30 fps)
 };
 
 namespace ui {

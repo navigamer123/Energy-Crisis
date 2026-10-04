@@ -58,8 +58,10 @@ void selectAssetDirectory(const char* argv0) {
 }
 
 void printUsage() {
-    std::cout << "Usage: energy_crisis [--shot <out.png>] [--scene NAME] [--frames N] [--seed S] [--lint]\n"
+    std::cout << "Usage: energy_crisis [--shot <out.png> | --record <dir>] [--scene NAME] [--frames N] [--seed S] [--lint]\n"
               << "  --shot <out.png>  render N frames of a scene, save the window to a PNG and exit\n"
+              << "  --record <dir>    save every K-th of the N frames as <dir>/frame_00001.png ... and exit\n"
+              << "  --every K         with --record: keep every K-th frame (default: 2, i.e. 30 fps)\n"
               << "  --scene NAME      " << ui::shot::sceneNames() << " (default: game)\n"
               << "  --frames N        frames rendered before the capture (default: 90)\n"
               << "  --seed S          match seed for reproducible captures (default: 1)\n"
@@ -82,6 +84,17 @@ bool parseShotOptions(int argc, char* argv[], ShotOptions& opts) {
             if (!v) return false;
             opts.outPath = v;
             opts.enabled = true;
+        } else if (arg == "--record") {
+            const char* v = needValue("--record");
+            if (!v) return false;
+            std::error_code ec; // absolute now: the working directory moves to the assets folder later
+            std::filesystem::path dir = std::filesystem::absolute(v, ec);
+            opts.recordDir = ec ? std::string(v) : dir.string();
+            opts.enabled = true;
+        } else if (arg == "--every") {
+            const char* v = needValue("--every");
+            if (!v) return false;
+            opts.recordEvery = std::max(1, std::atoi(v));
         } else if (arg == "--scene") {
             const char* v = needValue("--scene");
             if (!v) return false;
