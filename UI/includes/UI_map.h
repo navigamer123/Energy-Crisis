@@ -185,6 +185,7 @@ private:
     void drawVictoryScreen(sf::RenderWindow& window);
     void drawPauseMenu(sf::RenderWindow& window);
     bool isPosOnPurchasedLand(int player, sf::Vector2f pos) const;
+    sf::Vector2f snapToPurchasedLandOrFirst(int player, sf::Vector2f currentPos, int& outCol, int& outRow) const;
 
     sf::FloatRect victoryRestartBtn;
     sf::FloatRect victoryMenuBtn;
