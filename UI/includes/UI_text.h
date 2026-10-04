@@ -25,10 +25,14 @@ sf::Text& makeText(const sf::Font& font, const std::string& utf8, unsigned int s
 // Width in px of a single line of UTF-8 text (same layout rules as sf::Text).
 float measureText(const sf::Font& font, const std::string& utf8, unsigned int size, bool bold = false);
 
-// Inserts line breaks so that no line is wider than maxWidth (existing line breaks are kept;
-// a single word wider than maxWidth stays on its own line).
+// Inserts line breaks so that no line is wider than maxWidth (tokenizes on whitespace,
+// dynamically wraps onto new lines, and breaks/hyphenates words wider than maxWidth).
 std::string wrapText(const sf::Font& font, const std::string& utf8, unsigned int size, float maxWidth,
                      bool bold = false);
+
+// Truncates text with ellipsis ("...") if it exceeds maxWidth to prevent overflow clipping.
+std::string truncateWithEllipsis(const sf::Font& font, const std::string& utf8, unsigned int size,
+                                 float maxWidth, bool bold = false);
 
 // Largest character size from `size` down to `minSize` at which the text fits maxWidth.
 unsigned int fitTextSize(const sf::Font& font, const std::string& utf8, unsigned int size, unsigned int minSize,

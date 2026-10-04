@@ -388,7 +388,7 @@ void UI_fx::update(float dt, const GameEngine& engine, const UI_resourceNodes& n
     lightningLight = std::max(0.0f, lightningLight - dt * 3.0f);
 
     // --- Influence tween: smooth needle plus a trailing segment that shows the change ---
-    float real = engine.getCityState().p1CityShare;
+    float real = engine.getPlayerEconomy(1).cityInfluence;
     if (std::fabs(real - shareReal) > 0.0005f) {
         if (std::fabs(shareTrail - shareShown) < 0.002f) shareTrail = shareShown;
         trailHold = TRAIL_HOLD;

@@ -78,9 +78,13 @@ void UI_map::setBotDifficulty(BotDifficulty diff) {
     } else if (diff == BotDifficulty::NONE) {
         tutorial.setCoop(true);
         tutorial.start(); // Co-op mode: show tutorial for 2 players
+        engine.setHour24(10.0f);
+        engine.setTimeFrozen(true);
     } else {
         tutorial.setCoop(false);
         tutorial.start(); // Easy / Medium: show single player tutorial
+        engine.setHour24(10.0f);
+        engine.setTimeFrozen(true);
     }
     std::cout << "[UI_map] Bot difficulty set to: " << static_cast<int>(diff) << "\n";
 }
@@ -188,6 +192,18 @@ void UI_map::render(sf::RenderWindow& window) {
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     bool simulationRunning = !isPaused && engine.getCityState().winner == 0;
     if (simulationRunning) {
+        bool tutorialBlocksTime = tutorial.isTutorialBlockingTime();
+        if (tutorialBlocksTime) {
+            if (!engine.isTimeFrozen()) {
+                engine.setHour24(10.0f);
+                engine.setTimeFrozen(true);
+            }
+        } else {
+            if (engine.isTimeFrozen()) {
+                engine.setTimeFrozen(false);
+            }
+        }
+
         stats.beforeEngineUpdate(engine); // team info: capture the day's average before a settlement
         engine.update(dt * devOverlay.timeMultiplier()); // team info: x1 unless the [F3] panel speeds it up
         updateControls(window, dt);
@@ -269,12 +285,45 @@ void UI_map::render(sf::RenderWindow& window) {
         BuildingType sel = (player == 1) ? p1Sel : p2Sel;
         sf::Vector2f cursor = (player == 1) ? p1Pos : p2Pos;
         if (sel == BuildingType::NONE) continue;
-        sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? cursor : engine.snapToBuildingGrid(player, cursor);
-        if (sel == BuildingType::DEMOLISH || isPosOnPurchasedLand(player, targetPos)) {
+        bool onPurchased = isPosOnPurchasedLand(player, cursor);
+        if (sel == BuildingType::DEMOLISH || onPurchased) {
+            sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? cursor : engine.snapToBuildingGrid(player, cursor);
             std::string reason;
             bool valid = engine.canPlaceBuilding(player, sel, targetPos, reason);
             nodes.drawBuildingGhost(window, font, resourcesLoaded, sel, targetPos, valid, engine.getBuildingCost(sel));
             ghosts[player - 1] = { true, sel, targetPos, valid };
+        } else {
+            // Unpurchased territory warning indicator:
+            // Cursor is over unowned/unpurchased land -> disable blueprint, show warning indicator
+            sf::CircleShape warnRing(20.0f);
+            warnRing.setOrigin({ 20.0f, 20.0f });
+            warnRing.setPosition(cursor);
+            warnRing.setFillColor(theme::withAlpha(theme::Warn, 40));
+            warnRing.setOutlineThickness(2.0f);
+            warnRing.setOutlineColor(theme::Warn);
+            window.draw(warnRing);
+
+            if (resourcesLoaded) {
+                sf::Text& tWarn = ui::pooledText(font, toUtf8("[!] НЕЗАКУПЕНА ТЕРИТОРИЯ"), fontsize::Caption);
+                tWarn.setStyle(sf::Text::Bold);
+                tWarn.setFillColor(theme::Warn);
+                sf::FloatRect wb = tWarn.getLocalBounds();
+                float pillW = wb.size.x + 16.0f;
+                float pillH = wb.size.y + 10.0f;
+                float pillX = std::clamp(cursor.x - pillW / 2.0f, 20.0f, 1580.0f - pillW);
+                float pillY = cursor.y - 36.0f;
+                if (pillY < 10.0f) pillY = cursor.y + 24.0f;
+
+                sf::RectangleShape pill({ pillW, pillH });
+                pill.setPosition({ pillX, pillY });
+                pill.setFillColor(theme::withAlpha(theme::Window, 230));
+                pill.setOutlineThickness(1.5f);
+                pill.setOutlineColor(theme::Warn);
+                window.draw(pill);
+
+                tWarn.setPosition({ pillX + 8.0f - wb.position.x, pillY + 4.0f - wb.position.y });
+                ui::drawText(window, tWarn);
+            }
         }
     }
 
@@ -320,8 +369,8 @@ void UI_map::render(sf::RenderWindow& window) {
     // 12. Left & Right Building Menus
     p1Buildings.setHotkeys(BuildHotkeys::DIGITS);
     p2Buildings.setHotkeys(bot.isActive() ? BuildHotkeys::NONE : BuildHotkeys::NUMPAD);
-    p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p1Sel);
-    p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p2Sel);
+    p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p1Sel, p1Pos);
+    p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p2Sel, p2Pos);
 
     // 13. Bottom Corner Quarter-Circles (Pure icons and numbers, gold at bottom)
     resourceHUD.drawQuarterCircle(window, font, resourcesLoaded, engine.getPlayerEconomy(1), true);

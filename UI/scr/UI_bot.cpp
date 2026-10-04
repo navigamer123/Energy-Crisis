@@ -65,6 +65,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     bool isDay = engine.isDaylight();
     WeatherType weather = engine.getPlayerWeather(2);
     int gold = econ.gold;
+    int money = econ.money;
     int curEnergy = econ.energyMW;
 
     // -------------------------------------------------------------------------
@@ -120,38 +121,17 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     }
 
     bool needLandUrgent = freeSlots.empty() && cheapestUnboughtPlot;
-    bool canExpandComfortably = (freeSlots.size() <= 2 && cheapestUnboughtPlot && gold >= cheapestUnboughtPlot->costGold);
+    bool canExpandComfortably = (freeSlots.size() <= 2 && cheapestUnboughtPlot && money >= cheapestUnboughtPlot->costGold);
 
-    if (needLandUrgent) {
-        if (gold >= cheapestUnboughtPlot->costGold) {
+    if (cheapestUnboughtPlot && money >= cheapestUnboughtPlot->costGold) {
+        if (needLandUrgent || (canExpandComfortably && (difficulty != BotDifficulty::EASY || rand() % 2 == 0))) {
             actionState = BotActionState::MOVING_TO_BUY_LAND;
             targetPos = sf::Vector2f(cheapestUnboughtPlot->bounds.position.x + cheapestUnboughtPlot->bounds.size.x / 2.0f,
                                      cheapestUnboughtPlot->bounds.position.y + cheapestUnboughtPlot->bounds.size.y / 2.0f);
             plannedPlotId = cheapestUnboughtPlot->id;
             plannedBuilding = BuildingType::NONE;
             return;
-        } else {
-            // Need gold to expand land! Mine Gold continuously until threshold
-            const auto* st = nodes.getStation(2, ResourceType::GOLD);
-            if (st) {
-                actionState = BotActionState::MOVING_TO_MINE;
-                plannedResource = ResourceType::GOLD;
-                targetResourceQuota = cheapestUnboughtPlot->costGold;
-                targetPos = sf::Vector2f(st->bounds.position.x + st->bounds.size.x / 2.0f,
-                                         st->bounds.position.y + 35.0f);
-                mineCooldown = 0.0f;
-                stateWatchdog = 0.0f;
-                plannedBuilding = BuildingType::NONE;
-                return;
-            }
         }
-    } else if (canExpandComfortably && (difficulty != BotDifficulty::EASY || rand() % 2 == 0)) {
-        actionState = BotActionState::MOVING_TO_BUY_LAND;
-        targetPos = sf::Vector2f(cheapestUnboughtPlot->bounds.position.x + cheapestUnboughtPlot->bounds.size.x / 2.0f,
-                                 cheapestUnboughtPlot->bounds.position.y + cheapestUnboughtPlot->bounds.size.y / 2.0f);
-        plannedPlotId = cheapestUnboughtPlot->id;
-        plannedBuilding = BuildingType::NONE;
-        return;
     }
 
     // -------------------------------------------------------------------------
@@ -192,10 +172,16 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     // -------------------------------------------------------------------------
     int lampCount = 0;
     int batteryCount = 0;
+    int hydroCount = 0;
+    int windCount = 0;
+    int solarCount = 0;
     for (const auto& b : engine.getBuildings()) {
         if (b.playerOwner == 2) {
             if (b.type == BuildingType::LAMP) lampCount++;
-            if (b.type == BuildingType::BATTERY) batteryCount++;
+            else if (b.type == BuildingType::BATTERY) batteryCount++;
+            else if (b.type == BuildingType::HYDRO_PLANT) hydroCount++;
+            else if (b.type == BuildingType::WIND_TURBINE) windCount++;
+            else if (b.type == BuildingType::SOLAR_PANEL) solarCount++;
         }
     }
 
@@ -208,19 +194,22 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     // Hydro Plant: 110 MW base, 24/7 continuous output, rain boost
     float hydroScore = (difficulty == BotDifficulty::HARD ? 135.0f : (difficulty == BotDifficulty::MEDIUM ? 105.0f : 70.0f));
     if (weather == WeatherType::RAINY) hydroScore += 45.0f;
+    hydroScore *= Balance::getBuildingEfficiencyMultiplier(BuildingType::HYDRO_PLANT, hydroCount);
     candidateList.push_back({ BuildingType::HYDRO_PLANT, hydroScore });
 
-    // Wind Turbine: 85 MW base, 24/7 output, massive windy/stormy boost
+    // Wind Turbine: 85 MW base, 24/7 output, massive windy/stormy boost (wake turbulence penalty prevents spam)
     float windScore = (difficulty == BotDifficulty::HARD ? 120.0f : (difficulty == BotDifficulty::MEDIUM ? 100.0f : 80.0f));
     if (weather == WeatherType::WINDY) windScore += 60.0f;
     if (weather == WeatherType::STORMY) windScore += 90.0f;
     if (!isDay) windScore += 35.0f;
+    windScore *= Balance::getBuildingEfficiencyMultiplier(BuildingType::WIND_TURBINE, windCount);
     candidateList.push_back({ BuildingType::WIND_TURBINE, windScore });
 
     // Solar Panel: 60 MW base during day, 0 at night
     float solarScore = 0.0f;
     if (isDay) {
         solarScore = (difficulty == BotDifficulty::EASY ? 110.0f : (difficulty == BotDifficulty::MEDIUM ? 80.0f : 60.0f));
+        solarScore *= Balance::getBuildingEfficiencyMultiplier(BuildingType::SOLAR_PANEL, solarCount);
     } else {
         solarScore = -999.0f; // Never build solar at night
     }
@@ -243,6 +232,21 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
         }
     }
     candidateList.push_back({ BuildingType::LAMP, lampScore });
+
+    // Competitive Margin Clamping:
+    // If bot power generation is already comfortably ahead of Player 1, scale back aggressive expansion
+    const auto& p1Econ = engine.getPlayerEconomy(1);
+    int p1Energy = p1Econ.energyMW;
+    int botEnergyCap = (difficulty == BotDifficulty::EASY) ? std::max(60, static_cast<int>(p1Energy * 1.15f) + 30) :
+                       (difficulty == BotDifficulty::MEDIUM) ? std::max(85, static_cast<int>(p1Energy * 1.30f) + 50) :
+                       std::max(120, static_cast<int>(p1Energy * 1.45f) + 70);
+    if (curEnergy >= botEnergyCap) {
+        for (auto& cand : candidateList) {
+            if (cand.type == BuildingType::HYDRO_PLANT || cand.type == BuildingType::WIND_TURBINE || cand.type == BuildingType::SOLAR_PANEL) {
+                cand.score = -999.0f; // Halt power plant expansion; stockpile & upgrade instead
+            }
+        }
+    }
 
     std::sort(candidateList.begin(), candidateList.end(), [](const CandidateChoice& a, const CandidateChoice& b) {
         return a.score > b.score;

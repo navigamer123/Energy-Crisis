@@ -133,7 +133,30 @@ float measureText(const sf::Font& font, const std::string& utf8, unsigned int si
     return std::max(width, lineWidth);
 }
 
+std::string truncateWithEllipsis(const sf::Font& font, const std::string& utf8, unsigned int size,
+                                 float maxWidth, bool bold) {
+    if (maxWidth <= 0.0f) return "";
+    if (measureText(font, utf8, size, bold) <= maxWidth) return utf8;
+
+    const std::string ellipsis = "...";
+    float ellipsisW = measureText(font, ellipsis, size, bold);
+    if (ellipsisW >= maxWidth) return "";
+
+    float availW = maxWidth - ellipsisW;
+    sf::String s = toUtf8(utf8);
+    sf::String fit;
+    for (std::size_t i = 0; i < s.getSize(); ++i) {
+        sf::String candidate = fit + s[i];
+        if (measureText(font, toStd(candidate), size, bold) > availW) break;
+        fit = candidate;
+    }
+    return toStd(fit) + ellipsis;
+}
+
 std::string wrapText(const sf::Font& font, const std::string& utf8, unsigned int size, float maxWidth, bool bold) {
+    // 1. Boundary constraint checking
+    if (maxWidth <= 0.0f) return "";
+
     std::string out;
     std::size_t start = 0;
     while (start <= utf8.size()) {
@@ -141,22 +164,62 @@ std::string wrapText(const sf::Font& font, const std::string& utf8, unsigned int
         std::string para = utf8.substr(start, end == std::string::npos ? std::string::npos : end - start);
         std::string line;
         std::size_t pos = 0;
+
+        // 2. Tokenize text on whitespace
         while (pos < para.size()) {
             std::size_t sp = para.find(' ', pos);
             std::string word = para.substr(pos, sp == std::string::npos ? std::string::npos : sp - pos);
             pos = (sp == std::string::npos) ? para.size() : sp + 1;
             if (word.empty()) continue;
+
+            // 3. Dynamic line wrapping when adding candidate exceeds maxWidth
             std::string candidate = line.empty() ? word : line + " " + word;
-            if (!line.empty() && measureText(font, candidate, size, bold) > maxWidth) {
-                out += line + "\n";
-                line = word;
-            } else {
+            if (measureText(font, candidate, size, bold) <= maxWidth) {
                 line = candidate;
+            } else {
+                if (!line.empty()) {
+                    if (!out.empty()) out += "\n";
+                    out += line;
+                    line.clear();
+                }
+
+                // Check if word itself fits on its own line
+                if (measureText(font, word, size, bold) <= maxWidth) {
+                    line = word;
+                } else {
+                    // 4. Unbroken word/token wider than container bounds:
+                    // Break and hyphenate chunks to prevent overflow clipping
+                    sf::String sw = toUtf8(word);
+                    std::size_t charIdx = 0;
+                    float hyphenW = measureText(font, "-", size, bold);
+
+                    while (charIdx < sw.getSize()) {
+                        sf::String chunk;
+                        while (charIdx < sw.getSize()) {
+                            sf::String next = chunk + sw[charIdx];
+                            bool isLast = (charIdx + 1 == sw.getSize());
+                            float neededW = measureText(font, toStd(next), size, bold) + (isLast ? 0.0f : hyphenW);
+                            if (neededW > maxWidth && chunk.getSize() > 0) {
+                                break;
+                            }
+                            chunk = next;
+                            charIdx++;
+                        }
+                        if (charIdx < sw.getSize()) {
+                            if (!out.empty()) out += "\n";
+                            out += toStd(chunk) + "-";
+                        } else {
+                            line = toStd(chunk);
+                        }
+                    }
+                }
             }
         }
-        out += line;
+        if (!line.empty()) {
+            if (!out.empty()) out += "\n";
+            out += line;
+        }
         if (end == std::string::npos) break;
-        out += "\n";
         start = end + 1;
     }
     return out;

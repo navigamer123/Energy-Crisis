@@ -158,6 +158,8 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
     }
 
     if (scene == "tutorial") {
+        tutorial.setCoop(true);
+        tutorial.start();
         parkCursors();
         return;
     }

@@ -132,7 +132,8 @@ BuildingType UI_buildings::handleClick(sf::Vector2f clickPos) {
 void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
                         bool fontLoaded, sf::Vector2f mousePos,
                         const GameEngine &engine,
-                        BuildingType activeSelection) {
+                        BuildingType activeSelection,
+                        sf::Vector2f playerCursorPos) {
   const PlayerEconomy &econ = engine.getPlayerEconomy(playerIndex);
   const WeatherType weather = engine.getPlayerWeather(playerIndex);
 
@@ -175,7 +176,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     const bool canAfford = std::all_of(needs.begin(), needs.end(),
                                        [](const ResourceNeed &n) { return n.have >= n.need; });
     const bool isSelected = (b.type == activeSelection);
-    const bool hover = r.contains(mousePos);
+    const bool hover = r.contains(mousePos) || r.contains(playerCursorPos);
 
     // Card background: selection = white outline (gold is reserved for money)
     sf::RectangleShape card(r.size);

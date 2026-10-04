@@ -4,6 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 #include "UI_types.h"
+#include "../../Game/includes/game_balance.h"
 #include "../../Game/includes/game_main.h"
 #include "UI_resourceNodes.h"
 
@@ -28,20 +29,37 @@ enum class ArrowDir {
 
 class UI_tutorial {
 private:
-    TutorialStep step = TutorialStep::WELCOME;
-    bool active = true;
+    TutorialStep p1Step = TutorialStep::WELCOME;
+    TutorialStep p2Step = TutorialStep::WELCOME;
+    bool p1Active = true;
+    bool p2Active = true;
     bool isCoop = false;
     float animTimer = 0.0f;
-    float stepDelayTimer = 0.0f;
-    int initialP1BuildingCount = 0; // P1 solar panels owned when PLACE_SOLAR started (baseline)
+    float p1StepDelayTimer = 0.0f;
+    float p2StepDelayTimer = 0.0f;
+    int initialP1BuildingCount = 0;
+    int initialP2BuildingCount = 0;
 
-    sf::FloatRect cardBounds;
+    sf::FloatRect cardBounds; // Single-player centered card
     sf::FloatRect skipBtnBounds;
     sf::FloatRect nextBtnBounds;
 
+    sf::FloatRect p1CardBounds; // Co-op Player 1 card (West)
+    sf::FloatRect p1SkipBtnBounds;
+    sf::FloatRect p1NextBtnBounds;
+
+    sf::FloatRect p2CardBounds; // Co-op Player 2 card (East)
+    sf::FloatRect p2SkipBtnBounds;
+    sf::FloatRect p2NextBtnBounds;
+
     void drawSpotlight(sf::RenderWindow& window, sf::FloatRect targetRect, float animTime);
     void drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, const std::string& label,
-                   const sf::Font& font, float animTime, ArrowDir dir = ArrowDir::DOWN);
+                   const sf::Font& font, float animTime, ArrowDir dir = ArrowDir::DOWN,
+                   sf::Color color = sf::Color(0, 240, 255));
+    void drawPlayerCard(sf::RenderWindow& window, const sf::Font& font, int player,
+                        TutorialStep step, const sf::FloatRect& bounds,
+                        const sf::FloatRect& skipBtn, const sf::FloatRect& nextBtn,
+                        const GameEngine& engine, float animTime);
 
 public:
     UI_tutorial();
@@ -49,10 +67,18 @@ public:
     void reset();
     void start();
     void skip();
+    void skipP1();
+    void skipP2();
     void setCoop(bool coop) { isCoop = coop; }
 
-    bool isActive() const { return active && step != TutorialStep::INACTIVE; }
-    TutorialStep getStep() const { return step; }
+    bool isActive() const {
+        return (p1Active && p1Step != TutorialStep::INACTIVE) ||
+               (isCoop && p2Active && p2Step != TutorialStep::INACTIVE);
+    }
+    bool isTutorialBlockingTime() const;
+    TutorialStep getStep() const { return p1Step; }
+    TutorialStep getP1Step() const { return p1Step; }
+    TutorialStep getP2Step() const { return p2Step; }
 
     void update(float dt, const GameEngine& engine);
     void draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,

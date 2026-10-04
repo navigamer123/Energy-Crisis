@@ -276,10 +276,10 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                 t.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - tb.size.x) / 2.0f, plot.bounds.position.y + 28.0f });
                 ui::drawText(window, t);
 
-                std::string cStr = std::to_string(plot.costGold) + " G";
+                std::string cStr = std::to_string(plot.costGold) + " $";
                 sf::Text& tCost = ui::pooledText(font, toUtf8(cStr), fontsize::Body);
                 tCost.setStyle(sf::Text::Bold);
-                tCost.setFillColor(theme::Gold);
+                tCost.setFillColor(theme::Good);
                 sf::FloatRect cb = tCost.getLocalBounds();
                 tCost.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - cb.size.x) / 2.0f, plot.bounds.position.y + 48.0f });
                 ui::drawText(window, tCost);
@@ -290,6 +290,8 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
 
 void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                                           const std::vector<PlacedBuilding>& buildings) {
+    (void)font;
+    (void)fontLoaded;
     for (const auto& b : buildings) {
         sf::Color ownerColor = theme::player(b.playerOwner);
         ui::lint::solid(sf::FloatRect({ b.position.x - 13.0f, b.position.y - 13.0f }, { 26.0f, 26.0f })); // no text may hide under it
@@ -391,7 +393,23 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 window.draw(div);
             }
 
-            // (the charge label is drawn after all buildings, see below)
+            if (fontLoaded && b.maxCapacity > 0.0f) {
+                int pctInt = static_cast<int>(std::round(pct * 100.0f));
+                std::string pctStr = std::to_string(pctInt) + "%";
+                sf::Text& tPct = ui::pooledText(font, toUtf8(pctStr), fontsize::Caption);
+                tPct.setStyle(sf::Text::Bold);
+                sf::Color txtCol = (pct > 0.5f) ? sf::Color(100, 255, 180) : ((pct > 0.2f) ? sf::Color(255, 230, 100) : sf::Color(255, 120, 100));
+                tPct.setFillColor(txtCol);
+                sf::FloatRect tb = tPct.getLocalBounds();
+                sf::RectangleShape pill({ tb.size.x + 4.0f, tb.size.y + 3.0f });
+                pill.setOrigin({ (tb.size.x + 4.0f) * 0.5f, (tb.size.y + 3.0f) * 0.5f });
+                pill.setPosition({ b.position.x, b.position.y - 0.5f });
+                pill.setFillColor(sf::Color(12, 18, 28, 220));
+                window.draw(pill);
+                tPct.setPosition({ b.position.x - tb.size.x * 0.5f - tb.position.x,
+                                   b.position.y - 0.5f - tb.size.y * 0.5f - tb.position.y });
+                ui::drawText(window, tPct);
+            }
         } else if (b.type == BuildingType::LAMP) {
             sf::RectangleShape pole({ 3.0f, 20.0f });
             pole.setOrigin({ 1.5f, 20.0f });
@@ -418,66 +436,6 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 window.draw(glow);
             }
         }
-    }
-
-    // Battery charge labels, after every building so none covers them: a small dark pill beside
-    // the cell (right, left, below or above), inside the plot and clear of buildings and other labels
-    if (!fontLoaded) return;
-    std::vector<sf::FloatRect> placed;
-    auto intersects = [](const sf::FloatRect& a, const sf::FloatRect& b) {
-        return a.position.x < b.position.x + b.size.x && b.position.x < a.position.x + a.size.x &&
-               a.position.y < b.position.y + b.size.y && b.position.y < a.position.y + a.size.y;
-    };
-    for (const auto& b : buildings) {
-        if (b.type != BuildingType::BATTERY) continue;
-        float pct = std::min(1.0f, std::max(0.0f, b.energyStored / b.maxCapacity));
-        sf::Text& tPct = ui::pooledText(font, std::to_string(static_cast<int>(pct * 100.0f)) + "%", fontsize::Caption);
-        tPct.setStyle(sf::Text::Bold);
-        tPct.setFillColor(theme::TextPrimary);
-        sf::FloatRect tb = tPct.getLocalBounds();
-        sf::Vector2f size(tb.size.x + 6.0f, tb.size.y + 6.0f);
-
-        // Plot that holds the battery (3 x 4 plots of 105 x 95 per player, 12 / 10 px apart)
-        const float startX = (b.playerOwner == 1) ? 258.0f : 1003.0f;
-        float plotX = startX + std::floor((b.position.x - startX) / 117.0f) * 117.0f;
-        float plotY = 105.0f + std::floor((b.position.y - 105.0f) / 105.0f) * 105.0f;
-        sf::FloatRect plotRect({ plotX, plotY }, { 105.0f, 95.0f });
-
-        const sf::Vector2f c = b.position;
-        const sf::Vector2f candidates[4] = {
-            { c.x + 12.0f, c.y - size.y / 2.0f },            // right
-            { c.x - 12.0f - size.x, c.y - size.y / 2.0f },   // left
-            { c.x - size.x / 2.0f, c.y + 14.0f },            // below
-            { c.x - size.x / 2.0f, c.y - 17.0f - size.y },   // above (over the terminal)
-        };
-        sf::FloatRect chosen(candidates[0], size);
-        for (const auto& p : candidates) {
-            sf::FloatRect r(p, size);
-            bool ok = r.position.x >= plotRect.position.x && r.position.y >= plotRect.position.y &&
-                      r.position.x + r.size.x <= plotRect.position.x + plotRect.size.x &&
-                      r.position.y + r.size.y <= plotRect.position.y + plotRect.size.y;
-            for (const auto& other : buildings) {
-                if (!ok) break;
-                if (&other == &b) continue;
-                ok = !intersects(r, sf::FloatRect({ other.position.x - 13.0f, other.position.y - 13.0f }, { 26.0f, 26.0f }));
-            }
-            for (const auto& q : placed) {
-                if (!ok) break;
-                ok = !intersects(r, q);
-            }
-            if (ok) {
-                chosen = r;
-                break;
-            }
-        }
-        placed.push_back(chosen);
-
-        sf::RectangleShape pill(chosen.size);
-        pill.setPosition(chosen.position);
-        pill.setFillColor(theme::withAlpha(theme::Window, 220));
-        window.draw(pill);
-        tPct.setPosition({ chosen.position.x + 3.0f - tb.position.x, chosen.position.y + 3.0f - tb.position.y });
-        ui::drawText(window, tPct, chosen);
     }
 }
 
@@ -531,37 +489,64 @@ void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf:
         std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
                                             : "[X/Del]: Отказ  |  [E]: Смени сграда";
 
-        sf::Text& t = ui::pooledText(font, toUtf8(label), fontsize::Label);
-        t.setStyle(sf::Text::Bold);
-        t.setFillColor(tint);
-        sf::Text& tc = ui::pooledText(font, toUtf8(costStr), fontsize::Caption);
-        tc.setFillColor(missing.empty() ? theme::TextPrimary : theme::Bad);
-        sf::Text& th = ui::pooledText(font, toUtf8(hint), fontsize::Caption);
-        th.setFillColor(theme::TextSecondary);
+        // Smart text wrapping (Diagram fix): Wrap long recipe/hints to fit neatly inside tooltip
+        const float maxTextW = 340.0f;
+        std::string wrappedCost = ui::wrapText(font, costStr, fontsize::Caption, maxTextW);
+        std::string wrappedHint = ui::wrapText(font, hint, fontsize::Caption, maxTextW);
 
-        // One tooltip panel under the footprint (above it near the bottom edge), kept on the canvas,
-        // so the labels never collide with the cursor tag or the map labels underneath
+        struct TooltipLine {
+            std::string text;
+            unsigned int size;
+            bool bold;
+            sf::Color color;
+        };
+        std::vector<TooltipLine> lines;
+        lines.push_back({ label, fontsize::Label, true, tint });
+
+        auto appendWrapped = [&](const std::string& str, sf::Color col) {
+            std::string cur;
+            for (char ch : str) {
+                if (ch == '\n') {
+                    if (!cur.empty()) { lines.push_back({ cur, fontsize::Caption, false, col }); cur.clear(); }
+                } else {
+                    cur += ch;
+                }
+            }
+            if (!cur.empty()) lines.push_back({ cur, fontsize::Caption, false, col });
+        };
+        appendWrapped(wrappedCost, missing.empty() ? theme::TextPrimary : theme::Bad);
+        appendWrapped(wrappedHint, theme::TextSecondary);
+
         const float lineGap = 16.0f;
-        float w = std::max({ t.getLocalBounds().size.x, tc.getLocalBounds().size.x, th.getLocalBounds().size.x }) + 16.0f;
-        float h = 8.0f + 3.0f * lineGap + 2.0f;
-        float px = std::max(4.0f, std::min(pos.x - w / 2.0f, VIRTUAL_WIDTH - w - 4.0f));
+        float maxMeasured = 0.0f;
+        for (const auto& l : lines) {
+            float lw = ui::measureText(font, l.text, l.size, l.bold);
+            if (lw > maxMeasured) maxMeasured = lw;
+        }
+        float w = maxMeasured + 20.0f;
+        float h = 10.0f + static_cast<float>(lines.size()) * lineGap + 4.0f;
+
+        // CLAMP: Keep tooltip entirely in the playfield, NEVER under the left/right building panels!
+        float px = std::clamp(pos.x - w / 2.0f, 256.0f, 1344.0f - w);
         float py = pos.y + 26.0f;
         if (py + h > VIRTUAL_HEIGHT - 4.0f) py = pos.y - 26.0f - h;
 
         sf::RectangleShape panel({ w, h });
         panel.setPosition({ px, py });
-        panel.setFillColor(theme::withAlpha(theme::Panel, 235));
-        panel.setOutlineThickness(1.0f);
-        panel.setOutlineColor(theme::withAlpha(tint, 170));
+        panel.setFillColor(theme::withAlpha(theme::Panel, 240));
+        panel.setOutlineThickness(1.2f);
+        panel.setOutlineColor(theme::withAlpha(tint, 190));
         window.draw(panel);
         const sf::FloatRect panelRect({ px, py }, { w, h });
         ui::lint::occlude(panelRect);
 
-        sf::Text* lines[3] = { &t, &tc, &th };
-        for (int i = 0; i < 3; ++i) {
-            sf::FloatRect lb = lines[i]->getLocalBounds();
-            lines[i]->setPosition({ px + (w - lb.size.x) / 2.0f - lb.position.x, py + 5.0f + i * lineGap });
-            ui::drawText(window, *lines[i], panelRect);
+        for (std::size_t i = 0; i < lines.size(); ++i) {
+            sf::Text& txt = ui::pooledText(font, toUtf8(lines[i].text), lines[i].size);
+            txt.setStyle(lines[i].bold ? sf::Text::Bold : sf::Text::Regular);
+            txt.setFillColor(lines[i].color);
+            sf::FloatRect lb = txt.getLocalBounds();
+            txt.setPosition({ px + (w - lb.size.x) / 2.0f - lb.position.x, py + 6.0f + static_cast<float>(i) * lineGap });
+            ui::drawText(window, txt, panelRect);
         }
     }
 }

@@ -1,6 +1,6 @@
 # Energy Crisis — презентация за журито
 
-> Отбор „Волтова дъга“ · 16 слайда · около 8 минути (4:35 слайдове + 3:00 демо на живо + 0:25 финал).
+> Отбор „Волтова дъга“ · [Google Slides презентация](https://docs.google.com/presentation/d/1UWAW4F5tHmk3Gq4c1k7os5S4UIRC3If5KsrRFCIdVAM/edit?usp=sharing) · 16 слайда · около 8 минути (4:35 слайдове + 3:00 демо на живо + 0:25 финал).
 >
 > Това е окончателният текст на слайдовете; източникът е [presentation/slides.md](../presentation/slides.md). Снимките са в `presentation/img/`, а снимките от текущата компилация (`wave-a-*.png`) са в `ec-tools/work/shots/`.
 >

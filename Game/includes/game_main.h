@@ -32,15 +32,8 @@ enum class ResourceType {
 // -----------------------------------------------------------------------------
 // Building Types
 // -----------------------------------------------------------------------------
-enum class BuildingType {
-    NONE = 0,
-    SOLAR_PANEL,
-    WIND_TURBINE,
-    HYDRO_PLANT,
-    BATTERY,
-    LAMP,
-    DEMOLISH
-};
+using BuildingType = Balance::BuildingType;
+
 
 struct BuildingCost {
     BuildingType type;
@@ -73,7 +66,8 @@ struct LandPlot {
     int playerOwner; // 1 = West, 2 = East
     sf::FloatRect bounds;
     bool isPurchased;
-    int costGold;
+    int costMoney = 0;
+    int costGold = 0; // Legacy backwards compatibility alias
 };
 
 struct PlayerEconomy {
@@ -104,6 +98,7 @@ struct CityConquestState {
     float dailySeconds = 0.0f;     // Game-seconds elapsed in the current day (06:00 -> 06:00)
     std::string lastCutMessage;
     int winner = 0;             // 0 = None, 1 = P1, 2 = P2, 3 = Draw (equal shares after the final day)
+    float citizenMigrationRate = 0.0f; // Dynamic citizen migration rate (% / sec; positive -> P1, negative -> P2)
 };
 
 struct MineResult {
@@ -157,6 +152,8 @@ private:
     PlayerModifiers p1Mods;        // neutral unless setPlayerModifiers() was called this match
     PlayerModifiers p2Mods;
     MineActionRecord lastMineAction[2]; // [b-effects] see getLastMineAction()
+    bool p2IsBot = false;
+    bool timeFrozen = false;
 
     // Engine-owned random numbers: one independent stream per purpose, all derived from matchSeed, so
     // UI calls to randInt() never shift the weather sequence of a seeded match
@@ -276,6 +273,9 @@ public:
     const CityConquestState& getCityState() const { return city; }
     const std::vector<PlacedBuilding>& getBuildings() const { return buildings; }
     const std::vector<LandPlot>& getLandPlots() const { return landPlots; }
+    void setP2IsBot(bool isBot) { p2IsBot = isBot; }
+    bool isP2Bot() const { return p2IsBot; }
+    float getCitizenMigrationRate() const { return city.citizenMigrationRate; }
     // Average power (MW) delivered to the city so far today; the day-end result is judged on this value
     float getTodayAverageMW(int player) const {
         if (city.dailySeconds <= 0.0f) return 0.0f;
@@ -289,6 +289,9 @@ public:
     float getSunriseHour() const { return Balance::getSunriseHour(currentSeason); }
     float getSunsetHour() const { return Balance::getSunsetHour(currentSeason); }
     bool isGracePeriod() const { return currentDay <= config.graceDays; }
+    void setTimeFrozen(bool frozen) { timeFrozen = frozen; }
+    bool isTimeFrozen() const { return timeFrozen; }
+    void setHour24(float hour);
 
     // Snapshots (Game/scr/game_snapshot.cpp): all match state as versioned text, for save/load,
     // replays and tests. loadState returns false and leaves the match untouched on bad input; on success

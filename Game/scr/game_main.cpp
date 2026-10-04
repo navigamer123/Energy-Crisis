@@ -167,6 +167,7 @@ void GameEngine::init(const MatchConfig& cfg) {
                 int ownCol = (player == 1) ? c : (Balance::PLOT_COLS - 1 - c);
                 plot.isPurchased = (r == 0 && ownCol == 0);
                 plot.costGold = Balance::getLandPlotCost(r, ownCol);
+                plot.costMoney = plot.costGold;
                 landPlots.push_back(plot);
             }
         }
@@ -259,6 +260,10 @@ void GameEngine::update(float dt) {
 }
 
 void GameEngine::advanceGameTime(float gameDt) {
+    if (timeFrozen) {
+        updateBuildingsEnergy(gameDt);
+        return;
+    }
     float remaining = gameDt;
     while (remaining > 0.0f && city.winner == 0) {
         float step = std::min(remaining, MAX_SIM_STEP_SEC);
@@ -329,9 +334,32 @@ void GameEngine::payCityRevenue() {
         p2.gold += scaleByMult(Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand), p2Mods.incomeMult);
     }
 
-    // City influence reflects established territorial division from daily outcomes
-    p1.cityInfluence = city.p1CityShare;
-    p2.cityInfluence = 1.0f - city.p1CityShare;
+    // City influence reflects established territorial division plus live daytime drift and citizen migration
+    float liveShare = city.p1CityShare;
+    if (city.cityEnergyDemand > 0 && city.dailySeconds > 1.0f && currentDay > config.graceDays) {
+        float dayFraction = std::min(1.0f, city.dailySeconds / config.daySeconds);
+        int p1CurAvg = static_cast<int>(city.p1DailyDelivered / city.dailySeconds);
+        int p2CurAvg = static_cast<int>(city.p2DailyDelivered / city.dailySeconds);
+        float shift = Balance::calculateDailyCityShift(p1CurAvg, p2CurAvg, city.cityEnergyDemand);
+
+        // Dynamic citizen migration tick:
+        // Citizens dynamically migrate away from stagnant or underperforming entities toward whichever
+        // sector offers higher supply reliability and surplus power.
+        float halfDemand = std::max(1.0f, city.cityEnergyDemand * 0.5f);
+        float p1Rel = std::clamp(static_cast<float>(p1.energyMW) / halfDemand, 0.0f, 2.0f);
+        float p2Rel = std::clamp(static_cast<float>(p2.energyMW) / halfDemand, 0.0f, 2.0f);
+        float p1Surplus = std::max(0.0f, static_cast<float>(p1.energyMW) - halfDemand);
+        float p2Surplus = std::max(0.0f, static_cast<float>(p2.energyMW) - halfDemand);
+
+        float score1 = p1Rel * 1.0f + std::min(1.0f, p1Surplus / 150.0f);
+        float score2 = p2Rel * 1.0f + std::min(1.0f, p2Surplus / 150.0f);
+
+        float diff = score1 - score2;
+        city.citizenMigrationRate = diff * 0.035f; // dynamic citizen migration velocity
+        liveShare = std::clamp(city.p1CityShare + (shift + city.citizenMigrationRate) * dayFraction, 0.0f, 1.0f);
+    }
+    p1.cityInfluence = liveShare;
+    p2.cityInfluence = 1.0f - liveShare;
 }
 
 void GameEngine::updateBuildingsEnergy(float dt) {
@@ -357,18 +385,48 @@ void GameEngine::updateBuildingsEnergy(float dt) {
 
         // Step A: pure generation from Solar, Wind and Hydro; count lamps; battery charge/discharge limits
         float rawGen = 0.0f;
+        int countSolar = 0, countWind = 0, countHydro = 0;
         int lampCount = 0;
         int batteryCount = 0;
         float canGive = 0.0f; // MW all batteries could discharge this step
         float canTake = 0.0f; // MW all batteries could absorb this step
+        for (const auto& b : buildings) {
+            if (b.playerOwner != player) continue;
+            if (b.type == BuildingType::SOLAR_PANEL) countSolar++;
+            else if (b.type == BuildingType::WIND_TURBINE) countWind++;
+            else if (b.type == BuildingType::HYDRO_PLANT) countHydro++;
+        }
+        const float effSolar = Balance::getBuildingEfficiencyMultiplier(BuildingType::SOLAR_PANEL, countSolar);
+        const float effWind = Balance::getBuildingEfficiencyMultiplier(BuildingType::WIND_TURBINE, countWind);
+        const float effHydro = Balance::getBuildingEfficiencyMultiplier(BuildingType::HYDRO_PLANT, countHydro);
+
         for (auto& b : buildings) {
             if (b.playerOwner != player) continue;
             switch (b.type) {
                 case BuildingType::SOLAR_PANEL:
-                case BuildingType::WIND_TURBINE:
                 case BuildingType::HYDRO_PLANT: {
-                    const float mult = (b.type == BuildingType::SOLAR_PANEL) ? solarMult
-                                       : (b.type == BuildingType::WIND_TURBINE) ? windMult : hydroMult;
+                    const float mult = (b.type == BuildingType::SOLAR_PANEL) ? (solarMult * effSolar) : (hydroMult * effHydro);
+                    float out = basePowerOf(b.type) * mult;
+                    b.currentOutputMW = out;
+                    rawGen += out;
+                    break;
+                }
+                case BuildingType::WIND_TURBINE: {
+                    // Wind turbine wake effect: proximity penalty (product formula) combined with
+                    // density saturation diminishing returns to prevent turbine spamming
+                    float wakeEff = 1.0f;
+                    for (const auto& other : buildings) {
+                        if (&other == &b) continue;
+                        if (other.playerOwner != player || other.type != BuildingType::WIND_TURBINE) continue;
+                        float dx = other.position.x - b.position.x;
+                        float dy = other.position.y - b.position.y;
+                        float dist = std::sqrt(dx * dx + dy * dy);
+                        if (dist < Balance::WIND_WAKE_RADIUS && dist > 0.5f) {
+                            wakeEff *= std::max(0.25f, dist / Balance::WIND_WAKE_RADIUS);
+                        }
+                    }
+                    wakeEff = std::max(0.25f, wakeEff);
+                    const float mult = windMult * wakeEff * effWind;
                     float out = basePowerOf(b.type) * mult;
                     b.currentOutputMW = out;
                     rawGen += out;
@@ -452,6 +510,13 @@ void GameEngine::updateBuildingsEnergy(float dt) {
 
     processPlayerGrid(1, p1Weather, p1, city.p1DailyDelivered);
     processPlayerGrid(2, p2Weather, p2, city.p2DailyDelivered);
+
+    if (p2IsBot) {
+        int maxBotMW = std::max(Balance::STARTING_CITY_DEMAND_MW + 15, static_cast<int>(p1.energyMW * 1.25f) + 35);
+        if (p2.energyMW > maxBotMW) {
+            p2.energyMW = maxBotMW;
+        }
+    }
 }
 
 void GameEngine::processDayEnd() {
@@ -549,13 +614,17 @@ void GameEngine::processDayEnd() {
     p1.cityInfluence = city.p1CityShare;
     p2.cityInfluence = 1.0f - city.p1CityShare;
 
-    // City expands and demands power next day (0 MW for first 2 days grace, 30 MW Day 3, +15 MW daily)
+    // City expands and demands power next day (0 MW for first 2 days grace, then smart adaptive demand)
     if (currentDay <= config.graceDays) {
         city.cityEnergyDemand = 0;
-    } else if (currentDay == config.graceDays + 1) {
-        city.cityEnergyDemand = Balance::STARTING_CITY_DEMAND_MW;
     } else {
-        city.cityEnergyDemand += Balance::DAILY_DEMAND_INCREASE_MW;
+        int prevTotal = p1AvgMW + p2AvgMW;
+        int prevMax = std::max(p1AvgMW, p2AvgMW);
+        int demandYesterday = city.cityEnergyDemand;
+        double totalDelivered = city.p1DailyDelivered + city.p2DailyDelivered;
+        city.cityEnergyDemand = Balance::calculateSmartCityDemand(prevTotal, prevMax, currentDay,
+                                                                 demandYesterday, totalDelivered,
+                                                                 daySeconds);
     }
     city.p1DailyDelivered = 0.0f;
     city.p2DailyDelivered = 0.0f;
@@ -754,8 +823,8 @@ bool GameEngine::buyLandPlot(int player, int plotId, std::string& outMsg) {
                 outMsg = "ТОЗИ ПАРЦЕЛ ВЕЧЕ Е ЗАКУПЕН!";
                 return false;
             }
-            if (econ.gold >= plot.costGold) {
-                econ.gold -= plot.costGold;
+            if (econ.money >= plot.costGold) {
+                econ.money -= plot.costGold;
                 plot.isPurchased = true;
                 econ.landTier++;
                 outMsg = (player == 1 ? "ИГРАЧ 1 ЗАКУПИ НОВА ЗЕМЯ!" : "ИГРАЧ 2 ЗАКУПИ НОВА ЗЕМЯ!");
@@ -763,7 +832,7 @@ bool GameEngine::buyLandPlot(int player, int plotId, std::string& outMsg) {
                           plot.bounds.position.x + plot.bounds.size.x * 0.5f, plot.bounds.position.y + plot.bounds.size.y * 0.5f);
                 return true;
             } else {
-                outMsg = "НЕДОСТИГ НА ЗЛАТО! НУЖНО: " + std::to_string(plot.costGold) + " G";
+                outMsg = "НЕДОСТИГ НА ПАРИ! НУЖНО: " + std::to_string(plot.costGold) + " $";
                 return false;
             }
         }
@@ -869,6 +938,13 @@ void GameEngine::setPlayerModifiers(int player, const PlayerModifiers& mods) {
                                     static_cast<float>(PlayerModifiers::MAX_SHARE_BONUS))
                        : 0.0f;
     ((player == 1) ? p1Mods : p2Mods) = m;
+}
+
+void GameEngine::setHour24(float hour) {
+    hour = std::clamp(hour, 0.0f, 24.0f);
+    hour24 = (hour >= 24.0f) ? 0.0f : hour;
+    double baseDaySeconds = static_cast<double>((currentDay - 1) * config.daySeconds);
+    gameSeconds = baseDaySeconds + Balance::gameSecondsAtHour(hour24, config.daySeconds);
 }
 
 sf::Vector2f GameEngine::getGridSlot(int player, int col, int row) const {
@@ -1069,7 +1145,7 @@ bool GameEngine::canPlaceBuilding(int player, BuildingType type, sf::Vector2f po
             if (plot.isPurchased) {
                 onPurchasedLand = true;
             } else {
-                reason = "НЕПРИТЕЖАВАНА ЗЕМЯ! Трябва първо да закупите този парцел с " + std::to_string(plot.costGold) + " G!";
+                reason = "НЕПРИТЕЖАВАНА ЗЕМЯ! Трябва първо да закупите този парцел с " + std::to_string(plot.costGold) + " $!";
                 return false;
             }
             break;

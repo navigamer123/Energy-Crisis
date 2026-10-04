@@ -190,32 +190,59 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
 
 void UI_map::executeP1Action() {
     p1Pulse = 1.0f;
+
+    // 1. Building Menu Selection (User Request: Player 1 moves cursor to solar panel with WASD, clicks Space to select it to build!)
+    BuildingType pickedCard = p1Buildings.handleClick(p1Pos);
+    if (pickedCard != BuildingType::NONE) {
+        engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(pickedCard);
+        BuildingCost c = engine.getBuildingCost(pickedCard);
+        triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
+                           (pickedCard == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
+                           "[SPACE НА ЗЕМЯ]: Постави | [E]: Друга сграда | [X]: Отказ", theme::P1);
+        spawnNotice(std::string("ИЗБРАНА СГРАДА: ") + c.nameBg, p1Pos, theme::P1);
+        return;
+    }
+
+    // 2. Clone existing placed building on map
+    if (engine.getSelectedBuilding(1) == BuildingType::NONE) {
+        for (const auto& b : engine.getBuildings()) {
+            if (b.playerOwner == 1) {
+                float dx = b.position.x - p1Pos.x;
+                float dy = b.position.y - p1Pos.y;
+                if (std::sqrt(dx * dx + dy * dy) <= 28.0f) {
+                    engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(b.type);
+                    BuildingCost c = engine.getBuildingCost(b.type);
+                    triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
+                                       formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
+                                       "[SPACE НА ЗЕМЯ]: Постави | [E]: Друга сграда | [X]: Отказ", theme::P1);
+                    spawnNotice(std::string("ИЗБРАНА СГРАДА: ") + c.nameBg, p1Pos, theme::P1);
+                    return;
+                }
+            }
+        }
+    }
+
     BuildingType sel = engine.getSelectedBuilding(1);
 
     if (sel != BuildingType::NONE) {
-        if (sel != BuildingType::DEMOLISH) {
-            bool onPlot = false;
-            for (const auto& plot : engine.getLandPlots()) {
-                if (plot.playerOwner == 1 && plot.bounds.contains(p1Pos)) {
-                    onPlot = true;
-                    if (!plot.isPurchased) {
-                        std::string buyMsg;
-                        if (engine.buyLandPlot(1, plot.id, buyMsg)) {
-                            triggerPlayerPopup(1, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак SPACE за строеж.", "[SPACE]: Постави сградата", theme::Gold);
-                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, theme::Gold);
-                        } else {
-                            triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", theme::Warn);
-                        }
-                        return;
-                    }
-                    break;
-                }
-            }
-            if (!onPlot) {
-                // Outside buildable land plots: do not attempt placement and don't pop up any error
+        // Autonomous Mode Reset: If player is at a resource node while building is selected, switch directly to gathering!
+        if (nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE || nodes.getP1UpgradeAt(p1Pos) != ResourceType::NONE ||
+            nodes.getP1ForestBounds().contains(p1Pos) || nodes.getP1MineBounds().contains(p1Pos) || p1Pos.y >= 540.0f) {
+            engine.clearBuildingSelection(1);
+            spawnNotice("РЕЖИМ ДОБИВ", p1Pos, theme::P1);
+            sel = BuildingType::NONE;
+        } else if (sel != BuildingType::DEMOLISH) {
+            if (!isPosOnPurchasedLand(1, p1Pos)) {
+                // Disallow placement confirmation clicks over unpurchased land!
+                triggerPlayerPopup(1, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
+                spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p1Pos, theme::Warn);
                 return;
             }
         }
+    }
+
+    if (sel != BuildingType::NONE) {
         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
         std::string msg;
         if (engine.placeBuilding(1, sel, targetPos, msg)) {
@@ -253,7 +280,7 @@ void UI_map::executeP1Action() {
                             triggerPlayerPopup(1, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете E за избор на сграда.", "[E]: Избери сграда", theme::Gold);
                             spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, theme::Gold);
                         } else {
-                            triggerPlayerModal(1, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари и злато!", theme::Warn);
+                            triggerPlayerModal(1, "НЕДОСТИГ НА ПАРИ", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари ($)!", theme::Warn);
                         }
                     } else {
                         triggerPlayerPopup(1, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[E]: Изберете сграда за строеж", theme::P1);
@@ -267,32 +294,59 @@ void UI_map::executeP1Action() {
 
 void UI_map::executeP2Action() {
     p2Pulse = 1.0f;
+
+    // 1. Building Menu Selection (User Request: Player 2 moves cursor to building box, clicks Enter to select it to build!)
+    BuildingType pickedCard2 = p2Buildings.handleClick(p2Pos);
+    if (pickedCard2 != BuildingType::NONE) {
+        engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(pickedCard2);
+        BuildingCost c = engine.getBuildingCost(pickedCard2);
+        triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                           (pickedCard2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                 : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
+                           "[ENTER НА ЗЕМЯ]: Постави | [PgDn]: Друга сграда | [Del]: Отказ", theme::P2);
+        spawnNotice(std::string("ИЗБРАНА СГРАДА: ") + c.nameBg, p2Pos, theme::P2);
+        return;
+    }
+
+    // 2. Clone existing placed building on map
+    if (engine.getSelectedBuilding(2) == BuildingType::NONE) {
+        for (const auto& b : engine.getBuildings()) {
+            if (b.playerOwner == 2) {
+                float dx = b.position.x - p2Pos.x;
+                float dy = b.position.y - p2Pos.y;
+                if (std::sqrt(dx * dx + dy * dy) <= 28.0f) {
+                    engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(b.type);
+                    BuildingCost c = engine.getBuildingCost(b.type);
+                    triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                                       formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
+                                       "[ENTER НА ЗЕМЯ]: Постави | [PgDn]: Друга сграда | [Del]: Отказ", theme::P2);
+                    spawnNotice(std::string("ИЗБРАНА СГРАДА: ") + c.nameBg, p2Pos, theme::P2);
+                    return;
+                }
+            }
+        }
+    }
+
     BuildingType sel = engine.getSelectedBuilding(2);
 
     if (sel != BuildingType::NONE) {
-        if (sel != BuildingType::DEMOLISH) {
-            bool onPlot = false;
-            for (const auto& plot : engine.getLandPlots()) {
-                if (plot.playerOwner == 2 && plot.bounds.contains(p2Pos)) {
-                    onPlot = true;
-                    if (!plot.isPurchased) {
-                        std::string buyMsg;
-                        if (engine.buyLandPlot(2, plot.id, buyMsg)) {
-                            triggerPlayerPopup(2, "ЗЕМЯ", "Купихте парцел!", "Парцелът е ваш. Натиснете пак ENTER за строеж.", "[ENTER]: Постави сградата", theme::Gold);
-                            spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, theme::Gold);
-                        } else {
-                            triggerPlayerModal(2, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите земята!", buyMsg, "Продавайте ток на града за да печелите пари и злато!", theme::Warn);
-                        }
-                        return;
-                    }
-                    break;
-                }
-            }
-            if (!onPlot) {
-                // Outside buildable land plots: do not attempt placement and don't pop up any error
+        // Autonomous Mode Reset: If player 2 is at a resource node while building is selected, switch directly to gathering!
+        if (nodes.getP2ResourceAt(p2Pos) != ResourceType::NONE || nodes.getP2UpgradeAt(p2Pos) != ResourceType::NONE ||
+            nodes.getP2ForestBounds().contains(p2Pos) || nodes.getP2MineBounds().contains(p2Pos) || p2Pos.y >= 540.0f) {
+            engine.clearBuildingSelection(2);
+            spawnNotice("РЕЖИМ ДОБИВ", p2Pos, theme::P2);
+            sel = BuildingType::NONE;
+        } else if (sel != BuildingType::DEMOLISH) {
+            if (!isPosOnPurchasedLand(2, p2Pos)) {
+                // Disallow placement confirmation clicks over unpurchased land!
+                triggerPlayerPopup(2, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
+                spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p2Pos, theme::Warn);
                 return;
             }
         }
+    }
+
+    if (sel != BuildingType::NONE) {
         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
         std::string msg;
         if (engine.placeBuilding(2, sel, targetPos, msg)) {
@@ -330,7 +384,7 @@ void UI_map::executeP2Action() {
                             triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете PgDn за избор.", "[PgDn]: Избери сграда", theme::Gold);
                             spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, theme::Gold);
                         } else {
-                            triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", theme::Bad);
+                            triggerPlayerPopup(2, "ГРЕШКА", "Няма пари!", msg, "Продавайте ток на града за пари ($)!", theme::Bad);
                         }
                     } else {
                         triggerPlayerPopup(2, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[PgDn]: Изберете сграда за строеж", theme::P2Light);
@@ -419,11 +473,28 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     if (p1GridStepCooldown > 0.0f) p1GridStepCooldown -= dt;
     if (p2GridStepCooldown > 0.0f) p2GridStepCooldown -= dt;
 
-    // 3. Player 1 Movement (Precision Grid during placement, smooth analog otherwise)
+    // 3. Player 1 Movement (Precision Grid during placement on purchased land, smooth analog otherwise)
     bool p1BuildingMode = (engine.getSelectedBuilding(1) != BuildingType::NONE);
     bool allowArrowsForP1 = bot.isActive(); // In Single Player, player can use WASD OR Arrow keys!
 
-    if (p1BuildingMode) {
+    // Smart Grid / Autonomous Mode Reset:
+    // If the player toggles a building and heads to collect resources, automatically toggle off build mode!
+    bool p1InResourceArea = (p1Pos.y >= 540.0f || (mouseOnCanvas && mPos.y >= 540.0f) ||
+                             nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE ||
+                             (mouseOnCanvas && nodes.getP1ResourceAt(mPos) != ResourceType::NONE) ||
+                             nodes.getP1UpgradeAt(p1Pos) != ResourceType::NONE ||
+                             (mouseOnCanvas && nodes.getP1UpgradeAt(mPos) != ResourceType::NONE) ||
+                             nodes.getP1ForestBounds().contains(p1Pos) ||
+                             (mouseOnCanvas && nodes.getP1ForestBounds().contains(mPos)) ||
+                             nodes.getP1MineBounds().contains(p1Pos) ||
+                             (mouseOnCanvas && nodes.getP1MineBounds().contains(mPos)));
+    if (p1BuildingMode && p1InResourceArea) {
+        engine.clearBuildingSelection(1);
+        p1BuildingMode = false;
+        spawnNotice("РЕЖИМ ДОБИВ", p1Pos, theme::P1);
+    }
+
+    if (p1BuildingMode && isPosOnPurchasedLand(1, p1Pos)) {
         if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || allowArrowsForP1) {
             if (p1GridStepCooldown <= 0.0f) {
                 bool moved = false;
@@ -435,8 +506,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     moved = true;
                 }
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) {
-                    p1GridCol = std::max(0, p1GridCol - 1);
-                    moved = true;
+                    if (p1GridCol > 0) {
+                        p1GridCol--;
+                        moved = true;
+                    } else {
+                        p1Pos.x -= 35.0f;
+                        p1GridStepCooldown = 0.14f;
+                    }
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) {
                     p1GridCol = std::min(8, p1GridCol + 1);
                     moved = true;
@@ -464,20 +540,22 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
             if (mouseOnCanvas && mPos.x < 800.0f) p1Pos = mPos;
         }
-        p1Pos.x = std::max(30.0f, std::min(p1Pos.x, 780.0f));
+        p1Pos.x = std::max(20.0f, std::min(p1Pos.x, 780.0f));
         p1Pos.y = std::max(40.0f, std::min(p1Pos.y, 860.0f));
         engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
     }
 
     // 4. Player 2 Movement (Bot AI or Human Input)
+    engine.setP2IsBot(bot.isActive());
     if (bot.isActive()) {
         p2Modal.active = false; // Never block Player 2 bot with a modal dialog
 
         // An active tutorial gives the human a head start, but only for a limited window:
         // skipping or completing it, or running out of time, releases the bot.
-        bool tutorialHoldsBot = tutorial.isActive() && tutorial.getStep() != TutorialStep::COMPLETED &&
-                                tutorialBotHoldLeft > 0.0f;
+        bool tutorialHoldsBot = tutorial.isTutorialBlockingTime();
         if (tutorialHoldsBot) {
+            tutorialBotHoldLeft = TUTORIAL_BOT_HOLD_SEC;
+        } else if (tutorial.isActive() && tutorial.getStep() != TutorialStep::COMPLETED && tutorialBotHoldLeft > 0.0f) {
             tutorialBotHoldLeft -= dt;
         } else {
             bool botTriggerAction = false;
@@ -499,7 +577,24 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
     } else {
         bool p2BuildingMode = (engine.getSelectedBuilding(2) != BuildingType::NONE);
-        if (p2BuildingMode) {
+        // Smart Grid / Autonomous Mode Reset:
+        // If player 2 heads to collect resources, automatically toggle off build mode!
+        bool p2InResourceArea = (p2Pos.y >= 540.0f || (mouseOnCanvas && mPos.y >= 540.0f && mouseOwnerAt(mPos) == 2) ||
+                                 nodes.getP2ResourceAt(p2Pos) != ResourceType::NONE ||
+                                 (mouseOnCanvas && mouseOwnerAt(mPos) == 2 && nodes.getP2ResourceAt(mPos) != ResourceType::NONE) ||
+                                 nodes.getP2UpgradeAt(p2Pos) != ResourceType::NONE ||
+                                 (mouseOnCanvas && mouseOwnerAt(mPos) == 2 && nodes.getP2UpgradeAt(mPos) != ResourceType::NONE) ||
+                                 nodes.getP2ForestBounds().contains(p2Pos) ||
+                                 (mouseOnCanvas && mouseOwnerAt(mPos) == 2 && nodes.getP2ForestBounds().contains(mPos)) ||
+                                 nodes.getP2MineBounds().contains(p2Pos) ||
+                                 (mouseOnCanvas && mouseOwnerAt(mPos) == 2 && nodes.getP2MineBounds().contains(mPos)));
+        if (p2BuildingMode && p2InResourceArea) {
+            engine.clearBuildingSelection(2);
+            p2BuildingMode = false;
+            spawnNotice("РЕЖИМ ДОБИВ", p2Pos, theme::P2);
+        }
+
+        if (p2BuildingMode && isPosOnPurchasedLand(2, p2Pos)) {
             if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
                 if (p2GridStepCooldown <= 0.0f) {
                     bool moved = false;
@@ -514,8 +609,13 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p2GridCol = std::max(0, p2GridCol - 1);
                         moved = true;
                     } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-                        p2GridCol = std::min(8, p2GridCol + 1);
-                        moved = true;
+                        if (p2GridCol < 8) {
+                            p2GridCol++;
+                            moved = true;
+                        } else {
+                            p2Pos.x += 35.0f;
+                            p2GridStepCooldown = 0.14f;
+                        }
                     }
                     if (moved) {
                         p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
@@ -540,7 +640,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
                 if (mouseOnCanvas && mPos.x >= 800.0f) p2Pos = mPos;
             }
-            p2Pos.x = std::max(820.0f, std::min(p2Pos.x, 1570.0f));
+            p2Pos.x = std::max(820.0f, std::min(p2Pos.x, 1580.0f));
             p2Pos.y = std::max(40.0f, std::min(p2Pos.y, 860.0f));
             engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
         }
@@ -1027,88 +1127,109 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
-        if (owner == 0) return; // Keyboard-only scheme: the mouse plays for nobody
+        // 1. Building Menu Clicks (User Request 2: Click directly on building card to select it!)
+        // Active in all control schemes so clicking cards always works smoothly
+        BuildingType clickedP1 = p1Buildings.handleClick(clickPos);
+        if (clickedP1 != BuildingType::NONE) {
+            engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(clickedP1);
+            p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+            BuildingCost c = engine.getBuildingCost(clickedP1);
+            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
+                               (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                    : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
+                               "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", theme::P1);
+            return;
+        }
 
-        // The owner's open modal blocks their other clicks; its OK button closes it
-        if (ownerModal->active) {
+        BuildingType clickedP2 = p2Buildings.handleClick(clickPos);
+        if (clickedP2 != BuildingType::NONE) {
+            engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
+            p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+            BuildingCost c = engine.getBuildingCost(clickedP2);
+            triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                               (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                    : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
+                               "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", theme::P2);
+            return;
+        }
+
+        // Also: Clicking on an existing placed building selects it to build another one (User Request 2)
+        for (const auto& b : engine.getBuildings()) {
+            float dx = b.position.x - clickPos.x;
+            float dy = b.position.y - clickPos.y;
+            if (std::sqrt(dx * dx + dy * dy) <= 28.0f) {
+                int targetPlayer = (owner != 0 ? owner : b.playerOwner);
+                engine.getPlayerEconomyMut(targetPlayer).selectedBuilding = static_cast<int>(b.type);
+                if (targetPlayer == 1) p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+                else p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow);
+                BuildingCost c = engine.getBuildingCost(b.type);
+                triggerPlayerPopup(targetPlayer, "СТРОЕЖ", c.nameBg,
+                                   formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
+                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", (targetPlayer == 1 ? theme::P1 : theme::P2));
+                return;
+            }
+        }
+
+        // 2. Buy Land HUD button clicks (with Money $)
+        if (resourceHUD.getP1BuyLandButton().contains(clickPos)) {
+            std::string msg;
+            if (engine.buyNextLandTier(1, msg)) {
+                triggerPlayerPopup(1, "ЗЕМЯ", "Разширена земя!", msg, "[E]: Избери сграда за строеж", theme::Good);
+            } else {
+                triggerPlayerPopup(1, "ГРЕШКА", "Няма пари!", msg, "Продавайте ток на града за пари ($)!", theme::Bad);
+            }
+            return;
+        }
+        if (resourceHUD.getP2BuyLandButton().contains(clickPos)) {
+            std::string msg;
+            if (engine.buyNextLandTier(2, msg)) {
+                triggerPlayerPopup(2, "ЗЕМЯ", "Разширена земя!", msg, "[PgDn]: Избери сграда", theme::Good);
+            } else {
+                triggerPlayerPopup(2, "ГРЕШКА", "Няма пари!", msg, "Продавайте ток на града за пари ($)!", theme::Bad);
+            }
+            return;
+        }
+
+        // Check modal before continuing
+        if (ownerModal && ownerModal->active) {
             if (ownerModal->okBtn.contains(clickPos)) {
                 closePlayerModal(owner);
             }
             return;
         }
 
-        // 1. Building Menu Clicks
-        if (owner == 1) {
-            BuildingType clickedP1 = p1Buildings.handleClick(clickPos);
-            if (clickedP1 != BuildingType::NONE) {
-                engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(clickedP1);
-                p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow); // Snap like the keyboard paths so the action matches the ghost
-                BuildingCost c = engine.getBuildingCost(clickedP1);
-                triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
-                                   (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
-                                                                        : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
-                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", theme::P1);
-                return;
-            }
-        } else {
-            BuildingType clickedP2 = p2Buildings.handleClick(clickPos);
-            if (clickedP2 != BuildingType::NONE) {
-                engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
-                p2Pos = engine.getGridSlot(2, p2GridCol, p2GridRow); // Snap like the keyboard paths so the action matches the ghost
-                BuildingCost c = engine.getBuildingCost(clickedP2);
-                triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
-                                   (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
-                                                                        : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
-                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", theme::P2);
-                return;
-            }
-        }
-
-        // 2. Buy Land HUD button clicks
-        if (owner == 1 && resourceHUD.getP1BuyLandButton().contains(clickPos)) {
-            std::string msg;
-            if (engine.buyNextLandTier(1, msg)) {
-                triggerPlayerPopup(1, "ЗЕМЯ", "Разширена земя!", msg, "[E]: Избери сграда за строеж", theme::Gold);
-            } else {
-                triggerPlayerPopup(1, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", theme::Bad);
-            }
-            return;
-        }
-        if (owner == 2 && resourceHUD.getP2BuyLandButton().contains(clickPos)) {
-            std::string msg;
-            if (engine.buyNextLandTier(2, msg)) {
-                triggerPlayerPopup(2, "ЗЕМЯ", "Разширена земя!", msg, "[PgDn]: Избери сграда", theme::Gold);
-            } else {
-                triggerPlayerPopup(2, "ГРЕШКА", "Няма злато!", msg, "Продавайте ток на града за злато!", theme::Bad);
-            }
-            return;
-        }
-
-        // 3. Click on the owner's Land Plots directly (Buy Plot or Place Building on it)
+        // 3. Click on Land Plots directly (Buy Plot with Money or Place Building)
         for (const auto& plot : engine.getLandPlots()) {
-            if (plot.playerOwner == owner && plot.bounds.contains(clickPos)) {
+            if (plot.bounds.contains(clickPos)) {
+                int pOwner = plot.playerOwner;
+                BuildingType sel = engine.getSelectedBuilding(pOwner);
                 if (!plot.isPurchased) {
+                    if (sel != BuildingType::NONE) {
+                        spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", clickPos, theme::Warn);
+                        triggerPlayerPopup(pOwner, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Трябва първо да закупите парцела.", "", theme::Warn);
+                        return;
+                    }
                     std::string msg;
-                    if (engine.buyLandPlot(owner, plot.id, msg)) {
-                        triggerPlayerPopup(owner, "ЗЕМЯ", "Купихте парцел!", msg + "\nВече можете да строите тук.", "[КЛИК]: Постави сграда", theme::Gold);
+                    if (engine.buyLandPlot(pOwner, plot.id, msg)) {
+                        triggerPlayerPopup(pOwner, "ЗЕМЯ", "Купихте парцел!", msg + "\nВече можете да строите тук.", "[КЛИК]: Постави сграда", theme::Good);
                     } else {
-                        triggerPlayerModal(owner, "НЕДОСТИГ НА ЗЛАТО", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите злато!", theme::Warn);
+                        triggerPlayerModal(pOwner, "НЕДОСТИГ НА ПАРИ", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари ($)!", theme::Warn);
                     }
                     return;
                 } else {
-                    BuildingType sel = engine.getSelectedBuilding(owner);
                     if (sel != BuildingType::NONE) {
-                        sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? clickPos : engine.snapToBuildingGrid(owner, clickPos);
+                        sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? clickPos : engine.snapToBuildingGrid(pOwner, clickPos);
                         std::string msg;
-                        if (engine.placeBuilding(owner, sel, targetPos, msg)) {
-                            triggerPlayerPopup(owner, "УСПЕХ", "Действието е успешно!", msg, "", theme::Good);
-                            if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(owner);
+                        if (engine.placeBuilding(pOwner, sel, targetPos, msg)) {
+                            triggerPlayerPopup(pOwner, "УСПЕХ", "Действието е успешно!", msg, "", theme::Good);
+                            if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(pOwner);
                         } else {
-                            reportBuildFailure(owner, sel, msg);
+                            reportBuildFailure(pOwner, sel, msg);
                         }
                         return;
                     }
                 }
+                break;
             }
         }
 
@@ -1147,6 +1268,9 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         if (owner == 1) {
             ResourceType p1Res = nodes.getP1ResourceAt(clickPos);
             if (p1Res != ResourceType::NONE) {
+                if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
+                    engine.clearBuildingSelection(1);
+                }
                 if (p1ResourceCooldown > 0.0f) {
                     char buf[32];
                     std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
@@ -1169,6 +1293,9 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         } else {
             ResourceType p2Res = nodes.getP2ResourceAt(clickPos);
             if (p2Res != ResourceType::NONE) {
+                if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
+                    engine.clearBuildingSelection(2);
+                }
                 if (p2ResourceCooldown > 0.0f) {
                     char buf[32];
                     std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);

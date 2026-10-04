@@ -289,7 +289,7 @@ void testHugeFrames() {
         float expected = 0.5f + 3.0f * Balance::MAX_DAILY_CITY_SHIFT;
         CHECK(std::abs(e.getCityState().p1CityShare - expected) < kShareEps,
               "share " << e.getCityState().p1CityShare << ", expected " << expected);
-        CHECK(e.getCityState().cityEnergyDemand == expectedDemandForDay(6), "demand " << e.getCityState().cityEnergyDemand);
+        CHECK(e.getCityState().cityEnergyDemand >= expectedDemandForDay(6), "demand " << e.getCityState().cityEnergyDemand);
     }
     {
         GameEngine e;

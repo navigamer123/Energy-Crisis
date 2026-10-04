@@ -60,7 +60,8 @@ public:
     // Cards show the building icon, each cost as amount + resource icon (green when the player has
     // enough of it, red when not), the hotkey, how many the player owns and their output right now.
     void draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-              sf::Vector2f mousePos, const GameEngine& engine, BuildingType activeSelection);
+              sf::Vector2f mousePos, const GameEngine& engine, BuildingType activeSelection,
+              sf::Vector2f playerCursorPos = sf::Vector2f(-1000.0f, -1000.0f));
 };
 
 #endif // UI_BUILDINGS_H

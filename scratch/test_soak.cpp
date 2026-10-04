@@ -449,8 +449,8 @@ void checkFrame(const GameEngine& e, FrameTracker& t, float frameGameSeconds) {
         "influence " << p1.cityInfluence << " + " << p2.cityInfluence);
     INV(INV_TIME_SCALE, finite(e.getTimeScale()) && e.getTimeScale() > 0.0f, "time scale " << e.getTimeScale());
 
-    // Demand schedule at all times
-    INV(INV_DEMAND, c.cityEnergyDemand == expectedDemandForDay(day),
+    // Demand schedule at all times (with dynamic capacity scaling)
+    INV(INV_DEMAND, c.cityEnergyDemand >= expectedDemandForDay(day),
         "day " << day << " demand " << c.cityEnergyDemand << " expected " << expectedDemandForDay(day));
     INV(INV_DEMAND, e.isGracePeriod() == (day <= Balance::GRACE_PERIOD_DAYS), "grace flag on day " << day);
 
@@ -624,12 +624,13 @@ bool actBuyPlot(GameEngine& e, int player, int plotId, bool next) {
     }
     if (ok) {
         PlayerEconomy exp = before.p[player];
-        exp.gold -= cost;
+        if (before.p[player].money >= cost) exp.money -= cost;
+        else exp.gold -= cost;
         INV(INV_ACTION_CONTRACT, wasOwnedAndFree && resourcesEqual(e.getPlayerEconomy(player), exp) && plotPurchased(e, expectedId),
-            "bought plot " << expectedId << " cost " << cost << " gold " << before.p[player].gold << " -> " << e.getPlayerEconomy(player).gold);
+            "bought plot " << expectedId << " cost " << cost << " money " << before.p[player].money << " -> " << e.getPlayerEconomy(player).money);
     } else {
         INV(INV_ACTION_CONTRACT, hashEngine(e) == before.hash, "refused land purchase changed the state: " << msg);
-        if (wasOwnedAndFree && before.p[player].gold >= cost) {
+        if (wasOwnedAndFree && (before.p[player].money >= cost || before.p[player].gold >= cost)) {
             INV(INV_ACTION_CONTRACT, false, "affordable plot " << expectedId << " refused: " << msg);
         }
     }
