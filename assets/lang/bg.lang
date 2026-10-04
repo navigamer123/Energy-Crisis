@@ -1,0 +1,878 @@
+# Energy Crisis - текстове на интерфейса: БЪЛГАРСКИ (референтен и резервен език)
+# Формат: key = text   |   {0}, {1} ... = параметри   |   \n = нов ред   |   # = коментар
+# Над всеки ключ стои коментар файл:ред, откъдето е извлечен текстът (към момента на извличането).
+# Ключовете трябва да съвпадат с en.lang - проверка: powershell -File tools/check_lang.ps1
+
+# ============================================================================
+# Език и прозорец
+# ============================================================================
+# (име на езика за бъдещ избор в менюто)
+lang.name = Български
+# UI/scr/UI_main.cpp:6, UI/scr/UI_main.cpp:53, UI/scr/UI_main.cpp:55
+app.title = Energy Crisis
+
+# ============================================================================
+# Общи
+# ============================================================================
+# UI/scr/UI_mainMenu.cpp:382, UI/scr/UI_playControls.cpp:206
+common.back = НАЗАД
+# UI/scr/UI_city.cpp:326
+common.day = ДЕН
+# UI/scr/UI_city.cpp:326
+common.night = НОЩ
+# UI/scr/UI_clock.cpp:88
+player.p1_full = ИГРАЧ 1 (ЗАПАД)
+# UI/scr/UI_clock.cpp:88
+player.p2_full = ИГРАЧ 2 (ИЗТОК)
+
+# ============================================================================
+# Ресурси (единици в цени и добив)
+# ============================================================================
+# UI/scr/UI_resourceNodes.cpp:590, :592, :30 (добив "+12 Дърво"), UI/scr/UI_map_controls.cpp:12, Game/scr/game_main.cpp:880
+res.unit.wood = Дърво
+# UI/scr/UI_resourceNodes.cpp:593, :33, UI/scr/UI_map_controls.cpp:13, Game/scr/game_main.cpp:881
+res.unit.iron = Жел
+# UI/scr/UI_resourceNodes.cpp:594, :36, UI/scr/UI_map_controls.cpp:14, Game/scr/game_main.cpp:882
+res.unit.copper = Мед
+# UI/scr/UI_resourceNodes.cpp:595, :39, UI/scr/UI_map_controls.cpp:16, Game/scr/game_main.cpp:884
+res.unit.coal = Въгл
+# UI/scr/UI_resourceNodes.cpp:596, :45, UI/scr/UI_map_controls.cpp:15, Game/scr/game_main.cpp:883
+res.unit.silicon = Сил
+# UI/scr/UI_resourceNodes.cpp:597, :48, UI/scr/UI_map_controls.cpp:17, Game/scr/game_main.cpp:885
+res.unit.silver = Среб
+# UI/scr/UI_resourceNodes.cpp:598, :51
+res.unit.gold = Злато
+# UI/scr/UI_buildings.cpp:198 (кратки съкращения в панела с постройки)
+res.short.wood = Дър
+# UI/scr/UI_buildings.cpp:200
+res.short.iron = Жел
+# UI/scr/UI_buildings.cpp:202
+res.short.copper = Мед
+# UI/scr/UI_buildings.cpp:204
+res.short.silicon = Сил
+# UI/scr/UI_buildings.cpp:206
+res.short.coal = Въгл
+# UI/scr/UI_buildings.cpp:208
+res.short.silver = Среб
+
+# Цена на сграда: "Нужно: 35 Дърво, 30 Жел". Списъкът се сглобява в кода с ", ".
+# UI/scr/UI_map_controls.cpp:12, UI/scr/UI_resourceNodes.cpp:452, Game/scr/game_main.cpp:880
+cost.need = Нужно: {0}
+# UI/scr/UI_map_controls.cpp:12-17, UI/scr/UI_resourceNodes.cpp:452-457 ({0} = брой, {1} = res.unit.*)
+cost.item = {0} {1}
+
+# ============================================================================
+# Главно меню (UI_mainMenu.cpp)
+# ============================================================================
+# UI/scr/UI_mainMenu.cpp:65, :72
+menu.title = ENERGY CRISIS
+# UI/scr/UI_mainMenu.cpp:78
+menu.subtitle = УПРАВЛЕНИЕ НА ЕНЕРГИЙНАТА МРЕЖА И РЕСУРСИТЕ
+# UI/scr/UI_mainMenu.cpp:150
+menu.play = ИГРА / PLAY
+# UI/scr/UI_mainMenu.cpp:151
+menu.settings = НАСТРОЙКИ / SETTINGS
+# UI/scr/UI_mainMenu.cpp:152
+menu.quit = ИЗХОД / QUIT
+# UI/scr/UI_mainMenu.cpp:155
+menu.hint_main = Навигация: [Стрелки / W,S] | Избор: [Enter]
+# UI/scr/UI_mainMenu.cpp:189
+menu.mode_coop = ДВАМА ИГРАЧИ / CO-OP (1v1)
+# UI/scr/UI_mainMenu.cpp:190
+menu.mode_single = САМОСТОЯТЕЛНА ИГРА / SINGLE PLAYER (VS BOT)
+# UI/scr/UI_mainMenu.cpp:191, :245
+menu.back = НАЗАД / BACK
+# UI/scr/UI_mainMenu.cpp:195
+menu.mode_coop_desc = Двама играчи се състезават на една машина (Разделен екран / Сектори)
+# UI/scr/UI_mainMenu.cpp:197
+menu.mode_single_desc = Играйте срещу автономен изкуствен интелект (Бот в East сектора)
+# UI/scr/UI_mainMenu.cpp:198
+menu.mode_back_desc = Връщане към главното меню
+# UI/scr/UI_mainMenu.cpp:206
+menu.hint_mode = Навигация: [Стрелки / W,S] | Избор: [Enter / Space] | Отказ: [ESC]
+# UI/scr/UI_mainMenu.cpp:242
+menu.bot_easy = ЛЕСНО / EASY BOT
+# UI/scr/UI_mainMenu.cpp:243
+menu.bot_medium = СРЕДНО / MEDIUM BOT
+# UI/scr/UI_mainMenu.cpp:244
+menu.bot_hard = ТРУДНО / HARD BOT
+# UI/scr/UI_mainMenu.cpp:249
+menu.bot_easy_desc = По-бавен бот; строи базови солари и турбини (подходящ за учене)
+# UI/scr/UI_mainMenu.cpp:251
+menu.bot_medium_desc = Балансиран бот; събира ресурси, строи батерии и нощни лампи
+# UI/scr/UI_mainMenu.cpp:253
+menu.bot_hard_desc = Бърз и агресивен бот; купува земя, ъпгрейдва мини и оптимизира ток
+# UI/scr/UI_mainMenu.cpp:254
+menu.bot_back_desc = Връщане към избор на режим
+# UI/scr/UI_mainMenu.cpp:262
+menu.hint_difficulty = Навигация: [Стрелки / W,S] | Старт: [Enter / Space] | Отказ: [ESC]
+
+# ============================================================================
+# Настройки (UI_mainMenu.cpp)
+# Маркерът за избран ред ("> " или "  ") остава в кода.
+# ============================================================================
+# UI/scr/UI_mainMenu.cpp:289
+settings.title = НАСТРОЙКИ / SETTINGS
+# UI/scr/UI_mainMenu.cpp:307
+settings.volume = Сила на звука:
+# UI/scr/UI_mainMenu.cpp:333
+settings.sfx = Звукови ефекти:
+# UI/scr/UI_mainMenu.cpp:339
+settings.on = ВКЛЮЧЕНИ
+# UI/scr/UI_mainMenu.cpp:339
+settings.off = ИЗКЛЮЧЕНИ
+# UI/scr/UI_mainMenu.cpp:354
+settings.bot_difficulty = Трудност на бота:
+# UI/scr/UI_mainMenu.cpp:359
+settings.diff_easy = ЛЕСНО
+# UI/scr/UI_mainMenu.cpp:359
+settings.diff_normal = НОРМАЛНО
+# UI/scr/UI_mainMenu.cpp:359
+settings.diff_hard = ТРУДНО
+# UI/scr/UI_mainMenu.cpp:367
+settings.note_audio = Звукът все още не е реализиран: звуковите настройки нямат ефект.
+# UI/scr/UI_mainMenu.cpp:368
+settings.note_difficulty = Трудността на бота е избраната по подразбиране в САМОСТОЯТЕЛНА ИГРА.
+# UI/scr/UI_mainMenu.cpp:386
+settings.hint = Навигация: [W/S или Стрелки] | Промяна: [A/D или Enter]
+
+# ============================================================================
+# Избор на управление (UI_playControls.cpp)
+# ============================================================================
+# UI/scr/UI_playControls.cpp:53
+controls.title = ИЗБЕРЕТЕ 2-PLAYER УПРАВЛЕНИЕ / CONTROL SCHEME
+# UI/scr/UI_playControls.cpp:60
+controls.subtitle = Изберете схема за Играч 1 (Западен сектор) и Играч 2 (Източен сектор)
+# UI/scr/UI_playControls.cpp:91
+controls.scheme1.title = 1. СПОДЕЛЕНА КЛАВИАТУРА (DUAL KEYBOARD)
+# UI/scr/UI_playControls.cpp:94
+controls.scheme1.badge = KB + KB
+# UI/scr/UI_playControls.cpp:97
+controls.scheme2.title = 2. ИГРАЧ 1 КЛАВИАТУРА + ИГРАЧ 2 МИШКА
+# UI/scr/UI_playControls.cpp:100
+controls.scheme2.badge = KB + MOUSE
+# UI/scr/UI_playControls.cpp:103
+controls.scheme3.title = 3. ИГРАЧ 1 МИШКА + ИГРАЧ 2 КЛАВИАТУРА (ОБРАТНО)
+# UI/scr/UI_playControls.cpp:106
+controls.scheme3.badge = MOUSE + KB
+# UI/scr/UI_playControls.cpp:109
+controls.scheme4.title = 4. ОБЩА МИШКА (ЕДНА МИШКА, ИГРА НА РЕД)
+# UI/scr/UI_playControls.cpp:112
+controls.scheme4.badge = 1x MOUSE
+# UI/scr/UI_playControls.cpp:92, :98
+controls.p1_keyboard = Играч 1 (Запад): [W][A][S][D] Движение  |  [Q] и [E] Действие
+# UI/scr/UI_playControls.cpp:104
+controls.p1_mouse = Играч 1 (Запад): [Мишка] Позиция        |  [Ляв / Десен клик] Действие
+# UI/scr/UI_playControls.cpp:110
+controls.p1_shared_mouse = Играч 1 (Запад): [Мишката в западната половина] Движение и Действие
+# UI/scr/UI_playControls.cpp:93, :105
+controls.p2_keyboard = Играч 2 (Изток): [Стрелки] Движение     |  [PgUp] и [PgDn] Действие
+# UI/scr/UI_playControls.cpp:99
+controls.p2_mouse = Играч 2 (Изток): [Мишка] Позиция        |  [Ляв / Десен клик] Действие
+# UI/scr/UI_playControls.cpp:111
+controls.p2_shared_mouse = Играч 2 (Изток): [Мишката в източната половина] Движение и Действие
+# UI/scr/UI_playControls.cpp:183
+controls.selected = ИЗБРАНО
+# UI/scr/UI_playControls.cpp:204
+controls.start = СТАРТ НА ИГРАТА
+# UI/scr/UI_playControls.cpp:211
+controls.hint = Навигация: [Стрелки / W,S] | Избор: [Enter / Клик] | Назад: [ESC]
+
+# ============================================================================
+# Часовник и време (UI_clock.cpp, game_weather.cpp)
+# ============================================================================
+# UI/scr/UI_clock.cpp:63 (интервалът преди AM/PM остава в кода)
+clock.am = AM
+# UI/scr/UI_clock.cpp:63
+clock.pm = PM
+# UI/scr/UI_clock.cpp:89 ({0} = player.p1_full / player.p2_full, {1} = ден, {2} = последен ден)
+clock.day = {0} | ДЕН {1}/{2}
+# UI/scr/UI_clock.cpp:109 ({0} = weather.*)
+clock.weather = Време: {0}
+# UI/scr/UI_clock.cpp:120 ({0} = season.*)
+clock.season_day = Сезон: {0} [ДЕН]
+# UI/scr/UI_clock.cpp:120
+clock.season_night = Сезон: {0} [НОЩ]
+# UI/scr/UI_clock.cpp:129
+clock.hour = Час: {0}
+# UI/scr/UI_clock.cpp:138 ({0} = изгрев, {1} = залез)
+clock.sun = Слънце: {0} - {1}
+# UI/scr/UI_clock.cpp:138, :140 (по време на гратисния период)
+clock.sun_grace = Слънце: {0} - {1} (0 MW Гратис)
+# Game/scr/game_weather.cpp:81, :88
+weather.sunny = Слънчево (Sunny)
+# Game/scr/game_weather.cpp:82
+weather.windy = Ветровито (Windy)
+# Game/scr/game_weather.cpp:83
+weather.rainy = Дъждовно (Rainy)
+# Game/scr/game_weather.cpp:84
+weather.stormy = Бурно (Stormy)
+# Game/scr/game_weather.cpp:85
+weather.snowy = Снежно (Snowy)
+# Game/scr/game_weather.cpp:86
+weather.cloudy = Облачно (Cloudy)
+# Game/scr/game_weather.cpp:93, :98
+season.spring = Пролет (Spring)
+# Game/scr/game_weather.cpp:94
+season.summer = Лято (Summer)
+# Game/scr/game_weather.cpp:95
+season.autumn = Есен (Autumn)
+# Game/scr/game_weather.cpp:96
+season.winter = Зима (Winter)
+
+# ============================================================================
+# Град (UI_city.cpp)
+# ============================================================================
+# UI/scr/UI_city.cpp:98
+city.border = ЦЕНТРАЛНА ГРАНИЦА
+# UI/scr/UI_city.cpp:327 ({0} = common.day / common.night, {1} = дял P1 %, {2} = дял P2 %)
+city.title = ГРАД (METROPOLIS) | {0} | P1: {1}% | P2: {2}%
+# UI/scr/UI_city.cpp:374 ({0} = ден, {1} = дни гратис, {2} = доставени MW)
+city.demand_grace = НУЖДА НА ГРАДА: 0 MW  * ГРАТИСЕН ПЕРИОД (ДЕН {0}/{1}) * | ДОСТАВКА: {2} MW
+# UI/scr/UI_city.cpp:378 ({0} = нужда MW, {1} = доставени MW, {2} = % за победа)
+city.demand = НУЖДА НА ГРАДА: {0} MW | ДОСТАВКА: {1} MW | ПОБЕДА: {2}%
+# UI/scr/UI_city.cpp:429
+city.p1_share = P1: {0}%
+# UI/scr/UI_city.cpp:434
+city.p2_share = P2: {0}%
+
+# ============================================================================
+# Ресурсен панел (UI_resourceHUD.cpp)
+# ============================================================================
+# UI/scr/UI_resourceHUD.cpp:174, :270
+hud.gold = {0}G
+# UI/scr/UI_resourceHUD.cpp:181, :277
+hud.money = {0}$
+# UI/scr/UI_resourceHUD.cpp:196, :292 ({0} = MW, {1} = дял от града %)
+hud.power = {0} MW ({1}% ток)
+# UI/scr/UI_resourceHUD.cpp:212, :308, UI/scr/UI_resourceNodes.cpp:262
+hud.buy_land = + КУПИ ЗЕМЯ
+
+# ============================================================================
+# Сгради (Game/includes/game_balance.h, game_main.cpp) и панел с постройки (UI_buildings.cpp)
+# ============================================================================
+# Game/includes/game_balance.h:37
+building.solar_panel = Слънчев панел
+# Game/includes/game_balance.h:44
+building.wind_turbine = Вятърна мелница
+# Game/includes/game_balance.h:51
+building.hydro_plant = ВЕЦ / Хидро
+# Game/includes/game_balance.h:58
+building.battery = Батерия
+# Game/includes/game_balance.h:65
+building.lamp = Осветителна лампа
+# Game/scr/game_main.cpp:703
+building.demolish = Премахване
+# UI/scr/UI_buildings.cpp:61
+building.demolish_tool = Премахване / Разруши
+# UI/scr/UI_buildings.cpp:99
+build.panel_title_p1 = ПОСТРОЙКИ (ИГРАЧ 1) [E]
+# UI/scr/UI_buildings.cpp:100
+build.panel_title_p2 = ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]
+# UI/scr/UI_buildings.cpp:176
+build.tag_demolish = [-50% Връща]
+# UI/scr/UI_buildings.cpp:179
+build.tag_lamp = [Нощ: 150px]
+# UI/scr/UI_buildings.cpp:182
+build.tag_battery = [200 MWh]
+# UI/scr/UI_buildings.cpp:185
+build.tag_power = +{0} MW
+# UI/scr/UI_buildings.cpp:196
+build.cost_demolish = Кликнете върху ваша сграда
+# UI/scr/UI_buildings.cpp:198-208 ({0} = брой, {1} = res.short.*; елементите се свързват с интервал)
+build.cost_item = {0} {1}
+# UI/scr/UI_buildings.cpp:210
+build.cost_lamp_draw = (10MW)
+# UI/scr/UI_buildings.cpp:243
+build.btn_selected_demolish = ИЗБРАНО - КЛИКНИ СГРАДА ЗА МАХАНЕ
+# UI/scr/UI_buildings.cpp:244
+build.btn_selected = ИЗБРАНА - КЛИКНИ ЗА СТРОЕЖ
+# UI/scr/UI_buildings.cpp:246
+build.btn_pick_demolish = ИЗБЕРИ ЗА РАЗРУШАВАНЕ
+# UI/scr/UI_buildings.cpp:248
+build.btn_pick = ИЗБЕРИ ЗА СТРОЕЖ
+# UI/scr/UI_buildings.cpp:248
+build.btn_no_resources = НЕДОСТИГ НА РЕСУРСИ
+
+# ============================================================================
+# Ресурсни станции, парцели и поставяне (UI_resourceNodes.cpp)
+# ============================================================================
+# UI/scr/UI_resourceNodes.cpp:30, :69
+node.forest = ГОРА
+# UI/scr/UI_resourceNodes.cpp:33, :66
+node.iron = ЖЕЛЯЗО
+# UI/scr/UI_resourceNodes.cpp:36, :63
+node.copper = МЕД
+# UI/scr/UI_resourceNodes.cpp:39, :60
+node.coal = ВЪГЛИЩА
+# UI/scr/UI_resourceNodes.cpp:45, :79
+node.silicon = СИЛИЦИЙ
+# UI/scr/UI_resourceNodes.cpp:48, :76
+node.silver = СРЕБРО
+# UI/scr/UI_resourceNodes.cpp:51, :73
+node.gold = ЗЛАТО
+# UI/scr/UI_resourceNodes.cpp:30-79 (базов добив "+12 Дърво"), :601 ({0} = количество, {1} = res.unit.*)
+node.yield = +{0} {1}
+# UI/scr/UI_resourceNodes.cpp:248
+node.plot_owned_p1 = КУПЕНА ЗЕМЯ (P1)
+# UI/scr/UI_resourceNodes.cpp:248
+node.plot_owned_p2 = КУПЕНА ЗЕМЯ (P2)
+# UI/scr/UI_resourceNodes.cpp:268
+node.plot_cost = {0} G
+# UI/scr/UI_resourceNodes.cpp:445 ({0} = име на сградата)
+node.place_valid = {0} [ПОСТАВИ В ГРИДА]
+# UI/scr/UI_resourceNodes.cpp:445
+node.place_invalid = {0} [НЕДОПУСТИМО]
+# UI/scr/UI_resourceNodes.cpp:459 ({0} = cost.need)
+node.cost_lamp = {0} | Консумация: 10 MW
+# UI/scr/UI_resourceNodes.cpp:460 ({0} = cost.need)
+node.cost_battery = {0} | Заряд: 0%
+# UI/scr/UI_resourceNodes.cpp:468
+node.hint_valid = [SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени
+# UI/scr/UI_resourceNodes.cpp:469
+node.hint_invalid = [X/Del]: Отказ  |  [E]: Смени сграда
+# UI/scr/UI_resourceNodes.cpp:581 ({0} = ниво на мината)
+node.level = L{0}
+# UI/scr/UI_resourceNodes.cpp:610 ({0} = секунди с 1 знак след запетаята)
+node.cooldown = {0}s
+# UI/scr/UI_resourceNodes.cpp:622
+node.act_p1 = [SPACE: Добив]
+# UI/scr/UI_resourceNodes.cpp:622
+node.act_p2 = [ENTER: Добив]
+# UI/scr/UI_resourceNodes.cpp:623
+node.ready = [ГОТОВО]
+# UI/scr/UI_resourceNodes.cpp:645
+node.max = МАКС
+# UI/scr/UI_resourceNodes.cpp:645 ({0} = цена в злато)
+node.upgrade = +1 НИВО: {0}G
+
+# ============================================================================
+# Карта: известия, подсказки над играча (UI_map.cpp, UI_map_particles.cpp, UI_map_popups.cpp, UI_map_controls.cpp)
+# ============================================================================
+# UI/scr/UI_map.cpp:238
+map.new_game = НОВА ИГРА СТАРТИРАНА!
+# UI/scr/UI_map_particles.cpp:54
+map.lightning_hit = МЪЛНИЯ УДАРИ СЪОРЪЖЕНИЕТО!
+# UI/scr/UI_map_particles.cpp:123
+map.facility_destroyed = СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!
+# UI/scr/UI_map_controls.cpp:189, :239, :267, :317
+map.plot_bought = ЗАКУПЕН ПАРЦЕЛ!
+# UI/scr/UI_map_controls.cpp:207, :285
+map.building_built = ПОСТРОЕНА СГРАДА!
+# UI/scr/UI_map_controls.cpp:335, :353
+map.stand_on_mine = ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!
+# UI/scr/UI_map_controls.cpp:218, :296, :1092, :1114 ({0} = секунди с 1 знак)
+map.wait = ИЗЧАКАЙТЕ: {0}s
+# UI/scr/UI_map_controls.cpp:163
+map.p2_bot_easy = P2 [BOT: ЛЕСЕН]
+# UI/scr/UI_map_controls.cpp:164
+map.p2_bot_medium = P2 [BOT: СРЕДЕН]
+# UI/scr/UI_map_controls.cpp:165
+map.p2_bot_hard = P2 [BOT: ТРУДЕН]
+# UI/scr/UI_map_popups.cpp:246 (интервалът отпред остава в кода; {0} = секунди)
+prompt.cooldown = ({0}s)
+# UI/scr/UI_map_popups.cpp:250 ({0} = секунди за добив)
+prompt.mine_cooldown = [Добив: {0}с]
+# UI/scr/UI_map_popups.cpp:271, :277
+prompt.mine = ДОБИВ
+# UI/scr/UI_map_popups.cpp:295
+prompt.speed_badge = ⏩ 6x СКОРОСТ НА ВРЕМЕТО (ДОБИВ)
+
+# ----------------------------------------------------------------------------
+# Изскачащи съобщения (popup) и модални прозорци (modal): етикети
+# ----------------------------------------------------------------------------
+# UI/scr/UI_map_popups.cpp:202 ({0} = съвет)
+popup.tip = СЪВЕТ: {0}
+# UI/scr/UI_map_popups.cpp:217
+popup.ok_p1 = OK [SPACE] - РАЗБРАХ
+# UI/scr/UI_map_popups.cpp:217
+popup.ok_p2 = OK [ENTER] - РАЗБРАХ
+# UI/scr/UI_map_controls.cpp:244, :322
+popup.badge.info = ИНФО
+# UI/scr/UI_map_controls.cpp:206, :284, :1043
+popup.badge.success = УСПЕХ
+# UI/scr/UI_map_controls.cpp:319, :344, :362, :1012, :1021, :1065, :1079
+popup.badge.error = ГРЕШКА
+# UI/scr/UI_map_controls.cpp:188, :238, :266, :316, :1010, :1019, :1032
+popup.badge.land = ЗЕМЯ
+# UI/scr/UI_map_controls.cpp:229, :307, :1104, :1126
+popup.badge.mine = ДОБИВ
+# UI/scr/UI_map_controls.cpp:341, :359, :1062, :1076
+popup.badge.upgrade = НАДГРАЖДАНЕ
+# UI/scr/UI_map_controls.cpp:577, :599, :629, :667, :688, :986, :998
+popup.badge.build = СТРОЕЖ
+# UI/scr/UI_map_controls.cpp:575, :597, :665, :686
+popup.badge.lighting = ОСВЕТЛЕНИЕ
+# UI/scr/UI_map_controls.cpp:573, :595, :616, :629, :663, :684, :704
+popup.badge.demolish = ПРЕМАХВАНЕ
+# UI/scr/UI_map_controls.cpp:612, :700, :940
+popup.badge.cancel = ОТКАЗ
+# UI/scr/UI_map_particles.cpp:119
+popup.badge.lightning = МЪЛНИЯ!
+# UI/scr/UI_map_controls.cpp:191, :241, :269, :1034
+modal.badge.no_gold = НЕДОСТИГ НА ЗЛАТО
+# UI/scr/UI_map_controls.cpp:210, :288, :1046
+modal.badge.build_error = ГРЕШКА ПРИ СТРОЕЖ
+
+# ----------------------------------------------------------------------------
+# Изскачащи съобщения: заглавия, текст и подсказки за клавиши
+# ----------------------------------------------------------------------------
+# UI/scr/UI_map_particles.cpp:119
+popup.lightning.title = Унищожено съоръжение!
+# UI/scr/UI_map_particles.cpp:120 ({0} = име на сградата)
+popup.lightning.detail = Мълния унищожи {0}!\nКлетката се освободи за нов строеж (ВЕЦ/друг).
+# UI/scr/UI_map_particles.cpp:121
+popup.lightning.action = [SPACE/Клик]: Постройте ново съоръжение
+# UI/scr/UI_map_controls.cpp:188, :266, :1032
+popup.land_bought.title = Купихте парцел!
+# UI/scr/UI_map_controls.cpp:188
+popup.land_bought.detail_p1 = Парцелът е ваш. Натиснете пак SPACE за строеж.
+# UI/scr/UI_map_controls.cpp:266
+popup.land_bought.detail_p2 = Парцелът е ваш. Натиснете пак ENTER за строеж.
+# UI/scr/UI_map_controls.cpp:1032 ({0} = съобщение от двигателя)
+popup.land_bought.detail_mouse = {0}\nВече можете да строите тук.
+# UI/scr/UI_map_controls.cpp:188
+popup.land_bought.action_p1 = [SPACE]: Постави сградата
+# UI/scr/UI_map_controls.cpp:266
+popup.land_bought.action_p2 = [ENTER]: Постави сградата
+# UI/scr/UI_map_controls.cpp:1032
+popup.land_bought.action_mouse = [КЛИК]: Постави сграда
+# UI/scr/UI_map_controls.cpp:238, :316
+popup.plot_bought.title = Закупен парцел!
+# UI/scr/UI_map_controls.cpp:238
+popup.plot_bought.detail_p1 = Парцелът е ваш. Натиснете E за избор на сграда.
+# UI/scr/UI_map_controls.cpp:316
+popup.plot_bought.detail_p2 = Парцелът е ваш. Натиснете PgDn за избор.
+# UI/scr/UI_map_controls.cpp:1010, :1019
+popup.land_expanded.title = Разширена земя!
+# UI/scr/UI_map_controls.cpp:244, :322
+popup.own_plot.title = Ваш парцел
+# UI/scr/UI_map_controls.cpp:244, :322
+popup.own_plot.detail = Земята е свободна за строителство.
+# UI/scr/UI_map_controls.cpp:206, :284, :1043
+popup.success.title = Действието е успешно!
+# UI/scr/UI_map_controls.cpp:229, :307, :1104, :1126
+popup.mined.detail = Ресурсът е добавен в склада.
+# UI/scr/UI_map_controls.cpp:341, :359, :1062, :1076
+popup.upgrade.detail = Добивът от тази мина е увеличен с +75%!
+# UI/scr/UI_map_controls.cpp:344, :362, :1065, :1079
+popup.upgrade_fail.detail = Печелете злато от доставка на ток към града!
+# UI/scr/UI_map_controls.cpp:319, :1012, :1021
+popup.no_gold.title = Няма злато!
+# UI/scr/UI_map_controls.cpp:319, :1012, :1021
+popup.no_gold.tip = Продавайте ток на града за злато!
+# UI/scr/UI_map_controls.cpp:573, :595, :663, :684
+popup.demolish.detail = Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.
+# UI/scr/UI_map_controls.cpp:575, :597, :665, :686 ({0} = cost.need)
+popup.lamp.detail = {0}.\nОсветява нощем за строителство.
+# UI/scr/UI_map_controls.cpp:578, :600, :668, :689 ({0} = cost.need, {1} = MW)
+popup.build.detail = {0}.\nДобив: +{1} MW ток.
+# UI/scr/UI_map_controls.cpp:988, :1000 ({0} = cost.need, {1} = MW)
+popup.build.detail_mouse = {0}.\nДобив: +{1} MW.
+# UI/scr/UI_map_controls.cpp:630
+popup.quick.detail_demolish = Посочете сграда за разрушаване.
+# UI/scr/UI_map_controls.cpp:987, :999
+popup.mouse.detail_demolish = Посочете ваша сграда за разрушаване.
+# UI/scr/UI_map_controls.cpp:612, :700
+popup.cancel.title = Изборът е прекратен
+# UI/scr/UI_map_controls.cpp:612, :700
+popup.cancel.detail = Свободен режим.
+# UI/scr/UI_map_controls.cpp:940
+popup.build_cancelled.title = Отменен строеж
+# UI/scr/UI_map_controls.cpp:940
+popup.build_cancelled.detail = Режимът за поставяне е прекратен.
+# UI/scr/UI_map_controls.cpp:616, :704
+popup.demolish_mode.title = Режим Разрушаване
+# UI/scr/UI_map_controls.cpp:616, :704
+popup.demolish_mode.detail = Посочете сградата, която искате да махнете.
+
+# Подсказки за клавиши в долния ред на изскачащите съобщения.
+# {0} = клавиш за действие, {1} = следваща сграда, {2} = отказ (напр. [SPACE], [E], [X]) - сглобяват се в кода.
+# UI/scr/UI_map_controls.cpp:573, :595
+action.demolish = {0}: Премахни | {1}: Следваща | {2}: Отказ
+# UI/scr/UI_map_controls.cpp:575, :597
+action.lamp = {0}: Постави | {1}: Следваща | {2}: Отказ
+# UI/scr/UI_map_controls.cpp:579, :601
+action.build = {0}: Постави в грида | {1}: Следваща | {2}: Отказ
+# UI/scr/UI_map_controls.cpp:612 ({0} = клавиш)
+action.pick_building = {0}: Избери сграда
+# UI/scr/UI_map_controls.cpp:616 ({0} = действие, {1} = отказ)
+action.demolish_mode = {0}: Премахни | {1}: Отказ
+# UI/scr/UI_map_controls.cpp:631
+action.quick_place = [SPACE]: Постави в грида | [X]: Отказ
+# UI/scr/UI_map_controls.cpp:663, :684
+action.demolish_p2 = [ENTER]: Премахни | [PgDn]: Следваща | [PgUp]: Предишна
+# UI/scr/UI_map_controls.cpp:665, :686
+action.lamp_p2 = [ENTER]: Постави | [PgDn]: Следваща | [PgUp]: Предишна
+# UI/scr/UI_map_controls.cpp:669, :690
+action.build_p2 = [ENTER]: Постави в грида | [PgDn]: Следваща | [PgUp]: Предишна
+# UI/scr/UI_map_controls.cpp:704
+action.demolish_mode_p2 = [ENTER]: Премахни | [Del]: Отказ
+# UI/scr/UI_map_controls.cpp:238, :1104
+action.pick_building_p1 = [E]: Избери сграда
+# UI/scr/UI_map_controls.cpp:316, :700, :1019, :1126
+action.pick_building_p2 = [PgDn]: Избери сграда
+# UI/scr/UI_map_controls.cpp:244
+action.pick_to_build_p1 = [E]: Изберете сграда за строеж
+# UI/scr/UI_map_controls.cpp:1010
+action.choose_to_build_p1 = [E]: Избери сграда за строеж
+# UI/scr/UI_map_controls.cpp:322
+action.pick_to_build_p2 = [PgDn]: Изберете сграда за строеж
+# UI/scr/UI_map_controls.cpp:206
+action.place_again_p1 = [E]: Постави отново същата
+# UI/scr/UI_map_controls.cpp:284
+action.place_again_p2 = [PgDn]: Постави отново същата
+# UI/scr/UI_map_controls.cpp:229
+action.mine_p1 = [SPACE]: Добив (на 1 сек)
+# UI/scr/UI_map_controls.cpp:307
+action.mine_p2 = [ENTER]: Добив (на 1 сек)
+# UI/scr/UI_map_controls.cpp:341, :1062
+action.upgrade_p1 = [SPACE]: Добив | [F]: Нов ъпгрейд
+# UI/scr/UI_map_controls.cpp:359, :1076
+action.upgrade_p2 = [ENTER]: Добив | [RShift]: Нов ъпгрейд
+# UI/scr/UI_map_controls.cpp:989, :1001
+action.mouse_place = [КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ
+
+# ----------------------------------------------------------------------------
+# Модални прозорци (грешки, които спират играча)
+# ----------------------------------------------------------------------------
+# UI/scr/UI_map_controls.cpp:191, :269
+modal.no_gold.title_land = Не можете да купите земята!
+# UI/scr/UI_map_controls.cpp:241, :1034
+modal.no_gold.title_plot = Не можете да купите парцела!
+# UI/scr/UI_map_controls.cpp:191, :241, :269
+modal.no_gold.tip = Продавайте ток на града за да печелите пари и злато!
+# UI/scr/UI_map_controls.cpp:1034
+modal.no_gold.tip_gold = Продавайте ток на града за да печелите злато!
+# UI/scr/UI_map_controls.cpp:210, :288, :1046
+modal.build_error.title = Строежът е невъзможен!
+# UI/scr/UI_map_controls.cpp:211, :289, :1047
+modal.build_error.tip_night = Поставете и захранете Осветителна лампа за работа нощем!
+# UI/scr/UI_map_controls.cpp:211, :289
+modal.build_error.tip_day = Проверете ресурсите си или изберете друго място!
+# UI/scr/UI_map_controls.cpp:1047
+modal.build_error.tip_mouse = Проверете вашите ресурси и парцели!
+
+# ============================================================================
+# Горни бутони, лента с клавиши и наръчник (UI_map_overlays.cpp)
+# ============================================================================
+# UI/scr/UI_map_overlays.cpp:45
+overlay.menu_btn = ESC / МЕНЮ
+# UI/scr/UI_map_overlays.cpp:51
+overlay.fullscreen_btn = ЦЯЛ ЕКРАН (F11)
+# UI/scr/UI_map_overlays.cpp:57
+overlay.help_btn = ? ПОМОЩ (H)
+# UI/scr/UI_map_overlays.cpp:72
+overlay.help_bar = P1: [E]/[Q] Сграда | [X] Разруши/Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn]/[PgUp] Сграда | [Del] Разруши/Отказ | [ENTER] Действие
+# UI/scr/UI_map_overlays.cpp:107
+help.title = НАСТОЛЕН НАРЪЧНИК: ENERGY CRISIS
+# UI/scr/UI_map_overlays.cpp:125
+help.close = [X] ЗАТВОРИ (H)
+# UI/scr/UI_map_overlays.cpp:153
+help.s1.title = 1. ЦЕЛ НА ИГРАТА И ДОМИНИРАНЕ НА ГРАДА
+# UI/scr/UI_map_overlays.cpp:154-159 ({0} = % за победа, {1} = последен ден)
+help.s1.body = - Всеки играч започва с начален свободен парцел и 50% териториален дял в града.\n- Първите 2 дена са ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n- Захранването на града носи пари ($) от договори и златен дивидент (Gold, лимитиран до нуждите на града!).\n- В края на всеки ден се отчита средната доставена мощност (MW) за целия ден: превесът носи 10-15% дневно завладяване!\n- Победител е първият играч с поне {0}% от града в края на ден. След края на ден {1} печели по-големият дял (равен дял = равенство).
+# UI/scr/UI_map_overlays.cpp:162
+help.s2.title = 2. СЕЗОНЕН ДЕН/НОЩ ЦИКЪЛ И СЛЪНЧЕВ ГРАФИК
+# UI/scr/UI_map_overlays.cpp:163-167
+help.s2.body = - Пролет: 06:00 - 19:00 (13ч ден) | Лято: 05:00 - 21:00 (16ч ден, +15% соларна мощност!)\n- Есен: 07:00 - 18:00 (11ч ден)    | Зима: 08:00 - 16:30 (само 8.5ч ден, снежни бури!)\n- Соларните панели работят единствено между изгрева и залеза на слънцето за съответния сезон.\n- Нощем строежът изисква Осветителна лампа, а батериите отдават събраната през деня енергия.\n- Бурно време носи мълнии: те падат само в бурния сектор и могат да унищожат съоръжение там (не и в гратисния период).
+# UI/scr/UI_map_overlays.cpp:170
+help.s3.title = 3. РЕСУРСИ И ЪПГРЕЙД НА МИНИ С ЗЛАТО
+# UI/scr/UI_map_overlays.cpp:171-175 ({0} = множител на ускорението)
+help.s3.body = - 7 суровини: Дърво, Желязо, Мед, Въглища, Силиций, Сребро и Злато (парите са само от ток!).\n- Добивните станции се надграждат до Ниво 6 със Злато (30G, 300G, 500G, 800G, 1500G) за +75% добив на ниво!\n- Ъпгрейдвайте с бутона [+1 НИВО] на мината или клавиш [F] (Играч 1) / [RShift] (Играч 2).\n- Когато ВСИЧКИ играчи-хора стоят върху ресурсни станции, денонощието тече {0} пъти по-бързо (ботът не ускорява времето).
+# UI/scr/UI_map_overlays.cpp:178
+help.s4.title = 4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ
+# UI/scr/UI_map_overlays.cpp:179-181
+help.s4.body = - ИГРАЧ 1 (Запад/Син): [W/A/S/D] - Движение  |  [SPACE/Клик] - Строеж/Добив  |  [E]/[Q] - Сграда  |  [F] - Ъпгрейд мина  |  [X] - Разруши\n- ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран
+
+# ============================================================================
+# Победа и статистика (UI_map_overlays.cpp)
+# ============================================================================
+# UI/scr/UI_map_overlays.cpp:212
+victory.draw = РАВЕНСТВО!
+# UI/scr/UI_map_overlays.cpp:213
+victory.p1_wins = ИГРАЧ 1 (ЗАПАД) СПЕЧЕЛИ!
+# UI/scr/UI_map_overlays.cpp:213
+victory.p2_wins = ИГРАЧ 2 (ИЗТОК) СПЕЧЕЛИ!
+# UI/scr/UI_map_overlays.cpp:215 ({0} = % за победа)
+victory.header_share = ЕНЕРГИЙНА КРИЗА: ПОБЕДА С {0}% ОТ ГРАДА
+# UI/scr/UI_map_overlays.cpp:216 ({0} = последен ден)
+victory.header_final = ЕНЕРГИЙНА КРИЗА: КРАЙ НА ДЕН {0}
+# UI/scr/UI_map_overlays.cpp:219 ({0} = ден, {1} = P1 %, {2} = P2 %)
+victory.sub_draw = След края на ден {0} градът е разделен поравно: P1 {1}% / P2 {2}%.
+# UI/scr/UI_map_overlays.cpp:222 ({0} = % на победителя, {1} = нужни %)
+victory.sub_share = Играчът достигна {0}% контрол над града (нужни: {1}%) и го захрани с чиста енергия!
+# UI/scr/UI_map_overlays.cpp:225 ({0} = ден, {1} = % на победителя, {2} = % на загубилия)
+victory.sub_final = След края на ден {0} играчът държи по-голям дял от града: {1}% срещу {2}%.
+# UI/scr/UI_map_overlays.cpp:324
+victory.stat.end_day = Край на мача: Ден {0}
+# UI/scr/UI_map_overlays.cpp:325
+victory.stat.power_both = Произведена мощност: P1 {0} MW | P2 {1} MW
+# UI/scr/UI_map_overlays.cpp:326 ({0}/{1} = купени/всички парцели на P1, {2}/{3} = на P2)
+victory.stat.plots_both = Закупени парцели земя: P1 {0} / {1} | P2 {2} / {3}
+# UI/scr/UI_map_overlays.cpp:328
+victory.stat.buildings_both = Построени съоръжения: P1 {0} | P2 {1} сгради
+# UI/scr/UI_map_overlays.cpp:329
+victory.stat.gold_both = Налично злато: P1 {0} G | P2 {1} G
+# UI/scr/UI_map_overlays.cpp:334
+victory.stat.win_day = Ден на победата: Ден {0}
+# UI/scr/UI_map_overlays.cpp:335
+victory.stat.power = Произведена мощност: {0} MW
+# UI/scr/UI_map_overlays.cpp:336 ({0} = купени, {1} = всички)
+victory.stat.plots = Закупени парцели земя: {0} / {1} парцела
+# UI/scr/UI_map_overlays.cpp:338
+victory.stat.buildings = Построени съоръжения: {0} сгради
+# UI/scr/UI_map_overlays.cpp:339 ({0} = злато, {1} = пари)
+victory.stat.gold = Налично злато: {0} G | Градска хазна: {1} $
+# UI/scr/UI_map_overlays.cpp:350
+victory.new_game = [ R ]  НОВА ИГРА
+# UI/scr/UI_map_overlays.cpp:357
+victory.main_menu = [ ESC / M ]  ГЛАВНО МЕНЮ
+
+# ============================================================================
+# Пауза (UI_map_overlays.cpp)
+# ============================================================================
+# UI/scr/UI_map_overlays.cpp:405
+pause.header = [ ПАУЗА ]  ИГРАТА Е НА ПАУЗА
+# UI/scr/UI_map_overlays.cpp:411
+pause.sub = Използвайте [Стрелки] / [Enter] или мишката за избор
+# UI/scr/UI_map_overlays.cpp:439
+pause.resume = ПРОДЪЛЖИ  [ ESC / ENTER ]
+# UI/scr/UI_map_overlays.cpp:440
+pause.restart = НОВА ИГРА  [ R ]
+# UI/scr/UI_map_overlays.cpp:441
+pause.help = ПОМОЩ И ПРАВИЛА  [ H ]
+# UI/scr/UI_map_overlays.cpp:442
+pause.menu = ГЛАВНО МЕНЮ  [ M ]
+
+# ============================================================================
+# Туториал (UI_tutorial.cpp)
+# ============================================================================
+# UI/scr/UI_tutorial.cpp:292
+tutorial.arrow.forest = СТАНЦИЯ ГОРА [SPACE]
+# UI/scr/UI_tutorial.cpp:304
+tutorial.arrow.iron = ДОБИВ: ЖЕЛЯЗО [SPACE]
+# UI/scr/UI_tutorial.cpp:316
+tutorial.arrow.copper = ДОБИВ: МЕД [SPACE]
+# UI/scr/UI_tutorial.cpp:328
+tutorial.arrow.silicon = ДОБИВ: СИЛИЦИЙ [SPACE]
+# UI/scr/UI_tutorial.cpp:338
+tutorial.arrow.select = ИЗБЕРЕТЕ: [1] СЛЪНЧЕВ ПАНЕЛ
+# UI/scr/UI_tutorial.cpp:347
+tutorial.arrow.place = ПОСТАВЕТЕ ТУК [SPACE]
+# UI/scr/UI_tutorial.cpp:369
+tutorial.hint.p1_select = P1: [1] Избери Слънчев панел  |  [X] Отказ
+# UI/scr/UI_tutorial.cpp:371
+tutorial.hint.p1_place = P1: [SPACE] Строеж  |  [X] Отказ
+# UI/scr/UI_tutorial.cpp:373
+tutorial.hint.p1_done = P1: [SPACE] Продължи
+# UI/scr/UI_tutorial.cpp:375
+tutorial.hint.p1_move = P1: [W/A/S/D] Движение  |  [SPACE] Добив
+# UI/scr/UI_tutorial.cpp:379
+tutorial.hint.solo_select = [1] или [E] - Избери Слънчев панел  |  [X] Отказ
+# UI/scr/UI_tutorial.cpp:381
+tutorial.hint.solo_place = [SPACE] или [ENTER] - Строеж  |  [X] Отказ
+# UI/scr/UI_tutorial.cpp:383
+tutorial.hint.solo_done = [SPACE] или [ENTER] - Продължи
+# UI/scr/UI_tutorial.cpp:385
+tutorial.hint.solo_move = [W/A/S/D] или [СТРЕЛКИ] - Движение  |  [SPACE] - Добив
+# UI/scr/UI_tutorial.cpp:413
+tutorial.hint.p2_select = P2: [PgDn] Сграда  |  [Del] Отказ
+# UI/scr/UI_tutorial.cpp:414
+tutorial.hint.p2_place = P2: [ENTER] Строеж  |  [Del] Отказ
+# UI/scr/UI_tutorial.cpp:415
+tutorial.hint.p2_done = P2: [ENTER] Продължи
+# UI/scr/UI_tutorial.cpp:416
+tutorial.hint.p2_move = P2: [СТРЕЛКИ] Движение  |  [ENTER] Добив
+# UI/scr/UI_tutorial.cpp:465
+tutorial.skip = ПРОПУСНИ [ESC]
+# UI/scr/UI_tutorial.cpp:473
+tutorial.badge = ТУТОРИАЛ: ОСНОВИ
+# UI/scr/UI_tutorial.cpp:479
+tutorial.next = НАПРЕД [SPACE]
+# UI/scr/UI_tutorial.cpp:491
+tutorial.start = ЗАПОЧНИ [SPACE]
+# UI/scr/UI_tutorial.cpp:555
+tutorial.to_game = КЪМ ИГРАТА [SPACE]
+# UI/scr/UI_tutorial.cpp:481 (вмъква се като {0} в описанията с интервал отпред; празно в режим 2 играчи)
+tutorial.alt_keys = (или Enter / Ляв клик)
+# UI/scr/UI_tutorial.cpp:500, :509, :518, :527 (добавя се като {1} в прогреса с два интервала отпред)
+tutorial.ready_tag = [ГОТОВО!]
+# UI/scr/UI_tutorial.cpp:485
+tutorial.welcome.badge = ОСНОВИ НА ИГРАТА
+# UI/scr/UI_tutorial.cpp:486
+tutorial.welcome.title = ДОБРЕ ДОШЛИ В ENERGY CRISIS!
+# UI/scr/UI_tutorial.cpp:487-489
+tutorial.welcome.desc = Целта е да захраните града с чиста електроенергия!\nЗапочвате от нулата — първо трябва да добиете нужните суровини за Слънчев панел.\nДвижете се с [W/A/S/D] или [СТРЕЛКИ]. Действие: [SPACE] или [ENTER].
+# UI/scr/UI_tutorial.cpp:495
+tutorial.wood.badge = СТЪПКА 1 / 6: СЪБИРАНЕ НА РЕСУРСИ
+# UI/scr/UI_tutorial.cpp:496
+tutorial.wood.title = ДОБИЙТЕ ДЪРВЕСИНА ОТ СТАНЦИЯ 'ГОРА'
+# UI/scr/UI_tutorial.cpp:497-498 ({0} = "" или " " + tutorial.alt_keys)
+tutorial.wood.desc = Застанете върху осветената станция ГОРА и натиснете [SPACE]{0}.\nВсеки удар добива дърво за склада ви. Нужно за панел: 6 Дърво.
+# UI/scr/UI_tutorial.cpp:500 ({0} = налично, {1} = "" или "  " + tutorial.ready_tag)
+tutorial.wood.progress = Дървесина: {0} / 6{1}
+# UI/scr/UI_tutorial.cpp:504
+tutorial.iron.badge = СТЪПКА 2 / 6: СЪБИРАНЕ НА РЕСУРСИ
+# UI/scr/UI_tutorial.cpp:505
+tutorial.iron.title = ДОБИЙТЕ ЖЕЛЯЗО ЗА РАМКАТА
+# UI/scr/UI_tutorial.cpp:506-507
+tutorial.iron.desc = Отлично! Преместете се върху станция ЖЕЛЯЗО и натиснете [SPACE].\nЖелязото осигурява стабилна носеща конструкция. Нужно: 4 Желязо.
+# UI/scr/UI_tutorial.cpp:509
+tutorial.iron.progress = Желязо: {0} / 4{1}
+# UI/scr/UI_tutorial.cpp:513
+tutorial.copper.badge = СТЪПКА 3 / 6: СЪБИРАНЕ НА РЕСУРСИ
+# UI/scr/UI_tutorial.cpp:514
+tutorial.copper.title = ДОБИЙТЕ МЕД ЗА ЕЛЕКТРОПРОВОДИТЕ
+# UI/scr/UI_tutorial.cpp:515-516
+tutorial.copper.desc = Чудесно! Отидете върху станция МЕД и натиснете [SPACE] за добив.\nМедта провежда изработения ток към централната мрежа. Нужно: 6 Мед.
+# UI/scr/UI_tutorial.cpp:518
+tutorial.copper.progress = Мед: {0} / 6{1}
+# UI/scr/UI_tutorial.cpp:522
+tutorial.silicon.badge = СТЪПКА 4 / 6: СЪБИРАНЕ НА РЕСУРСИ
+# UI/scr/UI_tutorial.cpp:523
+tutorial.silicon.title = ДОБИЙТЕ СИЛИЦИЙ ЗА СОЛАРНИТЕ КЛЕТКИ
+# UI/scr/UI_tutorial.cpp:524-525
+tutorial.silicon.desc = Силицият е на втория ред. Отидете върху станция СИЛИЦИЙ и натиснете [SPACE].\nТой преобразува слънчевата светлина в електричество. Нужно: 8 Силиций.
+# UI/scr/UI_tutorial.cpp:527
+tutorial.silicon.progress = Силиций: {0} / 8{1}
+# UI/scr/UI_tutorial.cpp:531
+tutorial.select.badge = СТЪПКА 5 / 6: ИЗБОР И ОТКАЗ
+# UI/scr/UI_tutorial.cpp:532
+tutorial.select.title = ИЗБЕРЕТЕ СЛЪНЧЕВ ПАНЕЛ ЗА СТРОЕЖ
+# UI/scr/UI_tutorial.cpp:533-534
+tutorial.select.desc = Натиснете клавиш [1] (или [E] / [PgDn]), за да изберете Слънчев панел.\nСЪВЕТ: Ако решите да се откажете от строеж, натиснете [X] (или Десен клик / Delete)!
+# UI/scr/UI_tutorial.cpp:536
+tutorial.select.progress = Ресурси: ГОТОВИ!  [Натиснете 1 за избор]
+# UI/scr/UI_tutorial.cpp:540
+tutorial.place.badge = СТЪПКА 6 / 6: СТРОИТЕЛСТВО
+# UI/scr/UI_tutorial.cpp:541
+tutorial.place.title = ПОСТАВЕТЕ ПАНЕЛА ВЪРХУ ВАШАТА ЗЕМЯ
+# UI/scr/UI_tutorial.cpp:542-543 ({0} = "" или " " + tutorial.alt_keys)
+tutorial.place.desc = Преместете курсора си върху маркираната свободна клетка от вашия парцел.\nНатиснете [SPACE]{0}, за да завършите строежа!
+# UI/scr/UI_tutorial.cpp:545
+tutorial.place.progress = Позиционирайте курсора и натиснете [SPACE] / [ENTER]
+# UI/scr/UI_tutorial.cpp:549
+tutorial.done.badge = УСПЕХ! ПЪРВИЯТ ВИ ПАНЕЛ РАБОТИ!
+# UI/scr/UI_tutorial.cpp:550
+tutorial.done.title = ПОЗДРАВЛЕНИЯ! ВЕЧЕ ПРОИЗВЕЖДАТЕ ТОК!
+# UI/scr/UI_tutorial.cpp:551-553
+tutorial.done.desc = Панелът ви дава +60 MW чиста мощност през деня!\nСнабдяването на града ви носи пари ($) и злато за нови земи и надграждане на мините.\nСтройте още панели, вятърни мелници и батерии за победа!
+
+# ============================================================================
+# Съобщения от двигателя (Game/scr/game_main.cpp)
+# ============================================================================
+# Game/scr/game_main.cpp:68
+msg.welcome_grace = ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИТЕ 2 ДЕНА ГРАДЪТ ИСКА 0 ЕНЕРГИЯ ЗА РАЗВИТИЕ!
+# Game/scr/game_main.cpp:366
+msg.day1_grace_end = ДЕН 1 ПРИКЛЮЧИ [ГРАТИСЕН ПЕРИОД]: ГРАДЪТ ИСКАШЕ 0 MW. ОЩЕ 1 ДЕН ЗА РАЗВИТИЕ!
+# Game/scr/game_main.cpp:368
+msg.day2_grace_end = ДЕН 2 ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД! ОТ ДЕН 3 ГРАДЪТ ИЗИСКВА ЕНЕРГИЯ!
+# Game/scr/game_main.cpp:378 ({0} = ден, {1} = средно MW, {2} = нужда MW, {3} = % територия)
+msg.day_p1_supplied = ДЕН {0}: ИГРАЧ 1 ЗАХРАНИ ГРАДА (СРЕДНО {1}/{2} MW) И ВЗЕ +{3}% ТЕРИТОРИЯ!
+# Game/scr/game_main.cpp:382
+msg.day_p2_supplied = ДЕН {0}: ИГРАЧ 2 ЗАХРАНИ ГРАДА (СРЕДНО {1}/{2} MW) И ВЗЕ +{3}% ТЕРИТОРИЯ!
+# Game/scr/game_main.cpp:386
+msg.day_both_supplied = ДЕН {0}: И ДВАМАТА ЗАХРАНИХА ГРАДА! НИТО ЕДИН НЕ ГУБИ ТЕРИТОРИЯ (0% ПРОМЯНА)!
+# Game/scr/game_main.cpp:388 ({0} = ден, {1} = нужда MW)
+msg.day_none_supplied = ДЕН {0}: НИТО ЕДИН НЕ ЗАХРАНИ ГРАДА ({1} MW)! НЯМА ПРОМЯНА В ТЕРИТОРИЯТА!
+# Game/scr/game_main.cpp:400 ({0} = % на играча, {1} = нужни %)
+msg.victory_p1_share = ПОБЕДА ЗА ИГРАЧ 1! КОНТРОЛИРА {0}% ОТ ГРАДА (НУЖНИ СА {1}%)!
+# Game/scr/game_main.cpp:404
+msg.victory_p2_share = ПОБЕДА ЗА ИГРАЧ 2! КОНТРОЛИРА {0}% ОТ ГРАДА (НУЖНИ СА {1}%)!
+# Game/scr/game_main.cpp:407, :410 ({0} = ден, {1} = P1 %, {2} = P2 %)
+msg.final_draw = КРАЙ НА ДЕН {0}! РАВЕНСТВО - ГРАДЪТ Е РАЗДЕЛЕН ПОРАВНО ({1}% / {2}%)!
+# Game/scr/game_main.cpp:407, :414 ({0} = ден, {1} = % на победителя)
+msg.final_p1 = КРАЙ НА ДЕН {0}! ПОБЕДА ЗА ИГРАЧ 1 С {1}% ОТ ГРАДА!
+# Game/scr/game_main.cpp:407, :417
+msg.final_p2 = КРАЙ НА ДЕН {0}! ПОБЕДА ЗА ИГРАЧ 2 С {1}% ОТ ГРАДА!
+# Game/scr/game_main.cpp:455 (добавя се като {1} в msg.mined_* с интервал отпред; празно на ниво 1)
+msg.level_tag = [НИВО {0}]
+# Game/scr/game_main.cpp:464 ({0} = количество, {1} = "" или " " + msg.level_tag)
+msg.mined_wood = +{0} Дървесина (Гора){1}
+# Game/scr/game_main.cpp:473
+msg.mined_iron = +{0} Желязо (Желязна мина){1}
+# Game/scr/game_main.cpp:482
+msg.mined_copper = +{0} Мед (Медна жила){1}
+# Game/scr/game_main.cpp:491
+msg.mined_coal = +{0} Въглища (Въглищен пласт){1}
+# Game/scr/game_main.cpp:500
+msg.mined_silicon = +{0} Силиций (Силициева кариера){1}
+# Game/scr/game_main.cpp:509
+msg.mined_silver = +{0} Сребро (Сребърна жила){1}
+# Game/scr/game_main.cpp:518
+msg.mined_gold = +{0} Злато (Златна жила){1}
+# Game/scr/game_main.cpp:522
+msg.money_mine_removed = Мината за пари е премахната! Печелете пари от доставка на ток към града.
+# Game/scr/game_main.cpp:533-534 ({0} желязо, {1} мед, {2} въглища, {3} злато)
+msg.mined_ore = +{0} Желязо, +{1} Мед, +{2} Въглища, +{3} Злато
+# Game/scr/game_main.cpp:559
+msg.not_upgradable = ТОВА НЕ Е МИНА ЗА НАДГРАЖДАНЕ!
+# Game/scr/game_main.cpp:565
+msg.invalid_resource = НЕВАЛИДЕН РЕСУРС!
+# Game/scr/game_main.cpp:570 ({0} = максимално ниво)
+msg.mine_max_level = МАКСИМАЛНО НИВО НА МИНАТА (НИВО {0})!
+# Game/scr/game_main.cpp:575 ({0} = цена, {1} = налично злато)
+msg.upgrade_no_gold = НЕДОСТИГ НА ЗЛАТО! НУЖНО: {0} G (ИМАТЕ {1} G)
+# Game/scr/game_main.cpp:586
+mine.wood = ДЪРВОДОБИВ
+# Game/scr/game_main.cpp:587
+mine.iron = ЖЕЛЯЗНА МИНА
+# Game/scr/game_main.cpp:588
+mine.copper = МЕДНА МИНА
+# Game/scr/game_main.cpp:589
+mine.coal = ВЪГЛИЩНА МИНА
+# Game/scr/game_main.cpp:590
+mine.silicon = СИЛИЦИЕВА КАРИЕРА
+# Game/scr/game_main.cpp:591
+mine.silver = СРЕБЪРНА МИНА
+# Game/scr/game_main.cpp:592
+mine.gold = ЗЛАТНА ЖИЛА
+# Game/scr/game_main.cpp:593
+mine.generic = МИНА
+# Game/scr/game_main.cpp:596 ({0} = mine.*, {1} = ново ниво)
+msg.upgraded = НАДГРАДЕНО: {0} (НИВО {1})! (+75% ДОБИВ)
+# Game/scr/game_main.cpp:605
+msg.plot_already_bought = ТОЗИ ПАРЦЕЛ ВЕЧЕ Е ЗАКУПЕН!
+# Game/scr/game_main.cpp:612
+msg.p1_bought_land = ИГРАЧ 1 ЗАКУПИ НОВА ЗЕМЯ!
+# Game/scr/game_main.cpp:612
+msg.p2_bought_land = ИГРАЧ 2 ЗАКУПИ НОВА ЗЕМЯ!
+# Game/scr/game_main.cpp:615 ({0} = цена)
+msg.land_no_gold = НЕДОСТИГ НА ЗЛАТО! НУЖНО: {0} G
+# Game/scr/game_main.cpp:620
+msg.invalid_plot = НЕВАЛИДЕН ПАРЦЕЛ!
+# Game/scr/game_main.cpp:637
+msg.all_plots_bought = ВСИЧКИ ПАРЦЕЛИ СА ЗАКУПЕНИ!
+# Game/scr/game_main.cpp:815
+msg.nothing_to_demolish = НЯМА ВАША СГРАДА ТУК ЗА ПРЕМАХВАНЕ!
+# Game/scr/game_main.cpp:845 ({0} = име на сградата, {1} = % върнати)
+msg.demolished = ПРЕМАХНАТ {0}! (Върнати: {1}% ресурси)
+# Game/scr/game_main.cpp:852
+msg.no_building_selected = НЯМА ИЗБРАНА СГРАДА!
+# Game/scr/game_main.cpp:861
+msg.no_building_to_demolish = НЯМА ВАША СГРАДА В ТАЗИ ТОЧКА ЗА ПРЕМАХВАНЕ!
+# Game/scr/game_main.cpp:880-885 ({0} = cost.need)
+msg.not_enough_resources = НЕДОСТИГ НА РЕСУРСИ! {0}
+# Game/scr/game_main.cpp:896
+msg.night_build_denied = НОЩЕН МРАК! Строежът нощем е забранен без осветление!\nПоставете и захранете Осветителна лампа, за да работите.
+# Game/scr/game_main.cpp:909 ({0} = цена на парцела)
+msg.plot_not_owned = НЕПРИТЕЖАВАНА ЗЕМЯ! Трябва първо да закупите този парцел с {0} G!
+# Game/scr/game_main.cpp:917
+msg.build_own_land_only = МОЖЕТЕ ДА СТРОИТЕ САМО ВЪРХУ ВАША ЗАКУПЕНА ЗЕМЯ!
+# Game/scr/game_main.cpp:923
+msg.hydro_river_only = ВЕЦ СЕ СТРОИ САМО НА БРЕГА НА РЕКАТА!\nИзползвайте парцелите в колоната до града (до реката).
+# Game/scr/game_main.cpp:933
+msg.cell_occupied = В ТАЗИ КЛЕТКА ВЕЧЕ ИМА СГРАДА! Изберете свободна клетка от грида.
+# Game/scr/game_main.cpp:988
+msg.lamp_placed = ПОСТАВЕНА Осветителна лампа! (Консумира 10 MW, осветява 150 px)
+# Game/scr/game_main.cpp:990
+msg.battery_built = ПОСТРОЕН Акумулатор! (0% заряд. Зарежда се от произведената чиста енергия)
+# Game/scr/game_main.cpp:992 ({0} = име на сградата, {1} = MW)
+msg.built = ПОСТРОЕН {0}! (+{1} MW)
+# Game/scr/game_main.cpp:1005-1006 ({0} = дърво, {1} = желязо)
+msg.repair_cost = Нужни са {0} Дърво и {1} Желязо за ремонт!
+# Game/scr/game_main.cpp:1020 ({0} = име на сградата)
+msg.repaired = ПОПРАВЕНО СЪОРЪЖЕНИЕ: {0}! Отново работи на 100%!
+# Game/scr/game_main.cpp:1025
+msg.nothing_to_repair = Няма счупено съоръжение наблизо за ремонт.
