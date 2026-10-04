@@ -89,7 +89,6 @@ bool GameEngine::researchTech(int player, int branch, int tier, int option, std:
     }
 
     econ.money -= cost;
-    econ.data.money = econ.money;
     econ.tech.choice[branch][tier] = static_cast<signed char>(option);
     refreshPerkDependentState(player);
 

@@ -17,18 +17,6 @@ constexpr int SANDBOX_MONEY_STOCK = 999999;
 constexpr float SANDBOX_MAX_CLOCK_SPEED = 32.0f;
 constexpr int SANDBOX_MAX_DEMAND_MW = 5000;
 
-const char* weatherKey(WeatherType w) {
-    switch (w) {
-        case WeatherType::RAINY:  return "rain";
-        case WeatherType::STORMY: return "thunder_storm";
-        case WeatherType::SNOWY:  return "snow";
-        case WeatherType::CLOUDY: return "cloudy";
-        case WeatherType::WINDY:
-        case WeatherType::SUNNY:
-        default:                  return "clear";
-    }
-}
-
 } // namespace
 
 void GameEngine::applyFrameRules() {
@@ -37,9 +25,6 @@ void GameEngine::applyFrameRules() {
         e->wood = e->iron = e->copper = e->coal = e->silicon = e->silver = SANDBOX_RESOURCE_STOCK;
         e->gold = SANDBOX_GOLD_STOCK;
         e->money = SANDBOX_MONEY_STOCK;
-        e->data.wood = e->data.iron = e->data.copper = e->data.coal = e->data.silicon = e->data.silver = SANDBOX_RESOURCE_STOCK;
-        e->data.gold = SANDBOX_GOLD_STOCK;
-        e->data.money = SANDBOX_MONEY_STOCK;
     }
 }
 
@@ -69,10 +54,7 @@ void GameEngine::sandboxSetWeather(int player, WeatherType w) {
     int i = (player == 2) ? 1 : 0;
     sandbox.weatherLocked[i] = true;
     sandbox.lockedWeather[i] = w;
-    PlayerEconomy& econ = (i == 0) ? p1 : p2;
     (i == 0 ? p1Weather : p2Weather) = w;
-    econ.data.weather = weatherKey(w);
-    econ.data.wind_speed = (w == WeatherType::WINDY || w == WeatherType::STORMY) ? "60" : "0";
     updateBuildingsEnergy(0.0f);
 }
 

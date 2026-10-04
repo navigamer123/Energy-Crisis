@@ -29,17 +29,6 @@ int scaleCost(int base, float mult) {
     return std::max(1, static_cast<int>(std::lround(static_cast<float>(base) * mult)));
 }
 
-void syncInventory(PlayerEconomy& e) {
-    e.data.money = e.money;
-    e.data.gold = e.gold;
-    e.data.wood = e.wood;
-    e.data.iron = e.iron;
-    e.data.copper = e.copper;
-    e.data.coal = e.coal;
-    e.data.silicon = e.silicon;
-    e.data.silver = e.silver;
-}
-
 } // namespace
 
 // -----------------------------------------------------------------------------
@@ -115,7 +104,6 @@ void GameEngine::applyMatchStartRules() {
             e->silicon += HEAD_START_RESOURCES;
             e->silver += HEAD_START_RESOURCES;
             e->gold += HEAD_START_GOLD;
-            syncInventory(*e);
         }
     }
 
@@ -127,8 +115,6 @@ void GameEngine::applyWeatherRules() {
     // F-24 Mirror Weather: the East sector gets exactly the West sector's weather
     if (rules.hasMutator(MUT_MIRROR_WEATHER)) {
         p2Weather = p1Weather;
-        p2.data.weather = p1.data.weather;
-        p2.data.wind_speed = p1.data.wind_speed;
     }
     // F-21 sandbox: a weather chosen in the control panel stays until it is changed
     if (sandbox.weatherLocked[0]) p1Weather = sandbox.lockedWeather[0];
