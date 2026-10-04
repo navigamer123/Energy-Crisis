@@ -11,7 +11,8 @@ enum class MenuState {
     MODE_SELECT,
     PLAY_CONTROLS,
     BOT_DIFFICULTY,
-    SETTINGS
+    SETTINGS,
+    SETTINGS_CONTROLS
 };
 
 class UI_mainMenu {
@@ -23,10 +24,18 @@ private:
     int selectedMainIndex;       // 0: Play, 1: Settings, 2: Quit
     int selectedModeIndex;       // 0: Co-op (2P), 1: Single Player (VS Bot), 2: Back
     int selectedDifficultyIndex; // 0: Easy, 1: Medium, 2: Hard, 3: Back
-    int selectedSettingsIndex;   // 0: Volume, 1: SoundFX, 2: Difficulty, 3: Back
+    int selectedSettingsIndex;   // 0: Volume, 1: SoundFX, 2: Difficulty, 3: Controls, 4: Back
     sf::Vector2f lastMenuMousePos = { -999.0f, -999.0f };
 
     BotDifficulty selectedBotDifficulty;
+
+    // Controls remapping state (SETTINGS_CONTROLS)
+    int remapSelectedPlayer = 1; // 1: Player 1, 2: Player 2
+    int remapSelectedRow = 0;    // 0..8: Control action, 9: Reset defaults, 10: Back
+    bool isRebinding = false;
+    int rebindPlayer = 1;
+    int rebindActionIndex = 0;
+    sf::Clock rebindPulseClock;
 
     // Settings state
     int volume;                  // 0..100 % master volume ([b-effects] applied by UI_main to UI_audio)
@@ -52,6 +61,7 @@ private:
     void drawModeSelectMenu(sf::RenderWindow& window);
     void drawBotDifficultyMenu(sf::RenderWindow& window);
     void drawSettingsMenu(sf::RenderWindow& window);
+    void drawControlsRemapMenu(sf::RenderWindow& window);
 
     void drawButton(sf::RenderWindow& window, sf::FloatRect bounds, const sf::String& text,
                     sf::Color baseColor, sf::Color hoverColor, sf::Color textColor,

@@ -1,0 +1,55 @@
+#ifndef UI_CONTROLSCONFIG_H
+#define UI_CONTROLSCONFIG_H
+
+#include <SFML/Window/Keyboard.hpp>
+#include <string>
+
+enum class ControlAction {
+    MOVE_UP = 0,
+    MOVE_DOWN,
+    MOVE_LEFT,
+    MOVE_RIGHT,
+    ACTION,
+    UPGRADE,
+    NEXT_BUILDING,
+    PREV_BUILDING,
+    CANCEL,
+    COUNT
+};
+
+struct PlayerBindings {
+    sf::Keyboard::Key up;
+    sf::Keyboard::Key down;
+    sf::Keyboard::Key left;
+    sf::Keyboard::Key right;
+    sf::Keyboard::Key action;
+    sf::Keyboard::Key upgrade;
+    sf::Keyboard::Key nextBuilding;
+    sf::Keyboard::Key prevBuilding;
+    sf::Keyboard::Key cancel;
+
+    sf::Keyboard::Key getKey(ControlAction actionType) const;
+    void setKey(ControlAction actionType, sf::Keyboard::Key key);
+};
+
+std::string keyToString(sf::Keyboard::Key key);
+const char* getControlActionNameBg(ControlAction actionType);
+
+class UI_controlsConfig {
+public:
+    PlayerBindings p1;
+    PlayerBindings p2;
+
+    static UI_controlsConfig& get();
+
+    void resetToDefaults();
+    PlayerBindings& getPlayer(int player);
+    const PlayerBindings& getPlayer(int player) const;
+
+    bool isActionPressed(int player, ControlAction actionType, bool allowP1Arrows = false) const;
+
+private:
+    UI_controlsConfig();
+};
+
+#endif // UI_CONTROLSCONFIG_H

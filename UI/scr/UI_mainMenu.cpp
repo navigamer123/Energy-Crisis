@@ -1,4 +1,5 @@
 #include "../includes/UI_mainMenu.h"
+#include "../includes/UI_controlsConfig.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
@@ -317,9 +318,9 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
 
     float screenWidth = VIRTUAL_WIDTH;
     float panelWidth = 560.0f;
-    float panelHeight = 370.0f;
+    float panelHeight = 410.0f;
     float panelX = (screenWidth - panelWidth) / 2.0f;
-    float panelY = 200.0f;
+    float panelY = 185.0f;
 
     sf::RectangleShape panel({ panelWidth, panelHeight });
     panel.setPosition({ panelX, panelY });
@@ -341,7 +342,7 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     }
 
     // Row 0: Volume
-    sf::FloatRect volRow({ panelX + 30.0f, panelY + 70.0f }, { panelWidth - 60.0f, 42.0f });
+    sf::FloatRect volRow({ panelX + 30.0f, panelY + 68.0f }, { panelWidth - 60.0f, 40.0f });
     bool volSelected = (selectedSettingsIndex == 0);
     sf::RectangleShape volHighlight(volRow.size);
     volHighlight.setPosition(volRow.position);
@@ -353,22 +354,22 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     if (fontLoaded) {
         sf::Text& tVol = ui::pooledText(font, toUtf8(volSelected ? "> Сила на звука:" : "  Сила на звука:"), fontsize::H2);
         tVol.setFillColor(volSelected ? theme::TextPrimary : theme::TextSecondary);
-        tVol.setPosition({ panelX + 45.0f, panelY + 78.0f });
+        tVol.setPosition({ panelX + 45.0f, panelY + 74.0f });
         ui::drawText(window, tVol);
 
         sf::Text& volVal = ui::pooledText(font, toUtf8(std::to_string(volume) + "%"), fontsize::H2);
         volVal.setStyle(sf::Text::Bold);
         volVal.setFillColor(theme::TextPrimary);
-        volVal.setPosition({ panelX + 345.0f, panelY + 78.0f });
+        volVal.setPosition({ panelX + 345.0f, panelY + 74.0f });
         ui::drawText(window, volVal);
     }
-    sf::FloatRect volDown({ panelX + 280.0f, panelY + 74.0f }, { 36.0f, 32.0f });
-    sf::FloatRect volUp({ panelX + 420.0f, panelY + 74.0f }, { 36.0f, 32.0f });
+    sf::FloatRect volDown({ panelX + 280.0f, panelY + 72.0f }, { 36.0f, 30.0f });
+    sf::FloatRect volUp({ panelX + 420.0f, panelY + 72.0f }, { 36.0f, 30.0f });
     drawButton(window, volDown, "-", theme::Button, theme::ButtonHover, theme::TextPrimary, volDown.contains(mousePos));
     drawButton(window, volUp, "+", theme::Button, theme::ButtonHover, theme::TextPrimary, volUp.contains(mousePos));
 
     // Row 1: Sound FX
-    sf::FloatRect sfxRow({ panelX + 30.0f, panelY + 125.0f }, { panelWidth - 60.0f, 42.0f });
+    sf::FloatRect sfxRow({ panelX + 30.0f, panelY + 118.0f }, { panelWidth - 60.0f, 40.0f });
     bool sfxSelected = (selectedSettingsIndex == 1);
     sf::RectangleShape sfxHighlight(sfxRow.size);
     sfxHighlight.setPosition(sfxRow.position);
@@ -380,16 +381,16 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     if (fontLoaded) {
         sf::Text& tSfx = ui::pooledText(font, toUtf8(sfxSelected ? "> Звукови ефекти:" : "  Звукови ефекти:"), fontsize::H2);
         tSfx.setFillColor(sfxSelected ? theme::TextPrimary : theme::TextSecondary);
-        tSfx.setPosition({ panelX + 45.0f, panelY + 133.0f });
+        tSfx.setPosition({ panelX + 45.0f, panelY + 124.0f });
         ui::drawText(window, tSfx);
     }
-    sf::FloatRect sfxBtn({ panelX + 280.0f, panelY + 129.0f }, { 180.0f, 34.0f });
+    sf::FloatRect sfxBtn({ panelX + 280.0f, panelY + 122.0f }, { 180.0f, 32.0f });
     drawButton(window, sfxBtn, toUtf8(soundEffects ? "ВКЛЮЧЕНИ" : "ИЗКЛЮЧЕНИ"),
                soundEffects ? theme::GoodFill : theme::BadFill,
                soundEffects ? theme::GoodFill : theme::BadFill, theme::TextPrimary, sfxSelected || sfxBtn.contains(mousePos));
 
     // Row 2: Difficulty
-    sf::FloatRect diffRow({ panelX + 30.0f, panelY + 180.0f }, { panelWidth - 60.0f, 42.0f });
+    sf::FloatRect diffRow({ panelX + 30.0f, panelY + 168.0f }, { panelWidth - 60.0f, 40.0f });
     bool diffSelected = (selectedSettingsIndex == 2);
     sf::RectangleShape diffHighlight(diffRow.size);
     diffHighlight.setPosition(diffRow.position);
@@ -401,40 +402,215 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
     if (fontLoaded) {
         sf::Text& tDiff = ui::pooledText(font, toUtf8(diffSelected ? "> Трудност на бота:" : "  Трудност на бота:"), fontsize::H2);
         tDiff.setFillColor(diffSelected ? theme::TextPrimary : theme::TextSecondary);
-        tDiff.setPosition({ panelX + 45.0f, panelY + 188.0f });
+        tDiff.setPosition({ panelX + 45.0f, panelY + 174.0f });
         ui::drawText(window, tDiff);
     }
     const char* diffLabels[] = { "ЛЕСЕН", "СРЕДЕН", "ТРУДЕН" };
-    sf::FloatRect diffBtn({ panelX + 280.0f, panelY + 184.0f }, { 180.0f, 34.0f });
+    sf::FloatRect diffBtn({ panelX + 280.0f, panelY + 172.0f }, { 180.0f, 32.0f });
     drawButton(window, diffBtn, toUtf8(diffLabels[settingsDifficultyIndex]),
                theme::Button, theme::ButtonHover, theme::TextPrimary, diffSelected || diffBtn.contains(mousePos));
 
-    // Notes: audio is synthesised in-game ([b-effects]); the difficulty is only the default bot choice
+    // Row 3: Controls Remapping
+    sf::FloatRect ctrlRow({ panelX + 30.0f, panelY + 218.0f }, { panelWidth - 60.0f, 40.0f });
+    bool ctrlSelected = (selectedSettingsIndex == 3);
+    sf::RectangleShape ctrlHighlight(ctrlRow.size);
+    ctrlHighlight.setPosition(ctrlRow.position);
+    ctrlHighlight.setFillColor(ctrlSelected ? theme::withAlpha(theme::CardSelected, 200) : sf::Color::Transparent);
+    ctrlHighlight.setOutlineThickness(ctrlSelected ? 1.5f : 0.0f);
+    ctrlHighlight.setOutlineColor(theme::Focus);
+    window.draw(ctrlHighlight);
+
+    if (fontLoaded) {
+        sf::Text& tCtrl = ui::pooledText(font, toUtf8(ctrlSelected ? "> Управление / Клавиши:" : "  Управление / Клавиши:"), fontsize::H2);
+        tCtrl.setFillColor(ctrlSelected ? theme::TextPrimary : theme::TextSecondary);
+        tCtrl.setPosition({ panelX + 45.0f, panelY + 224.0f });
+        ui::drawText(window, tCtrl);
+    }
+    sf::FloatRect ctrlBtn({ panelX + 280.0f, panelY + 222.0f }, { 180.0f, 32.0f });
+    drawButton(window, ctrlBtn, toUtf8("ПРЕНАЗНАЧАВАНЕ"),
+               theme::Button, theme::ButtonHover, theme::TextPrimary, ctrlSelected || ctrlBtn.contains(mousePos));
+
+    // Notes
     if (fontLoaded) {
         const char* notes[] = {
             "Звукът и музиката се синтезират в играта; промените важат веднага.",
-            "Трудността на бота е избраната по подразбиране в ЕДИН ИГРАЧ."
+            "Преназначете индивидуални клавиши за Играч 1 и Играч 2 от меню Управление."
         };
         for (int i = 0; i < 2; ++i) {
             sf::Text& tNote = ui::pooledText(font, toUtf8(notes[i]), fontsize::Label);
             tNote.setFillColor(theme::TextMuted);
             sf::FloatRect nb = tNote.getLocalBounds();
-            tNote.setPosition({ panelX + (panelWidth - nb.size.x) / 2.0f, panelY + 234.0f + i * 20.0f });
+            tNote.setPosition({ panelX + (panelWidth - nb.size.x) / 2.0f, panelY + 274.0f + i * 19.0f });
             ui::drawText(window, tNote);
         }
     }
 
-    // Row 3: Back button
-    sf::FloatRect backBtn({ panelX + (panelWidth - 220.0f) / 2.0f, panelY + 285.0f }, { 220.0f, 46.0f });
-    bool backSelected = (selectedSettingsIndex == 3);
+    // Row 4: Back button
+    sf::FloatRect backBtn({ panelX + (panelWidth - 220.0f) / 2.0f, panelY + 332.0f }, { 220.0f, 44.0f });
+    bool backSelected = (selectedSettingsIndex == 4);
     drawButton(window, backBtn, toUtf8("НАЗАД"), theme::Button, theme::ButtonHover, theme::TextPrimary, backSelected || backBtn.contains(mousePos));
 
     // Hints
     if (fontLoaded) {
-        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S или Стрелки] | Промяна: [A/D или Enter]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S или Стрелки] | Промяна / Избор: [A/D или Enter]"), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 14.0f });
+        ui::drawText(window, hint);
+    }
+}
+
+void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
+    drawHeader(window);
+
+    float screenWidth = VIRTUAL_WIDTH;
+    float panelWidth = 1260.0f;
+    float panelHeight = 580.0f;
+    float panelX = (screenWidth - panelWidth) / 2.0f;
+    float panelY = 160.0f;
+
+    sf::RectangleShape panel({ panelWidth, panelHeight });
+    panel.setPosition({ panelX, panelY });
+    panel.setFillColor(theme::withAlpha(theme::Panel, 245));
+    panel.setOutlineThickness(2.0f);
+    panel.setOutlineColor(theme::LineStrong);
+    window.draw(panel);
+    ui::lint::occlude(sf::FloatRect({ panelX, panelY }, { panelWidth, panelHeight }));
+
+    sf::Vector2f mousePos = ui::pointerPos(window);
+
+    if (fontLoaded) {
+        sf::Text& title = ui::pooledText(font, toUtf8("НАСТРОЙКИ: ПРЕНАЗНАЧАВАНЕ НА УПРАВЛЕНИЕТО"), fontsize::H1);
+        title.setStyle(sf::Text::Bold);
+        title.setFillColor(theme::TextPrimary);
+        sf::FloatRect tb = title.getLocalBounds();
+        title.setPosition({ panelX + (panelWidth - tb.size.x) / 2.0f, panelY + 14.0f });
+        ui::drawText(window, title);
+
+        sf::Text& sub = ui::pooledText(font, toUtf8(isRebinding ? "НАТИСНЕТЕ ЖЕЛАН КЛАВИШ ОТ КЛАВИАТУРАТА (ИЛИ ESC ЗА ОТКАЗ)" : "Изберете контрол с [Enter] или клик, след което натиснете новия клавиш"), fontsize::Body);
+        sub.setFillColor(isRebinding ? theme::Gold : theme::TextSecondary);
+        if (isRebinding) sub.setStyle(sf::Text::Bold);
+        sf::FloatRect sb = sub.getLocalBounds();
+        sub.setPosition({ panelX + (panelWidth - sb.size.x) / 2.0f, panelY + 46.0f });
+        ui::drawText(window, sub);
+    }
+
+    // Divider
+    sf::RectangleShape div({ panelWidth - 60.0f, 2.0f });
+    div.setPosition({ panelX + 30.0f, panelY + 72.0f });
+    div.setFillColor(theme::Line);
+    window.draw(div);
+
+    float colWidth = (panelWidth - 90.0f) / 2.0f; // 585.0f
+    float startY = panelY + 84.0f;
+
+    UI_controlsConfig& cfg = UI_controlsConfig::get();
+
+    for (int p = 1; p <= 2; ++p) {
+        float colX = (p == 1) ? (panelX + 30.0f) : (panelX + 60.0f + colWidth);
+        sf::Color playerColor = (p == 1) ? theme::P1 : theme::P2;
+        sf::Color playerColorLight = (p == 1) ? theme::P1Light : theme::P2Light;
+
+        // Player section title
+        if (fontLoaded) {
+            std::string pTitle = (p == 1) ? "ИГРАЧ 1 (ЗАПАДЕН СЕКТОР)" : "ИГРАЧ 2 (ИЗТОЧЕН СЕКТОР)";
+            sf::Text& colTitle = ui::pooledText(font, toUtf8(pTitle), fontsize::H2);
+            colTitle.setStyle(sf::Text::Bold);
+            colTitle.setFillColor(playerColorLight);
+            colTitle.setPosition({ colX + 10.0f, startY });
+            ui::drawText(window, colTitle);
+        }
+
+        float rowsStartY = startY + 34.0f;
+        float rowHeight = 33.0f;
+        float rowSpacing = 37.0f;
+
+        const PlayerBindings& binds = cfg.getPlayer(p);
+
+        for (int a = 0; a < static_cast<int>(ControlAction::COUNT); ++a) {
+            ControlAction actionType = static_cast<ControlAction>(a);
+            sf::FloatRect rowRect({ colX, rowsStartY + a * rowSpacing }, { colWidth, rowHeight });
+
+            bool isRowSelected = (!isRebinding && remapSelectedPlayer == p && remapSelectedRow == a);
+            bool isRowHovered = (!isRebinding && rowRect.contains(mousePos));
+            bool isCurrentRebinding = (isRebinding && rebindPlayer == p && rebindActionIndex == a);
+
+            sf::RectangleShape rowBg(rowRect.size);
+            rowBg.setPosition(rowRect.position);
+            if (isCurrentRebinding) {
+                float pulse = 0.5f + 0.5f * std::sin(rebindPulseClock.getElapsedTime().asSeconds() * 8.0f);
+                rowBg.setFillColor(theme::withAlpha(theme::Gold, static_cast<std::uint8_t>(40 + 50 * pulse)));
+                rowBg.setOutlineThickness(2.0f);
+                rowBg.setOutlineColor(theme::Gold);
+            } else if (isRowSelected || isRowHovered) {
+                rowBg.setFillColor(theme::withAlpha(playerColor, 40));
+                rowBg.setOutlineThickness(1.5f);
+                rowBg.setOutlineColor(playerColorLight);
+            } else {
+                rowBg.setFillColor(theme::withAlpha(theme::Card, 110));
+                rowBg.setOutlineThickness(1.0f);
+                rowBg.setOutlineColor(theme::withAlpha(theme::Line, 120));
+            }
+            window.draw(rowBg);
+
+            // Action label
+            if (fontLoaded) {
+                std::string actionName = getControlActionNameBg(actionType);
+                if (isRowSelected) actionName = "> " + actionName;
+                sf::Text& actText = ui::pooledText(font, toUtf8(actionName), fontsize::Body);
+                actText.setFillColor((isRowSelected || isCurrentRebinding) ? theme::TextPrimary : theme::TextSecondary);
+                if (isRowSelected || isCurrentRebinding) actText.setStyle(sf::Text::Bold);
+                actText.setPosition({ rowRect.position.x + 12.0f, rowRect.position.y + 5.0f });
+                ui::drawText(window, actText);
+            }
+
+            // Key badge on the right
+            sf::Keyboard::Key assignedKey = binds.getKey(actionType);
+            std::string keyName = keyToString(assignedKey);
+
+            float badgeWidth = isCurrentRebinding ? 175.0f : 115.0f;
+            float badgeHeight = 25.0f;
+            sf::FloatRect badgeRect({ rowRect.position.x + rowRect.size.x - badgeWidth - 8.0f, rowRect.position.y + 4.0f },
+                                    { badgeWidth, badgeHeight });
+
+            sf::RectangleShape badge(badgeRect.size);
+            badge.setPosition(badgeRect.position);
+            badge.setFillColor(isCurrentRebinding ? theme::Gold : (isRowSelected ? playerColor : theme::Button));
+            badge.setOutlineThickness(1.0f);
+            badge.setOutlineColor(isCurrentRebinding ? sf::Color::White : theme::Line);
+            window.draw(badge);
+
+            if (fontLoaded) {
+                std::string badgeLabel = isCurrentRebinding ? "[ ВЪВЕДЕТЕ... ]" : ("[" + keyName + "]");
+                sf::Text& bText = ui::pooledText(font, toUtf8(badgeLabel), fontsize::Label);
+                bText.setStyle(sf::Text::Bold);
+                bText.setFillColor(isCurrentRebinding ? sf::Color::Black : theme::TextPrimary);
+                sf::FloatRect bb = bText.getLocalBounds();
+                bText.setPosition({ badgeRect.position.x + (badgeWidth - bb.size.x) / 2.0f - bb.position.x,
+                                    badgeRect.position.y + (badgeHeight - bb.size.y) / 2.0f - bb.position.y });
+                ui::drawText(window, bText);
+            }
+        }
+    }
+
+    // Bottom action buttons
+    float btnY = panelY + panelHeight - 64.0f;
+    sf::FloatRect resetBtn({ panelX + (panelWidth - 520.0f) / 2.0f, btnY }, { 320.0f, 44.0f });
+    sf::FloatRect backBtn({ panelX + (panelWidth - 520.0f) / 2.0f + 340.0f, btnY }, { 180.0f, 44.0f });
+
+    bool resetSelected = (!isRebinding && remapSelectedRow == 9);
+    bool backSelected = (!isRebinding && remapSelectedRow == 10);
+
+    drawButton(window, resetBtn, toUtf8("ВЪЗСТАНОВИ ПО ПОДРАЗБИРАНЕ"),
+               theme::Button, theme::ButtonHover, theme::TextPrimary, resetSelected || (!isRebinding && resetBtn.contains(mousePos)));
+    drawButton(window, backBtn, toUtf8("НАЗАД"),
+               theme::Button, theme::ButtonHover, theme::TextPrimary, backSelected || (!isRebinding && backBtn.contains(mousePos)));
+
+    if (fontLoaded) {
+        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S/A/D или Стрелки] | Избор: [Enter] | Отказ: [Esc]"), fontsize::Label);
+        hint.setFillColor(theme::TextMuted);
+        sf::FloatRect hb = hint.getLocalBounds();
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 12.0f });
         ui::drawText(window, hint);
     }
 }
@@ -542,9 +718,9 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 return;
             }
             if (isUp) {
-                selectedSettingsIndex = (selectedSettingsIndex + 3) % 4;
+                selectedSettingsIndex = (selectedSettingsIndex + 4) % 5;
             } else if (isDown) {
-                selectedSettingsIndex = (selectedSettingsIndex + 1) % 4;
+                selectedSettingsIndex = (selectedSettingsIndex + 1) % 5;
             } else if (isLeft) {
                 if (selectedSettingsIndex == 0) {
                     if (volume >= 10) volume -= 10;
@@ -563,14 +739,64 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 }
             } else if (isSelect) {
                 if (selectedSettingsIndex == 0) {
-                    // Step up by 10% and wrap to 0% after 100% (never above 100%)
                     volume = (volume >= 100) ? 0 : std::min(100, volume + 10);
                 } else if (selectedSettingsIndex == 1) {
                     soundEffects = !soundEffects;
                 } else if (selectedSettingsIndex == 2) {
                     settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
                 } else if (selectedSettingsIndex == 3) {
+                    state = MenuState::SETTINGS_CONTROLS;
+                    remapSelectedPlayer = 1;
+                    remapSelectedRow = 0;
+                    isRebinding = false;
+                } else if (selectedSettingsIndex == 4) {
                     state = MenuState::MAIN;
+                }
+            }
+        } else if (state == MenuState::SETTINGS_CONTROLS) {
+            if (isRebinding) {
+                if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+                    if (key->code == sf::Keyboard::Key::Escape) {
+                        isRebinding = false;
+                    } else if (key->code != sf::Keyboard::Key::Unknown) {
+                        UI_controlsConfig::get().getPlayer(rebindPlayer).setKey(static_cast<ControlAction>(rebindActionIndex), key->code);
+                        isRebinding = false;
+                    }
+                }
+                return;
+            }
+            if (isEscape) {
+                state = MenuState::SETTINGS;
+                selectedSettingsIndex = 3;
+                return;
+            }
+            if (isUp) {
+                if (remapSelectedRow > 0) remapSelectedRow--;
+            } else if (isDown) {
+                if (remapSelectedRow < 10) remapSelectedRow++;
+            } else if (isLeft) {
+                if (remapSelectedRow < 9) {
+                    remapSelectedPlayer = 1;
+                } else if (remapSelectedRow == 10) {
+                    remapSelectedRow = 9;
+                }
+            } else if (isRight) {
+                if (remapSelectedRow < 9) {
+                    remapSelectedPlayer = 2;
+                } else if (remapSelectedRow == 9) {
+                    remapSelectedRow = 10;
+                }
+            } else if (isSelect) {
+                if (remapSelectedRow < 9) {
+                    isRebinding = true;
+                    rebindPlayer = remapSelectedPlayer;
+                    rebindActionIndex = remapSelectedRow;
+                    rebindPulseClock.restart();
+                } else if (remapSelectedRow == 9) {
+                    UI_controlsConfig::get().resetToDefaults();
+                } else if (remapSelectedRow == 10) {
+                    state = MenuState::SETTINGS;
+                    selectedSettingsIndex = 3;
                 }
             }
         }
@@ -629,22 +855,69 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             } else if (state == MenuState::SETTINGS) {
                 float panelWidth = 560.0f;
                 float panelX = (screenWidth - panelWidth) / 2.0f;
-                float panelY = 200.0f;
+                float panelY = 185.0f;
 
-                if (isPointInside({ { panelX + 280.0f, panelY + 74.0f }, { 36.0f, 32.0f } }, clickPos)) {
+                if (isPointInside({ { panelX + 280.0f, panelY + 72.0f }, { 36.0f, 30.0f } }, clickPos)) {
                     if (volume >= 10) volume -= 10;
                     selectedSettingsIndex = 0;
-                } else if (isPointInside({ { panelX + 420.0f, panelY + 74.0f }, { 36.0f, 32.0f } }, clickPos)) {
+                } else if (isPointInside({ { panelX + 420.0f, panelY + 72.0f }, { 36.0f, 30.0f } }, clickPos)) {
                     if (volume <= 90) volume += 10;
                     selectedSettingsIndex = 0;
-                } else if (isPointInside({ { panelX + 280.0f, panelY + 129.0f }, { 180.0f, 34.0f } }, clickPos)) {
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 122.0f }, { 180.0f, 32.0f } }, clickPos)) {
                     soundEffects = !soundEffects;
                     selectedSettingsIndex = 1;
-                } else if (isPointInside({ { panelX + 280.0f, panelY + 184.0f }, { 180.0f, 34.0f } }, clickPos)) {
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 172.0f }, { 180.0f, 32.0f } }, clickPos)) {
                     settingsDifficultyIndex = (settingsDifficultyIndex + 1) % 3;
                     selectedSettingsIndex = 2;
-                } else if (isPointInside({ { panelX + (panelWidth - 220.0f) / 2.0f, panelY + 285.0f }, { 220.0f, 46.0f } }, clickPos)) {
+                } else if (isPointInside({ { panelX + 280.0f, panelY + 222.0f }, { 180.0f, 32.0f } }, clickPos) ||
+                           isPointInside({ { panelX + 30.0f, panelY + 218.0f }, { panelWidth - 60.0f, 40.0f } }, clickPos)) {
+                    state = MenuState::SETTINGS_CONTROLS;
+                    remapSelectedPlayer = 1;
+                    remapSelectedRow = 0;
+                    isRebinding = false;
+                    selectedSettingsIndex = 3;
+                } else if (isPointInside({ { panelX + (panelWidth - 220.0f) / 2.0f, panelY + 332.0f }, { 220.0f, 44.0f } }, clickPos)) {
                     state = MenuState::MAIN;
+                }
+            } else if (state == MenuState::SETTINGS_CONTROLS) {
+                float panelWidth = 1260.0f;
+                float panelHeight = 580.0f;
+                float panelX = (screenWidth - panelWidth) / 2.0f;
+                float panelY = 160.0f;
+                float colWidth = (panelWidth - 90.0f) / 2.0f;
+                float startY = panelY + 84.0f;
+                float rowsStartY = startY + 34.0f;
+                float rowHeight = 33.0f;
+                float rowSpacing = 37.0f;
+
+                // Check clicks on control rows
+                for (int p = 1; p <= 2; ++p) {
+                    float colX = (p == 1) ? (panelX + 30.0f) : (panelX + 60.0f + colWidth);
+                    for (int a = 0; a < static_cast<int>(ControlAction::COUNT); ++a) {
+                        sf::FloatRect rowRect({ colX, rowsStartY + a * rowSpacing }, { colWidth, rowHeight });
+                        if (isPointInside(rowRect, clickPos)) {
+                            isRebinding = true;
+                            rebindPlayer = p;
+                            rebindActionIndex = a;
+                            remapSelectedPlayer = p;
+                            remapSelectedRow = a;
+                            rebindPulseClock.restart();
+                            return;
+                        }
+                    }
+                }
+
+                // Check bottom buttons
+                float btnY = panelY + panelHeight - 64.0f;
+                sf::FloatRect resetBtn({ panelX + (panelWidth - 520.0f) / 2.0f, btnY }, { 320.0f, 44.0f });
+                sf::FloatRect backBtn({ panelX + (panelWidth - 520.0f) / 2.0f + 340.0f, btnY }, { 180.0f, 44.0f });
+
+                if (isPointInside(resetBtn, clickPos)) {
+                    UI_controlsConfig::get().resetToDefaults();
+                    remapSelectedRow = 9;
+                } else if (isPointInside(backBtn, clickPos)) {
+                    state = MenuState::SETTINGS;
+                    selectedSettingsIndex = 3;
                 }
             }
         }
@@ -663,6 +936,8 @@ void UI_mainMenu::render(sf::RenderWindow& window) {
         drawBotDifficultyMenu(window);
     } else if (state == MenuState::SETTINGS) {
         drawSettingsMenu(window);
+    } else if (state == MenuState::SETTINGS_CONTROLS) {
+        drawControlsRemapMenu(window);
     }
 }
 

@@ -7,7 +7,7 @@ bool g_shotActive = false;
 int g_shotFrames = 0; // frames rendered so far in screenshot mode
 constexpr float SHOT_STEP = 1.0f / 60.0f;
 
-const char* const MENU_SCENES[] = { "menu", "modes", "bots", "controls", "settings" };
+const char* const MENU_SCENES[] = { "menu", "modes", "bots", "controls", "settings", "remap" };
 const char* const GAME_SCENES[] = { "game", "mining", "night", "winter", "storm", "victory", "pause", "help", "modal", "tutorial" };
 } // namespace
 

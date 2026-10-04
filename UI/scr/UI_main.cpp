@@ -32,6 +32,7 @@ void UI_main::setupShotScene() {
         else if (shot.scene == "bots") s = MenuState::BOT_DIFFICULTY;
         else if (shot.scene == "controls") s = MenuState::PLAY_CONTROLS;
         else if (shot.scene == "settings") s = MenuState::SETTINGS;
+        else if (shot.scene == "remap" || shot.scene == "controls_remap") s = MenuState::SETTINGS_CONTROLS;
         mainMenu.showState(s);
         currentState = UIState::MAIN_MENU;
         return;
