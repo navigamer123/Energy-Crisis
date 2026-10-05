@@ -260,7 +260,7 @@ void UI_map::render(sf::RenderWindow& window) {
     if (!resourcesLoaded) {
         p1Modal.active = false;
         p2Modal.active = false;
-        if (tutorial.isActive()) tutorial.skip();
+        if (tutorial.isActive()) tutorial.skip(&engine);
     }
 
     // 2. Synchronize clock displays with continuous time and dynamic weather

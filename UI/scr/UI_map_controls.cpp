@@ -474,7 +474,7 @@ void UI_map::executeP2Upgrade() {
         spawnMiningParticles(p2Pos, theme::Gold, 28);
         bool isArcade2 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
         triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
-                           isArcade2 ? "[A]: Добив | [C]: Нов ъпгрейд" : "[ENTER]: Добив | [RShift]: Нов ъпгрейд", theme::Gold);
+                           isArcade2 ? "[A]: Добив | [C]: Нов ъпгрейд" : "[ENTER]: Добив | [Shift]: Нов ъпгрейд", theme::Gold);
         spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
     } else {
         triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
@@ -804,9 +804,15 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     // P1 Upgrade Mine with Gold
     bool p1JoyUpgrade = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::UPGRADE);
-    bool p1PressingUpgrade = sf::Keyboard::isKeyPressed(p1Bindings.upgrade) ||
-                             (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End))) ||
-                             p1JoyUpgrade;
+    bool p1PressingUpgrade = false;
+    if (ArcadeMode::isEnabled()) {
+        p1PressingUpgrade = p1JoyUpgrade;
+    } else {
+        p1PressingUpgrade = sf::Keyboard::isKeyPressed(p1Bindings.upgrade) ||
+                            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F) ||
+                            (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::End))) ||
+                            p1JoyUpgrade;
+    }
     if (p1PressingUpgrade && !p1PrevUpgrade && !p1Modal.active && !showHelpOverlay) {
         executeP1Upgrade();
     }
@@ -917,7 +923,15 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
         // P2 Upgrade Mine with Gold
         bool p2JoyUpgrade = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::UPGRADE);
-        bool p2PressingUpgrade = sf::Keyboard::isKeyPressed(p2Bindings.upgrade) || p2JoyUpgrade;
+        bool p2PressingUpgrade = false;
+        if (ArcadeMode::isEnabled()) {
+            p2PressingUpgrade = p2JoyUpgrade;
+        } else {
+            p2PressingUpgrade = sf::Keyboard::isKeyPressed(p2Bindings.upgrade) ||
+                                sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) ||
+                                sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) ||
+                                p2JoyUpgrade;
+        }
         if (p2PressingUpgrade && !p2PrevUpgrade && !p2Modal.active && !showHelpOverlay) {
             executeP2Upgrade();
         }
@@ -1254,9 +1268,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     // -------------------------------------------------------------------------
     if (tutorial.isActive()) {
         if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
-            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
-            if (tutorial.handleClick(clickPos)) {
-                return;
+            if (!ArcadeMode::isEnabled()) {
+                sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+                if (tutorial.handleClick(clickPos, &engine)) {
+                    return;
+                }
             }
         }
         if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
@@ -1264,23 +1280,26 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             int player = (!bot.isActive() && jb->joystickId == (unsigned int)p2Joy) ? 2 : 1;
 
             if (jb->button == 1 || jb->button == 6) { // B / Coin / Cancel skips tutorial
-                if (tutorial.handleSkip(player)) {
+                if (tutorial.handleSkip(player, &engine)) {
                     return;
                 }
             }
             if (jb->button == 0 || jb->button == 7) { // A / Start advances tutorial
-                if (tutorial.handleAction(player)) {
+                if (tutorial.handleAction(player, &engine)) {
                     primeInputEdges(0);
                     return;
                 }
             }
         }
         if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (ArcadeMode::isEnabled()) {
+                return; // Disallow keyboard in arcade mode
+            }
             if (key->code == sf::Keyboard::Key::Escape) {
-                tutorial.skip();
+                tutorial.skip(&engine);
                 return;
             }
-            if (tutorial.handleKey(key->code)) {
+            if (tutorial.handleKey(key->code, &engine)) {
                 primeInputEdges(0); // The Space/Enter the tutorial consumed must not act in-game
                 return;
             }

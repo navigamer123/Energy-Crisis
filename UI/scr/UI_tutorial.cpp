@@ -68,6 +68,10 @@ void UI_tutorial::reset() {
     p2StepDelayTimer = 0.0f;
     initialP1BuildingCount = 0;
     initialP2BuildingCount = 0;
+    p1ExitBoostGranted = false;
+    p2ExitBoostGranted = false;
+    p1MineFunded = false;
+    p2MineFunded = false;
 }
 
 void UI_tutorial::start() {
@@ -79,21 +83,41 @@ void UI_tutorial::start() {
     p2StepDelayTimer = 0.0f;
     initialP1BuildingCount = 0;
     initialP2BuildingCount = 0;
+    p1ExitBoostGranted = false;
+    p2ExitBoostGranted = false;
+    p1MineFunded = false;
+    p2MineFunded = false;
 }
 
-void UI_tutorial::skip() {
+void UI_tutorial::grantExitBoost(int player, GameEngine& engine) {
+    if (player == 1 && !p1ExitBoostGranted) {
+        engine.getPlayerEconomyMut(1).gold += 30;
+        p1ExitBoostGranted = true;
+    } else if (player == 2 && !p2ExitBoostGranted) {
+        engine.getPlayerEconomyMut(2).gold += 30;
+        p2ExitBoostGranted = true;
+    }
+}
+
+void UI_tutorial::skip(GameEngine* engine) {
+    if (engine) {
+        grantExitBoost(1, *engine);
+        if (isCoop) grantExitBoost(2, *engine);
+    }
     p1Step = TutorialStep::INACTIVE;
     p2Step = TutorialStep::INACTIVE;
     p1Active = false;
     p2Active = false;
 }
 
-void UI_tutorial::skipP1() {
+void UI_tutorial::skipP1(GameEngine* engine) {
+    if (engine) grantExitBoost(1, *engine);
     p1Step = TutorialStep::INACTIVE;
     p1Active = false;
 }
 
-void UI_tutorial::skipP2() {
+void UI_tutorial::skipP2(GameEngine* engine) {
+    if (engine) grantExitBoost(2, *engine);
     p2Step = TutorialStep::INACTIVE;
     p2Active = false;
 }
@@ -124,7 +148,7 @@ static int countP2SolarPanels(const GameEngine& engine) {
     return count;
 }
 
-void UI_tutorial::update(float dt, const GameEngine& engine) {
+void UI_tutorial::update(float dt, GameEngine& engine) {
     if (!isActive()) return;
     animTimer += dt;
 
@@ -162,9 +186,29 @@ void UI_tutorial::update(float dt, const GameEngine& engine) {
                 case TutorialStep::PLACE_SOLAR: {
                     int cur = countP1SolarPanels(engine);
                     if (cur > initialP1BuildingCount) {
-                        p1Step = TutorialStep::COMPLETED;
+                        p1Step = TutorialStep::UPGRADE_MINE;
                     } else if (cur < initialP1BuildingCount) {
                         initialP1BuildingCount = cur;
+                    }
+                    break;
+                }
+                case TutorialStep::UPGRADE_MINE: {
+                    if (!p1MineFunded) {
+                        if (engine.getPlayerEconomy(1).gold < 15) {
+                            engine.getPlayerEconomyMut(1).gold += 15;
+                        }
+                        p1MineFunded = true;
+                    }
+                    bool hasUpgraded = false;
+                    for (int r = 1; r <= 7; ++r) {
+                        if (engine.getMineLevel(1, static_cast<ResourceType>(r)) > 1) {
+                            hasUpgraded = true;
+                            break;
+                        }
+                    }
+                    if (hasUpgraded) {
+                        grantExitBoost(1, engine);
+                        p1Step = TutorialStep::COMPLETED;
                     }
                     break;
                 }
@@ -207,9 +251,29 @@ void UI_tutorial::update(float dt, const GameEngine& engine) {
                 case TutorialStep::PLACE_SOLAR: {
                     int cur = countP2SolarPanels(engine);
                     if (cur > initialP2BuildingCount) {
-                        p2Step = TutorialStep::COMPLETED;
+                        p2Step = TutorialStep::UPGRADE_MINE;
                     } else if (cur < initialP2BuildingCount) {
                         initialP2BuildingCount = cur;
+                    }
+                    break;
+                }
+                case TutorialStep::UPGRADE_MINE: {
+                    if (!p2MineFunded) {
+                        if (engine.getPlayerEconomy(2).gold < 15) {
+                            engine.getPlayerEconomyMut(2).gold += 15;
+                        }
+                        p2MineFunded = true;
+                    }
+                    bool hasUpgraded = false;
+                    for (int r = 1; r <= 7; ++r) {
+                        if (engine.getMineLevel(2, static_cast<ResourceType>(r)) > 1) {
+                            hasUpgraded = true;
+                            break;
+                        }
+                    }
+                    if (hasUpgraded) {
+                        grantExitBoost(2, engine);
+                        p2Step = TutorialStep::COMPLETED;
                     }
                     break;
                 }
@@ -408,7 +472,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             break;
 
         case TutorialStep::GATHER_WOOD:
-            badgeText = pTag + (isEn ? ": STEP 1/6 (MINING)" : ": СТЪПКА 1/6 (СЪБИРАНЕ)");
+            badgeText = pTag + (isEn ? ": STEP 1/7 (MINING)" : ": СТЪПКА 1/7 (СЪБИРАНЕ)");
             titleText = isEn ? "GATHER WOOD (FOREST)" : "ДОБИЙТЕ ДЪРВЕСИНА (ГОРА)";
             if (isArcade) {
                 descText = isEn ? (player == 1 ? "Move to the FOREST station (left) and press [A]."
@@ -426,7 +490,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             break;
 
         case TutorialStep::GATHER_IRON:
-            badgeText = pTag + (isEn ? ": STEP 2/6 (MINING)" : ": СТЪПКА 2/6 (СЪБИРАНЕ)");
+            badgeText = pTag + (isEn ? ": STEP 2/7 (MINING)" : ": СТЪПКА 2/7 (СЪБИРАНЕ)");
             titleText = isEn ? "GATHER IRON FOR FRAME" : "ДОБИЙТЕ ЖЕЛЯЗО ЗА РАМКАТА";
             if (isArcade) {
                 descText = isEn ? "Move onto the IRON station and press [A]."
@@ -441,7 +505,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             break;
 
         case TutorialStep::GATHER_COPPER:
-            badgeText = pTag + (isEn ? ": STEP 3/6 (MINING)" : ": СТЪПКА 3/6 (СЪБИРАНЕ)");
+            badgeText = pTag + (isEn ? ": STEP 3/7 (MINING)" : ": СТЪПКА 3/7 (СЪБИРАНЕ)");
             titleText = isEn ? "GATHER COPPER FOR WIRES" : "ДОБИЙТЕ МЕД ЗА КАБЕЛИТЕ";
             if (isArcade) {
                 descText = isEn ? "Move onto the COPPER station and press [A]."
@@ -456,7 +520,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             break;
 
         case TutorialStep::GATHER_SILICON:
-            badgeText = pTag + (isEn ? ": STEP 4/6 (MINING)" : ": СТЪПКА 4/6 (СЪБИРАНЕ)");
+            badgeText = pTag + (isEn ? ": STEP 4/7 (MINING)" : ": СТЪПКА 4/7 (СЪБИРАНЕ)");
             titleText = isEn ? "GATHER SILICON FOR CELLS" : "ДОБИЙТЕ СИЛИЦИЙ ЗА КЛЕТКИТЕ";
             if (isArcade) {
                 descText = isEn ? "Move onto the SILICON station and press [A]."
@@ -471,7 +535,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             break;
 
         case TutorialStep::SELECT_SOLAR:
-            badgeText = pTag + (isEn ? ": STEP 5/6 (SELECTION)" : ": СТЪПКА 5/6 (ИЗБОР)");
+            badgeText = pTag + (isEn ? ": STEP 5/7 (SELECTION)" : ": СТЪПКА 5/7 (ИЗБОР)");
             titleText = isEn ? "SELECT SOLAR PANEL" : "ИЗБЕРЕТЕ СЛЪНЧЕВ ПАНЕЛ";
             if (isArcade) {
                 descText = isEn ? "Press button [D] to select the Solar Panel.\n"
@@ -496,7 +560,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             break;
 
         case TutorialStep::PLACE_SOLAR:
-            badgeText = pTag + (isEn ? ": STEP 6/6 (CONSTRUCTION)" : ": СТЪПКА 6/6 (СТРОИТЕЛСТВО)");
+            badgeText = pTag + (isEn ? ": STEP 6/7 (CONSTRUCTION)" : ": СТЪПКА 6/7 (СТРОИТЕЛСТВО)");
             titleText = isEn ? "PLACE PANEL ON YOUR GRID" : "ПОСТАВЕТЕ ПАНЕЛА В ГРИДА";
             if (isArcade) {
                 descText = isEn ? "Move cursor with joystick onto your land and press [A]!"
@@ -516,20 +580,41 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             progressRatio = 0.5f;
             break;
 
+        case TutorialStep::UPGRADE_MINE:
+            badgeText = pTag + (isEn ? ": STEP 7/7 (UPGRADE)" : ": СТЪПКА 7/7 (НАДГРАЖДАНЕ)");
+            titleText = isEn ? "UPGRADE A RESOURCE MINE" : "НАДГРАДЕТЕ ДОБИВНА МИНА";
+            if (isArcade) {
+                descText = isEn ? "Move over a mine station and press Joystick Button C to upgrade!"
+                                : "Отидете върху добивна станция и натиснете бутон C от джойстика за надграждане!";
+                progressText = isEn ? "Joystick Button C: Upgrade" : "Бутон C от джойстика: Надграждане";
+            } else {
+                if (player == 1) {
+                    descText = isEn ? "Hover over a mine station and press the [F] key to upgrade."
+                                    : "Отидете върху добивна станция и натиснете клавиш [F] за надграждане.";
+                    progressText = isEn ? "[F] Key: Upgrade" : "Клавиш [F]: Надграждане";
+                } else {
+                    descText = isEn ? "Hover over a mine station and press the [Shift] key to upgrade."
+                                    : "Отидете върху добивна станция и натиснете клавиш [Shift] за надграждане.";
+                    progressText = isEn ? "[Shift] Key: Upgrade" : "Клавиш [Shift]: Надграждане";
+                }
+            }
+            progressRatio = 0.5f;
+            break;
+
         case TutorialStep::COMPLETED:
             badgeText = pTag + (isEn ? ": SUCCESS!" : ": УСПЕХ!");
-            titleText = isEn ? "FIRST PANEL IS ONLINE!" : "ПЪРВИЯТ ВИ ПАНЕЛ РАБОТИ!";
+            titleText = isEn ? "TUTORIAL COMPLETED!" : "ОБУЧЕНИЕТО Е ЗАВЪРШЕНО!";
             if (isArcade) {
                 descText = isEn ? "The panel produces +60 MW power and generates income ($)!\n"
-                                  "Upgrade mines with button [C] and buy land plots with [A]."
+                                  "Upgrade mines with Joystick Button C and buy land plots with [A]."
                                 : "Панелът произвежда +60 MW ток и ви носи печалба ($)!\n"
-                                  "Надграждайте мините с бутон [C] и купувайте нови парцели с [A].";
+                                  "Надграждайте мините с бутон C от джойстика и купувайте нови парцели с [A].";
                 nextBtnLabel = isEn ? "CLOSE [A]" : "ЗАТВОРИ [A]";
             } else {
-                descText = isEn ? "The panel produces +60 MW power and generates income ($)!\n"
-                                  "Upgrade mines with [U] (or click) and expand with new land plots!"
-                                : "Панелът произвежда +60 MW ток и ви носи печалба ($)!\n"
-                                  "Надграждайте мините с [U] (или щракване) и купувайте парцели!";
+                descText = isEn ? (std::string("The panel produces +60 MW power and generates income ($)!\n") +
+                                  "Upgrade mines (" + (player == 1 ? "[F]" : "[Shift]") + ") and expand with new land plots!")
+                                : (std::string("Панелът произвежда +60 MW ток и ви носи печалба ($)!\n") +
+                                  "Надграждайте мините (" + (player == 1 ? "[F]" : "[Shift]") + ") и купувайте нови парцели!");
                 nextBtnLabel = isEn ? (player == 1 ? "CLOSE [SPACE]" : "CLOSE [ENTER]")
                                     : (player == 1 ? "ЗАТВОРИ [SPACE]" : "ЗАТВОРИ [ENTER]");
             }
@@ -689,6 +774,13 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             sf::Vector2f slot = engine.getGridSlot(1, targetCol, targetRow);
             std::string p1Place = isArcade ? " [A]" : " [SPACE]";
             drawArrow(window, slot, isEn ? ("P1: PLACE" + p1Place) : ("P1: ПОСТАВЕТЕ" + p1Place), font, animTime, ArrowDir::DOWN, theme::P1);
+        } else if (p1Step == TutorialStep::UPGRADE_MINE) {
+            const auto* st = nodes.getStation(1, ResourceType::WOOD);
+            if (st) {
+                sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
+                std::string p1Up = isArcade ? " [C]" : " [F]";
+                drawArrow(window, center, isEn ? ("P1: UPGRADE" + p1Up) : ("P1: НАДГРАДИ" + p1Up), font, animTime, ArrowDir::DOWN, theme::P1);
+            }
         } else {
             auto [pos, label] = getStationPos(1, p1Step);
             if (!label.empty()) {
@@ -718,6 +810,13 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             sf::Vector2f slot = engine.getGridSlot(2, targetCol, targetRow);
             std::string p2Place = isArcade ? " [A]" : " [ENTER]";
             drawArrow(window, slot, isEn ? ("P2: PLACE" + p2Place) : ("P2: ПОСТАВЕТЕ" + p2Place), font, animTime, ArrowDir::DOWN, theme::P2);
+        } else if (p2Step == TutorialStep::UPGRADE_MINE) {
+            const auto* st = nodes.getStation(2, ResourceType::WOOD);
+            if (st) {
+                sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
+                std::string p2Up = isArcade ? " [C]" : " [Shift]";
+                drawArrow(window, center, isEn ? ("P2: UPGRADE" + p2Up) : ("P2: НАДГРАДИ" + p2Up), font, animTime, ArrowDir::DOWN, theme::P2);
+            }
         } else {
             auto [pos, label] = getStationPos(2, p2Step);
             if (!label.empty()) {
@@ -741,43 +840,43 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     }
 }
 
-bool UI_tutorial::handleClick(sf::Vector2f mousePos) {
+bool UI_tutorial::handleClick(sf::Vector2f mousePos, GameEngine* engine) {
     if (!isActive()) return false;
 
     if (isCoop) {
         // Player 1 Card Clicks
         if (p1Active && p1Step != TutorialStep::INACTIVE) {
             if (p1SkipBtnBounds.contains(mousePos)) {
-                skipP1();
+                skipP1(engine);
                 return true;
             }
             if ((p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED) && p1NextBtnBounds.contains(mousePos)) {
                 if (p1Step == TutorialStep::WELCOME) p1Step = TutorialStep::GATHER_WOOD;
-                else skipP1();
+                else skipP1(engine);
                 return true;
             }
         }
         // Player 2 Card Clicks
         if (p2Active && p2Step != TutorialStep::INACTIVE) {
             if (p2SkipBtnBounds.contains(mousePos)) {
-                skipP2();
+                skipP2(engine);
                 return true;
             }
             if ((p2Step == TutorialStep::WELCOME || p2Step == TutorialStep::COMPLETED) && p2NextBtnBounds.contains(mousePos)) {
                 if (p2Step == TutorialStep::WELCOME) p2Step = TutorialStep::GATHER_WOOD;
-                else skipP2();
+                else skipP2(engine);
                 return true;
             }
         }
     } else {
         if (p1Active && p1Step != TutorialStep::INACTIVE) {
             if (skipBtnBounds.contains(mousePos)) {
-                skip();
+                skip(engine);
                 return true;
             }
             if ((p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED) && nextBtnBounds.contains(mousePos)) {
                 if (p1Step == TutorialStep::WELCOME) p1Step = TutorialStep::GATHER_WOOD;
-                else skip();
+                else skip(engine);
                 return true;
             }
         }
@@ -786,14 +885,14 @@ bool UI_tutorial::handleClick(sf::Vector2f mousePos) {
     return false;
 }
 
-bool UI_tutorial::handleAction(int player) {
+bool UI_tutorial::handleAction(int player, GameEngine* engine) {
     if (!isActive()) return false;
     if (player == 1 && p1Active) {
         if (p1Step == TutorialStep::WELCOME) {
             p1Step = TutorialStep::GATHER_WOOD;
             return true;
         } else if (p1Step == TutorialStep::COMPLETED) {
-            skipP1();
+            skipP1(engine);
             return true;
         }
     } else if (player == 2 && isCoop && p2Active) {
@@ -801,35 +900,36 @@ bool UI_tutorial::handleAction(int player) {
             p2Step = TutorialStep::GATHER_WOOD;
             return true;
         } else if (p2Step == TutorialStep::COMPLETED) {
-            skipP2();
+            skipP2(engine);
             return true;
         }
     }
     return false;
 }
 
-bool UI_tutorial::handleSkip(int player) {
+bool UI_tutorial::handleSkip(int player, GameEngine* engine) {
     if (!isActive()) return false;
     if (player == 1 && p1Active) {
-        skipP1();
+        skipP1(engine);
         return true;
     } else if (player == 2 && isCoop && p2Active) {
-        skipP2();
+        skipP2(engine);
         return true;
     }
     return false;
 }
 
-bool UI_tutorial::handleKey(sf::Keyboard::Key key) {
+bool UI_tutorial::handleKey(sf::Keyboard::Key key, GameEngine* engine) {
     if (!isActive()) return false;
+    if (ArcadeMode::isEnabled()) return false; // Keyboard input disabled in Arcade Mode
     if (key == sf::Keyboard::Key::Space) {
-        return handleAction(1);
+        return handleAction(1, engine);
     }
     if (key == sf::Keyboard::Key::Enter) {
-        return isCoop ? handleAction(2) : handleAction(1);
+        return isCoop ? handleAction(2, engine) : handleAction(1, engine);
     }
     if (key == sf::Keyboard::Key::Escape) {
-        skip();
+        skip(engine);
         return true;
     }
     return false;

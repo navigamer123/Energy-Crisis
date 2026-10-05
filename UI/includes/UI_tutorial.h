@@ -17,6 +17,7 @@ enum class TutorialStep {
     GATHER_SILICON,
     SELECT_SOLAR,
     PLACE_SOLAR,
+    UPGRADE_MINE,
     COMPLETED
 };
 
@@ -39,6 +40,10 @@ private:
     float p2StepDelayTimer = 0.0f;
     int initialP1BuildingCount = 0;
     int initialP2BuildingCount = 0;
+    bool p1ExitBoostGranted = false;
+    bool p2ExitBoostGranted = false;
+    bool p1MineFunded = false;
+    bool p2MineFunded = false;
 
     sf::FloatRect cardBounds; // Single-player centered card
     sf::FloatRect skipBtnBounds;
@@ -66,9 +71,10 @@ public:
 
     void reset();
     void start();
-    void skip();
-    void skipP1();
-    void skipP2();
+    void skip(GameEngine* engine = nullptr);
+    void skipP1(GameEngine* engine = nullptr);
+    void skipP2(GameEngine* engine = nullptr);
+    void grantExitBoost(int player, GameEngine& engine);
     void setCoop(bool coop) { isCoop = coop; }
 
     bool isActive() const {
@@ -80,15 +86,15 @@ public:
     TutorialStep getP1Step() const { return p1Step; }
     TutorialStep getP2Step() const { return p2Step; }
 
-    void update(float dt, const GameEngine& engine);
+    void update(float dt, GameEngine& engine);
     void draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
               const GameEngine& engine, const UI_resourceNodes& nodes, float animTime,
               sf::Vector2f mousePos, sf::Vector2f p1Pos, sf::Vector2f p2Pos);
 
-    bool handleClick(sf::Vector2f mousePos);
-    bool handleKey(sf::Keyboard::Key key);
-    bool handleAction(int player);
-    bool handleSkip(int player);
+    bool handleClick(sf::Vector2f mousePos, GameEngine* engine = nullptr);
+    bool handleKey(sf::Keyboard::Key key, GameEngine* engine = nullptr);
+    bool handleAction(int player, GameEngine* engine = nullptr);
+    bool handleSkip(int player, GameEngine* engine = nullptr);
 };
 
 #endif // UI_TUTORIAL_H
