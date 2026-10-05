@@ -13,6 +13,8 @@ public:
     void update(float dt);
     void draw(sf::RenderWindow& window);
     bool isVisible() const { return timer > 0.0f; }
+    const std::string& getMessage() const { return currentMessage; }
+    float getTimer() const { return timer; }
 
 private:
     ArcadePopup();

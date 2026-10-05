@@ -58,6 +58,110 @@ UI_tutorial::UI_tutorial()
                                    { p2NextW, p2NextH });
 }
 
+std::string UI_tutorial::getStepDescription(int player, TutorialStep currentStep, const GameEngine& engine) const {
+    (void)engine;
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+    bool isArcade = ArcadeMode::isEnabled();
+
+    switch (currentStep) {
+        case TutorialStep::WELCOME:
+            if (isArcade) {
+                return isEn ? "Move: [JOYSTICK]  |  Action: [A]  |  Building: [D]  |  Cancel: [B]\nFirst gather resources to construct a Solar Panel."
+                            : "Движение: [СТИК]  |  Действие: [A]  |  Сграда: [D]  |  Отказ: [B]\nПърво съберете суровини за изграждане на Слънчев панел.";
+            } else {
+                if (player == 1) {
+                    return isEn ? "Move: [W/A/S/D]  |  Action: [SPACE]  |  Build: [E]  |  Cancel: [X]\nOr use Mouse to select & place. Gather resources first!"
+                                : "Движение: [W/A/S/D]  |  Действие: [SPACE]  |  Сграда: [E]  |  Отказ: [X]\nИли с мишката. Първо съберете ресурси за Слънчев панел.";
+                } else {
+                    return isEn ? "Move: [ARROWS]  |  Action: [ENTER]  |  Build: [PgDn]  |  Cancel: [DEL]\nFirst gather resources to construct a Solar Panel."
+                                : "Движение: [СТРЕЛКИ]  |  Действие: [ENTER]  |  Сграда: [PgDn]  |  Отказ: [DEL]\nПърво съберете ресурси за Слънчев панел.";
+                }
+            }
+        case TutorialStep::GATHER_WOOD:
+            if (isArcade) {
+                return isEn ? (player == 1 ? "Move to the FOREST station (left) and press [A]." : "Move to the FOREST station (right) and press [A].")
+                            : (player == 1 ? "Застанете на станция ГОРА (ляво) и натиснете [A]." : "Застанете на станция ГОРА (дясно) и натиснете [A].");
+            } else {
+                std::string act = (player == 1 ? "[SPACE]" : "[ENTER]");
+                std::string dir = (player == 1 ? (isEn ? "left" : "ляво") : (isEn ? "right" : "дясно"));
+                return isEn ? ("Move to the FOREST station (" + dir + ") and press " + act + ".")
+                            : ("Застанете на станция ГОРА (" + dir + ") и натиснете " + act + ".");
+            }
+        case TutorialStep::GATHER_IRON:
+            if (isArcade) {
+                return isEn ? "Move onto the IRON station and press [A]." : "Отидете върху станция ЖЕЛЯЗО и натиснете [A].";
+            } else {
+                std::string act = (player == 1 ? "[SPACE]" : "[ENTER]");
+                return isEn ? ("Move onto the IRON station and press " + act + ".") : ("Отидете върху станция ЖЕЛЯЗО и натиснете " + act + ".");
+            }
+        case TutorialStep::GATHER_COPPER:
+            if (isArcade) {
+                return isEn ? "Move onto the COPPER station and press [A]." : "Отидете върху станция МЕД и натиснете [A].";
+            } else {
+                std::string act = (player == 1 ? "[SPACE]" : "[ENTER]");
+                return isEn ? ("Move onto the COPPER station and press " + act + ".") : ("Отидете върху станция МЕД и натиснете " + act + ".");
+            }
+        case TutorialStep::GATHER_SILICON:
+            if (isArcade) {
+                return isEn ? "Move onto the SILICON station and press [A]." : "Отидете върху станция СИЛИЦИЙ и натиснете [A].";
+            } else {
+                std::string act = (player == 1 ? "[SPACE]" : "[ENTER]");
+                return isEn ? ("Move onto the SILICON station and press " + act + ".") : ("Отидете върху станция СИЛИЦИЙ и натиснете " + act + ".");
+            }
+        case TutorialStep::SELECT_SOLAR:
+            if (isArcade) {
+                return isEn ? "Press button [D] to select the Solar Panel.\nCancel selection: press button [B]!"
+                            : "Натиснете бутон [D] за избор на Слънчев панел.\nОтказ от избор: натиснете бутон [B]!";
+            } else {
+                if (player == 1) {
+                    return isEn ? "Press [E] or [1] (or click on panel icon) to select.\nCancel: press [X] or right click!"
+                                : "Натиснете [E] или [1] (или щракнете върху панела).\nОтказ: натиснете [X] или десен бутон!";
+                } else {
+                    return isEn ? "Press [PgDn] or [KP_1] to select Solar Panel.\nCancel: press [DEL]!"
+                                : "Натиснете [PgDn] или [KP_1] за избор на панел.\nОтказ: натиснете [DEL]!";
+                }
+            }
+        case TutorialStep::PLACE_SOLAR:
+            if (isArcade) {
+                return isEn ? "Move cursor with joystick onto your land and press [A]!"
+                            : "Насочете курсора със стика върху вашата земя и натиснете [A]!";
+            } else {
+                if (player == 1) {
+                    return isEn ? "Click on your land slot or move cursor and press [SPACE]!"
+                                : "Щракнете върху свободен парцел или натиснете [SPACE]!";
+                } else {
+                    return isEn ? "Move cursor with [ARROWS] onto your land and press [ENTER]!"
+                                : "Насочете курсора със [СТРЕЛКИ] върху ваша земя и [ENTER]!";
+                }
+            }
+        case TutorialStep::UPGRADE_MINE:
+            if (isArcade) {
+                return isEn ? "Move over a mine station and press Joystick Button C to upgrade!"
+                            : "Отидете върху добивна станция и натиснете бутон C от джойстика за надграждане!";
+            } else {
+                if (player == 1) {
+                    return isEn ? "Hover over a mine station and press the [F] key to upgrade."
+                                : "Отидете върху добивна станция и натиснете клавиш [F] за надграждане.";
+                } else {
+                    return isEn ? "Hover over a mine station and press the [Shift] key to upgrade."
+                                : "Отидете върху добивна станция и натиснете клавиш [Shift] за надграждане.";
+                }
+            }
+        case TutorialStep::COMPLETED:
+            if (isArcade) {
+                return isEn ? "The panel produces +60 MW power and generates income ($)!\nUpgrade mines with Joystick Button C and buy land plots with [A]."
+                            : "Панелът произвежда +60 MW ток и ви носи печалба ($)!\nНадграждайте мините с бутон C от джойстика и купувайте нови парцели с [A].";
+            } else {
+                return isEn ? (std::string("The panel produces +60 MW power and generates income ($)!\n") +
+                              "Upgrade mines (" + (player == 1 ? "[F]" : "[Shift]") + ") and expand with new land plots!")
+                            : (std::string("Панелът произвежда +60 MW ток и ви носи печалба ($)!\n") +
+                              "Надграждайте мините (" + (player == 1 ? "[F]" : "[Shift]") + ") и купувайте нови парцели!");
+            }
+        default:
+            return "";
+    }
+}
+
 void UI_tutorial::reset() {
     p1Step = TutorialStep::WELCOME;
     p2Step = TutorialStep::WELCOME;
@@ -434,7 +538,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
 
     std::string badgeText = pTag + (isEn ? ": BASICS" : ": ОСНОВИ");
     std::string titleText = "";
-    std::string descText = "";
+    std::string descText = getStepDescription(player, currentStep, engine);
     std::string progressText = "";
     float progressRatio = 0.0f;
     bool showNextBtn = false;

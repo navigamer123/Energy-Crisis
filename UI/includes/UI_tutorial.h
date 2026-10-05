@@ -85,6 +85,8 @@ public:
     TutorialStep getStep() const { return p1Step; }
     TutorialStep getP1Step() const { return p1Step; }
     TutorialStep getP2Step() const { return p2Step; }
+    void setStep(TutorialStep step) { p1Step = step; p2Step = step; }
+    std::string getStepDescription(int player, TutorialStep step, const GameEngine& engine) const;
 
     void update(float dt, GameEngine& engine);
     void draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
