@@ -325,9 +325,42 @@ void UI_map::render(sf::RenderWindow& window) {
         bool onPurchased = isPosOnPurchasedLand(player, cursor);
         if (sel == BuildingType::DEMOLISH || onPurchased) {
             sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? cursor : engine.snapToBuildingGrid(player, cursor);
+
+            // Dynamic grid highlighting for Windmill, Solar Panel, and Hydro Plant
+            // Note: DO NOT highlight or apply logic to any grid/plot that has not been purchased yet!
+            if (sel == BuildingType::WIND_TURBINE || sel == BuildingType::SOLAR_PANEL || sel == BuildingType::HYDRO_PLANT) {
+                for (int r = 0; r < Balance::GRID_ROWS; ++r) {
+                    for (int c = 0; c < Balance::GRID_COLS; ++c) {
+                        if (!engine.isSlotOnPurchasedLand(player, c, r)) continue;
+                        if (engine.getBuildingAtSlot(player, c, r) != nullptr) continue;
+                        sf::Vector2f slotPos = engine.getGridSlot(player, c, r);
+                        if (sel == BuildingType::HYDRO_PLANT && !engine.isRiverBankSlot(player, slotPos)) continue;
+
+                        sf::Color tileColor = engine.getPlacementTileColor(player, sel, c, r);
+                        if (tileColor.a == 0) continue;
+
+                        sf::RectangleShape tileBox({ 30.0f, 26.0f });
+                        tileBox.setOrigin({ 15.0f, 13.0f });
+                        tileBox.setPosition(slotPos);
+                        tileBox.setFillColor(theme::withAlpha(tileColor, 35));
+                        tileBox.setOutlineThickness(1.5f);
+                        tileBox.setOutlineColor(theme::withAlpha(tileColor, 180));
+                        window.draw(tileBox);
+                    }
+                }
+            }
+
             std::string reason;
             bool valid = engine.canPlaceBuilding(player, sel, targetPos, reason);
-            nodes.drawBuildingGhost(window, font, resourcesLoaded, sel, targetPos, valid, engine.getBuildingCost(sel));
+
+            int hoverCol = 0, hoverRow = 0;
+            engine.getClosestGridIndex(player, targetPos, hoverCol, hoverRow);
+            sf::Color ghostTint = sf::Color::Transparent;
+            if (sel == BuildingType::WIND_TURBINE || sel == BuildingType::SOLAR_PANEL || sel == BuildingType::HYDRO_PLANT) {
+                ghostTint = engine.getPlacementTileColor(player, sel, hoverCol, hoverRow);
+            }
+
+            nodes.drawBuildingGhost(window, font, resourcesLoaded, sel, targetPos, valid, engine.getBuildingCost(sel), ghostTint);
             ghosts[player - 1] = { true, sel, targetPos, valid };
         } else {
             // Unpurchased territory warning indicator:

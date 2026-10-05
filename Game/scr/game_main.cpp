@@ -403,30 +403,31 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         for (auto& b : buildings) {
             if (b.playerOwner != player) continue;
             switch (b.type) {
-                case BuildingType::SOLAR_PANEL:
+                case BuildingType::SOLAR_PANEL: {
+                    int c = 0, r = 0;
+                    getClosestGridIndex(player, b.position, c, r);
+                    float deduction = getSolarDeductionAt(player, c, r);
+                    const float mult = solarMult * effSolar * std::max(0.0f, 1.0f - deduction);
+                    float out = basePowerOf(b.type) * mult;
+                    b.currentOutputMW = out;
+                    rawGen += out;
+                    break;
+                }
                 case BuildingType::HYDRO_PLANT: {
-                    const float mult = (b.type == BuildingType::SOLAR_PANEL) ? (solarMult * effSolar) : (hydroMult * effHydro);
+                    int c = 0, r = 0;
+                    getClosestGridIndex(player, b.position, c, r);
+                    float deduction = getHydroDeductionAt(player, c, r);
+                    const float mult = hydroMult * effHydro * std::max(0.0f, 1.0f - deduction);
                     float out = basePowerOf(b.type) * mult;
                     b.currentOutputMW = out;
                     rawGen += out;
                     break;
                 }
                 case BuildingType::WIND_TURBINE: {
-                    // Wind turbine wake effect: proximity penalty (product formula) combined with
-                    // density saturation diminishing returns to prevent turbine spamming
-                    float wakeEff = 1.0f;
-                    for (const auto& other : buildings) {
-                        if (&other == &b) continue;
-                        if (other.playerOwner != player || other.type != BuildingType::WIND_TURBINE) continue;
-                        float dx = other.position.x - b.position.x;
-                        float dy = other.position.y - b.position.y;
-                        float dist = std::sqrt(dx * dx + dy * dy);
-                        if (dist < Balance::WIND_WAKE_RADIUS && dist > 0.5f) {
-                            wakeEff *= std::max(0.25f, dist / Balance::WIND_WAKE_RADIUS);
-                        }
-                    }
-                    wakeEff = std::max(0.25f, wakeEff);
-                    const float mult = windMult * wakeEff * effWind;
+                    int c = 0, r = 0;
+                    getClosestGridIndex(player, b.position, c, r);
+                    float deduction = getWindmillDeductionAt(player, c, r);
+                    const float mult = windMult * effWind * std::max(0.0f, 1.0f - deduction);
                     float out = basePowerOf(b.type) * mult;
                     b.currentOutputMW = out;
                     rawGen += out;
@@ -1295,4 +1296,200 @@ bool GameEngine::breakRandomBuilding(int playerOwner, sf::Vector2f& outPos) {
 bool GameEngine::hasBrokenBuilding(int player) const {
     (void)player;
     return false;
+}
+
+bool GameEngine::isSlotOnPurchasedLand(int player, int col, int row) const {
+    if (col < 0 || col >= Balance::GRID_COLS || row < 0 || row >= Balance::GRID_ROWS) return false;
+    sf::Vector2f pos = getGridSlot(player, col, row);
+    for (const auto& plot : landPlots) {
+        if (plot.playerOwner == player && plot.bounds.contains(pos)) {
+            return plot.isPurchased;
+        }
+    }
+    return false;
+}
+
+const PlacedBuilding* GameEngine::getBuildingAtSlot(int player, int col, int row) const {
+    if (col < 0 || col >= Balance::GRID_COLS || row < 0 || row >= Balance::GRID_ROWS) return nullptr;
+    sf::Vector2f pos = getGridSlot(player, col, row);
+    int idx = findOwnedBuildingInSlot(player, pos);
+    if (idx >= 0 && idx < static_cast<int>(buildings.size())) {
+        return &buildings[idx];
+    }
+    return nullptr;
+}
+
+float GameEngine::getWindmillDeductionAt(int player, int col, int row) const {
+    if (!isSlotOnPurchasedLand(player, col, row)) return 0.0f;
+
+    // 1. In-Line Penalty (Front/Behind):
+    // Count existing windmills in the same column in front of this position (r < row)
+    int frontCount = 0;
+    for (int r = 0; r < row; ++r) {
+        const PlacedBuilding* b = getBuildingAtSlot(player, col, r);
+        if (b && b->type == BuildingType::WIND_TURBINE) {
+            frontCount++;
+        }
+    }
+    // Stacking: -20% per windmill in front (0 for 1st, -20% for 2nd, -40% for 3rd)
+    float inLinePenalty = frontCount * 0.20f;
+
+    // 2. Adjacent Penalty (Left/Right):
+    // -10% penalty per adjacent windmill directly to the left or right
+    int adjCount = 0;
+    if (col > 0) {
+        const PlacedBuilding* bLeft = getBuildingAtSlot(player, col - 1, row);
+        if (bLeft && bLeft->type == BuildingType::WIND_TURBINE) adjCount++;
+    }
+    if (col + 1 < Balance::GRID_COLS) {
+        const PlacedBuilding* bRight = getBuildingAtSlot(player, col + 1, row);
+        if (bRight && bRight->type == BuildingType::WIND_TURBINE) adjCount++;
+    }
+    float adjPenalty = adjCount * 0.10f;
+
+    return std::min(1.0f, inLinePenalty + adjPenalty);
+}
+
+float GameEngine::getSolarDeductionAt(int player, int col, int row) const {
+    if (!isSlotOnPurchasedLand(player, col, row)) return 0.0f;
+
+    float deduction = 0.0f;
+
+    // 1. Windmill directly in front blocking sun/wind path:
+    bool windmillInFront = false;
+    if (row > 0) {
+        const PlacedBuilding* bFront = getBuildingAtSlot(player, col, row - 1);
+        if (bFront && bFront->type == BuildingType::WIND_TURBINE) windmillInFront = true;
+    }
+    if (windmillInFront) {
+        deduction += 0.20f;
+    }
+
+    // 2. Horizontal Windmill Penalty:
+    // 1 windmill left/right = -10%, both left and right = -20%
+    bool leftWm = false;
+    bool rightWm = false;
+    if (col > 0) {
+        const PlacedBuilding* bLeft = getBuildingAtSlot(player, col - 1, row);
+        if (bLeft && bLeft->type == BuildingType::WIND_TURBINE) leftWm = true;
+    }
+    if (col + 1 < Balance::GRID_COLS) {
+        const PlacedBuilding* bRight = getBuildingAtSlot(player, col + 1, row);
+        if (bRight && bRight->type == BuildingType::WIND_TURBINE) rightWm = true;
+    }
+
+    if (leftWm && rightWm) {
+        deduction += 0.20f;
+    } else if (leftWm || rightWm) {
+        deduction += 0.10f;
+    }
+
+    return std::min(1.0f, deduction);
+}
+
+float GameEngine::getHydroDeductionAt(int player, int col, int row) const {
+    if (!isSlotOnPurchasedLand(player, col, row)) return 0.0f;
+    sf::Vector2f pos = getGridSlot(player, col, row);
+    if (!isRiverBankSlot(player, pos)) return 1.0f;
+
+    int hydroCountOnPlot = 0;
+    for (const auto& plot : landPlots) {
+        if (plot.playerOwner == player && plot.bounds.contains(pos)) {
+            for (const auto& b : buildings) {
+                if (b.playerOwner == player && b.type == BuildingType::HYDRO_PLANT && plot.bounds.contains(b.position)) {
+                    hydroCountOnPlot++;
+                }
+            }
+            break;
+        }
+    }
+
+    const PlacedBuilding* currentB = getBuildingAtSlot(player, col, row);
+    bool alreadyHydro = (currentB && currentB->type == BuildingType::HYDRO_PLANT);
+    int totalAfterPlacement = alreadyHydro ? hydroCountOnPlot : (hydroCountOnPlot + 1);
+
+    if (totalAfterPlacement <= 1) return 0.0f;       // Optimal: 0 or 1 = 0%
+    if (totalAfterPlacement <= 4) return 0.15f;      // Crowded: 2 to 4 = -15%
+    return 0.25f;                                    // Overcrowded: 5+ = -25%
+}
+
+sf::Color GameEngine::getPlacementTileColor(int player, BuildingType type, int col, int row) const {
+    if (!isSlotOnPurchasedLand(player, col, row)) {
+        return sf::Color::Transparent;
+    }
+
+    if (getBuildingAtSlot(player, col, row) != nullptr) {
+        return sf::Color::Transparent;
+    }
+
+    if (type == BuildingType::WIND_TURBINE) {
+        // 1. In-Line Penalty: placed behind existing windmill OR in front of existing windmill
+        bool inLineConflict = false;
+        for (int r = 0; r < Balance::GRID_ROWS; ++r) {
+            if (r == row) continue;
+            const PlacedBuilding* b = getBuildingAtSlot(player, col, r);
+            if (b && b->type == BuildingType::WIND_TURBINE) {
+                inLineConflict = true;
+                break;
+            }
+        }
+        if (inLineConflict) {
+            return sf::Color(255, 45, 45); // Plain Red
+        }
+
+        // 2. Adjacent left or right: -10% per adjacent windmill
+        bool adjConflict = false;
+        if (col > 0) {
+            const PlacedBuilding* b = getBuildingAtSlot(player, col - 1, row);
+            if (b && b->type == BuildingType::WIND_TURBINE) adjConflict = true;
+        }
+        if (col + 1 < Balance::GRID_COLS) {
+            const PlacedBuilding* b = getBuildingAtSlot(player, col + 1, row);
+            if (b && b->type == BuildingType::WIND_TURBINE) adjConflict = true;
+        }
+        if (adjConflict) {
+            return sf::Color(255, 215, 0); // Yellow
+        }
+
+        // 3. Diagonal or isolated: Green
+        return sf::Color(45, 230, 85); // Green
+    }
+    else if (type == BuildingType::SOLAR_PANEL) {
+        bool hasFrontWm = false;
+        if (row > 0) {
+            const PlacedBuilding* b = getBuildingAtSlot(player, col, row - 1);
+            if (b && b->type == BuildingType::WIND_TURBINE) hasFrontWm = true;
+        }
+
+        bool leftWm = false;
+        bool rightWm = false;
+        if (col > 0) {
+            const PlacedBuilding* b = getBuildingAtSlot(player, col - 1, row);
+            if (b && b->type == BuildingType::WIND_TURBINE) leftWm = true;
+        }
+        if (col + 1 < Balance::GRID_COLS) {
+            const PlacedBuilding* b = getBuildingAtSlot(player, col + 1, row);
+            if (b && b->type == BuildingType::WIND_TURBINE) rightWm = true;
+        }
+
+        if (hasFrontWm || (leftWm && rightWm)) {
+            return sf::Color(255, 45, 45); // Red
+        }
+        if (leftWm || rightWm) {
+            return sf::Color(255, 215, 0); // Yellow
+        }
+        return sf::Color(45, 230, 85);     // Green
+    }
+    else if (type == BuildingType::HYDRO_PLANT) {
+        sf::Vector2f pos = getGridSlot(player, col, row);
+        if (!isRiverBankSlot(player, pos)) {
+            return sf::Color::Transparent;
+        }
+        float deduction = getHydroDeductionAt(player, col, row);
+        if (deduction >= 0.24f) return sf::Color(255, 45, 45); // Red (5+ plants)
+        if (deduction >= 0.14f) return sf::Color(255, 215, 0); // Yellow (2-4 plants)
+        return sf::Color(45, 230, 85);                          // Green (0-1 plants)
+    }
+
+    return sf::Color(45, 230, 85);
 }

@@ -34,7 +34,7 @@ public:
                              const std::vector<PlacedBuilding>& buildings);
     void drawBuildingGhost(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                            BuildingType type, sf::Vector2f pos, bool isValidPlacement,
-                           const BuildingCost& cost);
+                           const BuildingCost& cost, sf::Color overrideColor = sf::Color::Transparent);
     // Name, cost and keys of the ghost in a tooltip panel; drawn after the city so nothing covers it
     // (missing = "Недостигат: ..." replaces the cost line when the player cannot pay)
     void drawBuildingGhostInfo(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,

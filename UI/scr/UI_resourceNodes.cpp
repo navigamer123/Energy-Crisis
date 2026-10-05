@@ -441,13 +441,15 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
 
 void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                                        BuildingType type, sf::Vector2f pos, bool isValidPlacement,
-                                       const BuildingCost& cost) {
+                                       const BuildingCost& cost, sf::Color overrideColor) {
     if (type == BuildingType::NONE) return;
     (void)font;
     (void)fontLoaded;
     (void)cost;
 
-    sf::Color tint = isValidPlacement ? theme::Good : theme::Bad;
+    sf::Color tint = (isValidPlacement && overrideColor != sf::Color::Transparent)
+                         ? overrideColor
+                         : (isValidPlacement ? theme::Good : theme::Bad);
 
     // Grid box footprint
     sf::RectangleShape footprint({ 48.0f, 42.0f });

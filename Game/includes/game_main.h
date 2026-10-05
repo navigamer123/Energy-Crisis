@@ -264,6 +264,14 @@ public:
     // True when pos lies on one of the player's river-bank plots (the only place hydro may be built)
     bool isRiverBankSlot(int player, sf::Vector2f pos) const;
 
+    // Power plant placement & deduction mechanics (Phases 1, 2, 3)
+    bool isSlotOnPurchasedLand(int player, int col, int row) const;
+    const PlacedBuilding* getBuildingAtSlot(int player, int col, int row) const;
+    float getWindmillDeductionAt(int player, int col, int row) const;
+    float getSolarDeductionAt(int player, int col, int row) const;
+    float getHydroDeductionAt(int player, int col, int row) const;
+    sf::Color getPlacementTileColor(int player, BuildingType type, int col, int row) const;
+
     // Lamp consumption constant (MW)
     static constexpr float LAMP_POWER_MW = static_cast<float>(Balance::STREET_LAMP.lampConsumptionMW);
 
