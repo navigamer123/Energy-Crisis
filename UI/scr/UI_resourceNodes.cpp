@@ -633,12 +633,16 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         nameText.setPosition({ x + 23.0f, y + 6.0f });
         ui::drawText(window, nameText);
 
-        // Row 2: what one mining action gives at the current level
-        std::string yieldStr = "+" + std::to_string(mineYield(s.type, lvl)) + " " + resourceNameBg(s.type);
+        // Row 2: what one mining action gives at the current level: +[Amount] [Icon]
+        std::string yieldStr = "+" + std::to_string(mineYield(s.type, lvl));
         sf::Text& yieldText = ui::pooledText(font, toUtf8(yieldStr), fontsize::Label);
+        yieldText.setStyle(sf::Text::Bold);
         yieldText.setFillColor(theme::TextPrimary);
-        yieldText.setPosition({ x + 6.0f, y + 23.0f });
+        yieldText.setPosition({ x + 6.0f, y + 22.0f });
         ui::drawText(window, yieldText);
+
+        float iconX = x + 6.0f + yieldText.getLocalBounds().position.x + yieldText.getLocalBounds().size.x + 10.0f;
+        drawResourceIcon(window, s.type, { iconX, y + 30.0f }, 14.0f);
 
         // Row 3: ready / cooldown (left) and the mine level (right)
         std::string lvlStr = "Н" + std::to_string(lvl); // Н = ниво (level)
