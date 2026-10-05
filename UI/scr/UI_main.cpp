@@ -169,6 +169,7 @@ int UI_main::render() {
     sf::Clock audioClock; // [b-effects] frame time for the audio crossfades
     sf::Clock changeGameClock;
     int changeGamePressCount = 0;
+    bool exitPausedGame = false;
     sf::Clock arcadeUpdateClock;
     bool matchWasCompleted = false;
 
@@ -179,6 +180,13 @@ int UI_main::render() {
 
         float dt = arcadeUpdateClock.restart().asSeconds();
         ArcadePopup::get().update(dt);
+        if (changeGamePressCount > 0 && !ArcadePopup::get().isVisible()) {
+            changeGamePressCount = 0;
+            if (exitPausedGame) {
+                map.setMatchPaused(false);
+                exitPausedGame = false;
+            }
+        }
         if (ArcadeMode::isEnabled()) {
             CreditsManager::get().update(dt);
 
@@ -197,18 +205,22 @@ int UI_main::render() {
             if (const auto* jb = event->getIf<sf::Event::JoystickButtonPressed>()) {
                 if (jb->button == 8 || jb->button == 9) {
                     float elapsed = changeGameClock.getElapsedTime().asSeconds();
-                    if (changeGamePressCount >= 1 && elapsed <= 2.0f) {
-                        std::cout << "[UI_main] Controller exit confirmed (2x within 2s). Exiting game...\n";
+                    if (changeGamePressCount >= 1 && elapsed <= 2.5f) {
+                        std::cout << "[UI_main] Controller exit confirmed (2x within 2.5s). Exiting game...\n";
                         currentState = UIState::QUIT;
                         window.close();
                         break;
                     } else {
                         changeGamePressCount = 1;
                         changeGameClock.restart();
-                        std::cout << "[UI_main] Controller exit button pressed (1/2). Press again within 2s to exit.\n";
+                        std::cout << "[UI_main] Controller exit button pressed (1/2). Press again within 2.5s to exit.\n";
                         bool isEn = (UI_settings::get().getLanguage() == "en");
-                        std::string msg = isEn ? "PRESS AGAIN\nTO EXIT" : "НАТИСНИ ОТНОВО\nДА ИЗЛЕЗЕШ";
-                        ArcadePopup::get().show(msg, 2.0f);
+                        std::string msg = isEn ? "Press one more time to exit." : "Натисни още веднъж за изход.";
+                        ArcadePopup::get().show(msg, 2.5f);
+                        if (currentState == UIState::PLAYING && !map.isMatchPaused()) {
+                            map.setMatchPaused(true);
+                            exitPausedGame = true;
+                        }
                     }
                     continue;
                 }
@@ -296,6 +308,7 @@ int UI_main::render() {
                 if (ArcadeMode::isEnabled() && CreditsManager::get().requiresCreditForNewGame()) {
                     if (!CreditsManager::get().tryConsumeCredits(1)) {
                         mainMenu.resetPlayRequest();
+                        mainMenu.returnToMain();
                     } else {
                         mainMenu.resetPlayRequest();
                         matchWasCompleted = false;

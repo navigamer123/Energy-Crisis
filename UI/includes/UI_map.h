@@ -270,6 +270,7 @@ public:
     // [b-effects] Audio scene for UI_main: night amount (0 day .. 1 night) and paused state
     float getNightAmount() const { return fx.nightAmount(); }
     bool isMatchPaused() const { return isPaused || showHelpOverlay; }
+    void setMatchPaused(bool paused) { isPaused = paused; }
     UI_fx& getFx() { return fx; }
 
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);

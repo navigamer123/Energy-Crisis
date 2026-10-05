@@ -40,6 +40,7 @@ int UI_map::mouseOwnerAt(sf::Vector2f pos) const {
 
 // A modal is dismissed only by its own player's confirm/cancel keys
 bool UI_map::isModalDismissKey(int player, sf::Keyboard::Key code) const {
+    if (ArcadeMode::isEnabled()) return false;
     const auto& b = UI_controlsConfig::get().getPlayer(player);
     if (code == b.action || code == b.cancel) return true;
     if (player == 1) {
@@ -551,13 +552,15 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     bool joyLeft1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_LEFT);
     bool joyRight1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_RIGHT);
 
+    bool allowKb = !ArcadeMode::isEnabled();
+
     if (p1BuildingMode && p1OnPurchased) {
         if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || controlScheme == ControlScheme::DEVHUB_ARCADE || allowArrowsForP1) {
             if (p1GridStepCooldown <= 0.0f) {
                 bool moved = false;
                 int nextRow = p1GridRow;
                 int nextCol = p1GridCol;
-                if (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) || joyUp1) {
+                if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)))) || joyUp1) {
                     if (p1GridRow > 0) {
                         nextRow = p1GridRow - 1;
                         moved = true;
@@ -565,7 +568,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p1Pos.y -= 35.0f;
                         p1GridStepCooldown = 0.14f;
                     }
-                } else if (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) || joyDown1) {
+                } else if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)))) || joyDown1) {
                     if (p1GridRow < 11) {
                         nextRow = p1GridRow + 1;
                         moved = true;
@@ -574,7 +577,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p1GridStepCooldown = 0.14f;
                     }
                 }
-                if (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) || joyLeft1) {
+                if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)))) || joyLeft1) {
                     if (p1GridCol > 0) {
                         nextCol = p1GridCol - 1;
                         moved = true;
@@ -582,7 +585,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         p1Pos.x -= 35.0f;
                         p1GridStepCooldown = 0.14f;
                     }
-                } else if (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) || joyRight1) {
+                } else if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)))) || joyRight1) {
                     if (p1GridCol < 8) {
                         nextCol = p1GridCol + 1;
                         moved = true;
@@ -607,10 +610,12 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         }
     } else {
         if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || controlScheme == ControlScheme::DEVHUB_ARCADE || allowArrowsForP1) {
-            if (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) p1Pos.y -= speed * dt;
-            if (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) p1Pos.y += speed * dt;
-            if (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) p1Pos.x -= speed * dt;
-            if (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) p1Pos.x += speed * dt;
+            if (allowKb) {
+                if (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) p1Pos.y -= speed * dt;
+                if (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) p1Pos.y += speed * dt;
+                if (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) p1Pos.x -= speed * dt;
+                if (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) p1Pos.x += speed * dt;
+            }
 
             sf::Vector2f joyVec1 = UI_controlsConfig::get().getJoystickMoveVector(1);
             if (std::abs(joyVec1.x) > 0.05f || std::abs(joyVec1.y) > 0.05f) {
@@ -693,7 +698,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     bool moved = false;
                     int nextRow = p2GridRow;
                     int nextCol = p2GridCol;
-                    if (sf::Keyboard::isKeyPressed(p2Bindings.up) || joyUp2) {
+                    if ((allowKb && sf::Keyboard::isKeyPressed(p2Bindings.up)) || joyUp2) {
                         if (p2GridRow > 0) {
                             nextRow = p2GridRow - 1;
                             moved = true;
@@ -701,7 +706,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p2Pos.y -= 35.0f;
                             p2GridStepCooldown = 0.14f;
                         }
-                    } else if (sf::Keyboard::isKeyPressed(p2Bindings.down) || joyDown2) {
+                    } else if ((allowKb && sf::Keyboard::isKeyPressed(p2Bindings.down)) || joyDown2) {
                         if (p2GridRow < 11) {
                             nextRow = p2GridRow + 1;
                             moved = true;
@@ -710,7 +715,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p2GridStepCooldown = 0.14f;
                         }
                     }
-                    if (sf::Keyboard::isKeyPressed(p2Bindings.left) || joyLeft2) {
+                    if ((allowKb && sf::Keyboard::isKeyPressed(p2Bindings.left)) || joyLeft2) {
                         if (p2GridCol > 0) {
                             nextCol = p2GridCol - 1;
                             moved = true;
@@ -718,7 +723,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p2Pos.x -= 35.0f;
                             p2GridStepCooldown = 0.14f;
                         }
-                    } else if (sf::Keyboard::isKeyPressed(p2Bindings.right) || joyRight2) {
+                    } else if ((allowKb && sf::Keyboard::isKeyPressed(p2Bindings.right)) || joyRight2) {
                         if (p2GridCol < 8) {
                             nextCol = p2GridCol + 1;
                             moved = true;
@@ -743,10 +748,12 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
             }
         } else {
             if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD || controlScheme == ControlScheme::DEVHUB_ARCADE) {
-                if (sf::Keyboard::isKeyPressed(p2Bindings.up)) p2Pos.y -= speed * dt;
-                if (sf::Keyboard::isKeyPressed(p2Bindings.down)) p2Pos.y += speed * dt;
-                if (sf::Keyboard::isKeyPressed(p2Bindings.left)) p2Pos.x -= speed * dt;
-                if (sf::Keyboard::isKeyPressed(p2Bindings.right)) p2Pos.x += speed * dt;
+                if (allowKb) {
+                    if (sf::Keyboard::isKeyPressed(p2Bindings.up)) p2Pos.y -= speed * dt;
+                    if (sf::Keyboard::isKeyPressed(p2Bindings.down)) p2Pos.y += speed * dt;
+                    if (sf::Keyboard::isKeyPressed(p2Bindings.left)) p2Pos.x -= speed * dt;
+                    if (sf::Keyboard::isKeyPressed(p2Bindings.right)) p2Pos.x += speed * dt;
+                }
 
                 sf::Vector2f joyVec2 = UI_controlsConfig::get().getJoystickMoveVector(2);
                 if (std::abs(joyVec2.x) > 0.05f || std::abs(joyVec2.y) > 0.05f) {
@@ -791,8 +798,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     // 6. Player 1 Action Input (Single Press only, NO continuous hold-to-mine!)
     bool p1JoyAction = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::ACTION);
-    bool p1PressingAction = sf::Keyboard::isKeyPressed(p1Bindings.action) ||
-                            (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) ||
+    bool p1PressingAction = (allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.action) ||
+                            (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)))) ||
                             p1JoyAction;
     bool p1JustPressed = p1PressingAction && !p1PrevAction;
     p1PrevAction = p1PressingAction;
@@ -826,8 +833,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     // P1: Cycle Forward
     bool p1JoyNext = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::NEXT_BUILDING);
-    bool curE = sf::Keyboard::isKeyPressed(p1Bindings.nextBuilding) ||
-                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown)) ||
+    bool curE = (allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.nextBuilding) ||
+                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageDown)))) ||
                 p1JoyNext;
     if (curE && !p1PrevE && p1SelectCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         engine.cycleBuildingSelection(1);
@@ -849,8 +856,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     // P1: Cycle Backward / Cancel
     bool p1JoyPrev = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::PREV_BUILDING);
-    bool curQ = sf::Keyboard::isKeyPressed(p1Bindings.prevBuilding) ||
-                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp)) ||
+    bool curQ = (allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.prevBuilding) ||
+                (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::PageUp)))) ||
                 p1JoyPrev;
     if (curQ && !p1PrevQ && p1SelectCooldown <= 0.0f && !p1Modal.active && !showHelpOverlay) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
@@ -873,8 +880,8 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     p1PrevQ = curQ;
 
     bool p1JoyCancel = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::CANCEL);
-    bool curX = sf::Keyboard::isKeyPressed(p1Bindings.cancel) ||
-                (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Backspace))) ||
+    bool curX = (allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.cancel) ||
+                (allowArrowsForP1 && (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Backspace))))) ||
                 p1JoyCancel;
     if (curX && !p1PrevX && !p1Modal.active && !showHelpOverlay) {
         if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
@@ -889,18 +896,20 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     p1PrevX = curX;
 
     // Direct Hotkeys 1..6 for P1
-    for (int k = 1; k <= 6; ++k) {
-        sf::Keyboard::Key numKey = static_cast<sf::Keyboard::Key>(static_cast<int>(sf::Keyboard::Key::Num1) + (k - 1));
-        bool curNum = sf::Keyboard::isKeyPressed(numKey);
-        if (curNum && !p1PrevNum[k] && !p1Modal.active && !showHelpOverlay) {
-            engine.getPlayerEconomyMut(1).selectedBuilding = k;
-            BuildingCost c = engine.getBuildingCost(static_cast<BuildingType>(k));
-            syncBuildingSelectionPos(1);
-            triggerPlayerPopup(1, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
-                               (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
-                               "[" + keyToString(p1Bindings.action) + "]: Постави в грида | [" + keyToString(p1Bindings.cancel) + "]: Отказ", (k == 6 ? theme::Bad : theme::P1));
+    if (allowKb) {
+        for (int k = 1; k <= 6; ++k) {
+            sf::Keyboard::Key numKey = static_cast<sf::Keyboard::Key>(static_cast<int>(sf::Keyboard::Key::Num1) + (k - 1));
+            bool curNum = sf::Keyboard::isKeyPressed(numKey);
+            if (curNum && !p1PrevNum[k] && !p1Modal.active && !showHelpOverlay) {
+                engine.getPlayerEconomyMut(1).selectedBuilding = k;
+                BuildingCost c = engine.getBuildingCost(static_cast<BuildingType>(k));
+                syncBuildingSelectionPos(1);
+                triggerPlayerPopup(1, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
+                                   (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
+                                   "[" + keyToString(p1Bindings.action) + "]: Постави в грида | [" + keyToString(p1Bindings.cancel) + "]: Отказ", (k == 6 ? theme::Bad : theme::P1));
+            }
+            p1PrevNum[k] = curNum;
         }
-        p1PrevNum[k] = curNum;
     }
 
     // 7. Player 2 Action Input (Human Player 2 only)
@@ -912,7 +921,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         const std::string p2CancelKeys = isArcade2 ? "[B]" : ("[" + keyToString(p2Bindings.cancel) + "]");
 
         bool p2JoyAction = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::ACTION);
-        bool p2PressingAction = sf::Keyboard::isKeyPressed(p2Bindings.action) || p2JoyAction;
+        bool p2PressingAction = (allowKb && sf::Keyboard::isKeyPressed(p2Bindings.action)) || p2JoyAction;
         bool p2JustPressed = p2PressingAction && !p2PrevAction;
         p2PrevAction = p2PressingAction;
 
@@ -939,7 +948,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
         // P2: Cycle Forward
         bool p2JoyNext = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::NEXT_BUILDING);
-        bool curPgDn = sf::Keyboard::isKeyPressed(p2Bindings.nextBuilding) || p2JoyNext;
+        bool curPgDn = (allowKb && sf::Keyboard::isKeyPressed(p2Bindings.nextBuilding)) || p2JoyNext;
         if (curPgDn && !p2PrevPgDn && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay) {
             engine.cycleBuildingSelection(2);
             p2SelectCooldown = 0.16f;
@@ -960,7 +969,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
         // P2: Cycle Backward
         bool p2JoyPrev = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::PREV_BUILDING);
-        bool curPgUp = sf::Keyboard::isKeyPressed(p2Bindings.prevBuilding) || p2JoyPrev;
+        bool curPgUp = (allowKb && sf::Keyboard::isKeyPressed(p2Bindings.prevBuilding)) || p2JoyPrev;
         if (curPgUp && !p2PrevPgUp && p2SelectCooldown <= 0.0f && !p2Modal.active && !showHelpOverlay &&
             engine.getSelectedBuilding(2) != BuildingType::NONE) {
             engine.cycleBuildingSelectionPrev(2);
@@ -982,7 +991,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
         // P2: Cancel / Demolish mode
         bool p2JoyCancel = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::CANCEL);
-        bool curDel = sf::Keyboard::isKeyPressed(p2Bindings.cancel) || p2JoyCancel;
+        bool curDel = (allowKb && sf::Keyboard::isKeyPressed(p2Bindings.cancel)) || p2JoyCancel;
         if (curDel && !p2PrevDel && !p2Modal.active && !showHelpOverlay) {
             if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
                 engine.clearBuildingSelection(2);
@@ -996,18 +1005,20 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
         p2PrevDel = curDel;
 
         // Direct hotkeys Numpad 1..6 for P2 (same order as the cards and P1's keys 1..6)
-        for (int k = 1; k <= 6; ++k) {
-            sf::Keyboard::Key numKey = static_cast<sf::Keyboard::Key>(static_cast<int>(sf::Keyboard::Key::Numpad1) + (k - 1));
-            bool curNum = sf::Keyboard::isKeyPressed(numKey);
-            if (curNum && !p2PrevNum[k] && !p2Modal.active && !showHelpOverlay) {
-                engine.getPlayerEconomyMut(2).selectedBuilding = k;
-                BuildingCost c = engine.getBuildingCost(static_cast<BuildingType>(k));
-                syncBuildingSelectionPos(2);
-                triggerPlayerPopup(2, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
-                                   (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
-                                   "[ENTER]: Постави в грида | [Del]: Отказ", (k == 6 ? theme::Bad : theme::P2));
+        if (allowKb) {
+            for (int k = 1; k <= 6; ++k) {
+                sf::Keyboard::Key numKey = static_cast<sf::Keyboard::Key>(static_cast<int>(sf::Keyboard::Key::Numpad1) + (k - 1));
+                bool curNum = sf::Keyboard::isKeyPressed(numKey);
+                if (curNum && !p2PrevNum[k] && !p2Modal.active && !showHelpOverlay) {
+                    engine.getPlayerEconomyMut(2).selectedBuilding = k;
+                    BuildingCost c = engine.getBuildingCost(static_cast<BuildingType>(k));
+                    syncBuildingSelectionPos(2);
+                    triggerPlayerPopup(2, (k == 6 ? "ПРЕМАХВАНЕ" : "СТРОЕЖ"), c.nameBg,
+                                       (k == 6 ? "Посочете сграда за разрушаване." : formatCost(c)),
+                                       "[ENTER]: Постави в грида | [Del]: Отказ", (k == 6 ? theme::Bad : theme::P2));
+                }
+                p2PrevNum[k] = curNum;
             }
-            p2PrevNum[k] = curNum;
         }
     }
 
@@ -1040,6 +1051,14 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
         if (devOverlay.handleKey(key->code)) return;
+        if (ArcadeMode::isEnabled()) {
+            return; // Lock standard keyboard inputs (Space, Enter, etc.) in Arcade Mode
+        }
+    }
+    if (ArcadeMode::isEnabled()) {
+        if (event.is<sf::Event::MouseButtonPressed>() || event.is<sf::Event::MouseButtonReleased>()) {
+            return;
+        }
     }
 
     // -------------------------------------------------------------------------

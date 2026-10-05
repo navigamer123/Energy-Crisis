@@ -297,6 +297,7 @@ public:
     const PlayerEconomy& getPlayerEconomy(int player) const { return (player == 1) ? p1 : p2; }
     PlayerEconomy& getPlayerEconomyMut(int player) { return (player == 1) ? p1 : p2; }
     const CityConquestState& getCityState() const { return city; }
+    CityConquestState& getCityStateMut() { return city; }
     const std::vector<PlacedBuilding>& getBuildings() const { return buildings; }
     const std::vector<LandPlot>& getLandPlots() const { return landPlots; }
     void setP2IsBot(bool isBot) { p2IsBot = isBot; }

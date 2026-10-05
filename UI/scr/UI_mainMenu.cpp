@@ -6,6 +6,8 @@
 #include "../includes/UI_settings.h"
 #include "../includes/UI_lang.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_credits.h"
+#include "../includes/UI_arcadePopup.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -195,26 +197,114 @@ void UI_mainMenu::drawPressAToStart(sf::RenderWindow& window) {
     const sf::Font& textFont = arcadeFontLoaded ? arcadeFont : font;
 
     bool isEn = (UI_settings::get().getLanguage() == "en");
-    std::string promptText = isEn ? "PRESS [A] TO START" : "НАТИСНЕТЕ [A] ЗА СТАРТ";
+    // Requirement 2: Must be Bulgarian by default ("Натисни A за да влезеш"), only English if -language=en was passed
+    std::string promptText = isEn ? "Press A to join" : "Натисни A за да влезеш";
 
     float t = animClock.getElapsedTime().asSeconds();
     float pulse = 0.5f + 0.5f * std::sin(t * 4.5f);
     std::uint8_t alpha = static_cast<std::uint8_t>(140 + 115 * pulse);
 
+    // 1. Player 1 (Blue Player) Layout Guide on Left
+    {
+        sf::FloatRect p1Slot({ 70.0f, 310.0f }, { 440.0f, 440.0f });
+        sf::RectangleShape p1Box(p1Slot.size);
+        p1Box.setPosition(p1Slot.position);
+        p1Box.setFillColor(theme::withAlpha(theme::Window, 215));
+        p1Box.setOutlineThickness(2.0f);
+        p1Box.setOutlineColor(theme::withAlpha(sf::Color(80, 180, 255), 180));
+        window.draw(p1Box);
+
+        std::string p1Title = isEn ? "PLAYER 1 (BLUE)" : "ИГРАЧ 1 (СИН)";
+        sf::Text& tP1 = ui::pooledText(fontLoaded ? font : textFont, toUtf8(p1Title), fontsize::H2);
+        tP1.setStyle(sf::Text::Bold);
+        tP1.setFillColor(sf::Color(80, 180, 255));
+        sf::FloatRect tb1 = tP1.getLocalBounds();
+        tP1.setPosition({ p1Slot.position.x + (p1Slot.size.x - tb1.size.x) / 2.0f - tb1.position.x, p1Slot.position.y + 16.0f - tb1.position.y });
+        ui::drawText(window, tP1);
+
+        if (blueControllerLoaded) {
+            sf::Sprite p1Spr(blueControllerTexture);
+            float scale = 390.0f / blueControllerTexture.getSize().x;
+            p1Spr.setScale({ scale, scale });
+            p1Spr.setPosition({ p1Slot.position.x + 25.0f, p1Slot.position.y + 65.0f });
+            window.draw(p1Spr);
+        }
+
+        std::string p1Desc = isEn ? "STICK: Move  |  A: Action\nC: Upgrade  |  D: Building  |  B: Cancel"
+                                  : "СТИК: Движение  |  A: Действие\nC: Ъпгрейд  |  D: Сграда  |  B: Отказ";
+        sf::Text& tDesc1 = ui::pooledText(fontLoaded ? font : textFont, toUtf8(p1Desc), fontsize::Caption);
+        tDesc1.setFillColor(theme::TextSecondary);
+        sf::FloatRect db1 = tDesc1.getLocalBounds();
+        tDesc1.setPosition({ p1Slot.position.x + (p1Slot.size.x - db1.size.x) / 2.0f - db1.position.x, p1Slot.position.y + 350.0f });
+        ui::drawText(window, tDesc1);
+    }
+
+    // 2. Player 2 (Red Player) Layout Guide on Right
+    {
+        sf::FloatRect p2Slot({ 1090.0f, 310.0f }, { 440.0f, 440.0f });
+        sf::RectangleShape p2Box(p2Slot.size);
+        p2Box.setPosition(p2Slot.position);
+        p2Box.setFillColor(theme::withAlpha(theme::Window, 215));
+        p2Box.setOutlineThickness(2.0f);
+        p2Box.setOutlineColor(theme::withAlpha(sf::Color(255, 100, 100), 180));
+        window.draw(p2Box);
+
+        std::string p2Title = isEn ? "PLAYER 2 (RED)" : "ИГРАЧ 2 (ЧЕРВЕН)";
+        sf::Text& tP2 = ui::pooledText(fontLoaded ? font : textFont, toUtf8(p2Title), fontsize::H2);
+        tP2.setStyle(sf::Text::Bold);
+        tP2.setFillColor(sf::Color(255, 100, 100));
+        sf::FloatRect tb2 = tP2.getLocalBounds();
+        tP2.setPosition({ p2Slot.position.x + (p2Slot.size.x - tb2.size.x) / 2.0f - tb2.position.x, p2Slot.position.y + 16.0f - tb2.position.y });
+        ui::drawText(window, tP2);
+
+        if (redControllerLoaded) {
+            sf::Sprite p2Spr(redControllerTexture);
+            float scale = 390.0f / redControllerTexture.getSize().x;
+            p2Spr.setScale({ scale, scale });
+            p2Spr.setPosition({ p2Slot.position.x + 25.0f, p2Slot.position.y + 65.0f });
+            window.draw(p2Spr);
+        }
+
+        std::string p2Desc = isEn ? "STICK: Move  |  A: Action\nC: Upgrade  |  D: Building  |  B: Cancel"
+                                  : "СТИК: Движение  |  A: Действие\nC: Ъпгрейд  |  D: Сграда  |  B: Отказ";
+        sf::Text& tDesc2 = ui::pooledText(fontLoaded ? font : textFont, toUtf8(p2Desc), fontsize::Caption);
+        tDesc2.setFillColor(theme::TextSecondary);
+        sf::FloatRect db2 = tDesc2.getLocalBounds();
+        tDesc2.setPosition({ p2Slot.position.x + (p2Slot.size.x - db2.size.x) / 2.0f - db2.position.x, p2Slot.position.y + 350.0f });
+        ui::drawText(window, tDesc2);
+    }
+
+    // 3. Center Join Prompt & Status
     if (arcadeFontLoaded || fontLoaded) {
-        sf::Text& prompt = ui::pooledText(textFont, toUtf8(promptText), arcadeFontLoaded ? 26 : fontsize::H1);
+        sf::Text& prompt = ui::pooledText(textFont, toUtf8(promptText), arcadeFontLoaded ? 22 : fontsize::H1);
         prompt.setFillColor(sf::Color(255, 235, 70, alpha));
         prompt.setStyle(sf::Text::Bold);
         sf::FloatRect pb = prompt.getLocalBounds();
-        prompt.setPosition({ (screenWidth - pb.size.x) / 2.0f - pb.position.x, 460.0f - pb.position.y });
+        prompt.setPosition({ (screenWidth - pb.size.x) / 2.0f - pb.position.x, 475.0f - pb.position.y });
         ui::drawText(window, prompt);
 
-        if (!ArcadeMode::isEnabled()) {
+        std::string coOpStr = isEn ? "2 PLAYERS · CO-OP MATCH" : "2 ИГРАЧА · СЪВМЕСТНА ИГРА";
+        sf::Text& coOpText = ui::pooledText(fontLoaded ? font : textFont, toUtf8(coOpStr), fontsize::Body);
+        coOpText.setFillColor(theme::TextSecondary);
+        sf::FloatRect cb = coOpText.getLocalBounds();
+        coOpText.setPosition({ (screenWidth - cb.size.x) / 2.0f - cb.position.x, 540.0f - cb.position.y });
+        ui::drawText(window, coOpText);
+
+        if (ArcadeMode::isEnabled()) {
+            int creds = CreditsManager::get().getCurrentCredits();
+            std::string credStr = isEn ? ("CREDITS: " + std::to_string(creds)) : ("КРЕДИТИ: " + std::to_string(creds));
+            sf::Text& crText = ui::pooledText(fontLoaded ? font : textFont, toUtf8(credStr), fontsize::Label);
+            crText.setStyle(sf::Text::Bold);
+            crText.setFillColor(creds > 0 ? theme::Gold : theme::Bad);
+            sf::FloatRect crb = crText.getLocalBounds();
+            crText.setPosition({ (screenWidth - crb.size.x) / 2.0f - crb.position.x, 600.0f - crb.position.y });
+            ui::drawText(window, crText);
+        } else {
             std::string sub = isEn ? "OR PRESS [ENTER] / [SPACE] ON KEYBOARD" : "ИЛИ НАТИСНЕТЕ [ENTER] / [SPACE] НА КЛАВИАТУРАТА";
             sf::Text& subPrompt = ui::pooledText(fontLoaded ? font : textFont, toUtf8(sub), fontsize::Label);
             subPrompt.setFillColor(theme::TextMuted);
             sf::FloatRect sb = subPrompt.getLocalBounds();
-            subPrompt.setPosition({ (screenWidth - sb.size.x) / 2.0f - sb.position.x, 530.0f - sb.position.y });
+            subPrompt.setPosition({ (screenWidth - sb.size.x) / 2.0f - sb.position.x, 600.0f - sb.position.y });
             ui::drawText(window, subPrompt);
         }
     }
@@ -774,6 +864,13 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
 }
 
 void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
+    if (ArcadeMode::isEnabled()) {
+        if (event.is<sf::Event::KeyPressed>() || event.is<sf::Event::KeyReleased>() ||
+            event.is<sf::Event::MouseButtonPressed>() || event.is<sf::Event::MouseButtonReleased>()) {
+            return;
+        }
+    }
+
     // Filter auto-repeated Enter/Space: a held select key acts once and must be released before
     // it acts again, so holding it can never walk through the submenus and start a match.
     if (event.is<sf::Event::FocusLost>()) {
@@ -818,12 +915,14 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
     bool isEscape = false;
 
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
-        isUp = (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W);
-        isDown = (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S);
-        isLeft = (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::A);
-        isRight = (key->code == sf::Keyboard::Key::Right || key->code == sf::Keyboard::Key::D);
-        isSelect = (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space);
-        isEscape = (key->code == sf::Keyboard::Key::Escape);
+        if (!ArcadeMode::isEnabled()) {
+            isUp = (key->code == sf::Keyboard::Key::Up || key->code == sf::Keyboard::Key::W);
+            isDown = (key->code == sf::Keyboard::Key::Down || key->code == sf::Keyboard::Key::S);
+            isLeft = (key->code == sf::Keyboard::Key::Left || key->code == sf::Keyboard::Key::A);
+            isRight = (key->code == sf::Keyboard::Key::Right || key->code == sf::Keyboard::Key::D);
+            isSelect = (key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space);
+            isEscape = (key->code == sf::Keyboard::Key::Escape);
+        }
     }
     if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
         if (jb->button == 0 || jb->button == 7) isSelect = true; // Button 1 (A) or Start
@@ -842,11 +941,33 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
     if (isUp || isDown || isLeft || isRight || isSelect || isEscape) {
 
         if (state == MenuState::PRESS_A_TO_START) {
+            if (ArcadeMode::isEnabled()) {
+                if (!event.is<sf::Event::JoystickButtonPressed>()) {
+                    return; // Ignore keyboard or other non-joystick inputs completely
+                }
+                const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>();
+                if (jb->button != 0 && jb->button != 7) {
+                    return; // Only Button A (0) or Start (7)
+                }
+                // Check credits for Game 2 onwards
+                if (CreditsManager::get().requiresCreditForNewGame()) {
+                    int curCredits = CreditsManager::get().getCurrentCredits();
+                    if (curCredits < 1) {
+                        bool isEn = (UI_settings::get().getLanguage() == "en");
+                        std::string msg = isEn ? "INSERT COIN\n(0 CREDITS)" : "НЯМА КРЕДИТИ!\nПУСНЕТЕ МОНЕТА";
+                        ArcadePopup::get().show(msg, 2.5f);
+                        return; // Block completely from starting
+                    }
+                }
+            }
             state = MenuState::CALIBRATE_BLUE;
             enterHeld = true;
             spaceHeld = true;
             return;
         } else if (state == MenuState::CALIBRATE_BLUE) {
+            if (ArcadeMode::isEnabled() && !event.is<sf::Event::JoystickButtonPressed>()) {
+                return;
+            }
             if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
                 UI_controlsConfig::get().setPlayerJoystick(1, jb->joystickId);
                 std::cout << "[Calibration] Player 1 assigned to Joystick " << jb->joystickId << "\n";
@@ -858,6 +979,9 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             spaceHeld = true;
             return;
         } else if (state == MenuState::CALIBRATE_RED) {
+            if (ArcadeMode::isEnabled() && !event.is<sf::Event::JoystickButtonPressed>()) {
+                return;
+            }
             if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
                 UI_controlsConfig::get().setPlayerJoystick(2, jb->joystickId);
                 std::cout << "[Calibration] Player 2 assigned to Joystick " << jb->joystickId << "\n";

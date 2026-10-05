@@ -183,7 +183,7 @@ bool parseShotOptions(int argc, char *argv[], ShotOptions &opts) {
 }
 
 std::string detectStartupLanguage(int argc, char *argv[]) {
-  // 1. The -language= argument (en for English, bg for Bulgarian)
+  // 1. Check for command-line language argument (-language=en / -language=bg)
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg.rfind("-language=", 0) == 0 || arg.rfind("--language=", 0) == 0) {
@@ -200,24 +200,7 @@ std::string detectStartupLanguage(int argc, char *argv[]) {
     }
   }
 
-  // 2. The system language, if no argument is given and it's English or
-  // Bulgarian
-  const char *envNames[] = {"LANG", "LC_ALL", "LC_MESSAGES", "LANGUAGE"};
-  for (const char *envName : envNames) {
-    const char *val = std::getenv(envName);
-    if (val && val[0] != '\0') {
-      std::string s(val);
-      std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-      if (s.rfind("en", 0) == 0 || s.find("en_") != std::string::npos ||
-          s.find("en-") != std::string::npos)
-        return "en";
-      if (s.rfind("bg", 0) == 0 || s.find("bg_") != std::string::npos ||
-          s.find("bg-") != std::string::npos)
-        return "bg";
-    }
-  }
-
-  // 3. Bulgarian, as a fallback
+  // 2. Bulgarian by default (only English if launched with specific flag)
   return "bg";
 }
 

@@ -72,7 +72,6 @@ int CreditsManager::readCreditsFromDb(const std::string& path) {
     const char* sql = "SELECT value FROM settings WHERE key = 'credits' LIMIT 1;";
     sqlite3_stmt* stmt = nullptr;
     int credits = 0;
-    bool found = false;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         dbAvailable = true;
@@ -166,8 +165,8 @@ bool CreditsManager::tryConsumeCredits(int amount) {
     bool isEn = (UI_settings::get().getLanguage() == "en");
 
     if (!dbAvailable || current < amount) {
-        std::string msg = isEn ? ("NOT ENOUGH CREDITS\n(HAVE: " + std::to_string(current) + ")")
-                               : ("НЯМА КРЕДИТИ\n(НАЛИЧНИ: " + std::to_string(current) + ")");
+        std::string msg = isEn ? ("INSERT COIN\n(CREDITS: " + std::to_string(current) + ")")
+                               : ("НЯМА КРЕДИТИ!\nПУСНЕТЕ МОНЕТА");
         ArcadePopup::get().show(msg, 2.5f);
         return false;
     }
@@ -177,9 +176,9 @@ bool CreditsManager::tryConsumeCredits(int amount) {
         currentCredits = newCredits;
         lastCredits = newCredits;
 
-        std::string msg = isEn ? ("CREDITS -" + std::to_string(amount) + "\n(TOTAL: " + std::to_string(newCredits) + ")")
-                               : ("КРЕДИТИ -" + std::to_string(amount) + "\n(ОБЩО: " + std::to_string(newCredits) + ")");
-        ArcadePopup::get().show(msg, 2.0f);
+        std::string msg = isEn ? ("1 TOKEN CONSUMED\n(CREDITS: " + std::to_string(newCredits) + ")")
+                               : ("1 ЖЕТОН ИЗПОЛЗВАН\n(ОСТАВАТ: " + std::to_string(newCredits) + ")");
+        ArcadePopup::get().show(msg, 2.5f);
         return true;
     }
     return false;

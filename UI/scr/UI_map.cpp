@@ -128,7 +128,7 @@ void UI_map::restartMatch() {
             const char* envSec = std::getenv("ARCADE_DAY_SECONDS");
             if (envSec) { try { daySec = std::stof(envSec); } catch (...) {} }
             cfg.daySeconds = daySec;
-            cfg.graceDays = 1;
+            cfg.graceDays = 0; // Arcade: grace period completely disabled!
         } else {
             // Default: 4 days @ 1m (60s) each = 240s = 4m total (under 5m max limit)
             cfg.finalDay = 4;
@@ -136,7 +136,7 @@ void UI_map::restartMatch() {
             const char* envSec = std::getenv("ARCADE_DAY_SECONDS");
             if (envSec) { try { daySec = std::stof(envSec); } catch (...) {} }
             cfg.daySeconds = daySec;
-            cfg.graceDays = 1;
+            cfg.graceDays = 0; // Arcade: grace period completely disabled!
         }
     } else {
         // PC & other platforms: standard 20 days @ 1:30 (90s) each
@@ -234,6 +234,11 @@ void UI_map::render(sf::RenderWindow& window) {
         } else {
             if (engine.isTimeFrozen()) {
                 engine.setTimeFrozen(false);
+                if (ArcadeMode::isEnabled()) {
+                    if (engine.getCityState().cityEnergyDemand <= 0.0f) {
+                        engine.getCityStateMut().cityEnergyDemand = Balance::STARTING_CITY_DEMAND_MW;
+                    }
+                }
             }
         }
 
