@@ -68,5 +68,5 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core:1.13.1")
+    // Pure native C++ NativeActivity app - no Java/AndroidX runtime dependencies needed
 }
