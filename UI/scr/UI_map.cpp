@@ -21,13 +21,13 @@ UI_map::UI_map()
       requestFullscreenToggle(false),
       showHelpOverlay(false),
       lightningFlashTimer(0.0f) {
-    if (backgroundTexture.loadFromFile("assets/background.png")) {
+    if (backgroundTexture.loadFromFile("assets/background.png") || backgroundTexture.loadFromFile("background.png")) {
         backgroundTexture.setSmooth(true); // 1920x1080 artwork scaled down to the canvas
     } else {
         std::cerr << "[UI_map] Warning: Failed to load assets/background.png (plain ground colour shown instead)\n";
     }
 
-    if (font.openFromFile("assets/font.ttf")) {
+    if (font.openFromFile("assets/font.ttf") || font.openFromFile("font.ttf")) {
         resourcesLoaded = true;
     } else {
         std::cerr << "[UI_map] ERROR: Failed to load assets/font.ttf - all text will be missing; "

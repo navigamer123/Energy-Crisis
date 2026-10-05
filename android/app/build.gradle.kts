@@ -31,9 +31,21 @@ android {
         }
     }
 
+    val copyAssetsTree = tasks.register<Sync>("copyAssetsTree") {
+        from("../../assets") {
+            into("assets")
+        }
+        from("../../assets")
+        into(layout.buildDirectory.dir("intermediates/extra_assets"))
+    }
+
+    tasks.named("preBuild") {
+        dependsOn(copyAssetsTree)
+    }
+
     sourceSets {
         getByName("main") {
-            assets.srcDirs("../../assets")
+            assets.srcDirs(layout.buildDirectory.dir("intermediates/extra_assets"))
         }
     }
 

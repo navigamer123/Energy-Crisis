@@ -84,7 +84,9 @@ std::string unescape(const std::string& s) {
 bool readWholeFile(const std::string& path, std::string& out) {
 #if defined(__ANDROID__)
     sf::FileInputStream stream;
-    if (stream.open(path)) {
+    std::string stripped = path;
+    if (stripped.rfind("assets/", 0) == 0) stripped = stripped.substr(7);
+    if (stream.open(path) || stream.open(stripped)) {
         auto size = stream.getSize();
         if (size.has_value() && *size > 0) {
             out.resize(static_cast<std::size_t>(*size));

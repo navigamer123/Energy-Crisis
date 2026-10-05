@@ -39,12 +39,12 @@ UI_mainMenu::UI_mainMenu()
       settingsDifficultyIndex(UI_settings::get().getBotDifficultyIndex()),
       fontLoaded(false) {
     Lang::load(UI_settings::get().getLanguage());
-    if (font.openFromFile("assets/font.ttf")) {
+    if (font.openFromFile("assets/font.ttf") || font.openFromFile("font.ttf")) {
         fontLoaded = true;
     } else {
         std::cerr << "[UI_mainMenu] Warning: Failed to load assets/font.ttf\n";
     }
-    if (logoTexture.loadFromFile("assets/logo.png")) {
+    if (logoTexture.loadFromFile("assets/logo.png") || logoTexture.loadFromFile("logo.png")) {
         logoTexture.setSmooth(true);
         logoLoaded = true;
     } else {
