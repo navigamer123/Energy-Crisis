@@ -568,6 +568,7 @@ int UI_resourceNodes::mineYield(ResourceType type, int level) {
 
 void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                                  const GameEngine* engine,
+                                 const float* p1Cooldowns, const float* p2Cooldowns,
                                  float p1Cooldown, float p2Cooldown) {
     sf::Vector2f mousePos = ui::pointerPos(window);
 
@@ -576,7 +577,13 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         const float y = s.bounds.position.y;
         const float w = s.bounds.size.x;
         bool hover = s.bounds.contains(mousePos);
-        float cd = (s.playerOwner == 1) ? p1Cooldown : p2Cooldown;
+        int typeIdx = static_cast<int>(s.type);
+        float cd = 0.0f;
+        if (s.playerOwner == 1) {
+            cd = (p1Cooldowns && typeIdx >= 0 && typeIdx < 12) ? p1Cooldowns[typeIdx] : p1Cooldown;
+        } else {
+            cd = (p2Cooldowns && typeIdx >= 0 && typeIdx < 12) ? p2Cooldowns[typeIdx] : p2Cooldown;
+        }
         bool onCooldown = (cd > 0.0f);
 
         int lvl = engine ? engine->getMineLevel(s.playerOwner, s.type) : 1;
@@ -647,7 +654,8 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             cdText.setPosition({ x + 6.0f, y + 40.0f });
             ui::drawText(window, cdText);
 
-            float cdRatio = std::min(1.0f, std::max(0.0f, cd / Balance::MINE_COOLDOWN_SEC));
+            float maxCd = Balance::getResourceMineCooldown(s.type);
+            float cdRatio = std::min(1.0f, std::max(0.0f, cd / maxCd));
             sf::RectangleShape cdBar({ (w - 12.0f) * (1.0f - cdRatio), 2.0f });
             cdBar.setPosition({ x + 6.0f, y + 55.0f });
             cdBar.setFillColor(theme::Warn);

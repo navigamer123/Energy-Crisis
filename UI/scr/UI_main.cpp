@@ -155,12 +155,32 @@ int UI_main::render() {
         std::filesystem::create_directories(shot.recordDir, ec);
     }
     sf::Clock audioClock; // [b-effects] frame time for the audio crossfades
+    sf::Clock changeGameClock;
+    int changeGamePressCount = 0;
 
     while (window.isOpen() && currentState != UIState::QUIT) {
         ui::beginTextFrame();
         ui::lint::beginFrame();
         ui::shot::tickFrame();
         while (const auto event = window.pollEvent()) {
+            // Global controller exit: BTN_BASE3 / Button 9 (SFML button 8 or 9) pressed 2 times within 2 seconds
+            if (const auto* jb = event->getIf<sf::Event::JoystickButtonPressed>()) {
+                if (jb->button == 8 || jb->button == 9) {
+                    float elapsed = changeGameClock.getElapsedTime().asSeconds();
+                    if (changeGamePressCount >= 1 && elapsed <= 2.0f) {
+                        std::cout << "[UI_main] Controller exit confirmed (2x within 2s). Exiting game...\n";
+                        currentState = UIState::QUIT;
+                        window.close();
+                        break;
+                    } else {
+                        changeGamePressCount = 1;
+                        changeGameClock.restart();
+                        std::cout << "[UI_main] Controller exit button pressed (1/2). Press again within 2s to exit.\n";
+                    }
+                    continue;
+                }
+            }
+
             // [b-effects] Menu navigation clicks
             if (currentState == UIState::MAIN_MENU && !shot.enabled &&
                 (event->is<sf::Event::KeyPressed>() || event->is<sf::Event::MouseButtonPressed>() || event->is<sf::Event::JoystickButtonPressed>())) {

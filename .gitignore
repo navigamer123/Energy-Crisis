@@ -11,4 +11,4 @@ cmake-build-*/
 CMakeUserPresets.json
 *.dll
 *.zip
-
+settings.ini

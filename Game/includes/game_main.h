@@ -29,6 +29,21 @@ enum class ResourceType {
     ORE       // Legacy alias for tests
 };
 
+namespace Balance {
+inline float getResourceMineCooldown(ResourceType type) {
+    switch (type) {
+        case ResourceType::WOOD:    return WOOD_MINE_COOLDOWN_SEC;
+        case ResourceType::COAL:    return COAL_MINE_COOLDOWN_SEC;
+        case ResourceType::IRON:    return IRON_MINE_COOLDOWN_SEC;
+        case ResourceType::COPPER:  return COPPER_MINE_COOLDOWN_SEC;
+        case ResourceType::SILICON: return SILICON_MINE_COOLDOWN_SEC;
+        case ResourceType::SILVER:  return SILVER_MINE_COOLDOWN_SEC;
+        case ResourceType::GOLD:    return GOLD_MINE_COOLDOWN_SEC;
+        default:                    return MINE_COOLDOWN_SEC;
+    }
+}
+}
+
 // -----------------------------------------------------------------------------
 // Building Types
 // -----------------------------------------------------------------------------
@@ -213,8 +228,11 @@ public:
     // Applied to city income, mining yield, building costs, the mining cooldown and won days.
     void setPlayerModifiers(int player, const PlayerModifiers& mods);
     const PlayerModifiers& getPlayerModifiers(int player) const { return (player == 1) ? p1Mods : p2Mods; }
-    // Seconds between two mining actions of this player (Balance::MINE_COOLDOWN_SEC x cooldownMult)
-    float getMineCooldown(int player) const { return Balance::MINE_COOLDOWN_SEC * getPlayerModifiers(player).cooldownMult; }
+    // Seconds between two mining actions of this player (Balance::getResourceMineCooldown(type) x cooldownMult)
+    float getMineCooldown(int player, ResourceType type = ResourceType::NONE) const {
+        float base = (type == ResourceType::NONE) ? Balance::MINE_COOLDOWN_SEC : Balance::getResourceMineCooldown(type);
+        return base * getPlayerModifiers(player).cooldownMult;
+    }
 
     // Player Actions
     bool mineResource(int player, ResourceType type, std::string& outMsg);

@@ -1,37 +1,35 @@
 #ifndef UI_MAIN_H
 #define UI_MAIN_H
 
-#include <SFML/Graphics.hpp>
 #include "UI_mainMenu.h"
 #include "UI_map.h"
 #include "UI_shot.h"
+#include <SFML/Graphics.hpp>
 
-enum class UIState {
-    MAIN_MENU,
-    PLAYING,
-    QUIT
-};
+enum class UIState { MAIN_MENU, PLAYING, QUIT };
 
 class UI_main {
 private:
-    sf::RenderWindow window;
-    sf::View gameView;
-    UI_mainMenu mainMenu;
-    UI_map map;
-    UIState currentState;
-    bool isFullscreen;
-    ShotOptions shot; // Screenshot / layout-lint mode (--shot / --lint)
+  sf::RenderWindow window;
+  sf::View gameView;
+  UI_map map;
+  UIState currentState;
+  bool isFullscreen;
+  ShotOptions shot; // Screenshot / layout-lint mode (--shot / --lint)
 
-    void updateViewport();
-    void toggleFullscreen();
-    void setupShotScene();
-    int finishShot(); // Saves the screenshot, prints the lint report; returns the exit code
-    bool saveRecordFrame(int index); // --record: writes the finished frame as frame_<index>.png
+  void updateViewport();
+  void toggleFullscreen();
+  void setupShotScene();
+  int finishShot(); // Saves the screenshot, prints the lint report; returns the
+  // exit code
+  bool saveRecordFrame(
+      int index); // --record: writes the finished frame as frame_<index>.png
 
 public:
-    explicit UI_main(const ShotOptions& shotOptions = ShotOptions());
-    ~UI_main();
-    int render(); // Runs until the window closes; returns the process exit code
+  UI_mainMenu mainMenu;
+  explicit UI_main(const ShotOptions &shotOptions = ShotOptions());
+  ~UI_main();
+  int render(); // Runs until the window closes; returns the process exit code
 };
 
 #endif // UI_MAIN_H

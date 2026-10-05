@@ -262,7 +262,8 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         ui::drawText(window, t, tagRect);
 
         if (cooling) {
-            float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / Balance::MINE_COOLDOWN_SEC));
+            float maxCd = Balance::getResourceMineCooldown(res);
+            float fillRatio = 1.0f - std::max(0.0f, std::min(1.0f, cd / maxCd));
             sf::RectangleShape cdBar({ (w - 4.0f) * fillRatio, 3.0f });
             cdBar.setPosition({ x + 2.0f, y + h - 4.0f });
             cdBar.setFillColor(theme::Good);
@@ -270,8 +271,8 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         }
     };
 
-    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, "[SPACE]", p1ResourceCooldown);
-    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, "[ENTER]", p2ResourceCooldown);
+    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, "[SPACE]", getP1ResourceCooldown(p1Res));
+    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, "[ENTER]", getP2ResourceCooldown(p2Res));
 
     // The 6x mining speed-up is shown inside each player's clock card (UI_clock)
 }

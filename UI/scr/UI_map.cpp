@@ -134,6 +134,8 @@ void UI_map::restartMatch() {
     engine.getClosestGridIndex(2, p2Pos, p2GridCol, p2GridRow);
 
     // Cooldowns
+    std::fill(std::begin(p1ResourceCooldowns), std::end(p1ResourceCooldowns), 0.0f);
+    std::fill(std::begin(p2ResourceCooldowns), std::end(p2ResourceCooldowns), 0.0f);
     p1ResourceCooldown = 0.0f;
     p2ResourceCooldown = 0.0f;
     p1ActionCooldown = 0.0f;
@@ -332,7 +334,7 @@ void UI_map::render(sf::RenderWindow& window) {
                   engine.getCityState().lastCutMessage, engine.isDaylight(), engine.getHour24(), engine.getSeason());
 
     // 10. Resource Mines & Timber Forests
-    nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldown, p2ResourceCooldown);
+    nodes.drawNodes(window, font, resourcesLoaded, &engine, p1ResourceCooldowns, p2ResourceCooldowns, p1ResourceCooldown, p2ResourceCooldown);
 
     // Interactive mining extraction prompts & 6x speed badges
     drawMiningZonesAndBadges(window);

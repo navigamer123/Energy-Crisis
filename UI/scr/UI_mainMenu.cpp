@@ -683,6 +683,9 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
         } else if (playControls.isBackRequested()) {
             playControls.resetRequests();
             state = MenuState::MODE_SELECT;
+        } else if (playControls.isQuitRequested()) {
+            playControls.resetRequests();
+            onQuit();
         }
         return;
     }

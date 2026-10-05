@@ -290,20 +290,24 @@ void UI_map::executeP1Action() {
     } else {
         ResourceType resType = nodes.getP1ResourceAt(p1Pos);
         if (resType != ResourceType::NONE) {
-            if (p1ResourceCooldown > 0.0f) {
+            float cd = getP1ResourceCooldown(resType);
+            if (cd > 0.0f) {
                 char buf[32];
-                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", cd);
                 spawnNotice(buf, p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
                 return;
             }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(1, resType, res, msg)) {
-                p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                float newCd = engine.getMineCooldown(1, resType);
+                setP1ResourceCooldown(resType, newCd);
                 const auto* st = nodes.getStation(1, resType);
                 sf::Color c = st ? st->themeColor : theme::P1;
                 spawnMiningParticles(p1Pos, c, 18);
-                triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[SPACE]: Добив (на 1 сек)", c);
+                char tipBuf[64];
+                std::snprintf(tipBuf, sizeof(tipBuf), "[SPACE]: Добив (на %.1f сек)", newCd);
+                triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", tipBuf, c);
                 spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), c);
             }
         } else {
@@ -396,20 +400,24 @@ void UI_map::executeP2Action() {
     } else {
         ResourceType resType = nodes.getP2ResourceAt(p2Pos);
         if (resType != ResourceType::NONE) {
-            if (p2ResourceCooldown > 0.0f) {
+            float cd = getP2ResourceCooldown(resType);
+            if (cd > 0.0f) {
                 char buf[32];
-                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
+                std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", cd);
                 spawnNotice(buf, p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
                 return;
             }
             GameEngine::MineResult res;
             std::string msg;
             if (engine.mineResource(2, resType, res, msg)) {
-                p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                float newCd = engine.getMineCooldown(2, resType);
+                setP2ResourceCooldown(resType, newCd);
                 const auto* st = nodes.getStation(2, resType);
                 sf::Color c = st ? st->themeColor : theme::P2Light;
                 spawnMiningParticles(p2Pos, c, 18);
-                triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[ENTER]: Добив (на 1 сек)", c);
+                char tipBuf[64];
+                std::snprintf(tipBuf, sizeof(tipBuf), "[ENTER]: Добив (на %.1f сек)", newCd);
+                triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", tipBuf, c);
                 spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), c);
             }
         } else {
@@ -761,8 +769,18 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     // 5. Action and selection cooldown decrements
     if (p1ActionCooldown > 0.0f) p1ActionCooldown -= dt;
     if (p2ActionCooldown > 0.0f) p2ActionCooldown -= dt;
-    if (p1ResourceCooldown > 0.0f) p1ResourceCooldown -= dt;
-    if (p2ResourceCooldown > 0.0f) p2ResourceCooldown -= dt;
+    for (int i = 0; i < 12; ++i) {
+        if (p1ResourceCooldowns[i] > 0.0f) {
+            p1ResourceCooldowns[i] -= dt;
+            if (p1ResourceCooldowns[i] < 0.0f) p1ResourceCooldowns[i] = 0.0f;
+        }
+        if (p2ResourceCooldowns[i] > 0.0f) {
+            p2ResourceCooldowns[i] -= dt;
+            if (p2ResourceCooldowns[i] < 0.0f) p2ResourceCooldowns[i] = 0.0f;
+        }
+    }
+    p1ResourceCooldown = *std::max_element(p1ResourceCooldowns, p1ResourceCooldowns + 12);
+    p2ResourceCooldown = *std::max_element(p2ResourceCooldowns, p2ResourceCooldowns + 12);
     if (p1SelectCooldown > 0.0f) p1SelectCooldown -= dt;
     if (p2SelectCooldown > 0.0f) p2SelectCooldown -= dt;
 
@@ -1491,16 +1509,18 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
                     engine.clearBuildingSelection(1);
                 }
-                if (p1ResourceCooldown > 0.0f) {
+                float cd1 = getP1ResourceCooldown(p1Res);
+                if (cd1 > 0.0f) {
                     char buf[32];
-                    std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p1ResourceCooldown);
+                    std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", cd1);
                     spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
                     return;
                 }
                 GameEngine::MineResult res;
                 std::string msg;
                 if (engine.mineResource(1, p1Res, res, msg)) {
-                    p1ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                    float newCd = engine.getMineCooldown(1, p1Res);
+                    setP1ResourceCooldown(p1Res, newCd);
                     p1Pulse = 1.0f;
                     const auto* st = nodes.getStation(1, p1Res);
                     sf::Color c = st ? st->themeColor : theme::P1;
@@ -1516,16 +1536,18 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
                     engine.clearBuildingSelection(2);
                 }
-                if (p2ResourceCooldown > 0.0f) {
+                float cd2 = getP2ResourceCooldown(p2Res);
+                if (cd2 > 0.0f) {
                     char buf[32];
-                    std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", p2ResourceCooldown);
+                    std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", cd2);
                     spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
                     return;
                 }
                 GameEngine::MineResult res;
                 std::string msg;
                 if (engine.mineResource(2, p2Res, res, msg)) {
-                    p2ResourceCooldown = Balance::MINE_COOLDOWN_SEC;
+                    float newCd = engine.getMineCooldown(2, p2Res);
+                    setP2ResourceCooldown(p2Res, newCd);
                     p2Pulse = 1.0f;
                     const auto* st = nodes.getStation(2, p2Res);
                     sf::Color c = st ? st->themeColor : theme::P2Light;

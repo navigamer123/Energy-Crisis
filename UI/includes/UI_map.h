@@ -137,8 +137,28 @@ private:
     // Multi-input cooldown timers & edge-detection key states
     float p1ActionCooldown = 0.0f;
     float p2ActionCooldown = 0.0f;
-    float p1ResourceCooldown = 0.0f; // 1.0s cooldown between resource harvests
-    float p2ResourceCooldown = 0.0f; // 1.0s cooldown between resource harvests
+    float p1ResourceCooldowns[12] = {0.0f}; // Separate cooldown per resource type
+    float p2ResourceCooldowns[12] = {0.0f}; // Separate cooldown per resource type
+    float p1ResourceCooldown = 0.0f; // Max/fallback cooldown across resources
+    float p2ResourceCooldown = 0.0f; // Max/fallback cooldown across resources
+
+    float getP1ResourceCooldown(ResourceType type) const {
+        int idx = static_cast<int>(type);
+        return (idx >= 0 && idx < 12) ? p1ResourceCooldowns[idx] : 0.0f;
+    }
+    float getP2ResourceCooldown(ResourceType type) const {
+        int idx = static_cast<int>(type);
+        return (idx >= 0 && idx < 12) ? p2ResourceCooldowns[idx] : 0.0f;
+    }
+    void setP1ResourceCooldown(ResourceType type, float cd) {
+        int idx = static_cast<int>(type);
+        if (idx >= 0 && idx < 12) p1ResourceCooldowns[idx] = cd;
+    }
+    void setP2ResourceCooldown(ResourceType type, float cd) {
+        int idx = static_cast<int>(type);
+        if (idx >= 0 && idx < 12) p2ResourceCooldowns[idx] = cd;
+    }
+
     float p1SelectCooldown = 0.0f;   // Debounce cooldown for building selection
     float p2SelectCooldown = 0.0f;   // Debounce cooldown for building selection
     bool p1PrevAction = false;       // Single-press edge trigger (no continuous holding)

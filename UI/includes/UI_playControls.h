@@ -10,6 +10,7 @@ private:
     int activeScheme;    // 0..4 ControlScheme
     bool requestStart;
     bool requestBack;
+    bool requestQuit = false;
     sf::Vector2f lastMousePos = { -999.0f, -999.0f };
 
     void drawButton(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
@@ -28,7 +29,8 @@ public:
 
     bool isStartRequested() const { return requestStart; }
     bool isBackRequested() const { return requestBack; }
-    void resetRequests() { requestStart = false; requestBack = false; }
+    bool isQuitRequested() const { return requestQuit; }
+    void resetRequests() { requestStart = false; requestBack = false; requestQuit = false; }
 };
 
 #endif // UI_PLAYCONTROLS_H

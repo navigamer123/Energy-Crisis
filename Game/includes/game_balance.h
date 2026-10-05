@@ -133,6 +133,15 @@ constexpr int SILICON_BASE_YIELD = 6;
 constexpr int SILVER_BASE_YIELD = 4;
 constexpr int GOLD_BASE_YIELD = 3;
 
+// Resource Mine Cooldowns (време в секунди за добив на всеки ресурс)
+constexpr float WOOD_MINE_COOLDOWN_SEC    = 0.8f;   // Дървесина (бърз добив)
+constexpr float COAL_MINE_COOLDOWN_SEC    = 1.0f;   // Въглища
+constexpr float IRON_MINE_COOLDOWN_SEC    = 1.2f;   // Желязо
+constexpr float COPPER_MINE_COOLDOWN_SEC  = 1.2f;   // Мед
+constexpr float SILICON_MINE_COOLDOWN_SEC = 1.5f;   // Силиций
+constexpr float SILVER_MINE_COOLDOWN_SEC  = 1.8f;   // Сребро
+constexpr float GOLD_MINE_COOLDOWN_SEC    = 2.5f;   // Злато (най-ценен ресурс)
+
 constexpr int MINE_MAX_LEVEL = 6;
 constexpr int MINE_UPGRADE_COST_BASE = 30;
 

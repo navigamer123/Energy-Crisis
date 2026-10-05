@@ -471,7 +471,8 @@ void UIBot::update(float dt, GameEngine& engine, const UI_resourceNodes& nodes, 
 
         if (mineCooldown <= 0.0f) {
             outTriggerAction = true;
-            mineCooldown = mineHitInterval;
+            float diffMult = (difficulty == BotDifficulty::HARD ? 1.0f : (difficulty == BotDifficulty::MEDIUM ? 1.05f : 1.15f));
+            mineCooldown = Balance::getResourceMineCooldown(plannedResource) * diffMult;
         }
 
         // Check inventory against required quota

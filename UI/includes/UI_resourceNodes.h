@@ -25,6 +25,7 @@ public:
 
     void drawNodes(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                    const GameEngine* engine = nullptr,
+                   const float* p1Cooldowns = nullptr, const float* p2Cooldowns = nullptr,
                    float p1Cooldown = 0.0f, float p2Cooldown = 0.0f);
     void drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
                        const std::vector<LandPlot>& plots, sf::Vector2f mousePos,
