@@ -87,6 +87,8 @@ public:
 
     bool handleClick(sf::Vector2f mousePos);
     bool handleKey(sf::Keyboard::Key key);
+    bool handleAction(int player);
+    bool handleSkip(int player);
 };
 
 #endif // UI_TUTORIAL_H

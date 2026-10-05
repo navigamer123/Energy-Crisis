@@ -180,16 +180,14 @@ bool UI_controlsConfig::isActionPressed(int player, ControlAction actionType, bo
 }
 
 bool UI_controlsConfig::isJoystickConnected(int player) const {
-    if (player == 1) {
-        return sf::Joystick::isConnected(0);
-    }
-    if (sf::Joystick::isConnected(1)) {
+    int joyId = (player == 1) ? p1JoystickId : p2JoystickId;
+    if (sf::Joystick::isConnected(joyId)) {
         return true;
     }
-    // Check if Joystick 0 is a dual-player arcade encoder board (e.g. XinMo 2-Player USB)
-    if (sf::Joystick::isConnected(0)) {
-        unsigned int btnCount = sf::Joystick::getButtonCount(0);
-        if (btnCount >= 12 || sf::Joystick::hasAxis(0, sf::Joystick::Axis::U) || sf::Joystick::hasAxis(0, sf::Joystick::Axis::Z)) {
+    int otherJoy = (player == 1) ? p2JoystickId : p1JoystickId;
+    if (sf::Joystick::isConnected(otherJoy)) {
+        unsigned int btnCount = sf::Joystick::getButtonCount(otherJoy);
+        if (btnCount >= 12 || sf::Joystick::hasAxis(otherJoy, sf::Joystick::Axis::U) || sf::Joystick::hasAxis(otherJoy, sf::Joystick::Axis::Z)) {
             return true;
         }
     }
@@ -248,11 +246,12 @@ sf::Vector2f UI_controlsConfig::getJoystickMoveVector(int player) const {
     float x = 0.0f;
     float y = 0.0f;
 
-    if (player == 1 && sf::Joystick::isConnected(0)) {
-        float rawX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::X);
-        float rawY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::Y);
-        float povX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::PovX);
-        float povY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::PovY);
+    int joyId = (player == 1) ? p1JoystickId : p2JoystickId;
+    if (sf::Joystick::isConnected(joyId)) {
+        float rawX = sf::Joystick::getAxisPosition(joyId, sf::Joystick::Axis::X);
+        float rawY = sf::Joystick::getAxisPosition(joyId, sf::Joystick::Axis::Y);
+        float povX = sf::Joystick::getAxisPosition(joyId, sf::Joystick::Axis::PovX);
+        float povY = sf::Joystick::getAxisPosition(joyId, sf::Joystick::Axis::PovY);
 
         if (std::abs(rawX) > 20.0f) x = rawX / 100.0f;
         if (std::abs(rawY) > 20.0f) y = rawY / 100.0f;
@@ -261,51 +260,31 @@ sf::Vector2f UI_controlsConfig::getJoystickMoveVector(int player) const {
         if (std::abs(y) < 0.1f && std::abs(povY) > 30.0f) y = (povY > 0.0f ? 1.0f : -1.0f);
 
         // Standard D-pad buttons fallback on some DirectInput/arcade encoders
-        unsigned int btnCount = sf::Joystick::getButtonCount(0);
+        unsigned int btnCount = sf::Joystick::getButtonCount(joyId);
         if (btnCount > 14) {
-            if (sf::Joystick::isButtonPressed(0, 11)) y = -1.0f;
-            if (sf::Joystick::isButtonPressed(0, 12)) y = 1.0f;
-            if (sf::Joystick::isButtonPressed(0, 13)) x = -1.0f;
-            if (sf::Joystick::isButtonPressed(0, 14)) x = 1.0f;
+            if (sf::Joystick::isButtonPressed(joyId, 11)) y = -1.0f;
+            if (sf::Joystick::isButtonPressed(joyId, 12)) y = 1.0f;
+            if (sf::Joystick::isButtonPressed(joyId, 13)) x = -1.0f;
+            if (sf::Joystick::isButtonPressed(joyId, 14)) x = 1.0f;
         }
-    } else if (player == 2) {
-        if (sf::Joystick::isConnected(1)) {
-            float rawX = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::X);
-            float rawY = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::Y);
-            float povX = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::PovX);
-            float povY = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::PovY);
-
-            if (std::abs(rawX) > 20.0f) x = rawX / 100.0f;
-            if (std::abs(rawY) > 20.0f) y = rawY / 100.0f;
-
-            if (std::abs(x) < 0.1f && std::abs(povX) > 30.0f) x = (povX > 0.0f ? 1.0f : -1.0f);
-            if (std::abs(y) < 0.1f && std::abs(povY) > 30.0f) y = (povY > 0.0f ? 1.0f : -1.0f);
-
-            unsigned int btnCount = sf::Joystick::getButtonCount(1);
-            if (btnCount > 14) {
-                if (sf::Joystick::isButtonPressed(1, 11)) y = -1.0f;
-                if (sf::Joystick::isButtonPressed(1, 12)) y = 1.0f;
-                if (sf::Joystick::isButtonPressed(1, 13)) x = -1.0f;
-                if (sf::Joystick::isButtonPressed(1, 14)) x = 1.0f;
-            }
-        } else if (sf::Joystick::isConnected(0)) {
-            // Dual-player single arcade board fallback (XinMo / DragonRise 2-player)
-            float rawX = 0.0f;
-            float rawY = 0.0f;
-            if (sf::Joystick::hasAxis(0, sf::Joystick::Axis::U) && sf::Joystick::hasAxis(0, sf::Joystick::Axis::V)) {
-                rawX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::U);
-                rawY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::V);
-            } else if (sf::Joystick::hasAxis(0, sf::Joystick::Axis::Z) && sf::Joystick::hasAxis(0, sf::Joystick::Axis::R)) {
-                rawX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::Z);
-                rawY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::R);
-            } else {
-                rawX = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::PovX);
-                rawY = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::PovY);
-            }
-
-            if (std::abs(rawX) > 20.0f) x = rawX / 100.0f;
-            if (std::abs(rawY) > 20.0f) y = rawY / 100.0f;
+    } else if (player == 2 && sf::Joystick::isConnected(p1JoystickId)) {
+        // Dual-player single arcade board fallback (XinMo / DragonRise 2-player)
+        int j0 = p1JoystickId;
+        float rawX = 0.0f;
+        float rawY = 0.0f;
+        if (sf::Joystick::hasAxis(j0, sf::Joystick::Axis::U) && sf::Joystick::hasAxis(j0, sf::Joystick::Axis::V)) {
+            rawX = sf::Joystick::getAxisPosition(j0, sf::Joystick::Axis::U);
+            rawY = sf::Joystick::getAxisPosition(j0, sf::Joystick::Axis::V);
+        } else if (sf::Joystick::hasAxis(j0, sf::Joystick::Axis::Z) && sf::Joystick::hasAxis(j0, sf::Joystick::Axis::R)) {
+            rawX = sf::Joystick::getAxisPosition(j0, sf::Joystick::Axis::Z);
+            rawY = sf::Joystick::getAxisPosition(j0, sf::Joystick::Axis::R);
+        } else {
+            rawX = sf::Joystick::getAxisPosition(j0, sf::Joystick::Axis::PovX);
+            rawY = sf::Joystick::getAxisPosition(j0, sf::Joystick::Axis::PovY);
         }
+
+        if (std::abs(rawX) > 20.0f) x = rawX / 100.0f;
+        if (std::abs(rawY) > 20.0f) y = rawY / 100.0f;
     }
 
     x = std::max(-1.0f, std::min(1.0f, x));
@@ -325,10 +304,10 @@ bool UI_controlsConfig::isJoystickDirectionPressed(int player, ControlAction act
 }
 
 bool UI_controlsConfig::isJoystickActionPressed(int player, ControlAction actionType) const {
-    unsigned int joyId = (player == 1) ? 0 : (sf::Joystick::isConnected(1) ? 1 : 0);
+    unsigned int joyId = (player == 1) ? p1JoystickId : (sf::Joystick::isConnected(p2JoystickId) ? p2JoystickId : p1JoystickId);
     if (!sf::Joystick::isConnected(joyId)) return false;
 
-    unsigned int btnOffset = (player == 2 && joyId == 0) ? 10 : 0;
+    unsigned int btnOffset = (player == 2 && joyId == (unsigned int)p1JoystickId && p1JoystickId == p2JoystickId) ? 10 : 0;
     unsigned int btnCount = sf::Joystick::getButtonCount(joyId);
 
     auto isBtn = [&](unsigned int b) -> bool {

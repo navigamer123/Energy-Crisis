@@ -14,6 +14,8 @@ private:
     WeatherType weather;
     SeasonType season;
     float timeScale = 1.0f; // > 1 while the mining speed-up runs (shown next to the hour)
+    int finalDay = Balance::FINAL_DAY;
+    int graceDays = Balance::GRACE_PERIOD_DAYS;
 
 public:
     UI_clock();
@@ -27,13 +29,17 @@ public:
     void setWeather(WeatherType w) { weather = w; }
     void setSeason(SeasonType s) { season = s; }
     void setTimeScale(float scale) { timeScale = scale; }
+    void setFinalDay(int fd) { finalDay = fd; }
+    void setGraceDays(int gd) { graceDays = gd; }
 
     int getCurrentDay() const { return currentDay; }
+    int getFinalDay() const { return finalDay; }
+    int getGraceDays() const { return graceDays; }
     float getHour24() const { return currentHour; }
     bool isDaylight() const { return Balance::isDaylightAt(currentHour, season); }
     float getSunriseHour() const { return Balance::getSunriseHour(season); }
     float getSunsetHour() const { return Balance::getSunsetHour(season); }
-    bool isGracePeriod() const { return currentDay <= Balance::GRACE_PERIOD_DAYS; }
+    bool isGracePeriod() const { return currentDay <= graceDays; }
     WeatherType getWeather() const { return weather; }
     SeasonType getSeason() const { return season; }
 

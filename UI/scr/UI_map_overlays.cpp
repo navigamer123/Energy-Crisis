@@ -2,6 +2,7 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_arcadeMode.h"
 #include <cmath>
 #include <algorithm>
 #include <vector>
@@ -45,21 +46,22 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     window.draw(hBox);
 
     if (resourcesLoaded) {
-        sf::Text& mt = ui::pooledText(font, toUtf8("ESC / МЕНЮ"), fontsize::Label);
+        bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+
+        sf::Text& mt = ui::pooledText(font, toUtf8(isArcade ? "МЕНЮ" : "ESC / МЕНЮ"), fontsize::Label);
         mt.setStyle(sf::Text::Bold);
         mt.setFillColor(theme::TextPrimary);
         sf::FloatRect mb = mt.getLocalBounds();
         mt.setPosition({ menuBtn.position.x + (menuBtn.size.x - mb.size.x) / 2.0f, menuBtn.position.y + 5.0f });
         ui::drawText(window, mt, menuBtn);
 
-        sf::Text& fst = ui::pooledText(font, toUtf8("ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
+        sf::Text& fst = ui::pooledText(font, toUtf8(isArcade ? "ЦЯЛ ЕКРАН" : "ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
         fst.setStyle(sf::Text::Bold);
         fst.setFillColor(theme::TextPrimary);
         sf::FloatRect fsb = fst.getLocalBounds();
         fst.setPosition({ fsBtn.position.x + (fsBtn.size.x - fsb.size.x) / 2.0f, fsBtn.position.y + 6.0f });
         ui::drawText(window, fst, fsBtn);
-
-        sf::Text& htBtn = ui::pooledText(font, toUtf8("? ПОМОЩ (H)"), fontsize::Label);
+        sf::Text& htBtn = ui::pooledText(font, toUtf8(isArcade ? "? ПОМОЩ" : "? ПОМОЩ (H)"), fontsize::Label);
         htBtn.setStyle(sf::Text::Bold);
         htBtn.setFillColor(theme::TextPrimary);
         sf::FloatRect htbBtn = htBtn.getLocalBounds();
@@ -75,7 +77,9 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
         window.draw(helpBar);
 
         // Q / PgUp step back through buildings; X / Del cancel a selection (or enter demolish mode)
-        std::string helpText = "P1: [E]/[Q] Сграда | [X] Разруши/Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn]/[PgUp] Сграда | [Del] Разруши/Отказ | [ENTER] Действие";
+        std::string helpText = isArcade
+            ? "P1: [СТИК] Движение | [A] Действие/Добив | [D] Сграда | [C] Ъпгрейд | [B] Отказ  ///  P2: [СТИК] Движение | [A] Действие/Добив | [D] Сграда | [C] Ъпгрейд | [B] Отказ"
+            : "P1: [E]/[Q] Сграда | [X] Разруши/Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn]/[PgUp] Сграда | [Del] Разруши/Отказ | [ENTER] Действие";
         sf::Text& ht = ui::pooledText(font, toUtf8(helpText), fontsize::Caption);
         ht.setFillColor(theme::TextSecondary);
         sf::FloatRect htb = ht.getLocalBounds();
@@ -156,12 +160,16 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         };
 
         const std::string victoryPctStr = std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f)));
-        const std::string finalDayStr = std::to_string(static_cast<int>(Balance::FINAL_DAY));
+        const std::string finalDayStr = std::to_string(engine.getConfig().finalDay);
+        const int graceDays = engine.getConfig().graceDays;
+        const std::string graceLine = (graceDays == 1)
+            ? "- Ден 1 е ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n"
+            : ("- Първите " + std::to_string(graceDays) + " дена са ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n");
         const std::string speedupStr = std::to_string(static_cast<int>(std::lround(Balance::MINE_SPEEDUP_MULT)));
 
         drawSection("1. ЦЕЛ НА ИГРАТА И ДОМИНИРАНЕ НА ГРАДА",
-                    "- Всеки играч започва с начален свободен парцел и 50% териториален дял в града.\n"
-                    "- Първите 2 дена са ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n"
+                    "- Всеки играч започва с начален свободен парцел и 50% териториален дял в града.\n" +
+                    graceLine +
                     "- Захранването на града носи пари ($) от договори и златен дивидент (злато, ограничено до нуждите на града!).\n"
                     "- В края на всеки ден се отчита средната доставена мощност (MW) за целия ден: превесът носи 10-15% дневно завладяване!\n"
                     "- Победител е първият играч с поне " + victoryPctStr + "% от града в края на ден. След края на ден " + finalDayStr +

@@ -61,6 +61,16 @@ public:
     bool isJoystickDirectionPressed(int player, ControlAction actionType) const;
     bool isJoystickActionPressed(int player, ControlAction actionType) const;
 
+    int p1JoystickId = 0;
+    int p2JoystickId = 1;
+    void setPlayerJoystick(int player, int joyId) {
+        if (player == 1) p1JoystickId = joyId;
+        else if (player == 2) p2JoystickId = joyId;
+    }
+    int getPlayerJoystick(int player) const {
+        return (player == 1) ? p1JoystickId : p2JoystickId;
+    }
+
 private:
     UI_controlsConfig();
 };

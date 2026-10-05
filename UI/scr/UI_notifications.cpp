@@ -3,6 +3,7 @@
 #include "../includes/UI_matchStats.h"
 #include <iterator>
 #include "../includes/UI_types.h"
+#include "../includes/UI_arcadeMode.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -297,9 +298,11 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
             break;
         case InfoEventType::LOST_LIGHTNING: {
             std::string name = engine.getBuildingCost(ev.building).nameBg;
+            std::string act = ArcadeMode::isEnabled() ? "[A]: Постройте отново"
+                                                      : (p == 1 ? "[SPACE]: Постройте отново" : "[ENTER]: Постройте отново");
             push(p, ToastPriority::CRITICAL, "", "МЪЛНИЯ!", "Загубена сграда",
                  "Мълния унищожи " + name + ". Клетката е свободна за нов строеж.",
-                 p == 1 ? "[SPACE]: Постройте отново" : "[ENTER]: Постройте отново", COL_CRIT, false);
+                 act, COL_CRIT, false);
             log(p, ToastPriority::CRITICAL, "Мълния унищожи " + name + " (" + playerName(p) + ")");
             break;
         }

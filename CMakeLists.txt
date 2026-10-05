@@ -112,6 +112,8 @@ if(EC_BUILD_GAME)
     if(_ec_sfml_type STREQUAL "SHARED_LIBRARY")
         set(EC_SFML_SHARED ON)
     endif()
+
+    find_package(SQLite3 REQUIRED)
 endif()
 
 # MinGW: the C++ runtime DLLs of the compiler, copied next to the programs so they start by double-click
@@ -187,7 +189,7 @@ if(EC_BUILD_GAME)
             "${CMAKE_CURRENT_SOURCE_DIR}"
             "${CMAKE_CURRENT_SOURCE_DIR}/UI/includes")
         target_link_libraries(energy_crisis PRIVATE ec_engine ec_options
-            SFML::Graphics SFML::Window SFML::System SFML::Audio)
+            SFML::Graphics SFML::Window SFML::System SFML::Audio SQLite::SQLite3)
         ec_copy_runtime_dlls(energy_crisis)
 
         # assets/ next to the executable. Re-copied (old files removed) whenever an asset is added,

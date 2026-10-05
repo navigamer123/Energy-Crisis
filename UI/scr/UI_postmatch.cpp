@@ -2,6 +2,7 @@
 #include "../includes/UI_infoCharts.h"
 #include "../includes/UI_infoText.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_arcadeMode.h"
 #include <algorithm>
 #include <cmath>
 
@@ -182,13 +183,16 @@ void UI_postmatch::draw(sf::RenderTarget& target, const sf::Font& font, bool fon
     rect(target, menuBtn, hoverM ? sf::Color(70, 90, 120) : sf::Color(45, 60, 85), sf::Color(130, 160, 205), 1.5f);
     if (!fontLoaded) return;
 
-    textCentered(target, font, "[ R ]  НОВА ИГРА", 14, { restartBtn.position.x + restartBtn.size.x / 2.0f, restartBtn.position.y + 12.0f },
+    bool isArcade = ArcadeMode::isEnabled();
+    textCentered(target, font, isArcade ? "[ A ]  НОВА ИГРА" : "[ R ]  НОВА ИГРА", 14,
+                 { restartBtn.position.x + restartBtn.size.x / 2.0f, restartBtn.position.y + 12.0f },
                  sf::Color::White, true);
-    textCentered(target, font, "[ ESC / M ]  ГЛАВНО МЕНЮ", 14, { menuBtn.position.x + menuBtn.size.x / 2.0f, menuBtn.position.y + 12.0f },
+    textCentered(target, font, isArcade ? "[ B ]  ГЛАВНО МЕНЮ" : "[ ESC / M ]  ГЛАВНО МЕНЮ", 14,
+                 { menuBtn.position.x + menuBtn.size.x / 2.0f, menuBtn.position.y + 12.0f },
                  sf::Color::White, true);
 
     // Header: who won and how
-    const int finalDay = Balance::FINAL_DAY;
+    const int finalDay = engine.getConfig().finalDay;
     const int victoryPct = static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f));
     const int p1Pct = static_cast<int>(std::lround(city.p1CityShare * 100.0f));
     const int winnerPct = (winner == 1) ? p1Pct : 100 - p1Pct;

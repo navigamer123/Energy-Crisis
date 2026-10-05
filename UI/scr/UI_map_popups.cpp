@@ -3,6 +3,7 @@
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
 #include "../includes/UI_icons.h"
+#include "../includes/UI_arcadeMode.h"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -114,10 +115,13 @@ void UI_map::reportBuildFailure(int player, BuildingType sel, const std::string&
         BuildingCost cost = engine.getBuildingCost(sel);
         std::string missing = missingResourcesText(engine.getPlayerEconomy(player), cost);
         if (!missing.empty()) {
-            std::string key = (player == 1) ? "[SPACE]" : "[ENTER]";
+            bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+            std::string key = isArcade ? "[A]" : ((player == 1) ? "[SPACE]" : "[ENTER]");
+            std::string tipStr = isArcade
+                ? ("Добийте ги от станциите: застанете върху станция и натиснете " + key + ".")
+                : ("Добийте ги от станциите долу: застанете върху станция и натиснете " + key + " (или кликнете върху нея).");
             triggerPlayerModal(player, "НЕДОСТИГ НА РЕСУРСИ", "Не стигат ресурси за " + cost.nameBg, missing,
-                               "Добийте ги от станциите долу: застанете върху станция и натиснете " + key +
-                                   " (или кликнете върху нея).",
+                               tipStr,
                                errorColor);
             return;
         }
@@ -205,7 +209,9 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         btn.setOutlineColor(btnHover ? theme::Focus : theme::Good);
         window.draw(btn);
 
-        sf::Text& tOk = ui::pooledText(font, toUtf8(pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]"), fontsize::Label);
+        bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+        std::string okLabel = isArcade ? "РАЗБРАХ [A]" : (pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]");
+        sf::Text& tOk = ui::pooledText(font, toUtf8(okLabel), fontsize::Label);
         tOk.setStyle(sf::Text::Bold);
         tOk.setFillColor(theme::TextPrimary);
         sf::FloatRect ob = tOk.getLocalBounds();
@@ -271,8 +277,9 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         }
     };
 
-    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, "[SPACE]", getP1ResourceCooldown(p1Res));
-    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, "[ENTER]", getP2ResourceCooldown(p2Res));
+    bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, isArcade ? "[A]" : "[SPACE]", getP1ResourceCooldown(p1Res));
+    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, isArcade ? "[A]" : "[ENTER]", getP2ResourceCooldown(p2Res));
 
     // The 6x mining speed-up is shown inside each player's clock card (UI_clock)
 }

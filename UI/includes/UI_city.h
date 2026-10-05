@@ -14,7 +14,8 @@ public:
     void drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime,
                            bool isDaylight = true);
     void drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                          int demand, int p1Energy, int p2Energy, float p1Share, int currentDay = 1);
+                          int demand, int p1Energy, int p2Energy, float p1Share, int currentDay = 1,
+                          int graceDays = 2);
 
     sf::FloatRect getCityBounds() const { return sf::FloatRect({ 610.0f, 65.0f }, { 380.0f, 330.0f }); }
     // [b-effects] Influence bar track (used by drawInfluenceBar and the UI_fx tween overlay)

@@ -131,12 +131,11 @@ void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoa
 
     if (!fontLoaded) return;
 
-    const bool grace = currentDay <= Balance::GRACE_PERIOD_DAYS;
+    const bool grace = currentDay <= graceDays;
     const float textX = pos.x + 10.0f;
 
     // Header: player and day (ДЕН N/FINAL_DAY). After the final day ends the engine is already on
     // the next day; never show e.g. 21/20.
-    const int finalDay = static_cast<int>(Balance::FINAL_DAY);
     const int shownDay = std::min(currentDay, finalDay);
     // (The side is clear from the card position and colour; "ИГРАЧ 1 (ЗАПАД) | ДЕН 16/20" ran under the dial.)
     std::string pTitle = (playerIndex == 1) ? "ИГРАЧ 1" : "ИГРАЧ 2";

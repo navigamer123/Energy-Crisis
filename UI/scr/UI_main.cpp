@@ -2,6 +2,10 @@
 #include "../includes/UI_types.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_settings.h"
+#include "../includes/UI_arcadePopup.h"
+#include "../includes/UI_credits.h"
+#include "../includes/UI_arcadeMode.h"
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
@@ -40,6 +44,14 @@ void UI_main::setupShotScene() {
         else if (shot.scene == "controls") s = MenuState::PLAY_CONTROLS;
         else if (shot.scene == "settings") s = MenuState::SETTINGS;
         else if (shot.scene == "remap" || shot.scene == "controls_remap") s = MenuState::SETTINGS_CONTROLS;
+        else if (shot.scene == "arcade_start") s = MenuState::PRESS_A_TO_START;
+        else if (shot.scene == "calibrate_blue") s = MenuState::CALIBRATE_BLUE;
+        else if (shot.scene == "calibrate_red") s = MenuState::CALIBRATE_RED;
+        else if (shot.scene == "popup_exit") {
+            s = MenuState::PRESS_A_TO_START;
+            bool isEn = (UI_settings::get().getLanguage() == "en");
+            ArcadePopup::get().show(isEn ? "PRESS AGAIN\nTO EXIT" : "НАТИСНИ ОТНОВО\nДА ИЗЛЕЗЕШ", 10.0f);
+        }
         mainMenu.showState(s);
         currentState = UIState::MAIN_MENU;
         return;
@@ -157,13 +169,31 @@ int UI_main::render() {
     sf::Clock audioClock; // [b-effects] frame time for the audio crossfades
     sf::Clock changeGameClock;
     int changeGamePressCount = 0;
+    sf::Clock arcadeUpdateClock;
+    bool matchWasCompleted = false;
 
     while (window.isOpen() && currentState != UIState::QUIT) {
         ui::beginTextFrame();
         ui::lint::beginFrame();
         ui::shot::tickFrame();
+
+        float dt = arcadeUpdateClock.restart().asSeconds();
+        ArcadePopup::get().update(dt);
+        if (ArcadeMode::isEnabled()) {
+            CreditsManager::get().update(dt);
+
+            if (currentState == UIState::PLAYING) {
+                if (map.getEngine().getCityState().winner != 0 && !matchWasCompleted) {
+                    matchWasCompleted = true;
+                    CreditsManager::get().onMatchCompleted();
+                    std::cout << "[Credits] Match completed. Total completed matches: "
+                              << CreditsManager::get().getMatchesCompletedCount() << "\n";
+                }
+            }
+        }
+
         while (const auto event = window.pollEvent()) {
-            // Global controller exit: BTN_BASE3 / Button 9 (SFML button 8 or 9) pressed 2 times within 2 seconds
+            // Global controller exit: BTN_BASE3 / Button 8 or 9 pressed 2 times within 2 seconds
             if (const auto* jb = event->getIf<sf::Event::JoystickButtonPressed>()) {
                 if (jb->button == 8 || jb->button == 9) {
                     float elapsed = changeGameClock.getElapsedTime().asSeconds();
@@ -176,6 +206,9 @@ int UI_main::render() {
                         changeGamePressCount = 1;
                         changeGameClock.restart();
                         std::cout << "[UI_main] Controller exit button pressed (1/2). Press again within 2s to exit.\n";
+                        bool isEn = (UI_settings::get().getLanguage() == "en");
+                        std::string msg = isEn ? "PRESS AGAIN\nTO EXIT" : "НАТИСНИ ОТНОВО\nДА ИЗЛЕЗЕШ";
+                        ArcadePopup::get().show(msg, 2.0f);
                     }
                     continue;
                 }
@@ -260,13 +293,29 @@ int UI_main::render() {
 
         if (currentState == UIState::MAIN_MENU) {
             if (mainMenu.isPlayRequested()) {
-                mainMenu.resetPlayRequest();
-                map.restartMatch();
-                map.setControlScheme(mainMenu.getSelectedControlScheme());
-                map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
-                map.resetMatchInputState(); // The Enter/Space/click that started the match must not act in it
-                UI_audio::get().play(AudioSynth::Sfx::UiConfirm); // [b-effects]
-                currentState = UIState::PLAYING;
+                if (ArcadeMode::isEnabled() && CreditsManager::get().requiresCreditForNewGame()) {
+                    if (!CreditsManager::get().tryConsumeCredits(1)) {
+                        mainMenu.resetPlayRequest();
+                    } else {
+                        mainMenu.resetPlayRequest();
+                        matchWasCompleted = false;
+                        map.restartMatch();
+                        map.setControlScheme(mainMenu.getSelectedControlScheme());
+                        map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
+                        map.resetMatchInputState();
+                        UI_audio::get().play(AudioSynth::Sfx::UiConfirm);
+                        currentState = UIState::PLAYING;
+                    }
+                } else {
+                    mainMenu.resetPlayRequest();
+                    matchWasCompleted = false;
+                    map.restartMatch();
+                    map.setControlScheme(mainMenu.getSelectedControlScheme());
+                    map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
+                    map.resetMatchInputState();
+                    UI_audio::get().play(AudioSynth::Sfx::UiConfirm);
+                    currentState = UIState::PLAYING;
+                }
             } else if (mainMenu.isQuitRequested()) {
                 currentState = UIState::QUIT;
                 window.close();
@@ -307,6 +356,9 @@ int UI_main::render() {
         } else if (currentState == UIState::PLAYING) {
             map.render(window);
         }
+
+        // Top-right arcade popup notification (credits, exit confirmation)
+        ArcadePopup::get().draw(window);
 
         // Screenshot mode: capture the finished frame before display() (the back buffer is still valid)
         if (shot.enabled) ++frame;

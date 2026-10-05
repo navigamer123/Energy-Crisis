@@ -7,6 +7,9 @@
 #include "UI_playControls.h"
 
 enum class MenuState {
+    PRESS_A_TO_START,
+    CALIBRATE_BLUE,
+    CALIBRATE_RED,
     MAIN,
     MODE_SELECT,
     PLAY_CONTROLS,
@@ -48,15 +51,26 @@ private:
 
     sf::Font font;
     bool fontLoaded;
+    sf::Font arcadeFont;
+    bool arcadeFontLoaded = false;
 
     sf::Texture logoTexture;     // assets/logo.png (title artwork)
     bool logoLoaded = false;
+    sf::Texture blueControllerTexture;
+    bool blueControllerLoaded = false;
+    sf::Texture redControllerTexture;
+    bool redControllerLoaded = false;
+    sf::Texture arrowTexture;
+    bool arrowLoaded = false;
+
     sf::Clock animClock;         // Logo glow pulse
 
     UI_playControls playControls;
 
     // Logo title: large on the top-level menu, compact above the submenus
     void drawHeader(sf::RenderWindow& window, bool large = false);
+    void drawPressAToStart(sf::RenderWindow& window);
+    void drawCalibration(sf::RenderWindow& window, bool isBlue);
     void drawMainMenu(sf::RenderWindow& window);
     void drawModeSelectMenu(sf::RenderWindow& window);
     void drawBotDifficultyMenu(sf::RenderWindow& window);

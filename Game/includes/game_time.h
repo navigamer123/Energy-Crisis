@@ -40,16 +40,19 @@ inline float gameSecondsAtHour(float hour24, float daySeconds = SECONDS_PER_DAY)
     return (hour24 - CLOCK_HOUR_AT_ZERO) / 24.0f * daySeconds;
 }
 
-inline SeasonType getSeasonForDay(int day) {
+inline SeasonType getSeasonForDay(int day, int finalDay = 20) {
     int d = (day < 1) ? 1 : day;
-    return static_cast<SeasonType>(((d - 1) / DAYS_PER_SEASON) % 4);
+    int daysPerSeason = std::max(1, finalDay / 4);
+    int seasonIdx = (d - 1) / daysPerSeason;
+    if (seasonIdx > 3) seasonIdx = 3;
+    return static_cast<SeasonType>(seasonIdx % 4);
 }
 
 // Season in effect at a given game time: it already belongs to the next day from midnight on
-inline SeasonType getSeasonAtGameSeconds(float gameSeconds, float daySeconds = SECONDS_PER_DAY) {
+inline SeasonType getSeasonAtGameSeconds(float gameSeconds, float daySeconds = SECONDS_PER_DAY, int finalDay = 20) {
     float secondsFromMidnightToRollover = CLOCK_HOUR_AT_ZERO / 24.0f * daySeconds; // 00:00 -> 06:00
     int calendarDay = 1 + static_cast<int>(std::floor((gameSeconds + secondsFromMidnightToRollover) / daySeconds));
-    return getSeasonForDay(calendarDay);
+    return getSeasonForDay(calendarDay, finalDay);
 }
 
 // Season keyword expected by weather_report()

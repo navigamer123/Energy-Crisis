@@ -1,6 +1,7 @@
 #include "../includes/UI_map.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_arcadeMode.h"
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -187,7 +188,8 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::WIND_TURBINE);
         BuildingCost c = engine.getBuildingCost(BuildingType::WIND_TURBINE);
         triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Добив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                           "[SPACE]: Постави в грида | [X]: Отказ", theme::P1);
+                           ArcadeMode::isEnabled() ? "[A]: Постави в грида | [B]: Отказ"
+                                                   : "[SPACE]: Постави в грида | [X]: Отказ", theme::P1);
     } else if (scene == "mining") {
         // P1 mines wood: prompt over the station, cooldown on the card, 6x time badges, a notice
         if (const auto* st = nodes.getStation(1, ResourceType::WOOD)) {

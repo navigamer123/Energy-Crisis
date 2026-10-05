@@ -1,4 +1,6 @@
 test_game
+ArcadeTemplate.x86_64
+*.x86_64
 *.o
 *.d
 *.exe

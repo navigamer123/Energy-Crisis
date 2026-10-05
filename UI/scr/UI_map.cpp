@@ -2,7 +2,9 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_arcadeMode.h"
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <algorithm>
 
@@ -44,8 +46,8 @@ UI_map::UI_map()
         particles[i].type = 0;
     }
 
-    // Initialize backend game engine at 1600x900
-    engine.init(1600.0f, 900.0f);
+    // Initialize backend game engine at 1600x900 with appropriate config (Arcade vs PC)
+    restartMatch();
     // Real-time host: a stalled frame drops its backlog instead of running hundreds of steps
     engine.setMaxStepsPerUpdate(GameEngine::RECOMMENDED_MAX_STEPS_PER_UPDATE);
     std::cout << "[UI_map] 1600x900 map orchestrator with backend GameEngine ready.\n";
@@ -113,7 +115,36 @@ void UI_map::drawBackground(sf::RenderWindow& window) {
 }
 
 void UI_map::restartMatch() {
-    engine.restartGame();
+    MatchConfig cfg;
+    if (ArcadeMode::isEnabled()) {
+        int arcadeDays = 4;
+        const char* envDays = std::getenv("ARCADE_DAYS");
+        if (envDays) {
+            try { arcadeDays = std::stoi(envDays); } catch (...) {}
+        }
+        if (arcadeDays == 8) {
+            cfg.finalDay = 8;
+            float daySec = 37.5f; // 8 * 37.5s = 300s = 5m00s max
+            const char* envSec = std::getenv("ARCADE_DAY_SECONDS");
+            if (envSec) { try { daySec = std::stof(envSec); } catch (...) {} }
+            cfg.daySeconds = daySec;
+            cfg.graceDays = 1;
+        } else {
+            // Default: 4 days @ 1m (60s) each = 240s = 4m total (under 5m max limit)
+            cfg.finalDay = 4;
+            float daySec = 60.0f;
+            const char* envSec = std::getenv("ARCADE_DAY_SECONDS");
+            if (envSec) { try { daySec = std::stof(envSec); } catch (...) {} }
+            cfg.daySeconds = daySec;
+            cfg.graceDays = 1;
+        }
+    } else {
+        // PC & other platforms: standard 20 days @ 1:30 (90s) each
+        cfg.finalDay = Balance::FINAL_DAY;
+        cfg.daySeconds = Balance::SECONDS_PER_DAY;
+        cfg.graceDays = Balance::GRACE_PERIOD_DAYS;
+    }
+    engine.init(cfg);
 
     // --- Reset every per-match UI state (same result for menu starts and in-match restarts) ---
     // Overlays
@@ -238,12 +269,16 @@ void UI_map::render(sf::RenderWindow& window) {
     p1Clock.setWeather(engine.getPlayerWeather(1));
     p1Clock.setSeason(engine.getSeason());
     p1Clock.setTimeScale(engine.getTimeScale());
+    p1Clock.setFinalDay(engine.getConfig().finalDay);
+    p1Clock.setGraceDays(engine.getConfig().graceDays);
 
     p2Clock.setHour(engine.getHour24());
     p2Clock.setDay(engine.getCurrentDay());
     p2Clock.setWeather(engine.getPlayerWeather(2));
     p2Clock.setSeason(engine.getSeason());
     p2Clock.setTimeScale(engine.getTimeScale());
+    p2Clock.setFinalDay(engine.getConfig().finalDay);
+    p2Clock.setGraceDays(engine.getConfig().graceDays);
 
     float animTime = ui::shot::clockSeconds(animClock.getElapsedTime().asSeconds());
     sf::Vector2f mousePos = ui::pointerPos(window);
@@ -361,7 +396,7 @@ void UI_map::render(sf::RenderWindow& window) {
     // 9. City Demand & Influence Tug-of-War Bar (Above City), animated needle + trailing change segment
     city.drawInfluenceBar(window, font, resourcesLoaded, engine.getCityState().cityEnergyDemand,
                           engine.getPlayerEconomy(1).energyMW, engine.getPlayerEconomy(2).energyMW,
-                          fx.displayedShare(), engine.getCurrentDay());
+                          fx.displayedShare(), engine.getCurrentDay(), engine.getConfig().graceDays);
     fx.drawInfluenceTrail(window);
 
     // 11. Top-Left & Top-Right Clocks (Continuous 24h cycle & weather)

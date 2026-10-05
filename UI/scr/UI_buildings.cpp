@@ -3,6 +3,7 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_icons.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_arcadeMode.h"
 #include "../../Game/includes/game_balance.h"
 #include <algorithm>
 #include <cmath>
@@ -148,8 +149,14 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
   ui::lint::ContainerScope panelScope(sf::FloatRect(panelPos, panelSize));
 
   if (fontLoaded) {
-    std::string pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
-                                          : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
+    std::string pTag;
+    if (ArcadeMode::isEnabled()) {
+      pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [D]"
+                                : "ПОСТРОЙКИ (ИГРАЧ 2) [D]";
+    } else {
+      pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
+                                : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
+    }
     sf::Text& tHeader = ui::pooledText(font, toUtf8(pTag), fontsize::Label);
     tHeader.setStyle(sf::Text::Bold);
     tHeader.setFillColor(accentColor);
@@ -279,8 +286,10 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       mult = WeatherSystem::getHydroMultiplier(weather);
 
     std::string hotkeyStr;
-    if (hotkeys == BuildHotkeys::DIGITS) hotkeyStr = "[" + std::to_string(i + 1) + "]";
-    else if (hotkeys == BuildHotkeys::NUMPAD) hotkeyStr = "[Num" + std::to_string(i + 1) + "]";
+    if (!ArcadeMode::isEnabled()) {
+      if (hotkeys == BuildHotkeys::DIGITS) hotkeyStr = "[" + std::to_string(i + 1) + "]";
+      else if (hotkeys == BuildHotkeys::NUMPAD) hotkeyStr = "[Num" + std::to_string(i + 1) + "]";
+    }
 
     float hotkeyW = 0.0f;
     const float statusY = y + 37.0f;

@@ -3,6 +3,7 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_arcadeMode.h"
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -451,7 +452,9 @@ void UI_map::executeP1Upgrade() {
     std::string msg;
     if (engine.upgradeMine(1, resType, msg)) {
         spawnMiningParticles(p1Pos, theme::Gold, 28);
-        triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", theme::Gold);
+        bool isArcade1 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+        triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
+                           isArcade1 ? "[A]: Добив | [C]: Нов ъпгрейд" : "[SPACE]: Добив | [F]: Нов ъпгрейд", theme::Gold);
         spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
     } else {
         triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
@@ -469,7 +472,9 @@ void UI_map::executeP2Upgrade() {
     std::string msg;
     if (engine.upgradeMine(2, resType, msg)) {
         spawnMiningParticles(p2Pos, theme::Gold, 28);
-        triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", theme::Gold);
+        bool isArcade2 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+        triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
+                           isArcade2 ? "[A]: Добив | [C]: Нов ъпгрейд" : "[ENTER]: Добив | [RShift]: Нов ъпгрейд", theme::Gold);
         spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
     } else {
         triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
@@ -808,10 +813,10 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     p1PrevUpgrade = p1PressingUpgrade;
 
     // Key names shown in P1's popups: Enter/PgDn/Del belong to P1 only in Single Player
-    const bool isArcade1 = (controlScheme == ControlScheme::DEVHUB_ARCADE) || UI_controlsConfig::get().isJoystickConnected(1);
-    const std::string p1ActKeys = isArcade1 ? "[1/A]" : ("[" + keyToString(p1Bindings.action) + (allowArrowsForP1 ? "/ENTER]" : "]"));
-    const std::string p1NextKeys = isArcade1 ? "[4/Y]" : ("[" + keyToString(p1Bindings.nextBuilding) + (allowArrowsForP1 ? "/PgDn]" : "]"));
-    const std::string p1CancelKeys = isArcade1 ? "[2/B]" : ("[" + keyToString(p1Bindings.cancel) + (allowArrowsForP1 ? "/Del]" : "]"));
+    const bool isArcade1 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE) || UI_controlsConfig::get().isJoystickConnected(1);
+    const std::string p1ActKeys = isArcade1 ? "[A]" : ("[" + keyToString(p1Bindings.action) + (allowArrowsForP1 ? "/ENTER]" : "]"));
+    const std::string p1NextKeys = isArcade1 ? "[D]" : ("[" + keyToString(p1Bindings.nextBuilding) + (allowArrowsForP1 ? "/PgDn]" : "]"));
+    const std::string p1CancelKeys = isArcade1 ? "[B]" : ("[" + keyToString(p1Bindings.cancel) + (allowArrowsForP1 ? "/Del]" : "]"));
 
     // P1: Cycle Forward
     bool p1JoyNext = UI_controlsConfig::get().isJoystickActionPressed(1, ControlAction::NEXT_BUILDING);
@@ -894,11 +899,11 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
 
     // 7. Player 2 Action Input (Human Player 2 only)
     if (!bot.isActive()) {
-        const bool isArcade2 = (controlScheme == ControlScheme::DEVHUB_ARCADE) || UI_controlsConfig::get().isJoystickConnected(2);
-        const std::string p2ActKeys = isArcade2 ? "[1/A]" : ("[" + keyToString(p2Bindings.action) + "]");
-        const std::string p2NextKeys = isArcade2 ? "[4/Y]" : ("[" + keyToString(p2Bindings.nextBuilding) + "]");
-        const std::string p2PrevKeys = isArcade2 ? "[3/X]" : ("[" + keyToString(p2Bindings.prevBuilding) + "]");
-        const std::string p2CancelKeys = isArcade2 ? "[2/B]" : ("[" + keyToString(p2Bindings.cancel) + "]");
+        const bool isArcade2 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE) || UI_controlsConfig::get().isJoystickConnected(2);
+        const std::string p2ActKeys = isArcade2 ? "[A]" : ("[" + keyToString(p2Bindings.action) + "]");
+        const std::string p2NextKeys = isArcade2 ? "[D]" : ("[" + keyToString(p2Bindings.nextBuilding) + "]");
+        const std::string p2PrevKeys = isArcade2 ? "[E]" : ("[" + keyToString(p2Bindings.prevBuilding) + "]");
+        const std::string p2CancelKeys = isArcade2 ? "[B]" : ("[" + keyToString(p2Bindings.cancel) + "]");
 
         bool p2JoyAction = UI_controlsConfig::get().isJoystickActionPressed(2, ControlAction::ACTION);
         bool p2PressingAction = sf::Keyboard::isKeyPressed(p2Bindings.action) || p2JoyAction;
@@ -1255,12 +1260,16 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             }
         }
         if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
-            if (jb->button == 1 || jb->button == 6) { // Back / Coin skips tutorial
-                tutorial.skip();
-                return;
+            int p2Joy = UI_controlsConfig::get().getPlayerJoystick(2);
+            int player = (!bot.isActive() && jb->joystickId == (unsigned int)p2Joy) ? 2 : 1;
+
+            if (jb->button == 1 || jb->button == 6) { // B / Coin / Cancel skips tutorial
+                if (tutorial.handleSkip(player)) {
+                    return;
+                }
             }
             if (jb->button == 0 || jb->button == 7) { // A / Start advances tutorial
-                if (tutorial.handleKey(sf::Keyboard::Key::Space)) {
+                if (tutorial.handleAction(player)) {
                     primeInputEdges(0);
                     return;
                 }
@@ -1478,7 +1487,9 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 std::string msg;
                 if (engine.upgradeMine(1, p1Up, msg)) {
                     spawnMiningParticles(clickPos, theme::Gold, 25);
-                    triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[SPACE]: Добив | [F]: Нов ъпгрейд", theme::Gold);
+                    bool isArcade1 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+                    triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
+                                       isArcade1 ? "[A]: Добив | [C]: Нов ъпгрейд" : "[SPACE]: Добив | [F]: Нов ъпгрейд", theme::Gold);
                     spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
                 } else {
                     triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
@@ -1492,7 +1503,9 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 std::string msg;
                 if (engine.upgradeMine(2, p2Up, msg)) {
                     spawnMiningParticles(clickPos, theme::Gold, 25);
-                    triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!", "[ENTER]: Добив | [RShift]: Нов ъпгрейд", theme::Gold);
+                    bool isArcade2 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+                    triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
+                                       isArcade2 ? "[A]: Добив | [C]: Нов ъпгрейд" : "[ENTER]: Добив | [RShift]: Нов ъпгрейд", theme::Gold);
                     spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
                 } else {
                     triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);

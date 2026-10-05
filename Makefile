@@ -20,9 +20,15 @@ CXXFLAGS  = -std=c++17 -O2 -Wall -Wextra
 CPPFLAGS  = -IUI/includes -IGame/includes
 DEPFLAGS  = -MMD -MP
 LDFLAGS   =
-LIBS      = -lsfml-audio -lsfml-graphics -lsfml-window -lsfml-system
+LIBS      = -lsfml-audio -lsfml-graphics -lsfml-window -lsfml-system -lsqlite3
+TARGET    ?= test_game
+
+ifeq ($(TARGET),ArcadeTemplate.x86_64)
+CXXFLAGS  += -DARCADE_MODE=1
+BUILD_DIR = build/arcade
+else
 BUILD_DIR = build/make
-TARGET    = test_game
+endif
 
 ifdef SFML_DIR
 CPPFLAGS += -I$(SFML_DIR)/include
@@ -108,6 +114,11 @@ endif
 run: all
 	$(call RUN,$(GAME_BIN))
 
+# Arcade cabinet build: produces ArcadeTemplate.x86_64
+arcade:
+	$(MAKE) TARGET=ArcadeTemplate.x86_64
+.PHONY: arcade
+
 # -----------------------------------------------------------------------------
 # Headless engine tests: make test
 # Builds every scratch/test_*.cpp against the engine only (Game/scr/*.cpp) and runs it - the same
@@ -146,9 +157,9 @@ $(ENGINE_OBJS): $(TEST_OBJ_DIR)/%.o: Game/scr/%.cpp
 
 # -----------------------------------------------------------------------------
 clean:
-	$(call RM_RF,$(BUILD_DIR))
+	$(call RM_RF,build)
 	$(call RM_RF,$(TEST_DIR)/bin)
-	-$(call RM_F,$(GAME_BIN) $(SFML_DLL_NAMES))
+	-$(call RM_F,test_game ArcadeTemplate.x86_64 $(SFML_DLL_NAMES))
 
 -include $(GAME_OBJS:.o=.d) $(ENGINE_OBJS:.o=.d) $(TEST_BINS:$(EXE)=.d)
 

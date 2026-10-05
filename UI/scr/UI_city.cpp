@@ -374,7 +374,8 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 }
 
 void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
-                              int demand, int p1Energy, int p2Energy, float p1Share, int currentDay) {
+                              int demand, int p1Energy, int p2Energy, float p1Share, int currentDay,
+                              int graceDays) {
     float screenWidth = VIRTUAL_WIDTH;
 
     float panelW = 560.0f;
@@ -395,9 +396,11 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         std::string dStr;
         sf::Color demandColor;
 
-        if (currentDay <= Balance::GRACE_PERIOD_DAYS) {
-            dStr = "ГРАТИСЕН ПЕРИОД (ДЕН " + std::to_string(currentDay) + "/" +
-                   std::to_string(Balance::GRACE_PERIOD_DAYS) + "): ГРАДЪТ ИСКА 0 MW · ДОСТАВКА " + std::to_string(totalSupplied) + " MW";
+        if (currentDay <= graceDays) {
+            dStr = (graceDays == 1)
+                ? ("ГРАТИСЕН ПЕРИОД (ДЕН 1): ГРАДЪТ ИСКА 0 MW · ДОСТАВКА " + std::to_string(totalSupplied) + " MW")
+                : ("ГРАТИСЕН ПЕРИОД (ДЕН " + std::to_string(currentDay) + "/" +
+                   std::to_string(graceDays) + "): ГРАДЪТ ИСКА 0 MW · ДОСТАВКА " + std::to_string(totalSupplied) + " MW");
             demandColor = theme::Good;
         } else {
             dStr = "НУЖДА НА ГРАДА " + std::to_string(demand) + " MW · ДОСТАВКА " + std::to_string(totalSupplied) +

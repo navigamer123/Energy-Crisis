@@ -2,6 +2,8 @@
 #include "../includes/UI_text.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
+#include "../includes/UI_settings.h"
+#include "../includes/UI_arcadeMode.h"
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -353,7 +355,8 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
     if (currentStep == TutorialStep::INACTIVE) return;
     const auto& econ = engine.getPlayerEconomy(player);
     sf::Color playerColor = (player == 1) ? theme::P1 : theme::P2;
-    std::string pTag = (player == 1) ? "ИГРАЧ 1" : "ИГРАЧ 2";
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+    std::string pTag = isEn ? (player == 1 ? "PLAYER 1" : "PLAYER 2") : (player == 1 ? "ИГРАЧ 1" : "ИГРАЧ 2");
 
     // Card background
     sf::RectangleShape card(bounds.size);
@@ -365,89 +368,172 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
     window.draw(card);
     ui::lint::occlude(bounds);
 
-    std::string badgeText = pTag + ": ОСНОВИ";
+    std::string badgeText = pTag + (isEn ? ": BASICS" : ": ОСНОВИ");
     std::string titleText = "";
     std::string descText = "";
     std::string progressText = "";
     float progressRatio = 0.0f;
     bool showNextBtn = false;
-    std::string nextBtnLabel = (player == 1) ? "НАПРЕД [SPACE]" : "НАПРЕД [ENTER]";
+    bool isArcade = ArcadeMode::isEnabled();
+    std::string nextBtnLabel = isArcade ? (isEn ? "NEXT [A]" : "НАПРЕД [A]")
+                                        : (isEn ? (player == 1 ? "NEXT [SPACE]" : "NEXT [ENTER]")
+                                                : (player == 1 ? "НАПРЕД [SPACE]" : "НАПРЕД [ENTER]"));
 
     switch (currentStep) {
         case TutorialStep::WELCOME:
-            badgeText = pTag + ": ДОБРЕ ДОШЛИ!";
-            titleText = "ЦЕЛ: ЗАХРАНЕТЕ ГРАДА С ТОК!";
-            descText = (player == 1) ? "Движение: [W/A/S/D]  |  Действие: [SPACE]  |  Строеж: [E] / [1..6]\n"
-                                       "Първо съберете суровини за изграждане на Слънчев панел."
-                                     : "Движение: [СТРЕЛКИ]  |  Действие: [ENTER]  |  Строеж: [PgDn] / Клик\n"
-                                       "Първо съберете суровини за изграждане на Слънчев панел.";
+            badgeText = pTag + (isEn ? ": WELCOME!" : ": ДОБРЕ ДОШЛИ!");
+            titleText = isEn ? "OBJECTIVE: POWER THE CITY!" : "ЦЕЛ: ЗАХРАНЕТЕ ГРАДА С ТОК!";
+            if (isArcade) {
+                descText = isEn ? "Move: [JOYSTICK]  |  Action: [A]  |  Building: [D]  |  Cancel: [B]\n"
+                                  "First gather resources to construct a Solar Panel."
+                                : "Движение: [СТИК]  |  Действие: [A]  |  Сграда: [D]  |  Отказ: [B]\n"
+                                  "Първо съберете суровини за изграждане на Слънчев панел.";
+            } else {
+                if (player == 1) {
+                    descText = isEn ? "Move: [W/A/S/D]  |  Action: [SPACE]  |  Build: [E]  |  Cancel: [X]\n"
+                                      "Or use Mouse to select & place. Gather resources first!"
+                                    : "Движение: [W/A/S/D]  |  Действие: [SPACE]  |  Сграда: [E]  |  Отказ: [X]\n"
+                                      "Или с мишката. Първо съберете ресурси за Слънчев панел.";
+                } else {
+                    descText = isEn ? "Move: [ARROWS]  |  Action: [ENTER]  |  Build: [PgDn]  |  Cancel: [DEL]\n"
+                                      "First gather resources to construct a Solar Panel."
+                                    : "Движение: [СТРЕЛКИ]  |  Действие: [ENTER]  |  Сграда: [PgDn]  |  Отказ: [DEL]\n"
+                                      "Първо съберете ресурси за Слънчев панел.";
+                }
+            }
             showNextBtn = true;
-            nextBtnLabel = (player == 1) ? "ЗАПОЧНИ [SPACE]" : "ЗАПОЧНИ [ENTER]";
+            nextBtnLabel = isArcade ? (isEn ? "START [A]" : "ЗАПОЧНИ [A]")
+                                    : (isEn ? (player == 1 ? "START [SPACE]" : "START [ENTER]")
+                                            : (player == 1 ? "ЗАПОЧНИ [SPACE]" : "ЗАПОЧНИ [ENTER]"));
             break;
 
         case TutorialStep::GATHER_WOOD:
-            badgeText = pTag + ": СТЪПКА 1/6 (СЪБИРАНЕ)";
-            titleText = "ДОБИЙТЕ ДЪРВЕСИНА (ГОРА)";
-            descText = (player == 1) ? "Застанете на станция ГОРА (ляво) и натиснете [SPACE]."
-                                     : "Застанете на станция ГОРА (дясно) и натиснете [ENTER].";
+            badgeText = pTag + (isEn ? ": STEP 1/6 (MINING)" : ": СТЪПКА 1/6 (СЪБИРАНЕ)");
+            titleText = isEn ? "GATHER WOOD (FOREST)" : "ДОБИЙТЕ ДЪРВЕСИНА (ГОРА)";
+            if (isArcade) {
+                descText = isEn ? (player == 1 ? "Move to the FOREST station (left) and press [A]."
+                                               : "Move to the FOREST station (right) and press [A].")
+                                : (player == 1 ? "Застанете на станция ГОРА (ляво) и натиснете [A]."
+                                               : "Застанете на станция ГОРА (дясно) и натиснете [A].");
+            } else {
+                std::string act = (player == 1 ? "[SPACE]" : "[ENTER]");
+                std::string dir = (player == 1 ? (isEn ? "left" : "ляво") : (isEn ? "right" : "дясно"));
+                descText = isEn ? ("Move to the FOREST station (" + dir + ") and press " + act + ".")
+                                : ("Застанете на станция ГОРА (" + dir + ") и натиснете " + act + ".");
+            }
             progressRatio = std::min(1.0f, static_cast<float>(econ.wood) / 6.0f);
-            progressText = "Дървесина: " + std::to_string(econ.wood) + " / 6" + (econ.wood >= 6 ? "  [ГОТОВО!]" : "");
+            progressText = (isEn ? "Wood: " : "Дървесина: ") + std::to_string(econ.wood) + " / 6" + (econ.wood >= 6 ? (isEn ? "  [READY!]" : "  [ГОТОВО!]") : "");
             break;
 
         case TutorialStep::GATHER_IRON:
-            badgeText = pTag + ": СТЪПКА 2/6 (СЪБИРАНЕ)";
-            titleText = "ДОБИЙТЕ ЖЕЛЯЗО ЗА РАМКАТА";
-            descText = (player == 1) ? "Отидете върху станция ЖЕЛЯЗО и натиснете [SPACE]."
-                                     : "Отидете върху станция ЖЕЛЯЗО и натиснете [ENTER].";
+            badgeText = pTag + (isEn ? ": STEP 2/6 (MINING)" : ": СТЪПКА 2/6 (СЪБИРАНЕ)");
+            titleText = isEn ? "GATHER IRON FOR FRAME" : "ДОБИЙТЕ ЖЕЛЯЗО ЗА РАМКАТА";
+            if (isArcade) {
+                descText = isEn ? "Move onto the IRON station and press [A]."
+                                : "Отидете върху станция ЖЕЛЯЗО и натиснете [A].";
+            } else {
+                std::string act = (player == 1 ? "[SPACE]" : "[ENTER]");
+                descText = isEn ? ("Move onto the IRON station and press " + act + ".")
+                                : ("Отидете върху станция ЖЕЛЯЗО и натиснете " + act + ".");
+            }
             progressRatio = std::min(1.0f, static_cast<float>(econ.iron) / 4.0f);
-            progressText = "Желязо: " + std::to_string(econ.iron) + " / 4" + (econ.iron >= 4 ? "  [ГОТОВО!]" : "");
+            progressText = (isEn ? "Iron: " : "Желязо: ") + std::to_string(econ.iron) + " / 4" + (econ.iron >= 4 ? (isEn ? "  [READY!]" : "  [ГОТОВО!]") : "");
             break;
 
         case TutorialStep::GATHER_COPPER:
-            badgeText = pTag + ": СТЪПКА 3/6 (СЪБИРАНЕ)";
-            titleText = "ДОБИЙТЕ МЕД ЗА КАБЕЛИТЕ";
-            descText = (player == 1) ? "Отидете върху станция МЕД и натиснете [SPACE]."
-                                     : "Отидете върху станция МЕД и натиснете [ENTER].";
+            badgeText = pTag + (isEn ? ": STEP 3/6 (MINING)" : ": СТЪПКА 3/6 (СЪБИРАНЕ)");
+            titleText = isEn ? "GATHER COPPER FOR WIRES" : "ДОБИЙТЕ МЕД ЗА КАБЕЛИТЕ";
+            if (isArcade) {
+                descText = isEn ? "Move onto the COPPER station and press [A]."
+                                : "Отидете върху станция МЕД и натиснете [A].";
+            } else {
+                std::string act = (player == 1 ? "[SPACE]" : "[ENTER]");
+                descText = isEn ? ("Move onto the COPPER station and press " + act + ".")
+                                : ("Отидете върху станция МЕД и натиснете " + act + ".");
+            }
             progressRatio = std::min(1.0f, static_cast<float>(econ.copper) / 6.0f);
-            progressText = "Мед: " + std::to_string(econ.copper) + " / 6" + (econ.copper >= 6 ? "  [ГОТОВО!]" : "");
+            progressText = (isEn ? "Copper: " : "Мед: ") + std::to_string(econ.copper) + " / 6" + (econ.copper >= 6 ? (isEn ? "  [READY!]" : "  [ГОТОВО!]") : "");
             break;
 
         case TutorialStep::GATHER_SILICON:
-            badgeText = pTag + ": СТЪПКА 4/6 (СЪБИРАНЕ)";
-            titleText = "ДОБИЙТЕ СИЛИЦИЙ ЗА КЛЕТКИТЕ";
-            descText = (player == 1) ? "Отидете върху станция СИЛИЦИЙ и натиснете [SPACE]."
-                                     : "Отидете върху станция СИЛИЦИЙ и натиснете [ENTER].";
+            badgeText = pTag + (isEn ? ": STEP 4/6 (MINING)" : ": СТЪПКА 4/6 (СЪБИРАНЕ)");
+            titleText = isEn ? "GATHER SILICON FOR CELLS" : "ДОБИЙТЕ СИЛИЦИЙ ЗА КЛЕТКИТЕ";
+            if (isArcade) {
+                descText = isEn ? "Move onto the SILICON station and press [A]."
+                                : "Отидете върху станция СИЛИЦИЙ и натиснете [A].";
+            } else {
+                std::string act = (player == 1 ? "[SPACE]" : "[ENTER]");
+                descText = isEn ? ("Move onto the SILICON station and press " + act + ".")
+                                : ("Отидете върху станция СИЛИЦИЙ и натиснете " + act + ".");
+            }
             progressRatio = std::min(1.0f, static_cast<float>(econ.silicon) / 8.0f);
-            progressText = "Силиций: " + std::to_string(econ.silicon) + " / 8" + (econ.silicon >= 8 ? "  [ГОТОВО!]" : "");
+            progressText = (isEn ? "Silicon: " : "Силиций: ") + std::to_string(econ.silicon) + " / 8" + (econ.silicon >= 8 ? (isEn ? "  [READY!]" : "  [ГОТОВО!]") : "");
             break;
 
         case TutorialStep::SELECT_SOLAR:
-            badgeText = pTag + ": СТЪПКА 5/6 (ИЗБОР)";
-            titleText = "ИЗБЕРЕТЕ СЛЪНЧЕВ ПАНЕЛ";
-            descText = (player == 1) ? "Изберете Слънчев панел от левия панел ([1], [E] или Клик).\n"
-                                       "Отказ от строеж: натиснете [X]!"
-                                     : "Изберете Слънчев панел от десния панел ([PgDn] или Клик).\n"
-                                       "Отказ от строеж: натиснете [Del]!";
+            badgeText = pTag + (isEn ? ": STEP 5/6 (SELECTION)" : ": СТЪПКА 5/6 (ИЗБОР)");
+            titleText = isEn ? "SELECT SOLAR PANEL" : "ИЗБЕРЕТЕ СЛЪНЧЕВ ПАНЕЛ";
+            if (isArcade) {
+                descText = isEn ? "Press button [D] to select the Solar Panel.\n"
+                                  "Cancel selection: press button [B]!"
+                                : "Натиснете бутон [D] за избор на Слънчев панел.\n"
+                                  "Отказ от избор: натиснете бутон [B]!";
+            } else {
+                if (player == 1) {
+                    descText = isEn ? "Press [E] or [1] (or click on panel icon) to select.\n"
+                                      "Cancel: press [X] or right click!"
+                                    : "Натиснете [E] или [1] (или щракнете върху панела).\n"
+                                      "Отказ: натиснете [X] или десен бутон!";
+                } else {
+                    descText = isEn ? "Press [PgDn] or [KP_1] to select Solar Panel.\n"
+                                      "Cancel: press [DEL]!"
+                                    : "Натиснете [PgDn] или [KP_1] за избор на панел.\n"
+                                      "Отказ: натиснете [DEL]!";
+                }
+            }
             progressRatio = 1.0f;
-            progressText = "Ресурси: ГОТОВИ!";
+            progressText = isEn ? "Resources: READY!" : "Ресурси: ГОТОВИ!";
             break;
 
         case TutorialStep::PLACE_SOLAR:
-            badgeText = pTag + ": СТЪПКА 6/6 (СТРОИТЕЛСТВО)";
-            titleText = "ПОСТАВЕТЕ ПАНЕЛА В ГРИДА";
-            descText = (player == 1) ? "Позиционирайте курсора върху ваша земя и натиснете [SPACE]!"
-                                     : "Позиционирайте курсора върху ваша земя и натиснете [ENTER]!";
+            badgeText = pTag + (isEn ? ": STEP 6/6 (CONSTRUCTION)" : ": СТЪПКА 6/6 (СТРОИТЕЛСТВО)");
+            titleText = isEn ? "PLACE PANEL ON YOUR GRID" : "ПОСТАВЕТЕ ПАНЕЛА В ГРИДА";
+            if (isArcade) {
+                descText = isEn ? "Move cursor with joystick onto your land and press [A]!"
+                                : "Насочете курсора със стика върху вашата земя и натиснете [A]!";
+                progressText = isEn ? "[A]: Place Panel" : "[A]: Постави панел";
+            } else {
+                if (player == 1) {
+                    descText = isEn ? "Click on your land slot or move cursor and press [SPACE]!"
+                                    : "Щракнете върху свободен парцел или натиснете [SPACE]!";
+                    progressText = isEn ? "[SPACE] / Click: Place" : "[SPACE] / Щрак: Постави";
+                } else {
+                    descText = isEn ? "Move cursor with [ARROWS] onto your land and press [ENTER]!"
+                                    : "Насочете курсора със [СТРЕЛКИ] върху ваша земя и [ENTER]!";
+                    progressText = isEn ? "[ENTER]: Place" : "[ENTER]: Постави";
+                }
+            }
             progressRatio = 0.5f;
-            progressText = (player == 1) ? "[SPACE / КЛИК]: Постави" : "[ENTER / КЛИК]: Постави";
             break;
 
         case TutorialStep::COMPLETED:
-            badgeText = pTag + ": УСПЕХ!";
-            titleText = "ПЪРВИЯТ ВИ ПАНЕЛ РАБОТИ!";
-            descText = "Панелът произвежда +60 MW ток и ви носи печалба ($)!\n"
-                       "Надграждайте мините и купувайте нови парцели с пари ($).";
+            badgeText = pTag + (isEn ? ": SUCCESS!" : ": УСПЕХ!");
+            titleText = isEn ? "FIRST PANEL IS ONLINE!" : "ПЪРВИЯТ ВИ ПАНЕЛ РАБОТИ!";
+            if (isArcade) {
+                descText = isEn ? "The panel produces +60 MW power and generates income ($)!\n"
+                                  "Upgrade mines with button [C] and buy land plots with [A]."
+                                : "Панелът произвежда +60 MW ток и ви носи печалба ($)!\n"
+                                  "Надграждайте мините с бутон [C] и купувайте нови парцели с [A].";
+                nextBtnLabel = isEn ? "CLOSE [A]" : "ЗАТВОРИ [A]";
+            } else {
+                descText = isEn ? "The panel produces +60 MW power and generates income ($)!\n"
+                                  "Upgrade mines with [U] (or click) and expand with new land plots!"
+                                : "Панелът произвежда +60 MW ток и ви носи печалба ($)!\n"
+                                  "Надграждайте мините с [U] (или щракване) и купувайте парцели!";
+                nextBtnLabel = isEn ? (player == 1 ? "CLOSE [SPACE]" : "CLOSE [ENTER]")
+                                    : (player == 1 ? "ЗАТВОРИ [SPACE]" : "ЗАТВОРИ [ENTER]");
+            }
             showNextBtn = true;
-            nextBtnLabel = (player == 1) ? "ЗАТВОРИ [SPACE]" : "ЗАТВОРИ [ENTER]";
             break;
 
         default:
@@ -517,7 +603,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
     skipBtnRect.setOutlineThickness(1.0f);
     skipBtnRect.setOutlineColor(theme::Line);
     window.draw(skipBtnRect);
-    sf::Text& tSkip = ui::pooledText(font, toUtf8("ПРОПУСНИ"), fontsize::Caption);
+    sf::Text& tSkip = ui::pooledText(font, toUtf8(isArcade ? (isEn ? "SKIP [B]" : "ПРОПУСНИ [B]") : (isEn ? "SKIP [ESC]" : "ПРОПУСНИ [ESC]")), fontsize::Caption);
     tSkip.setFillColor(theme::TextSecondary);
     sf::FloatRect sb = tSkip.getLocalBounds();
     tSkip.setPosition({ skipBtn.position.x + (skipBtn.size.x - sb.size.x) / 2.0f - sb.position.x,
@@ -548,6 +634,9 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     (void)mousePos; (void)p1Pos; (void)p2Pos;
     if (!isActive() || !fontLoaded) return;
 
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+    bool isArcade = ArcadeMode::isEnabled();
+
     // Dim background if both players or active single player is in WELCOME or COMPLETED
     bool p1Dim = (p1Active && (p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED));
     bool p2Dim = (isCoop && p2Active && (p2Step == TutorialStep::WELCOME || p2Step == TutorialStep::COMPLETED));
@@ -561,18 +650,19 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
         ResourceType rt = ResourceType::NONE;
         std::string name;
         switch (s) {
-            case TutorialStep::GATHER_WOOD:    rt = ResourceType::WOOD; name = "ГОРА"; break;
-            case TutorialStep::GATHER_IRON:    rt = ResourceType::IRON; name = "ЖЕЛЯЗО"; break;
-            case TutorialStep::GATHER_COPPER:  rt = ResourceType::COPPER; name = "МЕД"; break;
-            case TutorialStep::GATHER_SILICON: rt = ResourceType::SILICON; name = "СИЛИЦИЙ"; break;
+            case TutorialStep::GATHER_WOOD:    rt = ResourceType::WOOD; name = isEn ? "FOREST" : "ГОРА"; break;
+            case TutorialStep::GATHER_IRON:    rt = ResourceType::IRON; name = isEn ? "IRON" : "ЖЕЛЯЗО"; break;
+            case TutorialStep::GATHER_COPPER:  rt = ResourceType::COPPER; name = isEn ? "COPPER" : "МЕД"; break;
+            case TutorialStep::GATHER_SILICON: rt = ResourceType::SILICON; name = isEn ? "SILICON" : "СИЛИЦИЙ"; break;
             default: break;
         }
         if (rt != ResourceType::NONE) {
             const auto* st = nodes.getStation(player, rt);
             if (st) {
                 sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
-                std::string key = (player == 1) ? "[SPACE]" : "[ENTER]";
-                return { center, "ДОБИВ: " + name + " " + key };
+                std::string prefix = isEn ? "MINE: " : "ДОБИВ: ";
+                std::string act = isArcade ? " [A]" : (player == 1 ? " [SPACE]" : " [ENTER]");
+                return { center, prefix + name + act };
             }
         }
         return { { 0.0f, 0.0f }, "" };
@@ -581,11 +671,10 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     // Draw Objective Highlights and Arrows for Player 1
     if (p1Active && p1Step != TutorialStep::INACTIVE && p1Step != TutorialStep::WELCOME && p1Step != TutorialStep::COMPLETED) {
         if (p1Step == TutorialStep::SELECT_SOLAR) {
-            // P1 Build bar at x=20, y=140
             sf::Vector2f arrowTarget(248.0f, 170.0f);
-            drawArrow(window, arrowTarget, "P1: ИЗБЕРЕТЕ [1]/[E]", font, animTime, ArrowDir::LEFT, theme::P1);
+            std::string p1Sel = isArcade ? " [D]" : " [E]";
+            drawArrow(window, arrowTarget, isEn ? ("P1: SELECT" + p1Sel) : ("P1: ИЗБЕРЕТЕ" + p1Sel), font, animTime, ArrowDir::LEFT, theme::P1);
         } else if (p1Step == TutorialStep::PLACE_SOLAR) {
-            // Free slot on P1 starting plot (1st plot from left: plotCol 0 -> slot cols 0..2)
             int targetCol = 1;
             int targetRow = 0;
             for (const auto& b : engine.getBuildings()) {
@@ -598,7 +687,8 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                 }
             }
             sf::Vector2f slot = engine.getGridSlot(1, targetCol, targetRow);
-            drawArrow(window, slot, "P1: ПОСТАВЕТЕ [SPACE]", font, animTime, ArrowDir::DOWN, theme::P1);
+            std::string p1Place = isArcade ? " [A]" : " [SPACE]";
+            drawArrow(window, slot, isEn ? ("P1: PLACE" + p1Place) : ("P1: ПОСТАВЕТЕ" + p1Place), font, animTime, ArrowDir::DOWN, theme::P1);
         } else {
             auto [pos, label] = getStationPos(1, p1Step);
             if (!label.empty()) {
@@ -610,11 +700,10 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     // Draw Objective Highlights and Arrows for Player 2 (Co-op)
     if (isCoop && p2Active && p2Step != TutorialStep::INACTIVE && p2Step != TutorialStep::WELCOME && p2Step != TutorialStep::COMPLETED) {
         if (p2Step == TutorialStep::SELECT_SOLAR) {
-            // P2 Build bar at x=1352, y=140
             sf::Vector2f arrowTarget(1350.0f, 170.0f);
-            drawArrow(window, arrowTarget, "P2: ИЗБЕРЕТЕ [PgDn]/Клик", font, animTime, ArrowDir::RIGHT, theme::P2);
+            std::string p2Sel = isArcade ? " [D]" : " [PgDn]";
+            drawArrow(window, arrowTarget, isEn ? ("P2: SELECT" + p2Sel) : ("P2: ИЗБЕРЕТЕ" + p2Sel), font, animTime, ArrowDir::RIGHT, theme::P2);
         } else if (p2Step == TutorialStep::PLACE_SOLAR) {
-            // Free slot on P2 starting plot (3rd plot from left: plotCol 2 -> slot cols 6..8)
             int targetCol = 7;
             int targetRow = 0;
             for (const auto& b : engine.getBuildings()) {
@@ -627,7 +716,8 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                 }
             }
             sf::Vector2f slot = engine.getGridSlot(2, targetCol, targetRow);
-            drawArrow(window, slot, "P2: ПОСТАВЕТЕ [ENTER]", font, animTime, ArrowDir::DOWN, theme::P2);
+            std::string p2Place = isArcade ? " [A]" : " [ENTER]";
+            drawArrow(window, slot, isEn ? ("P2: PLACE" + p2Place) : ("P2: ПОСТАВЕТЕ" + p2Place), font, animTime, ArrowDir::DOWN, theme::P2);
         } else {
             auto [pos, label] = getStationPos(2, p2Step);
             if (!label.empty()) {
@@ -696,47 +786,51 @@ bool UI_tutorial::handleClick(sf::Vector2f mousePos) {
     return false;
 }
 
+bool UI_tutorial::handleAction(int player) {
+    if (!isActive()) return false;
+    if (player == 1 && p1Active) {
+        if (p1Step == TutorialStep::WELCOME) {
+            p1Step = TutorialStep::GATHER_WOOD;
+            return true;
+        } else if (p1Step == TutorialStep::COMPLETED) {
+            skipP1();
+            return true;
+        }
+    } else if (player == 2 && isCoop && p2Active) {
+        if (p2Step == TutorialStep::WELCOME) {
+            p2Step = TutorialStep::GATHER_WOOD;
+            return true;
+        } else if (p2Step == TutorialStep::COMPLETED) {
+            skipP2();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool UI_tutorial::handleSkip(int player) {
+    if (!isActive()) return false;
+    if (player == 1 && p1Active) {
+        skipP1();
+        return true;
+    } else if (player == 2 && isCoop && p2Active) {
+        skipP2();
+        return true;
+    }
+    return false;
+}
+
 bool UI_tutorial::handleKey(sf::Keyboard::Key key) {
     if (!isActive()) return false;
-    bool consumed = false;
-
-    // Space advances Player 1
     if (key == sf::Keyboard::Key::Space) {
-        if (p1Active) {
-            if (p1Step == TutorialStep::WELCOME) {
-                p1Step = TutorialStep::GATHER_WOOD;
-                consumed = true;
-            } else if (p1Step == TutorialStep::COMPLETED) {
-                skipP1();
-                consumed = true;
-            }
-        }
+        return handleAction(1);
     }
-
-    // Enter advances Player 2 in Co-op, or Player 1 in Single Player
     if (key == sf::Keyboard::Key::Enter) {
-        if (isCoop) {
-            if (p2Active) {
-                if (p2Step == TutorialStep::WELCOME) {
-                    p2Step = TutorialStep::GATHER_WOOD;
-                    consumed = true;
-                } else if (p2Step == TutorialStep::COMPLETED) {
-                    skipP2();
-                    consumed = true;
-                }
-            }
-        } else {
-            if (p1Active) {
-                if (p1Step == TutorialStep::WELCOME) {
-                    p1Step = TutorialStep::GATHER_WOOD;
-                    consumed = true;
-                } else if (p1Step == TutorialStep::COMPLETED) {
-                    skipP1();
-                    consumed = true;
-                }
-            }
-        }
+        return isCoop ? handleAction(2) : handleAction(1);
     }
-
-    return consumed;
+    if (key == sf::Keyboard::Key::Escape) {
+        skip();
+        return true;
+    }
+    return false;
 }

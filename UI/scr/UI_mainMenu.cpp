@@ -5,6 +5,7 @@
 #include "../includes/UI_theme.h"
 #include "../includes/UI_settings.h"
 #include "../includes/UI_lang.h"
+#include "../includes/UI_arcadeMode.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -26,7 +27,7 @@ sf::FloatRect mainButtonRect(int index) {
 } // namespace
 
 UI_mainMenu::UI_mainMenu()
-    : state(MenuState::MAIN),
+    : state(ArcadeMode::isEnabled() ? MenuState::PRESS_A_TO_START : MenuState::MAIN),
       requestPlay(false),
       requestQuit(false),
       selectedMainIndex(0),
@@ -44,13 +45,28 @@ UI_mainMenu::UI_mainMenu()
     } else {
         std::cerr << "[UI_mainMenu] Warning: Failed to load assets/font.ttf\n";
     }
+    if (arcadeFont.openFromFile("assets/PressStart2P.ttf")) {
+        arcadeFontLoaded = true;
+    }
     if (logoTexture.loadFromFile("assets/logo.png") || logoTexture.loadFromFile("logo.png")) {
         logoTexture.setSmooth(true);
         logoLoaded = true;
     } else {
         std::cerr << "[UI_mainMenu] Warning: Failed to load assets/logo.png (text title shown instead)\n";
     }
-    std::cout << "[UI_mainMenu] SFML Main Menu with Mode, Difficulty & Settings ready.\n";
+    if (blueControllerTexture.loadFromFile("assets/controller_blue.png") || blueControllerTexture.loadFromFile("assets/natisni_sin_buton.png")) {
+        blueControllerTexture.setSmooth(true);
+        blueControllerLoaded = true;
+    }
+    if (redControllerTexture.loadFromFile("assets/controller_red.png") || redControllerTexture.loadFromFile("assets/natisni_cherven_buton.png")) {
+        redControllerTexture.setSmooth(true);
+        redControllerLoaded = true;
+    }
+    if (arrowTexture.loadFromFile("assets/arrow.png") || arrowTexture.loadFromFile("assets/strelka.png")) {
+        arrowTexture.setSmooth(true);
+        arrowLoaded = true;
+    }
+    std::cout << "[UI_mainMenu] SFML Main Menu with Arcade Start & Joystick Calibration ready.\n";
 }
 
 UI_mainMenu::~UI_mainMenu() {
@@ -147,19 +163,16 @@ void UI_mainMenu::onPlay() {
               << ", Bot Difficulty: " << static_cast<int>(selectedBotDifficulty) << "...\n";
     requestPlay = true;
 
-    // Coming back from the match ('ГЛАВНО МЕНЮ') must show the top-level menu, not the
-    // submenu that started this match (one Enter there would start a new match at once).
-    // The chosen scheme / difficulty stay stored for getSelectedControlScheme/BotDifficulty().
-    state = MenuState::MAIN;
+    // Arcade version returns to the attract screen (PRESS A TO START) after match; PC returns to MAIN
+    state = ArcadeMode::isEnabled() ? MenuState::PRESS_A_TO_START : MenuState::MAIN;
     selectedMainIndex = 0;
     enterHeld = false;
     spaceHeld = false;
 }
 
 void UI_mainMenu::returnToMain() {
-    state = MenuState::MAIN;
+    state = ArcadeMode::isEnabled() ? MenuState::PRESS_A_TO_START : MenuState::MAIN;
     selectedMainIndex = 0;
-    // A key still held from the match (e.g. Enter on 'ГЛАВНО МЕНЮ') must be released first
     enterHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
     spaceHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
 }
@@ -173,6 +186,113 @@ void UI_mainMenu::onSettings() {
 void UI_mainMenu::onQuit() {
     std::cout << "[UI_mainMenu] Exiting game...\n";
     requestQuit = true;
+}
+
+void UI_mainMenu::drawPressAToStart(sf::RenderWindow& window) {
+    drawHeader(window, true);
+
+    const float screenWidth = VIRTUAL_WIDTH;
+    const sf::Font& textFont = arcadeFontLoaded ? arcadeFont : font;
+
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+    std::string promptText = isEn ? "PRESS [A] TO START" : "НАТИСНЕТЕ [A] ЗА СТАРТ";
+
+    float t = animClock.getElapsedTime().asSeconds();
+    float pulse = 0.5f + 0.5f * std::sin(t * 4.5f);
+    std::uint8_t alpha = static_cast<std::uint8_t>(140 + 115 * pulse);
+
+    if (arcadeFontLoaded || fontLoaded) {
+        sf::Text& prompt = ui::pooledText(textFont, toUtf8(promptText), arcadeFontLoaded ? 26 : fontsize::H1);
+        prompt.setFillColor(sf::Color(255, 235, 70, alpha));
+        prompt.setStyle(sf::Text::Bold);
+        sf::FloatRect pb = prompt.getLocalBounds();
+        prompt.setPosition({ (screenWidth - pb.size.x) / 2.0f - pb.position.x, 460.0f - pb.position.y });
+        ui::drawText(window, prompt);
+
+        if (!ArcadeMode::isEnabled()) {
+            std::string sub = isEn ? "OR PRESS [ENTER] / [SPACE] ON KEYBOARD" : "ИЛИ НАТИСНЕТЕ [ENTER] / [SPACE] НА КЛАВИАТУРАТА";
+            sf::Text& subPrompt = ui::pooledText(fontLoaded ? font : textFont, toUtf8(sub), fontsize::Label);
+            subPrompt.setFillColor(theme::TextMuted);
+            sf::FloatRect sb = subPrompt.getLocalBounds();
+            subPrompt.setPosition({ (screenWidth - sb.size.x) / 2.0f - sb.position.x, 530.0f - sb.position.y });
+            ui::drawText(window, subPrompt);
+        }
+    }
+}
+
+void UI_mainMenu::drawCalibration(sf::RenderWindow& window, bool isBlue) {
+    drawHeader(window, false);
+
+    const float screenWidth = VIRTUAL_WIDTH;
+    const sf::Font& textFont = arcadeFontLoaded ? arcadeFont : font;
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+
+    std::string titleStr = isBlue
+        ? (isEn ? "PLAYER 1: PRESS ANY BLUE BUTTON" : "ИГРАЧ 1: НАТИСНЕТЕ СИНИЯ БУТОН")
+        : (isEn ? "PLAYER 2: PRESS ANY RED BUTTON" : "ИГРАЧ 2: НАТИСНЕТЕ ЧЕРВЕНИЯ БУТОН");
+
+    std::string subStr = isBlue
+        ? (isEn ? "Press a button to calibrate Player 1 joystick" : "Натиснете бутон за настройка на Играч 1 (син стик)")
+        : (isEn ? "Press a button to calibrate Player 2 joystick" : "Натиснете бутон за настройка на Играч 2 (червен стик)");
+
+    sf::Color titleColor = isBlue ? sf::Color(80, 180, 255) : sf::Color(255, 100, 100);
+
+    if (arcadeFontLoaded || fontLoaded) {
+        sf::Text& title = ui::pooledText(textFont, toUtf8(titleStr), arcadeFontLoaded ? 22 : fontsize::H1);
+        title.setFillColor(titleColor);
+        title.setStyle(sf::Text::Bold);
+        sf::FloatRect tb = title.getLocalBounds();
+        title.setPosition({ (screenWidth - tb.size.x) / 2.0f - tb.position.x, 185.0f - tb.position.y });
+        ui::drawText(window, title);
+
+        sf::Text& sub = ui::pooledText(fontLoaded ? font : textFont, toUtf8(subStr), fontsize::Body);
+        sub.setFillColor(theme::TextSecondary);
+        sf::FloatRect sb = sub.getLocalBounds();
+        sub.setPosition({ (screenWidth - sb.size.x) / 2.0f - sb.position.x, 230.0f - sb.position.y });
+        ui::drawText(window, sub);
+    }
+
+    const sf::Texture& ctrlTex = isBlue ? blueControllerTexture : redControllerTexture;
+    bool ctrlLoaded = isBlue ? blueControllerLoaded : redControllerLoaded;
+
+    float ctrlX = 0.0f;
+    float ctrlY = 275.0f;
+    float ctrlScale = 1.0f;
+
+    if (ctrlLoaded) {
+        sf::Vector2u size = ctrlTex.getSize();
+        ctrlScale = 0.85f;
+        float drawW = size.x * ctrlScale;
+        ctrlX = (screenWidth - drawW) / 2.0f;
+        sf::Sprite sprite(ctrlTex);
+        sprite.setScale({ ctrlScale, ctrlScale });
+        sprite.setPosition({ ctrlX, ctrlY });
+        window.draw(sprite);
+
+        if (arrowLoaded) {
+            float arrowScale = 0.13f;
+            sf::Sprite arrow(arrowTexture);
+            arrow.setScale({ arrowScale, arrowScale });
+            sf::Vector2u arrSize = arrowTexture.getSize();
+            arrow.setOrigin({ arrSize.x / 2.0f, static_cast<float>(arrSize.y) });
+
+            float targetX = ctrlX + 670.0f * ctrlScale;
+            float targetY = ctrlY + 180.0f * ctrlScale;
+
+            float bob = std::sin(animClock.getElapsedTime().asSeconds() * 6.0f) * 14.0f;
+            arrow.setPosition({ targetX, targetY + bob });
+            window.draw(arrow);
+        }
+    }
+
+    if (fontLoaded && !ArcadeMode::isEnabled()) {
+        std::string skipStr = isEn ? "[ENTER] / [SPACE] to skip (use keyboard)" : "[ENTER] / [SPACE] за пропускане (клавиатура)";
+        sf::Text& skip = ui::pooledText(font, toUtf8(skipStr), fontsize::Label);
+        skip.setFillColor(theme::TextMuted);
+        sf::FloatRect skb = skip.getLocalBounds();
+        skip.setPosition({ (screenWidth - skb.size.x) / 2.0f - skb.position.x, 810.0f - skb.position.y });
+        ui::drawText(window, skip);
+    }
 }
 
 void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
@@ -721,7 +841,38 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
 
     if (isUp || isDown || isLeft || isRight || isSelect || isEscape) {
 
-        if (state == MenuState::MAIN) {
+        if (state == MenuState::PRESS_A_TO_START) {
+            state = MenuState::CALIBRATE_BLUE;
+            enterHeld = true;
+            spaceHeld = true;
+            return;
+        } else if (state == MenuState::CALIBRATE_BLUE) {
+            if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+                UI_controlsConfig::get().setPlayerJoystick(1, jb->joystickId);
+                std::cout << "[Calibration] Player 1 assigned to Joystick " << jb->joystickId << "\n";
+            } else {
+                UI_controlsConfig::get().setPlayerJoystick(1, 0);
+            }
+            state = MenuState::CALIBRATE_RED;
+            enterHeld = true;
+            spaceHeld = true;
+            return;
+        } else if (state == MenuState::CALIBRATE_RED) {
+            if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+                UI_controlsConfig::get().setPlayerJoystick(2, jb->joystickId);
+                std::cout << "[Calibration] Player 2 assigned to Joystick " << jb->joystickId << "\n";
+            } else {
+                UI_controlsConfig::get().setPlayerJoystick(2, 1);
+            }
+            enterHeld = true;
+            spaceHeld = true;
+
+            // Arcade version: directly enter the game (2P Co-op match) without options or menus!
+            selectedBotDifficulty = BotDifficulty::NONE;
+            playControls.setActiveSchemeIndex(static_cast<int>(ControlScheme::DEVHUB_ARCADE));
+            onPlay();
+            return;
+        } else if (state == MenuState::MAIN) {
             if (isUp) {
                 selectedMainIndex = (selectedMainIndex + 2) % 3;
             } else if (isDown) {
@@ -1026,7 +1177,13 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
 }
 
 void UI_mainMenu::render(sf::RenderWindow& window) {
-    if (state == MenuState::MAIN) {
+    if (state == MenuState::PRESS_A_TO_START) {
+        drawPressAToStart(window);
+    } else if (state == MenuState::CALIBRATE_BLUE) {
+        drawCalibration(window, true);
+    } else if (state == MenuState::CALIBRATE_RED) {
+        drawCalibration(window, false);
+    } else if (state == MenuState::MAIN) {
         drawMainMenu(window);
     } else if (state == MenuState::MODE_SELECT) {
         drawModeSelectMenu(window);

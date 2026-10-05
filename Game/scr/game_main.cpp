@@ -182,7 +182,7 @@ void GameEngine::init(const MatchConfig& cfg) {
     buildings.clear();
 
     // Initialize day 1 weather (season of day 1 = spring) with weather_report from weatherF
-    currentSeason = Balance::getSeasonForDay(currentDay);
+    currentSeason = Balance::getSeasonForDay(currentDay, config.finalDay);
     rollDailyWeather();
 
     // Initial update of building energies
@@ -291,7 +291,7 @@ void GameEngine::simulateStep(float dt) {
     gameSeconds += dt;
     hour24 = static_cast<float>(std::fmod((gameSeconds / config.daySeconds) * 24.0 + Balance::CLOCK_HOUR_AT_ZERO, 24.0));
     // Season flips at midnight (dark in every season), never at the 06:00 rollover
-    SeasonType seasonNow = Balance::getSeasonAtGameSeconds(static_cast<float>(gameSeconds), config.daySeconds);
+    SeasonType seasonNow = Balance::getSeasonAtGameSeconds(static_cast<float>(gameSeconds), config.daySeconds, config.finalDay);
     if (seasonNow != currentSeason) {
         currentSeason = seasonNow;
         emitEvent(GameEventType::SEASON_CHANGED, 0, 0.0f, std::string(), static_cast<int>(currentSeason));
@@ -632,7 +632,7 @@ void GameEngine::processDayEnd() {
 
     // Daily dynamic weather generation using weather_report from weatherF.
     // The new day's season already took effect at the preceding midnight.
-    SeasonType newSeason = Balance::getSeasonForDay(currentDay);
+    SeasonType newSeason = Balance::getSeasonForDay(currentDay, config.finalDay);
     if (newSeason != currentSeason) {
         currentSeason = newSeason;
         emitEvent(GameEventType::SEASON_CHANGED, 0, 0.0f, std::string(), static_cast<int>(currentSeason));
