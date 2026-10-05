@@ -194,8 +194,8 @@ void UI_tutorial::update(float dt, GameEngine& engine) {
                 }
                 case TutorialStep::UPGRADE_MINE: {
                     if (!p1MineFunded) {
-                        if (engine.getPlayerEconomy(1).gold < 15) {
-                            engine.getPlayerEconomyMut(1).gold += 15;
+                        if (engine.getPlayerEconomy(1).gold < 30) {
+                            engine.getPlayerEconomyMut(1).gold += 30;
                         }
                         p1MineFunded = true;
                     }
@@ -259,8 +259,8 @@ void UI_tutorial::update(float dt, GameEngine& engine) {
                 }
                 case TutorialStep::UPGRADE_MINE: {
                     if (!p2MineFunded) {
-                        if (engine.getPlayerEconomy(2).gold < 15) {
-                            engine.getPlayerEconomyMut(2).gold += 15;
+                        if (engine.getPlayerEconomy(2).gold < 30) {
+                            engine.getPlayerEconomyMut(2).gold += 30;
                         }
                         p2MineFunded = true;
                     }
