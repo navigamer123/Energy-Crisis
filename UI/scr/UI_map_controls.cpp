@@ -4,6 +4,7 @@
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_settings.h"
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -14,7 +15,8 @@
 
 // Real resource list of a building recipe (used by keyboard and mouse selection popups)
 static std::string formatCost(const BuildingCost& c) {
-    return "Нужно: " + recipeText(c);
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+    return (isEn ? "Cost: " : "Нужно: ") + recipeText(c);
 }
 
 // -----------------------------------------------------------------------------
@@ -1333,10 +1335,23 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     }
 
     if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
-        if (jb->button == 7 || jb->button == 6) { // Start or Coin pauses match
-            isPaused = true;
-            pauseSelectedIdx = 0;
+        if (jb->button == 8) { // CG button (top system button) -> Toggle Help Overlay
+            if (showHelpOverlay) {
+                showHelpOverlay = false;
+                isPaused = helpOpenedFromPause;
+                primeInputEdges(0);
+            } else {
+                helpOpenedFromPause = isPaused;
+                showHelpOverlay = true;
+            }
             return;
+        }
+        if (jb->button == 7 || jb->button == 6) { // Start or Coin pauses match (PC only)
+            if (!ArcadeMode::isEnabled()) {
+                isPaused = true;
+                pauseSelectedIdx = 0;
+                return;
+            }
         }
     }
 

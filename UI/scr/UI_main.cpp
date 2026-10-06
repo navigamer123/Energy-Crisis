@@ -19,9 +19,11 @@ UI_main::UI_main(const ShotOptions& shotOptions)
       isFullscreen(true),
       shot(shotOptions) {
 #else
-    : window(sf::VideoMode({ 1600, 900 }), "Energy Crisis"),
+    : window((!shotOptions.enabled && ArcadeMode::isEnabled()) ? sf::VideoMode::getDesktopMode() : sf::VideoMode({ 1600, 900 }),
+             "Energy Crisis",
+             (!shotOptions.enabled && ArcadeMode::isEnabled()) ? sf::State::Fullscreen : sf::State::Windowed),
       currentState(UIState::MAIN_MENU),
-      isFullscreen(false),
+      isFullscreen(!shotOptions.enabled && ArcadeMode::isEnabled()),
       shot(shotOptions) {
 #endif
     window.setFramerateLimit(60);
@@ -201,9 +203,9 @@ int UI_main::render() {
         }
 
         while (const auto event = window.pollEvent()) {
-            // Global controller exit: BTN_BASE3 / Button 8 or 9 pressed 2 times within 2 seconds
+            // Global controller exit: BTN_BASE4 / Button 9 (Person button) pressed 2 times within 2.5 seconds
             if (const auto* jb = event->getIf<sf::Event::JoystickButtonPressed>()) {
-                if (jb->button == 8 || jb->button == 9) {
+                if (jb->button == 9) {
                     float elapsed = changeGameClock.getElapsedTime().asSeconds();
                     if (changeGamePressCount >= 1 && elapsed <= 2.5f) {
                         std::cout << "[UI_main] Controller exit confirmed (2x within 2.5s). Exiting game...\n";
@@ -217,10 +219,6 @@ int UI_main::render() {
                         bool isEn = (UI_settings::get().getLanguage() == "en");
                         std::string msg = isEn ? "Press one more time to exit." : "Натисни още веднъж за изход.";
                         ArcadePopup::get().show(msg, 2.5f);
-                        if (currentState == UIState::PLAYING && !map.isMatchPaused()) {
-                            map.setMatchPaused(true);
-                            exitPausedGame = true;
-                        }
                     }
                     continue;
                 }

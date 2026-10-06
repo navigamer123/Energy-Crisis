@@ -3,6 +3,7 @@
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_settings.h"
 #include <cmath>
 #include <algorithm>
 #include <vector>
@@ -13,7 +14,14 @@
 // =============================================================================
 
 void UI_map::drawHUD(sf::RenderWindow& window) {
+    bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+    // In Arcade mode, hide bottom mouse buttons and help reminder bar for clean minimal arcade UI
+    if (isArcade) {
+        return;
+    }
+
     sf::Vector2f mousePos = ui::pointerPos(window);
+    bool isEn = (UI_settings::get().getLanguage() == "en");
 
     // 1. Menu Button
     sf::FloatRect menuBtn({ 1600.0f - 130.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
@@ -46,22 +54,21 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     window.draw(hBox);
 
     if (resourcesLoaded) {
-        bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
-
-        sf::Text& mt = ui::pooledText(font, toUtf8(isArcade ? "МЕНЮ" : "ESC / МЕНЮ"), fontsize::Label);
+        sf::Text& mt = ui::pooledText(font, toUtf8(isEn ? "ESC / MENU" : "ESC / МЕНЮ"), fontsize::Label);
         mt.setStyle(sf::Text::Bold);
         mt.setFillColor(theme::TextPrimary);
         sf::FloatRect mb = mt.getLocalBounds();
         mt.setPosition({ menuBtn.position.x + (menuBtn.size.x - mb.size.x) / 2.0f, menuBtn.position.y + 5.0f });
         ui::drawText(window, mt, menuBtn);
 
-        sf::Text& fst = ui::pooledText(font, toUtf8(isArcade ? "ЦЯЛ ЕКРАН" : "ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
+        sf::Text& fst = ui::pooledText(font, toUtf8(isEn ? "FULLSCREEN (F11)" : "ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
         fst.setStyle(sf::Text::Bold);
         fst.setFillColor(theme::TextPrimary);
         sf::FloatRect fsb = fst.getLocalBounds();
         fst.setPosition({ fsBtn.position.x + (fsBtn.size.x - fsb.size.x) / 2.0f, fsBtn.position.y + 6.0f });
         ui::drawText(window, fst, fsBtn);
-        sf::Text& htBtn = ui::pooledText(font, toUtf8(isArcade ? "? ПОМОЩ" : "? ПОМОЩ (H)"), fontsize::Label);
+
+        sf::Text& htBtn = ui::pooledText(font, toUtf8(isEn ? "? HELP (H)" : "? ПОМОЩ (H)"), fontsize::Label);
         htBtn.setStyle(sf::Text::Bold);
         htBtn.setFillColor(theme::TextPrimary);
         sf::FloatRect htbBtn = htBtn.getLocalBounds();
@@ -76,9 +83,8 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
         helpBar.setOutlineColor(theme::Line);
         window.draw(helpBar);
 
-        // Q / PgUp step back through buildings; X / Del cancel a selection (or enter demolish mode)
-        std::string helpText = isArcade
-            ? "P1: [СТИК] Движение | [A] Действие/Добив | [D] Сграда | [C] Ъпгрейд | [B] Отказ  ///  P2: [СТИК] Движение | [A] Действие/Добив | [D] Сграда | [C] Ъпгрейд | [B] Отказ"
+        std::string helpText = isEn
+            ? "P1: [E]/[Q] Building | [X] Demolish/Cancel | [SPACE/Click] Action  ///  P2: [PgDn]/[PgUp] Building | [Del] Demolish/Cancel | [ENTER] Action"
             : "P1: [E]/[Q] Сграда | [X] Разруши/Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn]/[PgUp] Сграда | [Del] Разруши/Отказ | [ENTER] Действие";
         sf::Text& ht = ui::pooledText(font, toUtf8(helpText), fontsize::Caption);
         ht.setFillColor(theme::TextSecondary);
@@ -115,8 +121,11 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
     window.draw(headerStrip);
 
     if (resourcesLoaded) {
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+
         // Title
-        sf::Text& title = ui::pooledText(font, toUtf8("НАРЪЧНИК: ПРАВИЛА И УПРАВЛЕНИЕ"), fontsize::H1);
+        sf::Text& title = ui::pooledText(font, toUtf8(isEn ? "HANDBOOK: RULES & CONTROLS" : "НАРЪЧНИК: ПРАВИЛА И УПРАВЛЕНИЕ"), fontsize::H1);
         title.setStyle(sf::Text::Bold);
         title.setFillColor(theme::TextPrimary);
         title.setPosition({ card.position.x + 25.0f, card.position.y + 12.0f });
@@ -134,7 +143,9 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         cb.setOutlineColor(hClose ? theme::Focus : theme::Bad);
         window.draw(cb);
 
-        sf::Text& cbText = ui::pooledText(font, toUtf8("ЗАТВОРИ [H]"), fontsize::Label);
+        std::string closeLbl = isEn ? (isArcade ? "CLOSE [BUTTON]" : "CLOSE [H]")
+                                    : (isArcade ? "ЗАТВОРИ [БУТОН]" : "ЗАТВОРИ [H]");
+        sf::Text& cbText = ui::pooledText(font, toUtf8(closeLbl), fontsize::Label);
         cbText.setStyle(sf::Text::Bold);
         cbText.setFillColor(theme::TextPrimary);
         sf::FloatRect cbb = cbText.getLocalBounds();
@@ -162,42 +173,78 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         const std::string victoryPctStr = std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f)));
         const std::string finalDayStr = std::to_string(engine.getConfig().finalDay);
         const int graceDays = engine.getConfig().graceDays;
-        const std::string graceLine = (graceDays == 1)
-            ? "- Ден 1 е ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n"
-            : ("- Първите " + std::to_string(graceDays) + " дена са ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n");
         const std::string speedupStr = std::to_string(static_cast<int>(std::lround(Balance::MINE_SPEEDUP_MULT)));
 
-        drawSection("1. ЦЕЛ НА ИГРАТА И ДОМИНИРАНЕ НА ГРАДА",
-                    "- Всеки играч започва с начален свободен парцел и 50% териториален дял в града.\n" +
-                    graceLine +
-                    "- Захранването на града носи пари ($) от договори и златен дивидент (злато, ограничено до нуждите на града!).\n"
-                    "- В края на всеки ден се отчита средната доставена мощност (MW) за целия ден: превесът носи 10-15% дневно завладяване!\n"
-                    "- Победител е първият играч с поне " + victoryPctStr + "% от града в края на ден. След края на ден " + finalDayStr +
-                    " печели по-големият дял (равен дял = равенство).",
-                    theme::Energy);
+        if (isEn) {
+            std::string graceLineEn = (graceDays == 1)
+                ? "- Day 1 is a GRACE PERIOD: The city requests 0 MW for initial buildup!\n"
+                : ("- The first " + std::to_string(graceDays) + " days are a GRACE PERIOD: The city requests 0 MW!\n");
+            drawSection("1. GAME OBJECTIVE & CITY DOMINANCE",
+                        "- Each player begins with starting land plots and 50% territory share in the city.\n" +
+                        graceLineEn +
+                        "- Powering the city earns money ($) from contracts and gold dividends (capped to city demand!).\n"
+                        "- At the end of each day, average delivered power (MW) is evaluated: majority earns 10-15% territory shift!\n"
+                        "- The winner is the first player reaching at least " + victoryPctStr + "% city control. After day " + finalDayStr +
+                        ", the larger share wins.",
+                        theme::Energy);
+            drawSection("2. SEASONAL DAY/NIGHT CYCLE & SOLAR SCHEDULE",
+                        "- Spring: 06:00 - 19:00 (13h day) | Summer: 05:00 - 21:00 (16h day, +15% solar power!)\n"
+                        "- Autumn: 07:00 - 18:00 (11h day) | Winter: 08:00 - 16:30 (only 8.5h day, snowstorms!)\n"
+                        "- Solar panels only generate power between sunrise and sunset of the active season.\n"
+                        "- At night, construction requires a Work Lamp, and battery banks discharge stored daylight energy.\n"
+                        "- Stormy weather brings lightning strikes in stormy sectors.",
+                        theme::Info);
+            drawSection("3. RESOURCES & GOLD MINE UPGRADES",
+                        "- 7 resources: Wood, Iron, Copper, Coal, Silicon, Silver, and Gold (money comes only from power!).\n"
+                        "- Mining stations can be upgraded up to Level 6 with Gold for +75% yield per level!\n"
+                        "- Upgrade using the button below the mine or key [F] (P1) / [RShift] (P2) / Joystick Button [C].\n"
+                        "- When ALL human players stand on resource stations, time advances " + speedupStr + "x faster.",
+                        theme::Gold);
+            drawSection("4. CONTROLS & SHORTCUTS",
+                        isArcade ? "- ARCADE CONTROLS: [Joystick] - Move | [A] - Action/Mine | [D] - Building | [C] - Upgrade | [B] - Cancel\n"
+                                   "- SYSTEM: [Top CG Button] - Help Handbook | [Top Person Button (2x)] - Exit Game"
+                                 : "- PLAYER 1 (West/Blue): [W/A/S/D] - Move | [SPACE/Click] - Build/Mine | [E]/[Q] or [1-6] - Building | [F] - Upgrade | [X] - Demolish\n"
+                                   "- PLAYER 2 (East/Pink): [Arrows] - Move | [ENTER/Click] - Build/Mine | [PgDn]/[PgUp] or [Num1-6] - Building | [RShift] - Upgrade | [Del] - Demolish\n"
+                                   "- SYSTEM: [ESC] - Pause Menu | [H]/[F1] - Help | [F11] - Fullscreen | [Tab] - Energy Dashboard",
+                        theme::Good);
+        } else {
+            const std::string graceLine = (graceDays == 1)
+                ? "- Ден 1 е ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n"
+                : ("- Първите " + std::to_string(graceDays) + " дена са ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n");
+            drawSection("1. ЦЕЛ НА ИГРАТА И ДОМИНИРАНЕ НА ГРАДА",
+                        "- Всеки играч започва с начален свободен парцел и 50% териториален дял в града.\n" +
+                        graceLine +
+                        "- Захранването на града носи пари ($) от договори и златен дивидент (злато, ограничено до нуждите на града!).\n"
+                        "- В края на всеки ден се отчита средната доставена мощност (MW) за целия ден: превесът носи 10-15% дневно завладяване!\n"
+                        "- Победител е първият играч с поне " + victoryPctStr + "% от града в края на ден. След края на ден " + finalDayStr +
+                        " печели по-големият дял (равен дял = равенство).",
+                        theme::Energy);
 
-        drawSection("2. СЕЗОНЕН ДЕН/НОЩ ЦИКЪЛ И СЛЪНЧЕВ ГРАФИК",
-                    "- Пролет: 06:00 - 19:00 (13ч ден) | Лято: 05:00 - 21:00 (16ч ден, +15% соларна мощност!)\n"
-                    "- Есен: 07:00 - 18:00 (11ч ден)    | Зима: 08:00 - 16:30 (само 8.5ч ден, снежни бури!)\n"
-                    "- Соларните панели работят единствено между изгрева и залеза на слънцето за съответния сезон.\n"
-                    "- Нощем строежът изисква Осветителна лампа, а батериите отдават събраната през деня енергия.\n"
-                    "- Бурно време носи мълнии: те падат само в бурния сектор и могат да унищожат съоръжение там (не и в гратисния период).",
-                    theme::Info);
+            drawSection("2. СЕЗОНЕН ДЕН/НОЩ ЦИКЪЛ И СЛЪНЧЕВ ГРАФИК",
+                        "- Пролет: 06:00 - 19:00 (13ч ден) | Лято: 05:00 - 21:00 (16ч ден, +15% соларна мощност!)\n"
+                        "- Есен: 07:00 - 18:00 (11ч ден)    | Зима: 08:00 - 16:30 (само 8.5ч ден, снежни бури!)\n"
+                        "- Соларните панели работят единствено между изгрева и залеза на слънцето за съответния сезон.\n"
+                        "- Нощем строежът изисква Осветителна лампа, а батериите отдават събраната през деня енергия.\n"
+                        "- Бурно време носи мълнии: те падат само в бурния сектор и могат да унищожат съоръжение там (не и в гратисния период).",
+                        theme::Info);
 
-        drawSection("3. РЕСУРСИ И ЪПГРЕЙД НА МИНИ С ЗЛАТО",
-                    "- 7 суровини: Дърво, Желязо, Мед, Въглища, Силиций, Сребро и Злато (парите са само от ток!).\n"
-                    "- Добивните станции се надграждат до Ниво 6 със Злато (30G, 300G, 500G, 800G, 1500G) за +75% добив на ниво!\n"
-                    "- Надграждайте с бутона за ниво под мината или клавиш [F] (Играч 1) / [RShift] (Играч 2).\n"
-                    "- Когато ВСИЧКИ играчи-хора стоят върху ресурсни станции, денонощието тече " + speedupStr +
-                    " пъти по-бързо (ботът не ускорява времето).",
-                    theme::Gold);
+            drawSection("3. РЕСУРСИ И ЪПГРЕЙД НА МИНИ С ЗЛАТО",
+                        "- 7 суровини: Дърво, Желязо, Мед, Въглища, Силиций, Сребро и Злато (парите са само от ток!).\n"
+                        "- Добивните станции се надграждат до Ниво 6 със Злато (30G, 300G, 500G, 800G, 1500G) за +75% добив на ниво!\n"
+                        "- Надграждайте с бутона за ниво под мината или клавиш [F] (Играч 1) / [RShift] (Играч 2).\n"
+                        "- Когато ВСИЧКИ играчи-хора стоят върху ресурсни станции, денонощието тече " + speedupStr +
+                        " пъти по-бързо (ботът не ускорява времето).",
+                        theme::Gold);
 
-        drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
-                    "- ИГРАЧ 1 (Запад/Син): [W/A/S/D] - Движение  |  [SPACE/Клик] - Строеж/Добив  |  [E]/[Q] или [1-6] - Сграда  |  [F] - Ъпгрейд мина  |  [X] - Разруши\n"
-                    "- ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] или [Num1-6] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n"
-                    "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран\n"
-                    "- ИНФОРМАЦИЯ: задръжте [Tab] - Енергийно табло  |  [L] в паузата - Дневник на събитията  |  [F3] - Панел за разработчици", // team info
-                    theme::Good);
+            drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
+                        isArcade ? "- АРКАДНО УПРАВЛЕНИЕ: [Стик] - Движение | [A] - Действие/Добив | [D] - Сграда | [C] - Ъпгрейд | [B] - Отказ\n"
+                                   "- СИСТЕМНИ: [Горен бутон CG] - Наръчник/Помощ | [Горен бутон Човече (2x)] - Изход от играта"
+                                 : "- ИГРАЧ 1 (Запад/Син): [W/A/S/D] - Движение  |  [SPACE/Клик] - Строеж/Добив  |  [E]/[Q] или [1-6] - Сграда  |  [F] - Ъпгрейд мина  |  [X] - Разруши\n"
+                                   "- ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] или [Num1-6] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n"
+                                   "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран\n"
+                                   "- ИНФОРМАЦИЯ: задръжте [Tab] - Енергийно табло  |  [L] в паузата - Дневник на събитията  |  [F3] - Панел за разработчици",
+                        theme::Good);
+        }
     }
 }
 
@@ -209,6 +256,10 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
 }
 
 void UI_map::drawPauseMenu(sf::RenderWindow& window) {
+    bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
+    // In arcade mode, pause menu is completely removed; only the arcade popup is shown
+    if (isArcade) return;
+
     sf::Vector2f mousePos = ui::pointerPos(window);
 
     bool mouseMoved = (std::abs(mousePos.x - lastPauseMousePos.x) > 2.0f ||
@@ -249,14 +300,17 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     window.draw(glowLine);
 
     if (resourcesLoaded) {
-        sf::Text& tHeader = ui::pooledText(font, toUtf8("ПАУЗА"), fontsize::H1);
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        sf::Text& tHeader = ui::pooledText(font, toUtf8(isEn ? "PAUSE" : "ПАУЗА"), fontsize::H1);
         tHeader.setStyle(sf::Text::Bold);
         tHeader.setFillColor(theme::TextPrimary);
         sf::FloatRect hb = tHeader.getLocalBounds();
         tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 16.0f });
         ui::drawText(window, tHeader);
 
-        sf::Text& tSub = ui::pooledText(font, toUtf8("Използвайте [Стрелки] / [Enter] или мишката за избор"), fontsize::Label);
+        std::string subTxt = isEn ? "Use [Arrows] / [Enter] or Mouse to select"
+                                  : "Използвайте [Стрелки] / [Enter] или мишката за избор";
+        sf::Text& tSub = ui::pooledText(font, toUtf8(subTxt), fontsize::Label);
         tSub.setFillColor(theme::TextSecondary);
         sf::FloatRect sb = tSub.getLocalBounds();
         tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f, boxY + 70.0f });
@@ -284,12 +338,22 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         sf::Color outlineColor;
     };
 
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+
+    std::string resumeLbl  = isEn ? (isArcade ? "RESUME  [B / A]" : "RESUME  [ESC / ENTER]")
+                                  : (isArcade ? "ПРОДЪЛЖИ  [B / A]" : "ПРОДЪЛЖИ  [ESC / ENTER]");
+    std::string restartLbl = isEn ? "NEW GAME  [R]" : "НОВА ИГРА  [R]";
+    std::string helpLbl    = isEn ? (isArcade ? "HELP & RULES  [CG]" : "HELP & RULES  [H]")
+                                  : (isArcade ? "ПОМОЩ И ПРАВИЛА  [CG]" : "ПОМОЩ И ПРАВИЛА  [H]");
+    std::string logLbl     = isEn ? "EVENT LOG  [L]" : "ДНЕВНИК НА СЪБИТИЯТА  [L]";
+    std::string menuLbl    = isEn ? "MAIN MENU  [M]" : "ГЛАВНО МЕНЮ  [M]";
+
     PauseOption opts[5] = {
-        { pauseResumeBtn,  "ПРОДЪЛЖИ  [ESC / ENTER]",    theme::GoodFill, theme::GoodFill, theme::Good },
-        { pauseRestartBtn, "НОВА ИГРА  [R]",             theme::InfoFill, theme::InfoFill, theme::Info },
-        { pauseHelpBtn,    "ПОМОЩ И ПРАВИЛА  [H]",       theme::Button, theme::ButtonHover, theme::LineStrong },
-        { pauseLogBtn,     "ДНЕВНИК НА СЪБИТИЯТА  [L]",  theme::Button, theme::ButtonHover, theme::LineStrong }, // team info
-        { pauseMenuBtn,    "ГЛАВНО МЕНЮ  [M]",           theme::BadFill, theme::BadFill, theme::Bad }
+        { pauseResumeBtn,  resumeLbl,  theme::GoodFill, theme::GoodFill, theme::Good },
+        { pauseRestartBtn, restartLbl, theme::InfoFill, theme::InfoFill, theme::Info },
+        { pauseHelpBtn,    helpLbl,    theme::Button, theme::ButtonHover, theme::LineStrong },
+        { pauseLogBtn,     logLbl,     theme::Button, theme::ButtonHover, theme::LineStrong }, // team info
+        { pauseMenuBtn,    menuLbl,    theme::BadFill, theme::BadFill, theme::Bad }
     };
 
     for (int i = 0; i < 5; i++) {

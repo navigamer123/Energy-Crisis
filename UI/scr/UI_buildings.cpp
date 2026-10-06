@@ -4,6 +4,7 @@
 #include "../includes/UI_icons.h"
 #include "../includes/UI_theme.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_settings.h"
 #include "../../Game/includes/game_balance.h"
 #include <algorithm>
 #include <cmath>
@@ -41,23 +42,40 @@ const char* resourceNameBg(ResourceType type) {
     }
 }
 
+const char* resourceNameEn(ResourceType type) {
+    switch (type) {
+        case ResourceType::WOOD:    return "wood";
+        case ResourceType::IRON:    return "iron";
+        case ResourceType::COPPER:  return "copper";
+        case ResourceType::COAL:    return "coal";
+        case ResourceType::SILICON: return "silicon";
+        case ResourceType::SILVER:  return "silver";
+        case ResourceType::GOLD:    return "gold";
+        case ResourceType::MONEY:   return "money";
+        case ResourceType::ENERGY:  return "power";
+        default:                    return "";
+    }
+}
+
 std::string recipeText(const BuildingCost& cost) {
+    bool isEn = (UI_settings::get().getLanguage() == "en");
     std::string list;
     for (const auto& n : buildingNeeds(PlayerEconomy(), cost)) {
         if (!list.empty()) list += ", ";
-        list += std::to_string(n.need) + " " + resourceNameBg(n.type);
+        list += std::to_string(n.need) + " " + (isEn ? resourceNameEn(n.type) : resourceNameBg(n.type));
     }
     return list;
 }
 
 std::string missingResourcesText(const PlayerEconomy& econ, const BuildingCost& cost) {
+    bool isEn = (UI_settings::get().getLanguage() == "en");
     std::string list;
     for (const auto& n : buildingNeeds(econ, cost)) {
         if (n.have >= n.need) continue;
         if (!list.empty()) list += ", ";
-        list += std::to_string(n.need - n.have) + " " + resourceNameBg(n.type);
+        list += std::to_string(n.need - n.have) + " " + (isEn ? resourceNameEn(n.type) : resourceNameBg(n.type));
     }
-    return list.empty() ? std::string() : "Недостигат: " + list;
+    return list.empty() ? std::string() : (isEn ? ("Missing: " + list) : ("Недостигат: " + list));
 }
 
 // -----------------------------------------------------------------------------
@@ -149,13 +167,18 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
   ui::lint::ContainerScope panelScope(sf::FloatRect(panelPos, panelSize));
 
   if (fontLoaded) {
+    bool isEn = (UI_settings::get().getLanguage() == "en");
     std::string pTag;
     if (ArcadeMode::isEnabled()) {
-      pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [D]"
-                                : "ПОСТРОЙКИ (ИГРАЧ 2) [D]";
+      pTag = isEn ? ((playerIndex == 1) ? "BUILDINGS (PLAYER 1) [D]"
+                                        : "BUILDINGS (PLAYER 2) [D]")
+                  : ((playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [D]"
+                                        : "ПОСТРОЙКИ (ИГРАЧ 2) [D]");
     } else {
-      pTag = (playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
-                                : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]";
+      pTag = isEn ? ((playerIndex == 1) ? "BUILDINGS (PLAYER 1) [E]"
+                                        : "BUILDINGS (PLAYER 2) [PgDn]")
+                  : ((playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
+                                        : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]");
     }
     sf::Text& tHeader = ui::pooledText(font, toUtf8(pTag), fontsize::Label);
     tHeader.setStyle(sf::Text::Bold);
@@ -219,7 +242,17 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     const float rightX = x + w - 6.0f;
 
     // Row 1: short name + output badge
-    sf::Text& tName = ui::pooledText(font, toUtf8(b.shortName), fontsize::Label);
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+    std::string displayName = b.shortName;
+    if (isEn) {
+      if (b.type == BuildingType::SOLAR_PANEL) displayName = "Solar";
+      else if (b.type == BuildingType::WIND_TURBINE) displayName = "Wind";
+      else if (b.type == BuildingType::HYDRO_PLANT) displayName = "Hydro";
+      else if (b.type == BuildingType::BATTERY) displayName = "Battery";
+      else if (b.type == BuildingType::LAMP) displayName = "Lamp";
+      else if (b.type == BuildingType::DEMOLISH) displayName = "Demolish";
+    }
+    sf::Text& tName = ui::pooledText(font, toUtf8(displayName), fontsize::Label);
     tName.setStyle(sf::Text::Bold);
     tName.setFillColor(isDemolish ? theme::Bad : theme::TextPrimary);
     tName.setPosition({textX, y + 3.0f});
@@ -249,7 +282,8 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     // Row 2: costs as amount + resource icon, each green (enough) or red (missing)
     const float costY = y + 20.0f;
     if (isDemolish) {
-      sf::Text& tInfo = ui::pooledText(font, toUtf8("Връща половината ресурси"), fontsize::Caption);
+      std::string refundTxt = isEn ? "Refunds 50% resources" : "Връща половината ресурси";
+      sf::Text& tInfo = ui::pooledText(font, toUtf8(refundTxt), fontsize::Caption);
       tInfo.setFillColor(theme::TextSecondary);
       tInfo.setPosition({textX, costY + 1.0f});
       ui::drawText(window, tInfo);
@@ -304,7 +338,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
 
     std::string status;
     if (!isDemolish) {
-      status = std::to_string(count) + " бр.";
+      status = std::to_string(count) + (isEn ? " pcs" : " бр.");
       if (b.type == BuildingType::BATTERY) {
         if (count > 0) status += " · " + std::to_string(static_cast<int>(std::lround(storedMWh))) + " MWh";
       } else if (count > 0) {

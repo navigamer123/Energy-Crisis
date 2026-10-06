@@ -4,6 +4,8 @@
 #include "../includes/UI_theme.h"
 #include "../includes/UI_icons.h"
 #include "../includes/UI_buildings.h"
+#include "../includes/UI_settings.h"
+#include "../includes/UI_arcadeMode.h"
 #include <cstdio>
 #include "../includes/UI_types.h"
 #include <cmath>
@@ -252,11 +254,13 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                 }
             }
 
+            bool isEn = (UI_settings::get().getLanguage() == "en");
             // Owner label only while the plot is still empty: buildings in the top row would cover it
             bool plotEmpty = std::none_of(buildings.begin(), buildings.end(),
                                           [&](const PlacedBuilding& b) { return plot.bounds.contains(b.position); });
             if (fontLoaded && plotEmpty) {
-                std::string tag = (plot.playerOwner == 1) ? "ЗЕМЯ НА P1" : "ЗЕМЯ НА P2";
+                std::string tag = isEn ? ((plot.playerOwner == 1) ? "P1 LAND" : "P2 LAND")
+                                       : ((plot.playerOwner == 1) ? "ЗЕМЯ НА P1" : "ЗЕМЯ НА P2");
                 sf::Text& t = ui::pooledText(font, toUtf8(tag), fontsize::Caption);
                 t.setFillColor(theme::playerLight(plot.playerOwner));
                 t.setPosition({ plot.bounds.position.x + 6.0f, plot.bounds.position.y + 4.0f });
@@ -270,7 +274,8 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
             window.draw(box);
 
             if (fontLoaded) {
-                sf::Text& t = ui::pooledText(font, toUtf8("+ КУПИ ЗЕМЯ"), fontsize::Caption);
+                bool isEn = (UI_settings::get().getLanguage() == "en");
+                sf::Text& t = ui::pooledText(font, toUtf8(isEn ? "+ BUY LAND" : "+ КУПИ ЗЕМЯ"), fontsize::Caption);
                 t.setFillColor(hover ? theme::TextPrimary : theme::TextSecondary);
                 sf::FloatRect tb = t.getLocalBounds();
                 t.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - tb.size.x) / 2.0f, plot.bounds.position.y + 28.0f });
@@ -479,17 +484,27 @@ void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf:
     sf::Color tint = isValidPlacement ? theme::Good : theme::Bad;
 
     if (fontLoaded) {
-        std::string label = cost.nameBg + (isValidPlacement ? " [ПОСТАВИ В ГРИДА]" : " [НЕДОПУСТИМО]");
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        bool isArcade = ArcadeMode::isEnabled();
+        std::string name = isEn ? cost.nameEn : cost.nameBg;
+        std::string label = name + (isValidPlacement ? (isEn ? " [PLACE IN GRID]" : " [ПОСТАВИ В ГРИДА]")
+                                                     : (isEn ? " [INVALID]" : " [НЕДОПУСТИМО]"));
 
-        std::string costStr = (type == BuildingType::DEMOLISH) ? std::string("Връща половината ресурси")
-                                                               : "Нужно: " + recipeText(cost);
-        if (type == BuildingType::LAMP) costStr += " · консумира " + std::to_string(static_cast<int>(GameEngine::LAMP_POWER_MW)) + " MW";
-        else if (type == BuildingType::BATTERY) costStr += " · започва от 0%";
+        std::string costStr = (type == BuildingType::DEMOLISH) ? (isEn ? "Refunds 50% resources" : "Връща половината ресурси")
+                                                               : ((isEn ? "Cost: " : "Нужно: ") + recipeText(cost));
+        if (type == BuildingType::LAMP) costStr += isEn ? (" · consumes " + std::to_string(static_cast<int>(GameEngine::LAMP_POWER_MW)) + " MW")
+                                                        : (" · консумира " + std::to_string(static_cast<int>(GameEngine::LAMP_POWER_MW)) + " MW");
+        else if (type == BuildingType::BATTERY) costStr += isEn ? " · starts at 0%" : " · започва от 0%";
         if (!missing.empty()) costStr = missing; // exactly what the player still has to mine
 
-        // Cancel keys are X (P1) / Del (P2); Q / PgUp only step back through the buildings
-        std::string hint = isValidPlacement ? "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени"
-                                            : "[X/Del]: Отказ  |  [E]: Смени сграда";
+        std::string hint;
+        if (isArcade) {
+            hint = isValidPlacement ? (isEn ? "[A]: Place  |  [B]: Cancel  |  [D]: Cycle" : "[A]: Постави  |  [B]: Отказ  |  [D]: Смени")
+                                    : (isEn ? "[B]: Cancel  |  [D]: Cycle building" : "[B]: Отказ  |  [D]: Смени сграда");
+        } else {
+            hint = isValidPlacement ? (isEn ? "[SPACE/Click]: Place  |  [X/Del]: Cancel  |  [E]: Cycle" : "[SPACE/КЛИК]: Постави  |  [X/Del]: Отказ  |  [E]: Смени")
+                                    : (isEn ? "[X/Del]: Cancel  |  [E]: Cycle building" : "[X/Del]: Отказ  |  [E]: Смени сграда");
+        }
 
         // Smart text wrapping (Diagram fix): Wrap long recipe/hints to fit neatly inside tooltip
         const float maxTextW = 340.0f;
@@ -628,7 +643,21 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         if (!fontLoaded) continue;
 
         // Row 1: station name (primary text; the colour is carried by the icon and the outline)
-        sf::Text& nameText = ui::pooledText(font, toUtf8(s.nameBg), fontsize::Caption);
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        std::string stName = s.nameBg;
+        if (isEn) {
+            switch (s.type) {
+                case ResourceType::WOOD: stName = "FOREST"; break;
+                case ResourceType::IRON: stName = "IRON"; break;
+                case ResourceType::COPPER: stName = "COPPER"; break;
+                case ResourceType::COAL: stName = "COAL"; break;
+                case ResourceType::SILICON: stName = "SILICON"; break;
+                case ResourceType::SILVER: stName = "SILVER"; break;
+                case ResourceType::GOLD: stName = "GOLD"; break;
+                default: break;
+            }
+        }
+        sf::Text& nameText = ui::pooledText(font, toUtf8(stName), fontsize::Caption);
         nameText.setFillColor(theme::TextPrimary);
         nameText.setPosition({ x + 23.0f, y + 6.0f });
         ui::drawText(window, nameText);
@@ -645,7 +674,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         drawResourceIcon(window, s.type, { iconX, y + 30.0f }, 14.0f);
 
         // Row 3: ready / cooldown (left) and the mine level (right)
-        std::string lvlStr = "Н" + std::to_string(lvl); // Н = ниво (level)
+        std::string lvlStr = (isEn ? "L" : "Н") + std::to_string(lvl);
         sf::Text& tLvl = ui::pooledText(font, toUtf8(lvlStr), fontsize::Caption);
         tLvl.setFillColor(lvl > 1 ? theme::Info : theme::TextSecondary);
         sf::FloatRect lb = tLvl.getLocalBounds();
@@ -654,7 +683,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
 
         if (onCooldown) {
             char cdbuf[16];
-            std::snprintf(cdbuf, sizeof(cdbuf), "%.1fс", cd);
+            std::snprintf(cdbuf, sizeof(cdbuf), isEn ? "%.1fs" : "%.1fс", cd);
             sf::Text& cdText = ui::pooledText(font, toUtf8(cdbuf), fontsize::Caption);
             cdText.setFillColor(theme::Warn);
             cdText.setPosition({ x + 6.0f, y + 40.0f });
@@ -668,7 +697,7 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
             window.draw(cdBar);
         } else {
             // The mining key is shown by the prompt tag over the station; the card only shows the state
-            sf::Text& actText = ui::pooledText(font, toUtf8("готово"), fontsize::Caption);
+            sf::Text& actText = ui::pooledText(font, toUtf8(isEn ? "ready" : "готово"), fontsize::Caption);
             actText.setFillColor(theme::Good);
             actText.setPosition({ x + 6.0f, y + 40.0f });
             ui::drawText(window, actText);
@@ -676,7 +705,8 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
 
         // Upgrade button: next level and its gold price (gold coin icon)
         const sf::FloatRect& ub = s.upgradeBtnBounds;
-        std::string upLabel = maxed ? "МАКС. НИВО" : ("Н" + std::to_string(lvl + 1) + " за " + std::to_string(upCost));
+        std::string upLabel = maxed ? (isEn ? "MAX LEVEL" : "МАКС. НИВО")
+                                    : ((isEn ? "L" : "Н") + std::to_string(lvl + 1) + (isEn ? " for " : " за ") + std::to_string(upCost));
         sf::Text& tUp = ui::pooledText(font, toUtf8(upLabel), fontsize::Caption);
         tUp.setStyle(sf::Text::Bold);
         tUp.setFillColor(maxed ? theme::TextSecondary : theme::TextPrimary);
