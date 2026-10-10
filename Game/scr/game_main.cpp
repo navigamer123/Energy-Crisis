@@ -334,6 +334,18 @@ void GameEngine::payCityRevenue() {
         p2.gold += scaleByMult(Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand), p2Mods.incomeMult);
     }
 
+    // Dynamic demand scaling in arcade mode or when grace period is disabled:
+    // Demand scales continuously based on players' actual usage / generation capacity
+    if (config.graceDays <= 0 && (p1.energyMW > 0 || p2.energyMW > 0)) {
+        int playerUsage = std::max(p1.energyMW, p2.energyMW);
+        int combinedUsage = p1.energyMW + p2.energyMW;
+        int targetArcadeDemand = std::max(Balance::STARTING_CITY_DEMAND_MW,
+                                          std::max(playerUsage, static_cast<int>(combinedUsage * 0.75f)));
+        if (targetArcadeDemand > city.cityEnergyDemand) {
+            city.cityEnergyDemand = targetArcadeDemand;
+        }
+    }
+
     // City influence reflects established territorial division plus live daytime drift and citizen migration
     float liveShare = city.p1CityShare;
     if (city.cityEnergyDemand > 0 && city.dailySeconds > 1.0f && currentDay > config.graceDays) {
@@ -625,7 +637,7 @@ void GameEngine::processDayEnd() {
         double totalDelivered = city.p1DailyDelivered + city.p2DailyDelivered;
         city.cityEnergyDemand = Balance::calculateSmartCityDemand(prevTotal, prevMax, currentDay,
                                                                  demandYesterday, totalDelivered,
-                                                                 daySeconds);
+                                                                 daySeconds, config.graceDays);
     }
     city.p1DailyDelivered = 0.0f;
     city.p2DailyDelivered = 0.0f;
@@ -826,6 +838,14 @@ bool GameEngine::buyLandPlot(int player, int plotId, std::string& outMsg) {
             }
             if (econ.money >= plot.costGold) {
                 econ.money -= plot.costGold;
+                plot.isPurchased = true;
+                econ.landTier++;
+                outMsg = (player == 1 ? "ИГРАЧ 1 ЗАКУПИ НОВА ЗЕМЯ!" : "ИГРАЧ 2 ЗАКУПИ НОВА ЗЕМЯ!");
+                emitEvent(GameEventType::LAND_BOUGHT, player, static_cast<float>(plot.costGold), std::string(), plot.id,
+                          plot.bounds.position.x + plot.bounds.size.x * 0.5f, plot.bounds.position.y + plot.bounds.size.y * 0.5f);
+                return true;
+            } else if (econ.gold >= plot.costGold) {
+                econ.gold -= plot.costGold;
                 plot.isPurchased = true;
                 econ.landTier++;
                 outMsg = (player == 1 ? "ИГРАЧ 1 ЗАКУПИ НОВА ЗЕМЯ!" : "ИГРАЧ 2 ЗАКУПИ НОВА ЗЕМЯ!");

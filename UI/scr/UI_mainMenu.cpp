@@ -173,6 +173,7 @@ void UI_mainMenu::onPlay() {
 }
 
 void UI_mainMenu::returnToMain() {
+    botVsBotMode = false;
     state = ArcadeMode::isEnabled() ? MenuState::PRESS_A_TO_START : MenuState::MAIN;
     selectedMainIndex = 0;
     enterHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
@@ -424,22 +425,24 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
 
     float screenWidth = VIRTUAL_WIDTH;
     float btnWidth = 540.0f;
-    float btnHeight = 58.0f;
+    float btnHeight = 52.0f;
     float btnX = (screenWidth - btnWidth) / 2.0f;
-    float startY = 220.0f;
-    float spacing = 78.0f;
+    float startY = 195.0f;
+    float spacing = 66.0f;
 
     sf::Vector2f mousePos = ui::pointerPos(window);
     sf::FloatRect coopBtn({ btnX, startY }, { btnWidth, btnHeight });
     sf::FloatRect singleBtn({ btnX, startY + spacing }, { btnWidth, btnHeight });
-    sf::FloatRect backBtn({ btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 12.0f }, { 240.0f, 48.0f });
+    sf::FloatRect emuBtn({ btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight });
+    sf::FloatRect backBtn({ btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 10.0f }, { 240.0f, 44.0f });
 
     bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
     if (mouseMoved) {
         lastMenuMousePos = mousePos;
         if (coopBtn.contains(mousePos)) selectedModeIndex = 0;
         else if (singleBtn.contains(mousePos)) selectedModeIndex = 1;
-        else if (backBtn.contains(mousePos)) selectedModeIndex = 2;
+        else if (emuBtn.contains(mousePos)) selectedModeIndex = 2;
+        else if (backBtn.contains(mousePos)) selectedModeIndex = 3;
     }
 
     const sf::Color defaultBtn = theme::Button;
@@ -447,25 +450,28 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
 
     drawButton(window, coopBtn, toUtf8(Lang::tr("menu.mode_coop")), defaultBtn, theme::GoodFill, whiteText, selectedModeIndex == 0);
     drawButton(window, singleBtn, toUtf8(Lang::tr("menu.mode_single")), defaultBtn, theme::InfoFill, whiteText, selectedModeIndex == 1);
-    drawButton(window, backBtn, toUtf8(Lang::tr("common.back")), defaultBtn, theme::ButtonHover, whiteText, selectedModeIndex == 2);
+    drawButton(window, emuBtn, toUtf8(Lang::tr("menu.mode_emulation")), defaultBtn, sf::Color(140, 100, 20), whiteText, selectedModeIndex == 2);
+    drawButton(window, backBtn, toUtf8(Lang::tr("common.back")), defaultBtn, theme::ButtonHover, whiteText, selectedModeIndex == 3);
 
     if (fontLoaded) {
         std::string desc = (selectedModeIndex == 0)
             ? Lang::tr("menu.mode_coop_desc")
             : (selectedModeIndex == 1)
                 ? Lang::tr("menu.mode_single_desc")
-                : Lang::tr("menu.mode_back_desc");
+                : (selectedModeIndex == 2)
+                    ? Lang::tr("menu.mode_emulation_desc")
+                    : Lang::tr("menu.mode_back_desc");
 
         sf::Text& tDesc = ui::pooledText(font, toUtf8(desc), fontsize::Body);
         tDesc.setFillColor(theme::TextSecondary);
         sf::FloatRect db = tDesc.getLocalBounds();
-        tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 2.0f * spacing + 78.0f });
+        tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 3.0f * spacing + 68.0f });
         ui::drawText(window, tDesc);
 
         sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_mode")), fontsize::Label);
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
-        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 112.0f });
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 3.0f * spacing + 102.0f });
         ui::drawText(window, hint);
     }
 }
@@ -1013,18 +1019,25 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             }
         } else if (state == MenuState::MODE_SELECT) {
             if (isUp) {
-                selectedModeIndex = (selectedModeIndex + 2) % 3;
+                selectedModeIndex = (selectedModeIndex + 3) % 4;
             } else if (isDown) {
-                selectedModeIndex = (selectedModeIndex + 1) % 3;
+                selectedModeIndex = (selectedModeIndex + 1) % 4;
             } else if (isSelect) {
                 if (selectedModeIndex == 0) {
+                    botVsBotMode = false;
                     selectedBotDifficulty = BotDifficulty::NONE;
                     state = MenuState::PLAY_CONTROLS;
                     playControls.resetRequests();
                 } else if (selectedModeIndex == 1) {
+                    botVsBotMode = false;
                     state = MenuState::BOT_DIFFICULTY;
                     selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
                 } else if (selectedModeIndex == 2) {
+                    // Emulation / Test (Bot vs Bot)
+                    botVsBotMode = true;
+                    selectedBotDifficulty = BotDifficulty::HARD;
+                    onPlay();
+                } else if (selectedModeIndex == 3) {
                     state = MenuState::MAIN;
                 }
             } else if (isEscape) {
@@ -1179,19 +1192,25 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 }
             } else if (state == MenuState::MODE_SELECT) {
                 float btnWidth = 540.0f;
-                float btnHeight = 58.0f;
+                float btnHeight = 52.0f;
                 float btnX = (screenWidth - btnWidth) / 2.0f;
-                float startY = 220.0f;
-                float spacing = 78.0f;
+                float startY = 195.0f;
+                float spacing = 66.0f;
 
                 if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
+                    botVsBotMode = false;
                     selectedBotDifficulty = BotDifficulty::NONE;
                     state = MenuState::PLAY_CONTROLS;
                     playControls.resetRequests();
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
+                    botVsBotMode = false;
                     state = MenuState::BOT_DIFFICULTY;
                     selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
-                } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 12.0f }, { 240.0f, 48.0f } }, clickPos)) {
+                } else if (isPointInside({ { btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight } }, clickPos)) {
+                    botVsBotMode = true;
+                    selectedBotDifficulty = BotDifficulty::HARD;
+                    onPlay();
+                } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 10.0f }, { 240.0f, 44.0f } }, clickPos)) {
                     state = MenuState::MAIN;
                 }
             } else if (state == MenuState::BOT_DIFFICULTY) {

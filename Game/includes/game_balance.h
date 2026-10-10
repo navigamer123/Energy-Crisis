@@ -208,9 +208,9 @@ constexpr float REPAIR_REACH_RADIUS =
 constexpr float STRIKE_HIT_RADIUS =
     30.0f; // breakBuildingAt destroys a building within this radius
 
-constexpr int LAND_BASE_COST_MONEY = 1500;
+constexpr int LAND_BASE_COST_MONEY = 150;
 constexpr int LAND_BASE_COST_GOLD = 150; // Legacy backwards compatibility
-constexpr int LAND_TIER_COST_GROWTH = 450;
+constexpr int LAND_TIER_COST_GROWTH = 45;
 
 // row/col are counted from the player's own starting corner (col 0 = far side,
 // col 2 = river side), so both players pay the same price for mirrored plots.
@@ -279,17 +279,18 @@ constexpr int DAILY_DEMAND_INCREASE_MW = 15;
 inline int calculateSmartCityDemand(int prevDayTotalGen, int prevDayMaxGen,
                                     int currentDay, int demandYesterday = 0,
                                     double prevDayDelivered = 0.0,
-                                    float daySeconds = 90.0f) {
-  if (currentDay <= GRACE_PERIOD_DAYS)
+                                    float daySeconds = 90.0f,
+                                    int graceDays = GRACE_PERIOD_DAYS) {
+  if (currentDay <= graceDays)
     return 0;
-  if (currentDay == GRACE_PERIOD_DAYS + 1)
+  if (graceDays > 0 && currentDay == graceDays + 1)
     return STARTING_CITY_DEMAND_MW;
 
   int effYesterday =
       demandYesterday > 0
           ? demandYesterday
           : (STARTING_CITY_DEMAND_MW +
-             (currentDay - GRACE_PERIOD_DAYS - 2) * DAILY_DEMAND_INCREASE_MW);
+             std::max(0, currentDay - graceDays - 2) * DAILY_DEMAND_INCREASE_MW);
 
   // If nobody builds or generates power, follow baseline linear progression
   // (+15 MW/day)
@@ -325,6 +326,13 @@ inline int calculateSmartCityDemand(int prevDayTotalGen, int prevDayMaxGen,
   int targetDemand =
       static_cast<int>(std::round(effYesterday * (1.0f + alpha))) + baseDemand;
 
+  // In arcade mode or matches without grace period, ensure city demand tracks
+  // players' actual usage / generation capacity directly
+  if (graceDays <= 0) {
+    int directPlayerScale = std::max(prevDayMaxGen, static_cast<int>(prevDayTotalGen * 0.75f));
+    targetDemand = std::max(targetDemand, directPlayerScale);
+  }
+
   // Clamp day-over-day growth rates to prevent sudden brownout spikes, but
   // allow smooth scaling towards capacity
   int maxGrowth = std::max(static_cast<int>(effYesterday * 1.35f) + 15,
@@ -332,6 +340,10 @@ inline int calculateSmartCityDemand(int prevDayTotalGen, int prevDayMaxGen,
   int minDemand =
       std::max(STARTING_CITY_DEMAND_MW, static_cast<int>(effYesterday * 0.85f));
   targetDemand = std::clamp(targetDemand, minDemand, maxGrowth);
+
+  if (graceDays <= 0 && totalCap > 0) {
+    targetDemand = std::max(targetDemand, std::max(prevDayMaxGen, static_cast<int>(prevDayTotalGen * 0.75f)));
+  }
 
   return std::max(STARTING_CITY_DEMAND_MW, targetDemand);
 }

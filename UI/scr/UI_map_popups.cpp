@@ -4,6 +4,7 @@
 #include "../includes/UI_theme.h"
 #include "../includes/UI_icons.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_settings.h"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -13,8 +14,28 @@
 // =============================================================================
 
 void UI_map::spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color color) {
+    std::string finalText = text;
+    if (UI_settings::get().getLanguage() == "en") {
+        if (finalText == "ЗАКУПЕН ПАРЦЕЛ!") finalText = "PLOT PURCHASED!";
+        else if (finalText == "ПОСТРОЕНА СГРАДА!") finalText = "BUILDING COMPLETE!";
+        else if (finalText == "РЕЖИМ ДОБИВ") finalText = "GATHER MODE";
+        else if (finalText == "НЕЗАКУПЕНА ТЕРИТОРИЯ!") finalText = "UNPURCHASED LAND!";
+        else if (finalText == "МЪЛНИЯ УДАРИ СЪОРЪЖЕНИЕТО!") finalText = "LIGHTNING STRUCK FACILITY!";
+        else if (finalText == "СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!") finalText = "FACILITY DESTROYED!";
+        else if (finalText.find("ИЗБРАНА СГРАДА: ") == 0) {
+            std::string sub = finalText.substr(std::string("ИЗБРАНА СГРАДА: ").length());
+            if (sub == "Слънчев панел") sub = "Solar Panel";
+            else if (sub == "Вятърна мелница") sub = "Wind Turbine";
+            else if (sub == "ВЕЦ / Хидро") sub = "Hydro Plant";
+            else if (sub == "Батерия") sub = "Battery Storage";
+            else if (sub == "Осветителна лампа") sub = "Work Lamp";
+            finalText = "SELECTED: " + sub;
+        } else if (finalText.find("ИЗЧАКАЙТЕ: ") == 0) {
+            finalText = "WAIT: " + finalText.substr(std::string("ИЗЧАКАЙТЕ: ").length());
+        }
+    }
     FloatingNotice n;
-    n.text = text;
+    n.text = finalText;
     n.pos = pos;
     n.timer = 1.8f;
     n.maxTimer = 1.8f;
@@ -50,20 +71,95 @@ void UI_map::drawFloatingNotices(sf::RenderWindow& window) {
 // mining results are not toasts any more: the floating "+12 Дърво" notice already shows them.
 void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std::string& title,
                                 const std::string& detail, const std::string& action, sf::Color accent) {
-    if (badge == "ДОБИВ") return;
+    if (badge == "ДОБИВ" || badge == "GATHER") return;
     ToastPriority prio = ToastPriority::INFO;
     std::string channel = badge;
-    if (badge == "МЪЛНИЯ!") {
+    if (badge == "МЪЛНИЯ!" || badge == "LIGHTNING!") {
         prio = ToastPriority::CRITICAL;
         channel.clear();
-    } else if (badge == "ГРЕШКА" || badge.rfind("НЕДОСТИГ", 0) == 0 || badge.rfind("ГРЕШКА", 0) == 0) {
+    } else if (badge == "ГРЕШКА" || badge == "ERROR" || badge.rfind("НЕДОСТИГ", 0) == 0 || badge.rfind("NOT ENOUGH", 0) == 0) {
         prio = ToastPriority::WARNING;
         channel = "error";
         fx.onPlayerError(player); // [b-effects] error popups buzz for that player
-    } else if (badge == "СТРОЕЖ" || badge == "ПРЕМАХВАНЕ" || badge == "ОСВЕТЛЕНИЕ" || badge == "ОТКАЗ") {
+    } else if (badge == "СТРОЕЖ" || badge == "BUILD" || badge == "ПРЕМАХВАНЕ" || badge == "DEMOLISH" ||
+               badge == "ОСВЕТЛЕНИЕ" || badge == "LIGHTING" || badge == "ОТКАЗ" || badge == "CANCELLED") {
         channel = "select";
     }
-    notifications.push(player, prio, channel, badge, title, detail, action, accent, false);
+
+    std::string finalBadge = badge;
+    std::string finalTitle = title;
+    std::string finalDetail = detail;
+    std::string finalAction = action;
+
+    if (UI_settings::get().getLanguage() == "en") {
+        auto translateStr = [](const std::string& in) -> std::string {
+            if (in == "СТРОЕЖ") return "BUILD";
+            if (in == "ЗЕМЯ") return "LAND";
+            if (in == "ПРЕМАХВАНЕ") return "DEMOLISH";
+            if (in == "ОСВЕТЛЕНИЕ") return "LIGHTING";
+            if (in == "ОТКАЗ") return "CANCELLED";
+            if (in == "УСПЕХ") return "SUCCESS";
+            if (in == "ГРЕШКА") return "ERROR";
+            if (in == "ИНФО") return "INFO";
+            if (in == "НАДГРАЖДАНЕ") return "UPGRADE";
+            if (in == "НЕЗАКУПЕНА ТЕРИТОРИЯ") return "UNOWNED PLOT";
+            if (in == "НЕДОСТИГ НА ПАРИ") return "NOT ENOUGH MONEY";
+            if (in == "НЕДОСТИГ НА РЕСУРСИ") return "NOT ENOUGH RESOURCES";
+            if (in == "Закупен парцел!") return "Plot purchased!";
+            if (in == "Купихте парцел!") return "Plot purchased!";
+            if (in == "Разширена земя!") return "Territory expanded!";
+            if (in == "Ваш парцел") return "Your plot";
+            if (in == "Действието е успешно!") return "Action successful!";
+            if (in == "Земята не е закупена!") return "Plot is unpurchased!";
+            if (in == "Изборът е прекратен") return "Selection cancelled";
+            if (in == "Режим Разрушаване") return "Demolish Mode";
+            if (in == "Отменен строеж") return "Placement cancelled";
+            if (in == "Слънчев панел") return "Solar Panel";
+            if (in == "Вятърна мелница") return "Wind Turbine";
+            if (in == "ВЕЦ / Хидро") return "Hydro Plant";
+            if (in == "Батерия") return "Battery Storage";
+            if (in == "Осветителна лампа") return "Work Lamp";
+            return in;
+        };
+        finalBadge = translateStr(finalBadge);
+        finalTitle = translateStr(finalTitle);
+
+        if (finalDetail == "Парцелът е ваш. Вече можете да строите върху него.") finalDetail = "The plot is yours. You can now build on it.";
+        else if (finalDetail == "Не може да строите върху незакупена земя.") finalDetail = "You cannot build on unowned land.";
+        else if (finalDetail == "Земята е свободна за строителство.") finalDetail = "Land is ready for construction.";
+        else if (finalDetail == "Свободен режим.") finalDetail = "Free mode.";
+        else if (finalDetail == "Посочете сградата, която искате да махнете.") finalDetail = "Select the building you want to demolish.";
+        else if (finalDetail == "Режимът за поставяне е прекратен.") finalDetail = "Placement mode has been cancelled.";
+        else if (finalDetail.find("Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.") != std::string::npos)
+            finalDetail = "Click on your building to demolish.\nRefunds 50% of construction resources.";
+
+        if (finalAction == "[SPACE НА ЗЕМЯ]: Постави | [E]: Друга сграда | [X]: Отказ")
+            finalAction = "[SPACE ON LAND]: Place | [E]: Cycle | [X]: Cancel";
+        else if (finalAction == "[ENTER НА ЗЕМЯ]: Постави | [PgDn]: Друга сграда | [Del]: Отказ")
+            finalAction = "[ENTER ON LAND]: Place | [PgDn]: Cycle | [Del]: Cancel";
+        else if (finalAction == "[E]: Постави отново същата")
+            finalAction = "[E]: Place another";
+        else if (finalAction == "[PgDn]: Постави отново същата")
+            finalAction = "[PgDn]: Place another";
+        else if (finalAction == "[A]: Постави сграда")
+            finalAction = "[A]: Place building";
+        else if (finalAction == "[SPACE]: Постави сграда")
+            finalAction = "[SPACE]: Place building";
+        else if (finalAction == "[ENTER]: Постави сграда")
+            finalAction = "[ENTER]: Place building";
+        else if (finalAction == "[КЛИК]: Постави сграда")
+            finalAction = "[CLICK]: Place building";
+        else if (finalAction == "[E]: Избери сграда")
+            finalAction = "[E]: Choose building";
+        else if (finalAction == "[PgDn]: Избери сграда")
+            finalAction = "[PgDn]: Choose building";
+        else if (finalAction == "[E]: Изберете сграда за строеж")
+            finalAction = "[E]: Choose building";
+        else if (finalAction == "[PgDn]: Изберете сграда за строеж")
+            finalAction = "[PgDn]: Choose building";
+    }
+
+    notifications.push(player, prio, channel, finalBadge, finalTitle, finalDetail, finalAction, accent, false);
 }
 
 void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
@@ -80,8 +176,33 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     fx.onPlayerError(player); // [b-effects] every modal is a refusal: build denied / not enough gold
     PlayerModalDialog& m = (player == 1) ? p1Modal : p2Modal;
     m.active = true;
-    m.badge = badge;
     m.accentColor = accent;
+
+    std::string modalBadge = badge;
+    std::string modalTitle = title;
+    std::string modalDetail = detail;
+    std::string modalTip = tip;
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+
+    if (isEn) {
+        if (modalBadge == "НЕДОСТИГ НА ПАРИ") modalBadge = "NOT ENOUGH MONEY";
+        else if (modalBadge == "НЕДОСТИГ НА РЕСУРСИ") modalBadge = "NOT ENOUGH RESOURCES";
+        else if (modalBadge == "ГРЕШКА ПРИ СТРОЕЖ") modalBadge = "BUILD ERROR";
+        if (modalTitle == "Не можете да купите парцела!") modalTitle = "Cannot purchase plot!";
+        if (modalDetail.find("НЕДОСТИГ НА ПАРИ! НУЖНО: ") == 0) {
+            modalDetail = "NOT ENOUGH MONEY! NEED: " + modalDetail.substr(std::string("НЕДОСТИГ НА ПАРИ! НУЖНО: ").length());
+        } else if (modalDetail == "ТОЗИ ПАРЦЕЛ ВЕЧЕ Е ЗАКУПЕН!") {
+            modalDetail = "THIS PLOT IS ALREADY PURCHASED!";
+        } else if (modalDetail == "НЕВАЛИДЕН ПАРЦЕЛ!") {
+            modalDetail = "INVALID PLOT!";
+        } else if (modalDetail == "ВСИЧКИ ПАРЦЕЛИ СА ЗАКУПЕНИ!") {
+            modalDetail = "ALL PLOTS PURCHASED!";
+        }
+        if (modalTip == "Продавайте ток на града за да печелите пари ($)!")
+            modalTip = "Sell electricity to the city to earn money ($)!";
+    }
+
+    m.badge = modalBadge;
 
     // Wrap every text to the box and grow the box to fit, so long engine messages stay inside
     const float w = 360.0f;
@@ -91,9 +212,10 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
         sf::Text& t = ui::pooledText(font, toUtf8(s), size);
         return t.getLocalBounds().position.y + t.getLocalBounds().size.y;
     };
-    m.title = resourcesLoaded ? ui::wrapText(font, title, fontsize::Body, textW, true) : title;
-    m.detail = resourcesLoaded ? ui::wrapText(font, detail, fontsize::Label, textW) : detail;
-    std::string tipText = tip.empty() ? std::string() : "СЪВЕТ: " + tip;
+    m.title = resourcesLoaded ? ui::wrapText(font, modalTitle, fontsize::Body, textW, true) : modalTitle;
+    m.detail = resourcesLoaded ? ui::wrapText(font, modalDetail, fontsize::Label, textW) : modalDetail;
+    std::string tipPrefix = isEn ? "TIP: " : "СЪВЕТ: ";
+    std::string tipText = modalTip.empty() ? std::string() : tipPrefix + modalTip;
     m.tip = resourcesLoaded ? ui::wrapText(font, tipText, fontsize::Caption, textW) : tipText;
 
     m.detailY = 40.0f + textHeight(m.title, fontsize::Body) + 10.0f;
@@ -111,25 +233,32 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
 
 void UI_map::reportBuildFailure(int player, BuildingType sel, const std::string& engineMsg) {
     const sf::Color errorColor = theme::Bad;
+    bool isEn = (UI_settings::get().getLanguage() == "en");
     if (sel != BuildingType::DEMOLISH && sel != BuildingType::NONE) {
         BuildingCost cost = engine.getBuildingCost(sel);
         std::string missing = missingResourcesText(engine.getPlayerEconomy(player), cost);
         if (!missing.empty()) {
             bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
             std::string key = isArcade ? "[A]" : ((player == 1) ? "[SPACE]" : "[ENTER]");
-            std::string tipStr = isArcade
-                ? ("Добийте ги от станциите: застанете върху станция и натиснете " + key + ".")
-                : ("Добийте ги от станциите долу: застанете върху станция и натиснете " + key + " (или кликнете върху нея).");
-            triggerPlayerModal(player, "НЕДОСТИГ НА РЕСУРСИ", "Не стигат ресурси за " + cost.nameBg, missing,
-                               tipStr,
-                               errorColor);
+            std::string tipStr = isEn
+                ? (isArcade ? ("Gather them from stations: stand over a station and press " + key + ".")
+                            : ("Gather them from stations below: stand over a station and press " + key + " (or click it)."))
+                : (isArcade ? ("Добийте ги от станциите: застанете върху станция и натиснете " + key + ".")
+                            : ("Добийте ги от станциите долу: застанете върху станция и натиснете " + key + " (или кликнете върху нея)."));
+            std::string badge = isEn ? "NOT ENOUGH RESOURCES" : "НЕДОСТИГ НА РЕСУРСИ";
+            std::string title = isEn ? ("Missing resources for " + cost.nameEn) : ("Не стигат ресурси за " + cost.nameBg);
+            triggerPlayerModal(player, badge, title, missing, tipStr, errorColor);
             return;
         }
     }
-    triggerPlayerModal(player, "ГРЕШКА ПРИ СТРОЕЖ", "Строежът е невъзможен!", engineMsg,
-                       !engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!"
-                                            : "Изберете свободна клетка от ваш закупен парцел.",
-                       errorColor);
+    std::string badge = isEn ? "BUILD ERROR" : "ГРЕШКА ПРИ СТРОЕЖ";
+    std::string title = isEn ? "Cannot build here!" : "Строежът е невъзможен!";
+    std::string tip = isEn
+        ? (!engine.isDaylight() ? "Place and power a Work Lamp to build at night!"
+                                : "Choose an empty cell on your purchased plot.")
+        : (!engine.isDaylight() ? "Поставете и захранете Осветителна лампа за работа нощем!"
+                                : "Изберете свободна клетка от ваш закупен парцел.");
+    triggerPlayerModal(player, badge, title, engineMsg, tip, errorColor);
 }
 
 void UI_map::closePlayerModal(int player) {

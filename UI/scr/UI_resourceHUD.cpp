@@ -4,6 +4,7 @@
 #include "../includes/UI_theme.h"
 #include "../includes/UI_icons.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_settings.h"
 #include <cmath>
 #include <string>
 
@@ -95,8 +96,9 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
     window.draw(energyPlaque);
     drawResourceIcon(window, ResourceType::ENERGY, { plaqueX + 13.0f, screenHeight - 85.0f }, 16.0f);
     if (fontLoaded) {
+        bool isEn = (UI_settings::get().getLanguage() == "en");
         int sharePct = static_cast<int>(std::lround(econ.cityInfluence * 100.0f));
-        std::string pStr = std::to_string(econ.energyMW) + " MW · град " + std::to_string(sharePct) + "%";
+        std::string pStr = std::to_string(econ.energyMW) + (isEn ? " MW · city " : " MW · град ") + std::to_string(sharePct) + "%";
         sf::Text& tPwr = ui::pooledText(font, toUtf8(pStr), fontsize::Label);
         tPwr.setStyle(sf::Text::Bold);
         tPwr.setFillColor(theme::Energy);
@@ -118,7 +120,8 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
     landBtn.setOutlineColor(hoverLand ? theme::Focus : accent);
     window.draw(landBtn);
     if (fontLoaded) {
-        sf::Text& tLand = ui::pooledText(font, toUtf8("+ КУПИ ЗЕМЯ"), fontsize::Label);
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        sf::Text& tLand = ui::pooledText(font, toUtf8(isEn ? "+ BUY LAND" : "+ КУПИ ЗЕМЯ"), fontsize::Label);
         tLand.setStyle(sf::Text::Bold);
         tLand.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = tLand.getLocalBounds();

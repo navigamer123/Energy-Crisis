@@ -29,7 +29,12 @@ public:
   UI_mainMenu mainMenu;
   explicit UI_main(const ShotOptions &shotOptions = ShotOptions());
   ~UI_main();
+  void setEmulationMode(bool enabled) { emulationMode = enabled; }
+  bool isEmulationMode() const { return emulationMode; }
   int render(); // Runs until the window closes; returns the process exit code
+
+private:
+  bool emulationMode = false;
 };
 
 #endif // UI_MAIN_H

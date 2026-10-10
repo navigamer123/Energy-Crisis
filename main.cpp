@@ -166,6 +166,8 @@ bool parseShotOptions(int argc, char *argv[], ShotOptions &opts) {
       // Handled by detectStartupLanguage
     } else if (arg == "--arcade" || arg == "-arcade" || arg == "--pc" || arg == "-pc") {
       // Platform selector, processed in main()
+    } else if (arg == "--emulation" || arg == "-emulation" || arg == "--bot-vs-bot" || arg == "-bot-vs-bot" || arg == "--demo") {
+      // Bot vs bot emulation test mode, processed in main()
     } else if (arg.rfind("--days=", 0) == 0 || arg.rfind("-days=", 0) == 0) {
       // Arcade days override, processed in main()
     } else if (arg.rfind("--seconds=", 0) == 0 || arg.rfind("-seconds=", 0) == 0) {
@@ -217,6 +219,7 @@ int main(int argc, char *argv[]) {
   }
 
   bool arcadeMode = false;
+  bool emulationMode = false;
 #if defined(ARCADE_MODE) && (ARCADE_MODE != 0)
   arcadeMode = true;
 #endif
@@ -229,6 +232,8 @@ int main(int argc, char *argv[]) {
       arcadeMode = true;
     } else if (arg == "--pc" || arg == "-pc") {
       arcadeMode = false;
+    } else if (arg == "--emulation" || arg == "-emulation" || arg == "--bot-vs-bot" || arg == "-bot-vs-bot" || arg == "--demo") {
+      emulationMode = true;
     } else if (arg.rfind("--days=", 0) == 0 || arg.rfind("-days=", 0) == 0) {
       size_t eq = arg.find('=');
       std::string d = arg.substr(eq + 1);
@@ -241,6 +246,9 @@ int main(int argc, char *argv[]) {
   }
   ArcadeMode::setEnabled(arcadeMode);
   std::cout << "[Main] Platform mode: " << (ArcadeMode::isEnabled() ? "ARCADE CABINET" : "PC DESKTOP") << "\n";
+  if (emulationMode) {
+    std::cout << "[Main] Mode: BOT VS BOT EMULATION / ARCADE TEST\n";
+  }
 
 #if !defined(__ANDROID__)
   selectAssetDirectory(argc > 0 ? argv[0] : nullptr);
@@ -256,6 +264,9 @@ int main(int argc, char *argv[]) {
 
   std::cout << "[Main] Initializing UI_main...\n";
   UI_main ui(shotOptions);
+  if (emulationMode) {
+    ui.setEmulationMode(true);
+  }
 
   std::cout << "[Main] Calling main UI function render()...\n";
   int exitCode = ui.render();

@@ -2,6 +2,7 @@
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_settings.h"
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -140,20 +141,9 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
     }
 
     if (scene == "victory") {
-        // P1 builds river hydro plants and wind turbines; P2 builds nothing. From day 3 the city
-        // shifts 10-15% per day to P1 until the 85% victory share is reached.
-        setResources(engine.getPlayerEconomyMut(1), 600, 600, 600, 600, 600, 600, 4000, 0);
-        buy(1, 0, 2);
-        buy(1, 1, 2);
-        buy(1, 0, 1);
-        place(1, BuildingType::HYDRO_PLANT, 7, 1);
-        place(1, BuildingType::HYDRO_PLANT, 6, 2);
-        place(1, BuildingType::HYDRO_PLANT, 8, 4);
-        place(1, BuildingType::WIND_TURBINE, 4, 1);
-        place(1, BuildingType::WIND_TURBINE, 0, 1);
-        place(1, BuildingType::SOLAR_PANEL, 3, 0);
-        place(1, BuildingType::BATTERY, 1, 2);
-        advanceTo(Balance::FINAL_DAY + 1, 7.0f);
+        engine.getCityStateMut().winner = 1;
+        engine.getCityStateMut().p1CityShare = 0.86f;
+        matchFinishedTimer = 11.0f; // unlocked state
         parkCursors();
         return;
     }
@@ -187,9 +177,12 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         // P1 is placing a wind turbine (selected with hotkey 2): ghost, selected card and popup
         engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(BuildingType::WIND_TURBINE);
         BuildingCost c = engine.getBuildingCost(BuildingType::WIND_TURBINE);
-        triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg, "Добив: +" + std::to_string(c.basePowerMW) + " MW ток.",
-                           ArcadeMode::isEnabled() ? "[A]: Постави в грида | [B]: Отказ"
-                                                   : "[SPACE]: Постави в грида | [X]: Отказ", theme::P1);
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        triggerPlayerPopup(1, isEn ? "BUILD" : "СТРОЕЖ", isEn ? c.nameEn : c.nameBg,
+                           isEn ? ("Output: +" + std::to_string(c.basePowerMW) + " MW power.")
+                                : ("Добив: +" + std::to_string(c.basePowerMW) + " MW ток."),
+                           ArcadeMode::isEnabled() ? (isEn ? "[A]: Place on grid | [B]: Cancel" : "[A]: Постави в грида | [B]: Отказ")
+                                                   : (isEn ? "[SPACE]: Place on grid | [X]: Cancel" : "[SPACE]: Постави в грида | [X]: Отказ"), theme::P1);
     } else if (scene == "mining") {
         // P1 mines wood: prompt over the station, cooldown on the card, 6x time badges, a notice
         if (const auto* st = nodes.getStation(1, ResourceType::WOOD)) {

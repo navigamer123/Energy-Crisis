@@ -1,8 +1,10 @@
 #include "../includes/UI_city.h"
 #include "../includes/UI_text.h"
+#include "../includes/UI_lang.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_settings.h"
 #include "../../Game/includes/game_balance.h"
 #include <cmath>
 #include <string>
@@ -329,8 +331,8 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 
         int p1Pct = static_cast<int>(std::lround(p1Share * 100.0f));
         int p2Pct = 100 - p1Pct;
-        std::string phaseStr = isDaylight ? "ДЕН" : "НОЩ";
-        std::string titleStr = "ГРАД · " + phaseStr + " · P1 " + std::to_string(p1Pct) + "% · P2 " + std::to_string(p2Pct) + "%";
+        std::string phaseStr = isDaylight ? Lang::tr("common.day") : Lang::tr("common.night");
+        std::string titleStr = Lang::fmt("city.title", phaseStr, std::to_string(p1Pct), std::to_string(p2Pct));
         sf::Text& cLabel = ui::pooledText(font, toUtf8(titleStr), fontsize::Label);
         cLabel.setStyle(sf::Text::Bold);
         cLabel.setFillColor(theme::TextPrimary);
@@ -340,10 +342,40 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
 
         // Cut notification banner at bottom of city if conquest occurred
         if (!cutMessage.empty()) {
+            bool isEn = (UI_settings::get().getLanguage() == "en");
+            std::string displayMsg = cutMessage;
+            if (isEn) {
+                if (cutMessage.find("ДОБРЕ ДОШЛИ! БЕЗ ГРАТИСЕН ПЕРИОД") != std::string::npos) {
+                    displayMsg = "WELCOME! NO GRACE PERIOD: CITY DEMANDS POWER FROM DAY 1!";
+                } else if (cutMessage.find("ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИЯ ДЕН") != std::string::npos) {
+                    displayMsg = "WELCOME! GRACE PERIOD: CITY REQUIRES 0 POWER ON DAY 1!";
+                } else if (cutMessage.find("ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИТЕ ") != std::string::npos) {
+                    displayMsg = "WELCOME! GRACE PERIOD: CITY REQUIRES 0 POWER FOR THE FIRST 2 DAYS!";
+                } else if (cutMessage.find("ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД") != std::string::npos) {
+                    displayMsg = "GRACE PERIOD ENDED! THE CITY NOW REQUIRES POWER!";
+                } else if (cutMessage.find("ПРИКЛЮЧИ [ГРАТИСЕН ПЕРИОД]") != std::string::npos) {
+                    displayMsg = "DAY ENDED [GRACE PERIOD]: CITY REQUIRED 0 MW.";
+                } else if (cutMessage.find("И ДВАМАТА ИГРАЧИ ЗАХРАНИХА ГРАДА") != std::string::npos) {
+                    displayMsg = "BOTH PLAYERS POWERED THE CITY! NO TERRITORY SHIFT.";
+                } else if (cutMessage.find("НИТО ЕДИН ИГРАЧ НЕ ЗАХРАНИ ГРАДА") != std::string::npos) {
+                    displayMsg = "NEITHER PLAYER POWERED THE CITY! NO TERRITORY SHIFT.";
+                } else if (cutMessage.find("ИГРАЧ 1 ЗАХРАНИ ГРАДА") != std::string::npos) {
+                    displayMsg = "PLAYER 1 POWERED THE CITY AND GAINED TERRITORY!";
+                } else if (cutMessage.find("ИГРАЧ 2 ЗАХРАНИ ГРАДА") != std::string::npos) {
+                    displayMsg = "PLAYER 2 POWERED THE CITY AND GAINED TERRITORY!";
+                } else if (cutMessage.find("ПОБЕДА ЗА ИГРАЧ 1") != std::string::npos) {
+                    displayMsg = "VICTORY FOR PLAYER 1!";
+                } else if (cutMessage.find("ПОБЕДА ЗА ИГРАЧ 2") != std::string::npos) {
+                    displayMsg = "VICTORY FOR PLAYER 2!";
+                } else if (cutMessage.find("РАВЕНСТВО") != std::string::npos) {
+                    displayMsg = "DRAW - CITY IS SPLIT EQUALLY!";
+                }
+            }
+
             // The engine's day messages are long: wrap them into centred lines and size the bar to fit
             const unsigned int cutSize = fontsize::Caption;
             const float lineH = 14.0f;
-            std::string wrapped = ui::wrapText(font, cutMessage, cutSize, cityWidth - 16.0f);
+            std::string wrapped = ui::wrapText(font, displayMsg, cutSize, cityWidth - 16.0f);
             std::vector<std::string> lines;
             std::size_t start = 0;
             while (true) {
@@ -396,15 +428,15 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         std::string dStr;
         sf::Color demandColor;
 
-        if (currentDay <= graceDays) {
+        if (currentDay <= graceDays && graceDays > 0) {
             dStr = (graceDays == 1)
-                ? ("ГРАТИСЕН ПЕРИОД (ДЕН 1): ГРАДЪТ ИСКА 0 MW · ДОСТАВКА " + std::to_string(totalSupplied) + " MW")
-                : ("ГРАТИСЕН ПЕРИОД (ДЕН " + std::to_string(currentDay) + "/" +
-                   std::to_string(graceDays) + "): ГРАДЪТ ИСКА 0 MW · ДОСТАВКА " + std::to_string(totalSupplied) + " MW");
+                ? Lang::fmt("city.demand_grace_single", std::to_string(totalSupplied))
+                : Lang::fmt("city.demand_grace", std::to_string(currentDay),
+                            std::to_string(graceDays), std::to_string(totalSupplied));
             demandColor = theme::Good;
         } else {
-            dStr = "НУЖДА НА ГРАДА " + std::to_string(demand) + " MW · ДОСТАВКА " + std::to_string(totalSupplied) +
-                   " MW · ПОБЕДА ПРИ " + std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))) + "%";
+            dStr = Lang::fmt("city.demand", std::to_string(demand), std::to_string(totalSupplied),
+                             std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f))));
             demandColor = theme::TextPrimary;
         }
 

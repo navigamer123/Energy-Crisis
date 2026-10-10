@@ -252,7 +252,7 @@ void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
     // team info (F-04): the post-match report (awards, P1/P2 table, charts, energy mix) replaces the
     // old victory box. It also publishes victoryRestartBtn / victoryMenuBtn for the click handling.
     sf::Vector2f mousePos = ui::pointerPos(window);
-    postMatch.draw(window, font, resourcesLoaded, engine, stats, mousePos, victoryRestartBtn, victoryMenuBtn);
+    postMatch.draw(window, font, resourcesLoaded, engine, stats, mousePos, victoryRestartBtn, victoryMenuBtn, matchFinishedTimer);
 }
 
 void UI_map::drawPauseMenu(sf::RenderWindow& window) {

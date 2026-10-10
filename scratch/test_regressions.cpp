@@ -95,11 +95,14 @@ void place(GameEngine& e, int player, BuildingType type, sf::Vector2f pos) {
 void buyPlot(GameEngine& e, int player, int plotId) {
     auto& econ = e.getPlayerEconomyMut(player);
     int goldBefore = econ.gold;
+    int moneyBefore = econ.money;
     econ.gold += 100000;
+    econ.money += 100000;
     std::string msg;
     bool ok = e.buyLandPlot(player, plotId, msg);
     REQUIRE(ok, "buyLandPlot P" << player << " plot " << plotId << " failed: " << msg);
     econ.gold = goldBefore;
+    econ.money = moneyBefore;
 }
 
 // Six wind turbines on the player's starting plot: at least 6 x 85 MW x 0.68 (weakest weather
@@ -759,13 +762,13 @@ void testLandPricesAndRiverBank() {
                                                          << east.id << " costs " << east.costGold << " G");
         }
     }
-    e.getPlayerEconomyMut(1).gold = 1000;
-    e.getPlayerEconomyMut(2).gold = 1000;
+    e.getPlayerEconomyMut(1).money = 1000;
+    e.getPlayerEconomyMut(2).money = 1000;
     std::string msg;
     REQUIRE(e.buyNextLandTier(1, msg), msg);
     REQUIRE(e.buyNextLandTier(2, msg), msg);
-    CHECK(e.getPlayerEconomy(1).gold == e.getPlayerEconomy(2).gold,
-          "next plot: P1 paid " << (1000 - e.getPlayerEconomy(1).gold) << " G, P2 paid " << (1000 - e.getPlayerEconomy(2).gold) << " G");
+    CHECK(e.getPlayerEconomy(1).money == e.getPlayerEconomy(2).money,
+          "next plot: P1 paid " << (1000 - e.getPlayerEconomy(1).money) << " $, P2 paid " << (1000 - e.getPlayerEconomy(2).money) << " $");
 
     buyPlot(e, 1, 3);  // P1 river bank (column next to the city)
     buyPlot(e, 2, 13); // P2 river bank

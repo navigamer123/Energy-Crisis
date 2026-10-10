@@ -19,9 +19,12 @@ public:
 
     // Draws the whole report and publishes the two button rectangles for click handling
     void draw(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded, const GameEngine& engine,
-              const UI_matchStats& stats, sf::Vector2f mousePos, sf::FloatRect& restartBtn, sf::FloatRect& menuBtn);
+              const UI_matchStats& stats, sf::Vector2f mousePos, sf::FloatRect& restartBtn, sf::FloatRect& menuBtn,
+              float finishedTimer = 999.0f);
 
-    bool handleKey(sf::Keyboard::Key key);     // 1/2/3, Left/Right, A/D switch the tab
+    bool handleKey(sf::Keyboard::Key key);     // 1/2/3, Left/Right, Tab, Q/E switch the tab
+    bool handleJoystick(int button);           // LB/RB/X/Y switch the tab
+    bool handleJoystickAxis(sf::Joystick::Axis axis, float position); // Stick / D-pad X switches tab
     bool handleClick(sf::Vector2f pos);        // click on a tab header
 
     struct Award {
@@ -30,17 +33,19 @@ public:
         std::string detail;
         float score = 0.0f;
     };
-    static std::vector<Award> pickAwards(const UI_matchStats& stats, const GameEngine& engine);
+    static std::vector<Award> pickAwards(const UI_matchStats& stats, const GameEngine& engine, bool isEn = false);
 
 private:
     void drawSummary(sf::RenderTarget& t, const sf::Font& f, const GameEngine& engine, const UI_matchStats& stats,
-                     sf::FloatRect area) const;
+                     sf::FloatRect area, bool isEn = false) const;
     void drawCharts(sf::RenderTarget& t, const sf::Font& f, const GameEngine& engine, const UI_matchStats& stats,
-                    sf::FloatRect area) const;
-    void drawMix(sf::RenderTarget& t, const sf::Font& f, const UI_matchStats& stats, sf::FloatRect area) const;
+                    sf::FloatRect area, bool isEn = false) const;
+    void drawMix(sf::RenderTarget& t, const sf::Font& f, const UI_matchStats& stats, sf::FloatRect area,
+                 bool isEn = false) const;
 
     int tab = SUMMARY;
     sf::FloatRect tabRects[TAB_COUNT];
+    float lastJoyAxisX = 0.0f;
 };
 
 #endif // UI_POSTMATCH_H

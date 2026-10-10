@@ -79,12 +79,14 @@ menu.hint_main = Навигация: [Стрелки / W,S] | Избор: [Enter
 menu.mode_coop = ДВАМА ИГРАЧИ (1v1)
 # UI/scr/UI_mainMenu.cpp:190
 menu.mode_single = ЕДИН ИГРАЧ (СРЕЩУ БОТ)
+menu.mode_emulation = ЕМУЛАЦИЯ / ТЕСТ (БОТ vs БОТ)
 # UI/scr/UI_mainMenu.cpp:191, :245
 menu.back = НАЗАД
 # UI/scr/UI_mainMenu.cpp:195
 menu.mode_coop_desc = Двама играчи се състезават на един компютър: западен и източен сектор
 # UI/scr/UI_mainMenu.cpp:197
 menu.mode_single_desc = Играйте срещу компютърен противник (ботът управлява източния сектор)
+menu.mode_emulation_desc = Наблюдавайте автоматичен тестов мач между два бота за аркадна проверка
 # UI/scr/UI_mainMenu.cpp:198
 menu.mode_back_desc = Връщане към главното меню
 # UI/scr/UI_mainMenu.cpp:206
@@ -233,6 +235,7 @@ city.border = ЦЕНТРАЛНА ГРАНИЦА
 city.title = ГРАД (METROPOLIS) | {0} | P1: {1}% | P2: {2}%
 # UI/scr/UI_city.cpp:374 ({0} = ден, {1} = дни гратис, {2} = доставени MW)
 city.demand_grace = НУЖДА НА ГРАДА: 0 MW  * ГРАТИСЕН ПЕРИОД (ДЕН {0}/{1}) * | ДОСТАВКА: {2} MW
+city.demand_grace_single = НУЖДА НА ГРАДА: 0 MW  * ГРАТИСЕН ПЕРИОД (ДЕН 1) * | ДОСТАВКА: {0} MW
 # UI/scr/UI_city.cpp:378 ({0} = нужда MW, {1} = доставени MW, {2} = % за победа)
 city.demand = НУЖДА НА ГРАДА: {0} MW | ДОСТАВКА: {1} MW | ПОБЕДА: {2}%
 # UI/scr/UI_city.cpp:429

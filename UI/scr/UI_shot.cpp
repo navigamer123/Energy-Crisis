@@ -8,7 +8,7 @@ int g_shotFrames = 0; // frames rendered so far in screenshot mode
 constexpr float SHOT_STEP = 1.0f / 60.0f;
 
 const char* const MENU_SCENES[] = { "menu", "modes", "bots", "controls", "settings", "remap", "arcade_start", "calibrate_blue", "calibrate_red", "popup_exit" };
-const char* const GAME_SCENES[] = { "game", "mining", "night", "winter", "storm", "victory", "pause", "help", "modal", "tutorial" };
+const char* const GAME_SCENES[] = { "game", "mining", "night", "winter", "storm", "victory", "pause", "help", "modal", "tutorial", "emulation" };
 } // namespace
 
 namespace ui {
@@ -22,7 +22,7 @@ float clockSeconds(float realSeconds) { return g_shotActive ? g_shotFrames * SHO
 void tickFrame() { if (g_shotActive) ++g_shotFrames; }
 
 const char* sceneNames() {
-    return "menu, modes, bots, controls, settings, remap, arcade_start, calibrate_blue, calibrate_red, popup_exit, game, mining, night, winter, storm, victory, pause, help, modal, tutorial";
+    return "menu, modes, bots, controls, settings, remap, arcade_start, calibrate_blue, calibrate_red, popup_exit, game, mining, night, winter, storm, victory, pause, help, modal, tutorial, emulation";
 }
 
 bool isMenuScene(const std::string& scene) {

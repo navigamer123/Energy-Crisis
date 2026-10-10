@@ -1,4 +1,5 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_lang.h"
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
@@ -52,7 +53,7 @@ void UI_map::triggerLightningStrike(sf::Vector2f targetPos, bool hitBuilding) {
 
     if (hitBuilding) {
         spawnMiningParticles(targetPos, sf::Color(255, 130, 60), 20);
-        spawnNotice("МЪЛНИЯ УДАРИ СЪОРЪЖЕНИЕТО!", targetPos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 230, 80));
+        spawnNotice(Lang::tr("map.lightning_hit"), targetPos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 230, 80));
     }
 }
 
@@ -124,7 +125,7 @@ void UI_map::updateWeatherParticles(float dt) {
             lost.building = hitType;
             onInfoEvent(lost);
 
-            spawnNotice("СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!", strikePos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 80, 80));
+            spawnNotice(Lang::tr("map.facility_destroyed"), strikePos + sf::Vector2f(0.0f, -32.0f), sf::Color(255, 80, 80));
             triggerLightningStrike(strikePos, true);
         } else {
             // Harmless strike into open ground of the stormy sector

@@ -108,9 +108,13 @@ public:
     BotDifficulty getSelectedBotDifficulty() const {
         return selectedBotDifficulty;
     }
+    bool isBotVsBot() const { return botVsBotMode; }
+    void setBotVsBot(bool enabled) { botVsBotMode = enabled; }
     // [b-effects] Audio settings read every frame by UI_main
     int getVolume() const { return volume; }
     bool isSoundEffectsEnabled() const { return soundEffects; }
+private:
+    bool botVsBotMode = false;
 };
 
 #endif // UI_MAINMENU_H

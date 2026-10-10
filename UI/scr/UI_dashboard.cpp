@@ -1,6 +1,7 @@
 #include "../includes/UI_dashboard.h"
 #include "../includes/UI_infoCharts.h"
 #include "../includes/UI_infoText.h"
+#include "../includes/UI_settings.h"
 #include "../includes/UI_types.h"
 #include <algorithm>
 #include <cmath>
@@ -32,25 +33,32 @@ const sf::Color COL_SOURCE[UI_matchStats::SOURCE_COUNT] = {
     sf::Color(60, 150, 255),   // hydro
     sf::Color(0, 230, 140)     // battery
 };
-const char* SOURCE_NAME[UI_matchStats::SOURCE_COUNT] = { "Слънце", "Вятър", "ВЕЦ", "Батерии" };
+
+const char* sourceName(int s, bool isEn) {
+    static const char* EN_NAMES[UI_matchStats::SOURCE_COUNT] = { "Solar", "Wind", "Hydro", "Batteries" };
+    static const char* BG_NAMES[UI_matchStats::SOURCE_COUNT] = { "Слънце", "Вятър", "ВЕЦ", "Батерии" };
+    if (s >= 0 && s < UI_matchStats::SOURCE_COUNT) return isEn ? EN_NAMES[s] : BG_NAMES[s];
+    return "";
+}
 
 // Layout
 const sf::FloatRect CARD({ 80.0f, 56.0f }, { 1440.0f, 790.0f });
 constexpr float PAD = 24.0f;
 
-const char* seasonShort(SeasonType s) {
+const char* seasonShort(SeasonType s, bool isEn) {
     switch (s) {
-        case SeasonType::SPRING: return "Пролет";
-        case SeasonType::SUMMER: return "Лято";
-        case SeasonType::AUTUMN: return "Есен";
-        case SeasonType::WINTER: return "Зима";
+        case SeasonType::SPRING: return isEn ? "Spring" : "Пролет";
+        case SeasonType::SUMMER: return isEn ? "Summer" : "Лято";
+        case SeasonType::AUTUMN: return isEn ? "Autumn" : "Есен";
+        case SeasonType::WINTER: return isEn ? "Winter" : "Зима";
     }
-    return "Пролет";
+    return isEn ? "Spring" : "Пролет";
 }
 
-std::string hoursMinutes(float h) {
+std::string hoursMinutes(float h, bool isEn) {
     int total = static_cast<int>(std::round(h * 60.0f));
-    return std::to_string(total / 60) + "ч " + std::to_string(total % 60) + "м";
+    return isEn ? (std::to_string(total / 60) + "h " + std::to_string(total % 60) + "m")
+                : (std::to_string(total / 60) + "ч " + std::to_string(total % 60) + "м");
 }
 
 void liveDot(sf::RenderTarget& t, sf::Vector2f p, sf::Color c, float animTime) {
@@ -96,12 +104,15 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
     rect(target, sf::FloatRect({ 0.0f, 0.0f }, { VIRTUAL_WIDTH, VIRTUAL_HEIGHT }), COL_BACKDROP);
     rect(target, CARD, COL_CARD, COL_CARD_EDGE, 2.5f);
 
+    const bool isEn = (UI_settings::get().getLanguage() == "en");
+
     // ---------------------------------------------------------------- header
     const float hx = CARD.position.x + PAD;
     const float hy = CARD.position.y + 14.0f;
-    text(target, font, "ЕНЕРГИЙНО ТАБЛО", 22, { hx, hy }, COL_CARD_EDGE, true);
+    const std::string dashTitle = isEn ? "ENERGY DASHBOARD" : "ЕНЕРГИЙНО ТАБЛО";
+    text(target, font, dashTitle, 22, { hx, hy }, COL_CARD_EDGE, true);
     {
-        sf::Text& title = ui::pooledText(font, toUtf8("ЕНЕРГИЙНО ТАБЛО"), 22);
+        sf::Text& title = ui::pooledText(font, toUtf8(dashTitle), 22);
         title.setStyle(sf::Text::Bold);
         float lx = hx + infoText::width(title) + 18.0f;
         float pulse = 0.5f + 0.5f * std::sin(animTime * 5.0f);
@@ -109,13 +120,13 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         dot.setPosition({ lx, hy + 10.0f });
         dot.setFillColor(sf::Color(COL_LIVE.r, COL_LIVE.g, COL_LIVE.b, static_cast<std::uint8_t>(140 + 115 * pulse)));
         target.draw(dot);
-        text(target, font, "НА ЖИВО", 13, { lx + 16.0f, hy + 6.0f }, COL_LIVE, true);
+        text(target, font, isEn ? "LIVE" : "НА ЖИВО", 13, { lx + 16.0f, hy + 6.0f }, COL_LIVE, true);
     }
-    const std::string when = "Ден " + std::to_string(engine.getCurrentDay()) + " · " +
-                             Balance::formatHourMinute(engine.getHour24()) + " · " + seasonShort(engine.getSeason()) +
-                             (engine.isDaylight() ? " · ден" : " · нощ");
+    const std::string when = (isEn ? "Day " : "Ден ") + std::to_string(engine.getCurrentDay()) + " · " +
+                             Balance::formatHourMinute(engine.getHour24()) + " · " + seasonShort(engine.getSeason(), isEn) +
+                             (engine.isDaylight() ? (isEn ? " · day" : " · ден") : (isEn ? " · night" : " · нощ"));
     textRight(target, font, when, 15, { CARD.position.x + CARD.size.x - PAD, hy + 2.0f }, TITLE_TEXT, true);
-    textRight(target, font, "Пуснете [Tab], за да се върнете в играта", 11,
+    textRight(target, font, isEn ? "Release [Tab] to return to the game" : "Пуснете [Tab], за да се върнете в играта", 11,
               { CARD.position.x + CARD.size.x - PAD, hy + 24.0f }, AXIS_TEXT);
 
     // ---------------------------------------------------------------- headline tiles
@@ -129,32 +140,35 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
     const int demand = city.cityEnergyDemand;
     const float hoursToCut = std::fmod(Balance::CLOCK_HOUR_AT_ZERO - engine.getHour24() + 24.0f, 24.0f);
     if (engine.isGracePeriod()) {
-        tile(target, font, tileRect(0), "НУЖДА НА ГРАДА", "0 MW", COL_DEMAND,
-             "Гратисен период · отчет след " + hoursMinutes(hoursToCut), AXIS_TEXT);
+        tile(target, font, tileRect(0), isEn ? "CITY DEMAND" : "НУЖДА НА ГРАДА", "0 MW", COL_DEMAND,
+             (isEn ? "Grace period · report in " : "Гратисен период · отчет след ") + hoursMinutes(hoursToCut, isEn), AXIS_TEXT);
     } else {
-        tile(target, font, tileRect(0), "НУЖДА НА ГРАДА (СРЕДНО ЗА ДЕНЯ)", std::to_string(demand) + " MW", COL_DEMAND,
-             "Отчет в 06:00 · след " + hoursMinutes(hoursToCut), AXIS_TEXT);
+        tile(target, font, tileRect(0), isEn ? "CITY DEMAND (DAILY AVERAGE)" : "НУЖДА НА ГРАДА (СРЕДНО ЗА ДЕНЯ)", std::to_string(demand) + " MW", COL_DEMAND,
+             (isEn ? "Report at 06:00 · in " : "Отчет в 06:00 · след ") + hoursMinutes(hoursToCut, isEn), AXIS_TEXT);
     }
     for (int p = 1; p <= 2; ++p) {
         const int mw = engine.getPlayerEconomy(p).energyMW;
         const int avg = static_cast<int>(engine.getTodayAverageMW(p));
-        std::string sub = "Средно днес: " + std::to_string(avg) + " MW";
+        std::string sub = (isEn ? "Today avg: " : "Средно днес: ") + std::to_string(avg) + " MW";
         sf::Color subCol = AXIS_TEXT;
         if (!engine.isGracePeriod()) {
             bool ok = avg >= demand;
-            sub += ok ? " · покрива нуждата" : " · под нуждата";
+            sub += ok ? (isEn ? " · meets demand" : " · покрива нуждата") : (isEn ? " · below demand" : " · под нуждата");
             subCol = ok ? COL_GOOD : COL_BAD;
         }
-        tile(target, font, tileRect(p), p == 1 ? "ИГРАЧ 1 · ЗАПАД · СЕГА" : "ИГРАЧ 2 · ИЗТОК · СЕГА", std::to_string(mw) + " MW",
+        std::string pTitle = isEn ? (p == 1 ? "PLAYER 1 · WEST · NOW" : "PLAYER 2 · EAST · NOW")
+                                  : (p == 1 ? "ИГРАЧ 1 · ЗАПАД · СЕГА" : "ИГРАЧ 2 · ИЗТОК · СЕГА");
+        tile(target, font, tileRect(p), pTitle, std::to_string(mw) + " MW",
              p == 1 ? COL_P1 : COL_P2, sub, subCol);
     }
     {
         const int p1Pct = static_cast<int>(std::lround(city.p1CityShare * 100.0f));
         const sf::FloatRect r = tileRect(3);
         const int winPct = static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f));
-        tile(target, font, r, "ДЯЛ ОТ ГРАДА", std::to_string(p1Pct) + "%", COL_P1,
-             "Победа при " + std::to_string(winPct) + "% · ден " + std::to_string(Balance::FINAL_DAY) + " е последен",
-             AXIS_TEXT, "/ " + std::to_string(100 - p1Pct) + "%", COL_P2);
+        std::string winDesc = isEn ? ("Win at " + std::to_string(winPct) + "% · day " + std::to_string(Balance::FINAL_DAY) + " is final")
+                                   : ("Победа при " + std::to_string(winPct) + "% · ден " + std::to_string(Balance::FINAL_DAY) + " е последен");
+        tile(target, font, r, isEn ? "CITY SHARE" : "ДЯЛ ОТ ГРАДА", std::to_string(p1Pct) + "%", COL_P1,
+             winDesc, AXIS_TEXT, "/ " + std::to_string(100 - p1Pct) + "%", COL_P2);
         // mini tug-of-war bar
         const float bx = r.position.x + r.size.x - 128.0f, by = r.position.y + 40.0f, bw = 112.0f, bh = 8.0f;
         rect(target, sf::FloatRect({ bx, by }, { bw * city.p1CityShare, bh }), COL_P1);
@@ -183,9 +197,9 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         }
         const float yMax = niceCeil(maxV * 1.1f);
         sf::FloatRect box({ leftX, chartsY }, { wideW, chartH });
-        Frame fr = chartPanel(target, font, box, "МОЩНОСТ КЪМ ГРАДА (MW) · ПОСЛЕДНИТЕ 48 ЧАСА", yMax, niceTicks(yMax),
+        Frame fr = chartPanel(target, font, box, isEn ? "POWER TO CITY (MW) · LAST 48 HOURS" : "МОЩНОСТ КЪМ ГРАДА (MW) · ПОСЛЕДНИТЕ 48 ЧАСА", yMax, niceTicks(yMax),
                               [](float v) { return fmtInt(v); },
-                              { { COL_P1, "Играч 1" }, { COL_P2, "Играч 2" }, { COL_DEMAND, "Нужда" } });
+                              { { COL_P1, isEn ? "Player 1" : "Играч 1" }, { COL_P2, isEn ? "Player 2" : "Играч 2" }, { COL_DEMAND, isEn ? "Demand" : "Нужда" } });
         fr.x0 = x0;
         fr.x1 = x1;
 
@@ -205,19 +219,20 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         }
         // Day boundaries (06:00 settlements). Labels stay inside the plot and never touch the "сега" label.
         const float labelY = fr.r.position.y + fr.r.size.y + 4.0f;
-        const float nowLabelLeft = fr.r.position.x + fr.r.size.x - infoText::advance(font, toUtf8("сега"), 10) - 8.0f;
+        const std::string nowStr = isEn ? "now" : "сега";
+        const float nowLabelLeft = fr.r.position.x + fr.r.size.x - infoText::advance(font, toUtf8(nowStr), 10) - 8.0f;
         for (int d = 1; d <= engine.getCurrentDay(); ++d) {
             float h = static_cast<float>(d - 1) * 24.0f;
             if (h < x0 || h > x1) continue;
             sf::Vector2f p = fr.map(h, 0.0f);
             rect(target, sf::FloatRect({ p.x, fr.r.position.y }, { 1.0f, fr.r.size.y }), sf::Color(90, 110, 140, 160));
-            const std::string lbl = "Ден " + std::to_string(d);
+            const std::string lbl = (isEn ? "Day " : "Ден ") + std::to_string(d);
             const float w = infoText::advance(font, toUtf8(lbl), 10);
             const float lx = std::max(fr.r.position.x, p.x - w / 2.0f);
             if (lx + w > nowLabelLeft) continue;
             text(target, font, lbl, 10, { lx, labelY }, AXIS_TEXT);
         }
-        textRight(target, font, "сега", 10, { fr.r.position.x + fr.r.size.x, labelY }, AXIS_TEXT);
+        textRight(target, font, nowStr, 10, { fr.r.position.x + fr.r.size.x, labelY }, AXIS_TEXT);
 
         const float revealX = x0 + (x1 - x0) * reveal;
         std::vector<sf::Vector2f> dem, l1, l2;
@@ -243,9 +258,9 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
     // B. City share tug-of-war across the match
     {
         sf::FloatRect box({ rightX, chartsY }, { narrowW, chartH });
-        Frame fr = chartPanel(target, font, box, "ДЯЛ ОТ ГРАДА ПО ДНИ", 100.0f, 4,
+        Frame fr = chartPanel(target, font, box, isEn ? "CITY SHARE BY DAY" : "ДЯЛ ОТ ГРАДА ПО ДНИ", 100.0f, 4,
                               [](float v) { return std::to_string(static_cast<int>(std::lround(v))) + "%"; },
-                              { { COL_P1, "Запад" }, { COL_P2, "Изток" } });
+                              { { COL_P1, isEn ? "West" : "Запад" }, { COL_P2, isEn ? "East" : "Изток" } });
         const float nowDays = nowH / 24.0f;
         fr.x0 = 0.0f;
         fr.x1 = std::max(5.0f, std::ceil(nowDays + 0.01f));
@@ -288,14 +303,14 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
             sf::Vector2f p = fr.map(static_cast<float>(d), 0.0f);
             textCentered(target, font, std::to_string(d), 10, { p.x, fr.r.position.y + fr.r.size.y + 4.0f }, AXIS_TEXT);
         }
-        textRight(target, font, "ден", 10, { box.position.x + box.size.x - 10.0f, fr.r.position.y + fr.r.size.y + 4.0f }, AXIS_TEXT);
+        textRight(target, font, isEn ? "day" : "ден", 10, { box.position.x + box.size.x - 10.0f, fr.r.position.y + fr.r.size.y + 4.0f }, AXIS_TEXT);
     }
 
     // C. Energy mix right now
     {
         sf::FloatRect box({ leftX, chartsY + chartH + 16.0f }, { wideW, chartH });
         rect(target, box, PANEL, PANEL_EDGE, 1.0f);
-        text(target, font, "ЕНЕРГИЕН МИКС СЕГА (MW ПО ИЗТОЧНИК)", 13, { box.position.x + 12.0f, box.position.y + 8.0f },
+        text(target, font, isEn ? "CURRENT ENERGY MIX (MW BY SOURCE)" : "ЕНЕРГИЕН МИКС СЕГА (MW ПО ИЗТОЧНИК)", 13, { box.position.x + 12.0f, box.position.y + 8.0f },
              TITLE_TEXT, true);
         float totals[2] = { 0.0f, 0.0f };
         for (int p = 0; p < 2; ++p)
@@ -305,7 +320,7 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         const float barW = box.size.x - 110.0f - 120.0f;
         for (int p = 0; p < 2; ++p) {
             const float by = box.position.y + 46.0f + static_cast<float>(p) * 58.0f;
-            text(target, font, p == 0 ? "Играч 1" : "Играч 2", 13, { box.position.x + 16.0f, by + 9.0f }, p == 0 ? COL_P1 : COL_P2, true);
+            text(target, font, p == 0 ? (isEn ? "Player 1" : "Играч 1") : (isEn ? "Player 2" : "Играч 2"), 13, { box.position.x + 16.0f, by + 9.0f }, p == 0 ? COL_P1 : COL_P2, true);
             rect(target, sf::FloatRect({ barX, by }, { barW, 36.0f }), sf::Color(30, 42, 62));
             float x = barX;
             for (int s = 0; s < UI_matchStats::SOURCE_COUNT; ++s) {
@@ -327,17 +342,18 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         // legend + produced energy so far
         float lx = box.position.x + 16.0f;
         const float ly = box.position.y + 168.0f;
-        for (int s = 0; s < UI_matchStats::SOURCE_COUNT; ++s) lx = legend(target, font, lx, ly, COL_SOURCE[s], SOURCE_NAME[s]);
+        for (int s = 0; s < UI_matchStats::SOURCE_COUNT; ++s) lx = legend(target, font, lx, ly, COL_SOURCE[s], sourceName(s, isEn));
         for (int p = 0; p < 2; ++p) {
             const auto& tot = stats.getTotals(p + 1);
             double sum = 0.0;
             for (double v : tot.mwh) sum += v;
-            std::string line = std::string(p == 0 ? "Играч 1" : "Играч 2") + " е произвел общо " + fmtInt(sum) + " MWh";
+            std::string line = std::string(p == 0 ? (isEn ? "Player 1" : "Играч 1") : (isEn ? "Player 2" : "Играч 2")) +
+                               (isEn ? " has produced a total of " : " е произвел общо ") + fmtInt(sum) + " MWh";
             if (sum > 0.5) {
                 line += ":";
                 for (int s = 0; s < UI_matchStats::SOURCE_COUNT; ++s) {
                     int pct = static_cast<int>(std::lround(100.0 * tot.mwh[s] / sum));
-                    line += std::string(" ") + SOURCE_NAME[s] + " " + std::to_string(pct) + "%" +
+                    line += std::string(" ") + sourceName(s, isEn) + " " + std::to_string(pct) + "%" +
                             (s + 1 < UI_matchStats::SOURCE_COUNT ? "," : "");
                 }
             }
@@ -352,7 +368,7 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         for (const auto& s : samples) maxV = std::max({ maxV, s.co2t[0], s.co2t[1] });
         const float yMax = niceCeil(maxV * 1.1f);
         sf::FloatRect box({ rightX, chartsY + chartH + 16.0f }, { narrowW, chartH });
-        Frame fr = chartPanel(target, font, box, "СПЕСТЕН CO2 (ТОНОВЕ)", yMax, niceTicks(yMax),
+        Frame fr = chartPanel(target, font, box, isEn ? "AVOIDED CO2 (TONNES)" : "СПЕСТЕН CO2 (ТОНОВЕ)", yMax, niceTicks(yMax),
                               [](float v) { return fmtInt(v); });
         fr.x0 = 0.0f;
         fr.x1 = std::max(24.0f, nowH);
@@ -372,13 +388,17 @@ void UI_dashboard::draw(sf::RenderTarget& target, const sf::Font& font, const Ga
         const auto& t1 = stats.getTotals(1);
         const auto& t2 = stats.getTotals(2);
         const bool kt = std::max(t1.co2t, t2.co2t) >= 10000.0; // same unit on both sides
-        textRight(target, font, "Запад " + fmtTonnes(t1.co2t, kt) + " · Изток " + fmtTonnes(t2.co2t, kt), 11,
+        textRight(target, font, (isEn ? "West " : "Запад ") + fmtTonnes(t1.co2t, kt) + (isEn ? " · East " : " · Изток ") + fmtTonnes(t2.co2t, kt), 11,
                   { box.position.x + box.size.x - 12.0f, box.position.y + 10.0f }, AXIS_TEXT);
         char factor[16];
         std::snprintf(factor, sizeof(factor), "%.2f", static_cast<double>(UI_matchStats::CO2_T_PER_MWH));
         std::string factorStr(factor);
-        std::replace(factorStr.begin(), factorStr.end(), '.', ',');
-        textCentered(target, font, "приблизително " + factorStr + " т CO2 на всеки MWh чиста енергия", 10,
+        if (!isEn) {
+            std::replace(factorStr.begin(), factorStr.end(), '.', ',');
+        }
+        std::string co2Note = isEn ? ("approx. " + factorStr + " t CO2 per MWh of clean energy")
+                                   : ("приблизително " + factorStr + " т CO2 на всеки MWh чиста енергия");
+        textCentered(target, font, co2Note, 10,
                      { box.position.x + box.size.x / 2.0f, fr.r.position.y + fr.r.size.y + 4.0f }, AXIS_TEXT);
     }
 }

@@ -5,6 +5,8 @@
 #include "../includes/UI_theme.h"
 #include "../includes/UI_arcadeMode.h"
 #include "../includes/UI_settings.h"
+#include "../includes/UI_credits.h"
+#include "../includes/UI_arcadePopup.h"
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -80,6 +82,7 @@ void UI_map::resetMatchInputState() {
     helpOpenedFromPause = false;
     p1WasInResourceArea = false;
     p2WasInResourceArea = false;
+    matchFinishedTimer = 0.0f;
     primeInputEdges(0);
 }
 
@@ -190,9 +193,10 @@ void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
     if (resourcesLoaded) {
         std::string p2Label = "P2";
         if (bot.isActive()) {
-            if (bot.getDifficulty() == BotDifficulty::EASY) p2Label = "P2 [БОТ: ЛЕСЕН]";
-            else if (bot.getDifficulty() == BotDifficulty::MEDIUM) p2Label = "P2 [БОТ: СРЕДЕН]";
-            else if (bot.getDifficulty() == BotDifficulty::HARD) p2Label = "P2 [БОТ: ТРУДЕН]";
+            bool isEn = (UI_settings::get().getLanguage() == "en");
+            if (bot.getDifficulty() == BotDifficulty::EASY) p2Label = isEn ? "P2 [BOT: EASY]" : "P2 [БОТ: ЛЕСЕН]";
+            else if (bot.getDifficulty() == BotDifficulty::MEDIUM) p2Label = isEn ? "P2 [BOT: MEDIUM]" : "P2 [БОТ: СРЕДЕН]";
+            else if (bot.getDifficulty() == BotDifficulty::HARD) p2Label = isEn ? "P2 [BOT: HARD]" : "P2 [БОТ: ТРУДЕН]";
         }
         sf::Text& p2Tag = ui::pooledText(font, toUtf8(p2Label), fontsize::Label);
         p2Tag.setStyle(sf::Text::Bold);
@@ -273,10 +277,30 @@ void UI_map::executeP1Action() {
             sel = BuildingType::NONE;
         } else if (sel != BuildingType::DEMOLISH) {
             if (!isPosOnPurchasedLand(1, p1Pos)) {
-                // Disallow placement confirmation clicks over unpurchased land!
-                triggerPlayerPopup(1, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
-                spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p1Pos, theme::Warn);
-                return;
+                // If standing over an unpurchased land plot owned by Player 1, allow buying it directly!
+                bool boughtPlot = false;
+                for (const auto& plot : engine.getLandPlots()) {
+                    if (plot.playerOwner == 1 && plot.bounds.contains(p1Pos)) {
+                        if (!plot.isPurchased) {
+                            std::string msg;
+                            if (engine.buyLandPlot(1, plot.id, msg)) {
+                                triggerPlayerPopup(1, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Вече можете да строите върху него.", ArcadeMode::isEnabled() ? "[A]: Постави сграда" : "[SPACE]: Постави сграда", theme::Gold);
+                                spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, theme::Gold);
+                            } else {
+                                triggerPlayerModal(1, "НЕДОСТИГ НА ПАРИ", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари ($)!", theme::Warn);
+                            }
+                            boughtPlot = true;
+                            return;
+                        }
+                        break;
+                    }
+                }
+                if (!boughtPlot) {
+                    // Disallow placement confirmation clicks over unpurchased land!
+                    triggerPlayerPopup(1, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
+                    spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p1Pos, theme::Warn);
+                    return;
+                }
             }
         }
     }
@@ -383,10 +407,30 @@ void UI_map::executeP2Action() {
             sel = BuildingType::NONE;
         } else if (sel != BuildingType::DEMOLISH) {
             if (!isPosOnPurchasedLand(2, p2Pos)) {
-                // Disallow placement confirmation clicks over unpurchased land!
-                triggerPlayerPopup(2, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
-                spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p2Pos, theme::Warn);
-                return;
+                // If standing over an unpurchased land plot owned by Player 2, allow buying it directly!
+                bool boughtPlot = false;
+                for (const auto& plot : engine.getLandPlots()) {
+                    if (plot.playerOwner == 2 && plot.bounds.contains(p2Pos)) {
+                        if (!plot.isPurchased) {
+                            std::string msg;
+                            if (engine.buyLandPlot(2, plot.id, msg)) {
+                                triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Вече можете да строите върху него.", ArcadeMode::isEnabled() ? "[A]: Постави сграда" : "[ENTER]: Постави сграда", theme::Gold);
+                                spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, theme::Gold);
+                            } else {
+                                triggerPlayerModal(2, "НЕДОСТИГ НА ПАРИ", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари ($)!", theme::Warn);
+                            }
+                            boughtPlot = true;
+                            return;
+                        }
+                        break;
+                    }
+                }
+                if (!boughtPlot) {
+                    // Disallow placement confirmation clicks over unpurchased land!
+                    triggerPlayerPopup(2, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Не може да строите върху незакупена земя.", "", theme::Warn);
+                    spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", p2Pos, theme::Warn);
+                    return;
+                }
             }
         }
     }
@@ -515,129 +559,145 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     }
     updateMiningParticles(dt);
 
-    // 2. Mining speed-up: game time runs faster only while EVERY human player's cursor is in a
-    //    resource zone (the bot never triggers it, and one player cannot speed up the other's day)
-    bool p1InRes = (nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE);
-    bool p2InRes = (nodes.getP2ResourceAt(p2Pos) != ResourceType::NONE);
-    bool allHumansInRes = bot.isActive() ? p1InRes : (p1InRes && p2InRes);
-    engine.setTimeScale(allHumansInRes ? Balance::MINE_SPEEDUP_MULT : 1.0f);
+    // 2. Fixed normal speed (6x time speedup removed: a day is 60s total, 4 days total = 4m)
+    engine.setTimeScale(1.0f);
 
     // Decrement grid step cooldowns
     if (p1GridStepCooldown > 0.0f) p1GridStepCooldown -= dt;
     if (p2GridStepCooldown > 0.0f) p2GridStepCooldown -= dt;
 
-    // 3. Player 1 Movement (Precision Grid during placement on purchased land, smooth analog otherwise)
     const auto& p1Bindings = UI_controlsConfig::get().p1;
     const auto& p2Bindings = UI_controlsConfig::get().p2;
-
-    bool p1BuildingMode = (engine.getSelectedBuilding(1) != BuildingType::NONE);
+    bool allowKb = !ArcadeMode::isEnabled();
     bool allowArrowsForP1 = bot.isActive(); // In Single Player, player can use WASD OR Arrow keys!
 
-    bool p1InResourceArea = (p1Pos.y >= 540.0f ||
-                             nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE ||
-                             nodes.getP1UpgradeAt(p1Pos) != ResourceType::NONE ||
-                             nodes.getP1ForestBounds().contains(p1Pos) ||
-                             nodes.getP1MineBounds().contains(p1Pos));
+    // 3. Player 1 Movement (Bot 1 in Emulation Mode, or Human Input)
+    if (botVsBotMode && bot1.isActive()) {
+        p1Modal.active = false;
+        bool bot1TriggerAction = false;
+        bool bot1TriggerUpgrade = false;
+        BuildingType bot1Sel = BuildingType::NONE;
+        bot1.update(dt, engine, nodes, p1Pos, bot1TriggerAction, bot1TriggerUpgrade, bot1Sel);
 
-    // Only when player enters the resource collection area, turn off build mode!
-    if (p1BuildingMode && p1InResourceArea && !p1WasInResourceArea) {
-        engine.clearBuildingSelection(1);
-        p1BuildingMode = false;
-        spawnNotice("РЕЖИМ ДОБИВ", p1Pos, theme::P1);
-    }
-    p1WasInResourceArea = p1InResourceArea;
+        engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(bot1Sel);
 
-    bool p1OnPurchased = isPosOnPurchasedLand(1, p1Pos);
+        if (bot1TriggerAction && p1ActionCooldown <= 0.0f && !showHelpOverlay) {
+            executeP1Action();
+            p1ActionCooldown = 0.15f;
+        }
 
-    bool joyUp1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_UP);
-    bool joyDown1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_DOWN);
-    bool joyLeft1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_LEFT);
-    bool joyRight1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_RIGHT);
-
-    bool allowKb = !ArcadeMode::isEnabled();
-
-    if (p1BuildingMode && p1OnPurchased) {
-        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || controlScheme == ControlScheme::DEVHUB_ARCADE || allowArrowsForP1) {
-            if (p1GridStepCooldown <= 0.0f) {
-                bool moved = false;
-                int nextRow = p1GridRow;
-                int nextCol = p1GridCol;
-                if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)))) || joyUp1) {
-                    if (p1GridRow > 0) {
-                        nextRow = p1GridRow - 1;
-                        moved = true;
-                    } else {
-                        p1Pos.y -= 35.0f;
-                        p1GridStepCooldown = 0.14f;
-                    }
-                } else if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)))) || joyDown1) {
-                    if (p1GridRow < 11) {
-                        nextRow = p1GridRow + 1;
-                        moved = true;
-                    } else {
-                        p1Pos.y += 35.0f;
-                        p1GridStepCooldown = 0.14f;
-                    }
-                }
-                if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)))) || joyLeft1) {
-                    if (p1GridCol > 0) {
-                        nextCol = p1GridCol - 1;
-                        moved = true;
-                    } else {
-                        p1Pos.x -= 35.0f;
-                        p1GridStepCooldown = 0.14f;
-                    }
-                } else if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)))) || joyRight1) {
-                    if (p1GridCol < 8) {
-                        nextCol = p1GridCol + 1;
-                        moved = true;
-                    } else {
-                        p1Pos.x += 35.0f;
-                        p1GridStepCooldown = 0.14f;
-                    }
-                }
-                if (moved) {
-                    p1GridCol = nextCol;
-                    p1GridRow = nextRow;
-                    p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
-                    p1GridStepCooldown = 0.14f;
-                }
-            }
-        } else {
-            // Mouse-driven P1 (shared-mouse scheme: only while the pointer is in the west half)
-            if (mouseOnCanvas && (controlScheme != ControlScheme::BOTH_MOUSE || mPos.x < 800.0f)) {
-                engine.getClosestGridIndex(1, mPos, p1GridCol, p1GridRow);
-                p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
-            }
+        if (bot1TriggerUpgrade && !showHelpOverlay) {
+            executeP1Upgrade();
         }
     } else {
-        if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || controlScheme == ControlScheme::DEVHUB_ARCADE || allowArrowsForP1) {
-            if (allowKb) {
-                if (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) p1Pos.y -= speed * dt;
-                if (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) p1Pos.y += speed * dt;
-                if (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) p1Pos.x -= speed * dt;
-                if (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) p1Pos.x += speed * dt;
-            }
+        bool p1BuildingMode = (engine.getSelectedBuilding(1) != BuildingType::NONE);
 
-            sf::Vector2f joyVec1 = UI_controlsConfig::get().getJoystickMoveVector(1);
-            if (std::abs(joyVec1.x) > 0.05f || std::abs(joyVec1.y) > 0.05f) {
-                p1Pos.x += joyVec1.x * speed * dt;
-                p1Pos.y += joyVec1.y * speed * dt;
-            }
-        } else if (controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
-            if (mouseOnCanvas) p1Pos = mPos;
-        } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
-            if (mouseOnCanvas && mPos.x < 800.0f) p1Pos = mPos;
+        bool p1InResourceArea = (p1Pos.y >= 540.0f ||
+                                 nodes.getP1ResourceAt(p1Pos) != ResourceType::NONE ||
+                                 nodes.getP1UpgradeAt(p1Pos) != ResourceType::NONE ||
+                                 nodes.getP1ForestBounds().contains(p1Pos) ||
+                                 nodes.getP1MineBounds().contains(p1Pos));
+
+        // Only when player enters the resource collection area, turn off build mode!
+        if (p1BuildingMode && p1InResourceArea && !p1WasInResourceArea) {
+            engine.clearBuildingSelection(1);
+            p1BuildingMode = false;
+            spawnNotice("РЕЖИМ ДОБИВ", p1Pos, theme::P1);
         }
-        p1Pos.x = std::max(20.0f, std::min(p1Pos.x, 780.0f));
-        p1Pos.y = std::max(40.0f, std::min(p1Pos.y, 860.0f));
+        p1WasInResourceArea = p1InResourceArea;
 
-        if (p1BuildingMode && isPosOnPurchasedLand(1, p1Pos)) {
-            engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
-            p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
-            p1GridStepCooldown = 0.14f;
+        bool p1OnPurchased = isPosOnPurchasedLand(1, p1Pos);
+
+        bool joyUp1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_UP);
+        bool joyDown1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_DOWN);
+        bool joyLeft1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_LEFT);
+        bool joyRight1 = UI_controlsConfig::get().isJoystickDirectionPressed(1, ControlAction::MOVE_RIGHT);
+
+        bool allowKb = !ArcadeMode::isEnabled();
+
+        if (p1BuildingMode && p1OnPurchased) {
+            if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || controlScheme == ControlScheme::DEVHUB_ARCADE || allowArrowsForP1) {
+                if (p1GridStepCooldown <= 0.0f) {
+                    bool moved = false;
+                    int nextRow = p1GridRow;
+                    int nextCol = p1GridCol;
+                    if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)))) || joyUp1) {
+                        if (p1GridRow > 0) {
+                            nextRow = p1GridRow - 1;
+                            moved = true;
+                        } else {
+                            p1Pos.y -= 35.0f;
+                            p1GridStepCooldown = 0.14f;
+                        }
+                    } else if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)))) || joyDown1) {
+                        if (p1GridRow < 11) {
+                            nextRow = p1GridRow + 1;
+                            moved = true;
+                        } else {
+                            p1Pos.y += 35.0f;
+                            p1GridStepCooldown = 0.14f;
+                        }
+                    }
+                    if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)))) || joyLeft1) {
+                        if (p1GridCol > 0) {
+                            nextCol = p1GridCol - 1;
+                            moved = true;
+                        } else {
+                            p1Pos.x -= 35.0f;
+                            p1GridStepCooldown = 0.14f;
+                        }
+                    } else if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)))) || joyRight1) {
+                        if (p1GridCol < 8) {
+                            nextCol = p1GridCol + 1;
+                            moved = true;
+                        } else {
+                            p1Pos.x += 35.0f;
+                            p1GridStepCooldown = 0.14f;
+                        }
+                    }
+                    if (moved) {
+                        p1GridCol = nextCol;
+                        p1GridRow = nextRow;
+                        p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+                        p1GridStepCooldown = 0.14f;
+                    }
+                }
+            } else {
+                // Mouse-driven P1 (shared-mouse scheme: only while the pointer is in the west half)
+                if (mouseOnCanvas && (controlScheme != ControlScheme::BOTH_MOUSE || mPos.x < 800.0f)) {
+                    engine.getClosestGridIndex(1, mPos, p1GridCol, p1GridRow);
+                    p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+                }
+            }
         } else {
-            engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
+            if (controlScheme == ControlScheme::BOTH_KEYBOARD || controlScheme == ControlScheme::P1_KEYBOARD_P2_MOUSE || controlScheme == ControlScheme::DEVHUB_ARCADE || allowArrowsForP1) {
+                if (allowKb) {
+                    if (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))) p1Pos.y -= speed * dt;
+                    if (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))) p1Pos.y += speed * dt;
+                    if (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))) p1Pos.x -= speed * dt;
+                    if (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))) p1Pos.x += speed * dt;
+                }
+
+                sf::Vector2f joyVec1 = UI_controlsConfig::get().getJoystickMoveVector(1);
+                if (std::abs(joyVec1.x) > 0.05f || std::abs(joyVec1.y) > 0.05f) {
+                    p1Pos.x += joyVec1.x * speed * dt;
+                    p1Pos.y += joyVec1.y * speed * dt;
+                }
+            } else if (controlScheme == ControlScheme::P1_MOUSE_P2_KEYBOARD) {
+                if (mouseOnCanvas) p1Pos = mPos;
+            } else if (controlScheme == ControlScheme::BOTH_MOUSE) {
+                if (mouseOnCanvas && mPos.x < 800.0f) p1Pos = mPos;
+            }
+            p1Pos.x = std::max(20.0f, std::min(p1Pos.x, 780.0f));
+            p1Pos.y = std::max(40.0f, std::min(p1Pos.y, 860.0f));
+
+            if (p1BuildingMode && isPosOnPurchasedLand(1, p1Pos)) {
+                engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
+                p1Pos = engine.getGridSlot(1, p1GridCol, p1GridRow);
+                p1GridStepCooldown = 0.14f;
+            } else {
+                engine.getClosestGridIndex(1, p1Pos, p1GridCol, p1GridRow);
+            }
         }
     }
 
@@ -1067,6 +1127,70 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     // -1. If Victory Screen is active, handle Restart [R], Menu [ESC/M], or button clicks
     // -------------------------------------------------------------------------
     if (engine.getCityState().winner != 0) {
+        // Report tabs (1/2/3, arrows, Q/E, Joystick LB/RB/X/Y and Stick X) and clicking tab headers remain interactive!
+        if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (postMatch.handleKey(key->code)) return;
+        }
+        if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            if (postMatch.handleClick(clickPos)) return;
+        }
+        if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+            if (postMatch.handleJoystick(jb->button)) return;
+        }
+        if (const auto* jm = event.getIf<sf::Event::JoystickMoved>()) {
+            if (postMatch.handleJoystickAxis(jm->axis, jm->position)) return;
+        }
+
+        // Enforce at least 10 seconds on the win screen menu so it cannot be closed prematurely by spamming buttons!
+        if (matchFinishedTimer < 10.0f) {
+            return; // Lock restart and exit for at least 10 seconds!
+        }
+
+        if (ArcadeMode::isEnabled()) {
+            if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
+                if (jb->button == 0 || jb->button == 7) { // Button A or Start -> Request token to play again!
+                    if (CreditsManager::get().tryConsumeCredits(1)) {
+                        restartMatch();
+                    }
+                    return;
+                }
+                if (jb->button == 1 || jb->button == 6) { // Button B -> Exit
+                    requestMenu = true;
+                    return;
+                }
+            }
+            if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+                if (postMatch.handleKey(key->code)) return;
+                if (key->code == sf::Keyboard::Key::A || key->code == sf::Keyboard::Key::R ||
+                    key->code == sf::Keyboard::Key::Enter || key->code == sf::Keyboard::Key::Space) {
+                    if (CreditsManager::get().tryConsumeCredits(1)) {
+                        restartMatch();
+                    }
+                    return;
+                }
+                if (key->code == sf::Keyboard::Key::B || key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::M) {
+                    requestMenu = true;
+                    return;
+                }
+            }
+            if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+                sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+                if (postMatch.handleClick(clickPos)) return;
+                if (victoryRestartBtn.contains(clickPos)) {
+                    if (CreditsManager::get().tryConsumeCredits(1)) {
+                        restartMatch();
+                    }
+                    return;
+                }
+                if (victoryMenuBtn.contains(clickPos)) {
+                    requestMenu = true;
+                    return;
+                }
+            }
+            return;
+        }
+
         if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
             if (jb->button == 0 || jb->button == 7) {
                 restartMatch();
@@ -1504,14 +1628,10 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 int pOwner = plot.playerOwner;
                 BuildingType sel = engine.getSelectedBuilding(pOwner);
                 if (!plot.isPurchased) {
-                    if (sel != BuildingType::NONE) {
-                        spawnNotice("НЕЗАКУПЕНА ТЕРИТОРИЯ!", clickPos, theme::Warn);
-                        triggerPlayerPopup(pOwner, "НЕЗАКУПЕНА ТЕРИТОРИЯ", "Земята не е закупена!", "Трябва първо да закупите парцела.", "", theme::Warn);
-                        return;
-                    }
                     std::string msg;
                     if (engine.buyLandPlot(pOwner, plot.id, msg)) {
                         triggerPlayerPopup(pOwner, "ЗЕМЯ", "Купихте парцел!", msg + "\nВече можете да строите тук.", "[КЛИК]: Постави сграда", theme::Good);
+                        spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", clickPos, theme::Good);
                     } else {
                         triggerPlayerModal(pOwner, "НЕДОСТИГ НА ПАРИ", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари ($)!", theme::Warn);
                     }

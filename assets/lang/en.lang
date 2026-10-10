@@ -80,12 +80,14 @@ menu.hint_main = Navigate: [Arrows / W,S] | Select: [Enter]
 menu.mode_coop = TWO PLAYERS (1v1)
 # UI/scr/UI_mainMenu.cpp:190
 menu.mode_single = SINGLE PLAYER (VS BOT)
+menu.mode_emulation = EMULATION TEST (BOT VS BOT)
 # UI/scr/UI_mainMenu.cpp:191, :245
 menu.back = BACK
 # UI/scr/UI_mainMenu.cpp:195
 menu.mode_coop_desc = Two players compete on one computer (split screen / sectors)
 # UI/scr/UI_mainMenu.cpp:197
 menu.mode_single_desc = Play against an AI opponent (bot in the East sector)
+menu.mode_emulation_desc = Watch an automated test match between two bots to verify arcade balance
 # UI/scr/UI_mainMenu.cpp:198
 menu.mode_back_desc = Back to the main menu
 # UI/scr/UI_mainMenu.cpp:206
@@ -234,6 +236,7 @@ city.border = CENTRAL BORDER
 city.title = CITY | {0} | P1: {1}% | P2: {2}%
 # UI/scr/UI_city.cpp:374 ({0} = ден, {1} = дни гратис, {2} = доставени MW)
 city.demand_grace = CITY DEMAND: 0 MW  * GRACE PERIOD (DAY {0}/{1}) * | SUPPLY: {2} MW
+city.demand_grace_single = CITY DEMAND: 0 MW  * GRACE PERIOD (DAY 1) * | SUPPLY: {0} MW
 # UI/scr/UI_city.cpp:378 ({0} = нужда MW, {1} = доставени MW, {2} = % за победа)
 city.demand = CITY DEMAND: {0} MW | SUPPLY: {1} MW | WIN AT: {2}%
 # UI/scr/UI_city.cpp:429

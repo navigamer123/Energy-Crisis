@@ -60,12 +60,21 @@ void UI_main::setupShotScene() {
     }
 
     // Game scenes: a single-player match against the bot, then the scene's state on top
+    if (shot.scene == "emulation") {
+        map.setBotVsBot(true, BotDifficulty::HARD);
+    } else {
+        map.setBotVsBot(false);
+    }
     map.restartMatch();
     map.setControlScheme(ControlScheme::BOTH_KEYBOARD);
-    map.setBotDifficulty(BotDifficulty::MEDIUM);
+    if (shot.scene != "emulation") {
+        map.setBotDifficulty(BotDifficulty::MEDIUM);
+    }
     map.resetMatchInputState();
     // A recording shows the scene's one-off moment (the storm bolt) at 60% of the clip, not at its end
-    map.setupDebugScene(shot.scene, shot.recordDir.empty() ? shot.frames : (shot.frames * 3) / 5);
+    if (shot.scene != "emulation") {
+        map.setupDebugScene(shot.scene, shot.recordDir.empty() ? shot.frames : (shot.frames * 3) / 5);
+    }
     currentState = UIState::PLAYING;
 }
 
@@ -160,7 +169,15 @@ void UI_main::toggleFullscreen() {
 }
 
 int UI_main::render() {
-    if (shot.enabled) setupShotScene();
+    if (shot.enabled) {
+        setupShotScene();
+    } else if (emulationMode) {
+        map.setBotVsBot(true, BotDifficulty::HARD);
+        map.restartMatch();
+        map.setControlScheme(ControlScheme::BOTH_KEYBOARD);
+        map.resetMatchInputState();
+        currentState = UIState::PLAYING;
+    }
     int frame = 0;
     int exitCode = 0;
     int recordErrors = 0;
@@ -310,6 +327,7 @@ int UI_main::render() {
                     } else {
                         mainMenu.resetPlayRequest();
                         matchWasCompleted = false;
+                        map.setBotVsBot(mainMenu.isBotVsBot(), mainMenu.getSelectedBotDifficulty());
                         map.restartMatch();
                         map.setControlScheme(mainMenu.getSelectedControlScheme());
                         map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
@@ -320,6 +338,7 @@ int UI_main::render() {
                 } else {
                     mainMenu.resetPlayRequest();
                     matchWasCompleted = false;
+                    map.setBotVsBot(mainMenu.isBotVsBot(), mainMenu.getSelectedBotDifficulty());
                     map.restartMatch();
                     map.setControlScheme(mainMenu.getSelectedControlScheme());
                     map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
@@ -335,6 +354,7 @@ int UI_main::render() {
         } else if (currentState == UIState::PLAYING) {
             if (map.isMenuRequested()) {
                 map.resetMenuRequest();
+                map.setBotVsBot(false);
                 mainMenu.returnToMain(); // Show the top-level menu, not the last submenu
                 currentState = UIState::MAIN_MENU;
             }

@@ -4,8 +4,9 @@
 #include <algorithm>
 #include <iostream>
 
-void UIBot::init(BotDifficulty diff) {
+void UIBot::init(BotDifficulty diff, int player) {
     difficulty = diff;
+    botPlayer = player;
     reset();
 
     switch (difficulty) {
@@ -28,12 +29,12 @@ void UIBot::init(BotDifficulty diff) {
         default:
             break;
     }
-    std::cout << "[UIBot] Initialized with strategic brain difficulty: " << static_cast<int>(diff) << "\n";
+    std::cout << "[UIBot] Initialized for Player " << botPlayer << " with strategic brain difficulty: " << static_cast<int>(diff) << "\n";
 }
 
 void UIBot::reset() {
     actionState = BotActionState::THINKING;
-    targetPos = { 1150.0f, 450.0f };
+    targetPos = (botPlayer == 1) ? sf::Vector2f(450.0f, 450.0f) : sf::Vector2f(1150.0f, 450.0f);
     stateTimer = 0.4f;
     mineCooldown = 0.0f;
     stateWatchdog = 0.0f;
@@ -61,25 +62,25 @@ int UIBot::getResourceCount(const PlayerEconomy& econ, ResourceType type) const 
 
 void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf::Vector2f curPos) {
     (void)curPos;
-    const auto& econ = engine.getPlayerEconomy(2);
+    const auto& econ = engine.getPlayerEconomy(botPlayer);
     bool isDay = engine.isDaylight();
-    WeatherType weather = engine.getPlayerWeather(2);
+    WeatherType weather = engine.getPlayerWeather(botPlayer);
     int gold = econ.gold;
     int money = econ.money;
     int curEnergy = econ.energyMW;
 
     // -------------------------------------------------------------------------
-    // 1. Gather all free buildable slots on Player 2's purchased land plots
+    // 1. Gather all free buildable slots on this player's purchased land plots
     // -------------------------------------------------------------------------
     std::vector<sf::Vector2f> freeSlots;
     std::vector<sf::Vector2f> illuminatedFreeSlots;
 
     for (int r = 0; r < 12; ++r) {
         for (int c = 0; c < 9; ++c) {
-            sf::Vector2f slot = engine.getGridSlot(2, c, r);
+            sf::Vector2f slot = engine.getGridSlot(botPlayer, c, r);
             bool onPurchased = false;
             for (const auto& plot : engine.getLandPlots()) {
-                if (plot.playerOwner == 2 && plot.isPurchased && plot.bounds.contains(slot)) {
+                if (plot.playerOwner == botPlayer && plot.isPurchased && plot.bounds.contains(slot)) {
                     onPurchased = true;
                     break;
                 }
@@ -87,7 +88,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
             if (onPurchased) {
                 bool occupied = false;
                 for (const auto& b : engine.getBuildings()) {
-                    if (b.playerOwner == 2) {
+                    if (b.playerOwner == botPlayer) {
                         float dx = b.position.x - slot.x;
                         float dy = b.position.y - slot.y;
                         if (std::sqrt(dx * dx + dy * dy) < 18.0f) {
@@ -98,7 +99,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
                 }
                 if (!occupied) {
                     freeSlots.push_back(slot);
-                    if (engine.isAreaIlluminated(2, slot)) {
+                    if (engine.isAreaIlluminated(botPlayer, slot)) {
                         illuminatedFreeSlots.push_back(slot);
                     }
                 }
@@ -112,7 +113,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     const LandPlot* cheapestUnboughtPlot = nullptr;
     int lowestPlotCost = 999999;
     for (const auto& plot : engine.getLandPlots()) {
-        if (plot.playerOwner == 2 && !plot.isPurchased) {
+        if (plot.playerOwner == botPlayer && !plot.isPurchased) {
             if (plot.costGold < lowestPlotCost) {
                 lowestPlotCost = plot.costGold;
                 cheapestUnboughtPlot = &plot;
@@ -148,12 +149,12 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
 
         for (auto res : upgradePriority) {
             int currentLvl = econ.mineLevels[static_cast<int>(res)];
-            int cost = engine.getMineUpgradeCost(2, res);
+            int cost = engine.getMineUpgradeCost(botPlayer, res);
             if (cost > 0 && currentLvl < maxAllowedLevel && gold >= cost) {
                 int upgradeRoll = rand() % 100;
                 int upgradeThreshold = (difficulty == BotDifficulty::HARD ? 85 : (difficulty == BotDifficulty::MEDIUM ? 50 : 25));
                 if (upgradeRoll < upgradeThreshold) {
-                    const auto* st = nodes.getStation(2, res);
+                    const auto* st = nodes.getStation(botPlayer, res);
                     if (st) {
                         actionState = BotActionState::MOVING_TO_UPGRADE;
                         plannedUpgradeRes = res;
@@ -176,7 +177,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     int windCount = 0;
     int solarCount = 0;
     for (const auto& b : engine.getBuildings()) {
-        if (b.playerOwner == 2) {
+        if (b.playerOwner == botPlayer) {
             if (b.type == BuildingType::LAMP) lampCount++;
             else if (b.type == BuildingType::BATTERY) batteryCount++;
             else if (b.type == BuildingType::HYDRO_PLANT) hydroCount++;
@@ -223,23 +224,21 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
     candidateList.push_back({ BuildingType::BATTERY, batteryScore });
 
     // Street Lamp: Illuminates night darkness (allows night construction)
-    // CRITICAL FIX: NEVER build a lamp if power is under 35 MW (unpowered lamp gives 0 light and wastes resources!)
-    // HARD CAP: Maximum 1 lamp in total for the bot on the entire match!
     float lampScore = -999.0f;
     if (lampCount == 0 && curEnergy >= 35 && !freeSlots.empty()) {
         if (!isDay && illuminatedFreeSlots.empty()) {
-            lampScore = 45.0f; // Modest score, only if generation is already high and stable!
+            lampScore = 45.0f;
         }
     }
     candidateList.push_back({ BuildingType::LAMP, lampScore });
 
     // Competitive Margin Clamping:
-    // If bot power generation is already comfortably ahead of Player 1, scale back aggressive expansion
-    const auto& p1Econ = engine.getPlayerEconomy(1);
-    int p1Energy = p1Econ.energyMW;
-    int botEnergyCap = (difficulty == BotDifficulty::EASY) ? std::max(60, static_cast<int>(p1Energy * 1.15f) + 30) :
-                       (difficulty == BotDifficulty::MEDIUM) ? std::max(85, static_cast<int>(p1Energy * 1.30f) + 50) :
-                       std::max(120, static_cast<int>(p1Energy * 1.45f) + 70);
+    int oppPlayer = (botPlayer == 1) ? 2 : 1;
+    const auto& oppEcon = engine.getPlayerEconomy(oppPlayer);
+    int oppEnergy = oppEcon.energyMW;
+    int botEnergyCap = (difficulty == BotDifficulty::EASY) ? std::max(60, static_cast<int>(oppEnergy * 1.15f) + 30) :
+                       (difficulty == BotDifficulty::MEDIUM) ? std::max(85, static_cast<int>(oppEnergy * 1.30f) + 50) :
+                       std::max(120, static_cast<int>(oppEnergy * 1.45f) + 70);
     if (curEnergy >= botEnergyCap) {
         for (auto& cand : candidateList) {
             if (cand.type == BuildingType::HYDRO_PLANT || cand.type == BuildingType::WIND_TURBINE || cand.type == BuildingType::SOLAR_PANEL) {
@@ -270,11 +269,9 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
                 break;
             }
         } else {
-            // Must be an illuminated slot at night! Hydro plants also need a river-bank slot
-            // (engine rule); without one, try the next candidate instead of a refused build.
             const std::vector<sf::Vector2f>& slotPool = isDay ? freeSlots : illuminatedFreeSlots;
             for (const auto& slot : slotPool) {
-                if (cand.type != BuildingType::HYDRO_PLANT || engine.isRiverBankSlot(2, slot)) {
+                if (cand.type != BuildingType::HYDRO_PLANT || engine.isRiverBankSlot(botPlayer, slot)) {
                     chosenType = cand.type;
                     chosenSlot = slot;
                     foundCandidate = true;
@@ -301,7 +298,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
             ResourceType res = nightStockpile[i];
             int quota = stockpileQuota[i];
             if (getResourceCount(econ, res) < quota) {
-                const auto* st = nodes.getStation(2, res);
+                const auto* st = nodes.getStation(botPlayer, res);
                 if (st) {
                     actionState = BotActionState::MOVING_TO_MINE;
                     plannedResource = res;
@@ -373,7 +370,7 @@ void UIBot::planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf
         quota = cost.silverCost;
     }
 
-    const auto* st = nodes.getStation(2, missingRes);
+    const auto* st = nodes.getStation(botPlayer, missingRes);
     if (st) {
         actionState = BotActionState::MOVING_TO_MINE;
         plannedResource = missingRes;

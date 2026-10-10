@@ -39,16 +39,18 @@ private:
     float decisionInterval = 0.35f;
     float mineHitInterval = 1.05f;
 
+    int botPlayer = 2;
     int getResourceCount(const PlayerEconomy& econ, ResourceType type) const;
     void planNextAction(GameEngine& engine, const UI_resourceNodes& nodes, sf::Vector2f curPos);
 
 public:
     UIBot() = default;
 
-    void init(BotDifficulty diff);
+    void init(BotDifficulty diff, int player = 2);
     void reset();
 
     BotDifficulty getDifficulty() const { return difficulty; }
+    int getPlayer() const { return botPlayer; }
     bool isActive() const { return difficulty != BotDifficulty::NONE; }
 
     void update(float dt, GameEngine& engine, const UI_resourceNodes& nodes, sf::Vector2f& botPos,

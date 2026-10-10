@@ -3,6 +3,8 @@
 #include "../includes/UI_shot.h"
 #include "../includes/UI_theme.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_settings.h"
+#include "../includes/UI_arcadePopup.h"
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -68,7 +70,7 @@ void UI_map::setControlScheme(ControlScheme scheme) {
 }
 
 void UI_map::setBotDifficulty(BotDifficulty diff) {
-    bot.init(diff);
+    bot.init(diff, 2);
     if (!resourcesLoaded) {
         // No font: the tutorial cannot be drawn, so never leave it active (it would invisibly
         // swallow input and keep the bot frozen).
@@ -89,6 +91,20 @@ void UI_map::setBotDifficulty(BotDifficulty diff) {
         engine.setTimeFrozen(true);
     }
     std::cout << "[UI_map] Bot difficulty set to: " << static_cast<int>(diff) << "\n";
+}
+
+void UI_map::setBotVsBot(bool enabled, BotDifficulty diff) {
+    botVsBotMode = enabled;
+    if (enabled) {
+        bot1.init(diff, 1);
+        bot.init(diff, 2);
+        engine.setP2IsBot(true);
+        tutorial.setCoop(false);
+        tutorial.skip();
+    } else {
+        bot1.init(BotDifficulty::NONE, 1);
+    }
+    std::cout << "[UI_map] Bot vs Bot emulation mode set to: " << (enabled ? "ENABLED" : "DISABLED") << "\n";
 }
 
 void UI_map::drawBackground(sf::RenderWindow& window) {
@@ -117,27 +133,18 @@ void UI_map::drawBackground(sf::RenderWindow& window) {
 void UI_map::restartMatch() {
     MatchConfig cfg;
     if (ArcadeMode::isEnabled()) {
+        // Arcade: 4 days @ 60s each = 240s = 4m total play time
         int arcadeDays = 4;
         const char* envDays = std::getenv("ARCADE_DAYS");
         if (envDays) {
             try { arcadeDays = std::stoi(envDays); } catch (...) {}
         }
-        if (arcadeDays == 8) {
-            cfg.finalDay = 8;
-            float daySec = 37.5f; // 8 * 37.5s = 300s = 5m00s max
-            const char* envSec = std::getenv("ARCADE_DAY_SECONDS");
-            if (envSec) { try { daySec = std::stof(envSec); } catch (...) {} }
-            cfg.daySeconds = daySec;
-            cfg.graceDays = 0; // Arcade: grace period completely disabled!
-        } else {
-            // Default: 4 days @ 1m (60s) each = 240s = 4m total (under 5m max limit)
-            cfg.finalDay = 4;
-            float daySec = 60.0f;
-            const char* envSec = std::getenv("ARCADE_DAY_SECONDS");
-            if (envSec) { try { daySec = std::stof(envSec); } catch (...) {} }
-            cfg.daySeconds = daySec;
-            cfg.graceDays = 0; // Arcade: grace period completely disabled!
-        }
+        cfg.finalDay = arcadeDays;
+        float daySec = 60.0f;
+        const char* envSec = std::getenv("ARCADE_DAY_SECONDS");
+        if (envSec) { try { daySec = std::stof(envSec); } catch (...) {} }
+        cfg.daySeconds = daySec;
+        cfg.graceDays = 0; // Arcade: grace period completely disabled
     } else {
         // PC & other platforms: standard 20 days @ 1:30 (90s) each
         cfg.finalDay = Balance::FINAL_DAY;
@@ -145,6 +152,13 @@ void UI_map::restartMatch() {
         cfg.graceDays = Balance::GRACE_PERIOD_DAYS;
     }
     engine.init(cfg);
+    engine.setTimeScale(1.0f);
+
+    if (botVsBotMode) {
+        bot1.reset();
+        bot.reset();
+        tutorial.skip();
+    }
 
     // --- Reset every per-match UI state (same result for menu starts and in-match restarts) ---
     // Overlays
@@ -173,6 +187,7 @@ void UI_map::restartMatch() {
     p2ActionCooldown = 0.0f;
     p1SelectCooldown = 0.0f;
     p2SelectCooldown = 0.0f;
+    matchFinishedTimer = 0.0f;
 
     // Dialogs, popups & effects
     p1Modal.active = false;
@@ -221,6 +236,18 @@ void UI_map::render(sf::RenderWindow& window) {
     devOverlay.recordFrame(realDt); // team info: real frame time, before the clamp
     float dt = ui::shot::frameDt(realDt);
     if (dt > 0.05f) dt = 0.05f;
+
+    if (engine.getCityState().winner != 0) {
+        if (matchFinishedTimer == 0.0f) {
+            bool isEn = (UI_settings::get().getLanguage() == "en");
+            std::string endMsg = isEn ? "GAME OVER\n[A]: PLAY AGAIN (1 TOKEN)\n[B]: EXIT"
+                                      : "КРАЙ НА ИГРАТА\n[A]: НОВА ИГРА (1 ЖЕТОН)\n[B]: ИЗХОД";
+            ArcadePopup::get().show(endMsg, 10.0f);
+        }
+        matchFinishedTimer += std::min(realDt, 0.1f);
+    } else {
+        matchFinishedTimer = 0.0f;
+    }
 
     // 1. Advance continuous backend simulation (only when NOT paused and game not won)
     bool simulationRunning = !isPaused && engine.getCityState().winner == 0;
@@ -368,20 +395,45 @@ void UI_map::render(sf::RenderWindow& window) {
             nodes.drawBuildingGhost(window, font, resourcesLoaded, sel, targetPos, valid, engine.getBuildingCost(sel), ghostTint);
             ghosts[player - 1] = { true, sel, targetPos, valid };
         } else {
-            // Unpurchased territory warning indicator:
-            // Cursor is over unowned/unpurchased land -> disable blueprint, show warning indicator
+            bool isOwnUnpurchased = false;
+            int plotCost = 0;
+            for (const auto& plot : engine.getLandPlots()) {
+                if (plot.playerOwner == player && !plot.isPurchased && plot.bounds.contains(cursor)) {
+                    isOwnUnpurchased = true;
+                    plotCost = plot.costGold;
+                    break;
+                }
+            }
+
+            bool isEn = (UI_settings::get().getLanguage() == "en");
+            sf::Color ringCol = isOwnUnpurchased ? theme::Gold : theme::Warn;
+
             sf::CircleShape warnRing(20.0f);
             warnRing.setOrigin({ 20.0f, 20.0f });
             warnRing.setPosition(cursor);
-            warnRing.setFillColor(theme::withAlpha(theme::Warn, 40));
+            warnRing.setFillColor(theme::withAlpha(ringCol, 40));
             warnRing.setOutlineThickness(2.0f);
-            warnRing.setOutlineColor(theme::Warn);
+            warnRing.setOutlineColor(ringCol);
             window.draw(warnRing);
 
             if (resourcesLoaded) {
-                sf::Text& tWarn = ui::pooledText(font, toUtf8("[!] НЕЗАКУПЕНА ТЕРИТОРИЯ"), fontsize::Caption);
+                std::string labelText;
+                if (isOwnUnpurchased) {
+                    if (ArcadeMode::isEnabled()) {
+                        labelText = isEn ? ("[A] BUY PLOT (" + std::to_string(plotCost) + " $)")
+                                         : ("[A] КУПИ ПАРЦЕЛ (" + std::to_string(plotCost) + " $)");
+                    } else {
+                        labelText = isEn ? ((player == 1) ? ("[SPACE] BUY PLOT (" + std::to_string(plotCost) + " $)")
+                                                           : ("[ENTER] BUY PLOT (" + std::to_string(plotCost) + " $)"))
+                                         : ((player == 1) ? ("[SPACE] КУПИ ПАРЦЕЛ (" + std::to_string(plotCost) + " $)")
+                                                           : ("[ENTER] КУПИ ПАРЦЕЛ (" + std::to_string(plotCost) + " $)"));
+                    }
+                } else {
+                    labelText = isEn ? "[!] UNPURCHASED LAND" : "[!] НЕЗАКУПЕНА ТЕРИТОРИЯ";
+                }
+                sf::Text& tWarn = ui::pooledText(font, toUtf8(labelText), fontsize::Caption);
                 tWarn.setStyle(sf::Text::Bold);
-                tWarn.setFillColor(theme::Warn);
+                tWarn.setFillColor(ringCol);
                 sf::FloatRect wb = tWarn.getLocalBounds();
                 float pillW = wb.size.x + 16.0f;
                 float pillH = wb.size.y + 10.0f;
@@ -393,7 +445,7 @@ void UI_map::render(sf::RenderWindow& window) {
                 pill.setPosition({ pillX, pillY });
                 pill.setFillColor(theme::withAlpha(theme::Window, 230));
                 pill.setOutlineThickness(1.5f);
-                pill.setOutlineColor(theme::Warn);
+                pill.setOutlineColor(ringCol);
                 window.draw(pill);
 
                 tWarn.setPosition({ pillX + 8.0f - wb.position.x, pillY + 4.0f - wb.position.y });
@@ -485,6 +537,29 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 21. Help & Rules Manual Overlay — ALWAYS on top of everything (including pause menu)
     drawHelpOverlay(window);
+
+    // 21.5 Emulation Test Mode Banner
+    if (botVsBotMode && resourcesLoaded) {
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        std::string emuText = isEn ? "EMULATION TEST (BOT VS BOT)  |  Press [B] / [ESC] to Exit"
+                                   : "РЕЖИМ ЕМУЛАЦИЯ / ТЕСТ (БОТ vs БОТ)  |  Натиснете [B] / [ESC] за изход";
+        sf::Text& tEmu = ui::pooledText(font, toUtf8(emuText), fontsize::Label);
+        tEmu.setStyle(sf::Text::Bold);
+        tEmu.setFillColor(theme::Gold);
+        sf::FloatRect eb = tEmu.getLocalBounds();
+        float bW = eb.size.x + 28.0f;
+        float bH = eb.size.y + 12.0f;
+        float bX = (VIRTUAL_WIDTH - bW) / 2.0f;
+        float bY = 8.0f;
+        sf::RectangleShape banner({ bW, bH });
+        banner.setPosition({ bX, bY });
+        banner.setFillColor(sf::Color(16, 22, 34, 235));
+        banner.setOutlineThickness(1.5f);
+        banner.setOutlineColor(theme::Gold);
+        window.draw(banner);
+        tEmu.setPosition({ bX + 14.0f - eb.position.x, bY + 6.0f - eb.position.y });
+        ui::drawText(window, tEmu);
+    }
 
     // 22. team info: developer overlay ([F3]) above everything
     drawDevOverlay(window);

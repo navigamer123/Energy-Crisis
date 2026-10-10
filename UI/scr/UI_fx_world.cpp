@@ -7,6 +7,8 @@
 #include "../includes/UI_fx.h"
 #include "../includes/UI_ease.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_lang.h"
+#include "../includes/UI_text.h"
 
 #include <algorithm>
 #include <cmath>
@@ -247,7 +249,7 @@ void UI_fx::drawBorderTag(sf::RenderTarget& target, const sf::Font& font, bool f
     tag.setOutlineColor(TAG_BORDER);
     target.draw(tag);
     if (fontLoaded) {
-        sf::Text& bText = ui::pooledText(font, toUtf8("ЦЕНТРАЛНА ГРАНИЦА"), 12);
+        sf::Text& bText = ui::pooledText(font, toUtf8(Lang::tr("city.border")), 12);
         bText.setFillColor(TAG_TEXT);
         sf::FloatRect tb = bText.getLocalBounds();
         bText.setPosition({ RIVER_X - tb.size.x / 2.0f - tb.position.x, 404.0f });

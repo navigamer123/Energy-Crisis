@@ -44,6 +44,8 @@ private:
     UI_resourceHUD resourceHUD;
     UI_resourceNodes nodes;
     UIBot bot;
+    UIBot bot1;
+    bool botVsBotMode = false;
     UI_tutorial tutorial;
     UI_fx fx; // [b-effects] juice, power grid, lighting, river, seasons and audio feedback
 
@@ -211,6 +213,7 @@ private:
 
     sf::FloatRect victoryRestartBtn;
     sf::FloatRect victoryMenuBtn;
+    float matchFinishedTimer = 0.0f;
 
     // Pause Menu state & button bounds
     bool isPaused = false;
@@ -253,6 +256,8 @@ public:
 
     void setControlScheme(ControlScheme scheme);
     void setBotDifficulty(BotDifficulty diff);
+    void setBotVsBot(bool enabled, BotDifficulty diff = BotDifficulty::MEDIUM);
+    bool isBotVsBot() const { return botVsBotMode; }
     BotDifficulty getBotDifficulty() const { return bot.getDifficulty(); }
     bool isBotActive() const { return bot.isActive(); }
     bool isMenuRequested() const { return requestMenu; }
