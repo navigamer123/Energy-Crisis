@@ -75,6 +75,11 @@ menu.settings = НАСТРОЙКИ
 menu.quit = ИЗХОД
 # UI/scr/UI_mainMenu.cpp:155
 menu.hint_main = Навигация: [Стрелки / W,S] | Избор: [Enter]
+menu.match_type_title = ИЗБОР НА ТИП МАЧ
+menu.match_30m = 30М БИТКА (СТАНДАРТЕН)
+menu.match_30m_desc = Стандартен 30-минутен мач (20 дни). Пълно разширение на земята и дълбока стратегия.
+menu.match_5m = 5М БЛИЦ (БЪРЗ МАЧ)
+menu.match_5m_desc = Бърз 5-минутен блиц (5 дни, без гратисен период). Скъпа земя (максимум 4 парцела).
 # UI/scr/UI_mainMenu.cpp:189
 menu.mode_coop = ДВАМА ИГРАЧИ (1v1)
 # UI/scr/UI_mainMenu.cpp:190
@@ -851,6 +856,7 @@ msg.land_no_gold = НЕДОСТИГ НА ЗЛАТО! НУЖНО: {0} G
 msg.invalid_plot = НЕВАЛИДЕН ПАРЦЕЛ!
 # Game/scr/game_main.cpp:637
 msg.all_plots_bought = ВСИЧКИ ПАРЦЕЛИ СА ЗАКУПЕНИ!
+msg.blitz_land_limit = ДОСТИГНАТ Е ЛИМИТЪТ: МАКСИМУМ 4 ПАРЦЕЛА ЗА БЛИЦ РЕЖИМ!
 # Game/scr/game_main.cpp:815
 msg.nothing_to_demolish = НЯМА ВАША СГРАДА ТУК ЗА ПРЕМАХВАНЕ!
 # Game/scr/game_main.cpp:845 ({0} = име на сградата, {1} = % върнати)

@@ -113,7 +113,9 @@ if(EC_BUILD_GAME)
         set(EC_SFML_SHARED ON)
     endif()
 
-    find_package(SQLite3 REQUIRED)
+    if(NOT ANDROID)
+        find_package(SQLite3 REQUIRED)
+    endif()
 endif()
 
 # MinGW: the C++ runtime DLLs of the compiler, copied next to the programs so they start by double-click

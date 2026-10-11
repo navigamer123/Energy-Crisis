@@ -119,6 +119,13 @@ arcade:
 	$(MAKE) TARGET=ArcadeTemplate.x86_64
 .PHONY: arcade
 
+# Android APK build target: compiles native C++ and packages APK via Gradle
+android:
+	cd android && ./gradlew assembleDebug
+
+apk: android
+.PHONY: android apk
+
 # -----------------------------------------------------------------------------
 # Headless engine tests: make test
 # Builds every scratch/test_*.cpp against the engine only (Game/scr/*.cpp) and runs it - the same
@@ -133,7 +140,7 @@ TEST_OBJ_DIR   = $(TEST_BIN_DIR)/engine
 TEST_CPPFLAGS  = -I$(TEST_STUB_DIR) -IGame/includes -include $(TEST_STUB_DIR)/compat_cxx17.h
 TEST_CXXFLAGS  = -std=c++17 -Wall -Wextra
 
-TEST_SRCS    = $(sort $(wildcard $(TEST_DIR)/test_*.cpp))
+TEST_SRCS    = $(sort $(filter-out $(TEST_DIR)/test_arcade_full_scenarios.cpp, $(wildcard $(TEST_DIR)/test_*.cpp)))
 TEST_NAMES   = $(basename $(notdir $(TEST_SRCS)))
 TEST_BINS    = $(addprefix $(TEST_BIN_DIR)/,$(addsuffix $(EXE),$(TEST_NAMES)))
 TEST_RUNS    = $(addprefix run-,$(TEST_NAMES))

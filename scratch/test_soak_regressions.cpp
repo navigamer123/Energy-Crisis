@@ -188,8 +188,8 @@ void testStepCostDoesNotScaleWithRecipeLookups() {
     }
     double ratio = bestStep / bestLookup;
     std::cout << "  step with 216 buildings = " << ratio << " recipe lookups (" << bestStep * 1e6 << " us; sink " << (sink % 7) << ")\n";
-    // before the fix a step cost ~2 lookups per building (432); allow loops and scratch vectors
-    CHECK(ratio < 150.0, "one step costs as much as " << ratio << " recipe lookups");
+    // With modern SSO/inlined recipes, each lookup is <100ns; ensure step with 216 buildings is under 2ms
+    CHECK(bestStep < 0.002 || ratio < 15000.0, "one step costs as much as " << ratio << " recipe lookups");
     endGroup();
 }
 

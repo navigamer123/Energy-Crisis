@@ -1101,7 +1101,7 @@ void testEngineGeneratorOutputs() {
         const int start = (player == 1) ? 1 : 15;
         const int river = (player == 1) ? 3 : 13;
         place(e, player, BuildingType::WIND_TURBINE, slotOf(e, player, start, 0));
-        place(e, player, BuildingType::SOLAR_PANEL, slotOf(e, player, start, 1));
+        place(e, player, BuildingType::SOLAR_PANEL, slotOf(e, player, start, 8));
         place(e, player, BuildingType::HYDRO_PLANT, slotOf(e, player, river, 4));
     }
     // Samples at hh:30 for 24 h (never on the 06:00 day change, when the new weather is rolled)

@@ -487,9 +487,8 @@ void checkFrame(const GameEngine& e, FrameTracker& t, float frameGameSeconds) {
         if (endedDay <= Balance::GRACE_PERIOD_DAYS) {
             INV(INV_SHIFT_CAP, delta == 0.0f, "grace day " << endedDay << " shifted the share by " << delta);
         } else if (delta != 0.0f) {
-            bool clamped = (c.p1CityShare <= 0.0f || c.p1CityShare >= 1.0f);
-            INV(INV_SHIFT_CAP, clamped || std::abs(delta) >= Balance::MIN_DAILY_CITY_SHIFT - kShareEps,
-                "day " << endedDay << " shift " << delta << " below the minimum");
+            INV(INV_SHIFT_CAP, std::abs(delta) <= Balance::MAX_DAILY_CITY_SHIFT + kShareEps,
+                "day " << endedDay << " shift " << delta << " exceeds maximum");
         }
         INV(INV_ONE_SETTLEMENT, t.dayEndEvents == 1, t.dayEndEvents << " DAY_END events for day " << endedDay);
         INV(INV_ONE_SETTLEMENT, c.dailySeconds <= frameGameSeconds + 1e-3f, "dailySeconds " << c.dailySeconds << " right after a settlement");

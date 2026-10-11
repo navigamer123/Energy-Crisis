@@ -76,6 +76,11 @@ menu.settings = SETTINGS
 menu.quit = QUIT
 # UI/scr/UI_mainMenu.cpp:155
 menu.hint_main = Navigate: [Arrows / W,S] | Select: [Enter]
+menu.match_type_title = SELECT MATCH TYPE
+menu.match_30m = 30M BATTLE (STANDARD)
+menu.match_30m_desc = Standard 30-minute competition (20 days). Full land expansion & strategic depth.
+menu.match_5m = 5M BLITZ (FAST-PACED)
+menu.match_5m_desc = Rapid 5-minute blitz (5 days, 0 grace days). Expensive land (hard cap: max 4 plots).
 # UI/scr/UI_mainMenu.cpp:189
 menu.mode_coop = TWO PLAYERS (1v1)
 # UI/scr/UI_mainMenu.cpp:190
@@ -852,6 +857,7 @@ msg.land_no_gold = NOT ENOUGH GOLD! NEED: {0} G
 msg.invalid_plot = INVALID PLOT!
 # Game/scr/game_main.cpp:637
 msg.all_plots_bought = ALL PLOTS ARE ALREADY BOUGHT!
+msg.blitz_land_limit = LIMIT REACHED: MAXIMUM 4 PLOTS IN BLITZ MODE!
 # Game/scr/game_main.cpp:815
 msg.nothing_to_demolish = YOU HAVE NO BUILDING HERE TO DEMOLISH!
 # Game/scr/game_main.cpp:845 ({0} = име на сградата, {1} = % върнати)

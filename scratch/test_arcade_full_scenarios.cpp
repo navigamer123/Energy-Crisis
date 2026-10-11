@@ -165,23 +165,52 @@ int main() {
         assert(std::abs(dSolar1 - 0.10f) < 0.001f && "Solar with 1 horizontal windmill must have -10% deduction");
         std::cout << "  [PASS] Solar panel horizontal windmill deduction verified.\n";
 
-        // Check Grid Highlighting Colors (Green / Yellow / Red / Transparent on unpurchased)
-        // (baseCol + 2, baseRow + 1) is diagonal from baseCol+1, baseRow -> Green
-        sf::Color cOpt = engine.getPlacementTileColor(1, BuildingType::WIND_TURBINE, baseCol + 2, baseRow + 1);
-        assert(cOpt == sf::Color(45, 230, 85) && "Optimal 0% deduction tile must be Green");
+        // Check Grid Highlighting Colors (1x1 Orthogonal Red / 1x1 Corner Yellow / Green / Transparent)
+        // Set up Player 2 starting plot with 1 centered windmill to test full 3x3 neighborhood
+        int p2BaseCol = 0, p2BaseRow = 0;
+        for (const auto& plot : engine.getLandPlots()) {
+            if (plot.playerOwner == 2 && plot.isPurchased) {
+                int cStart = 0, rStart = 0;
+                engine.getClosestGridIndex(2, plot.bounds.position + sf::Vector2f(20.0f, 20.0f), cStart, rStart);
+                p2BaseCol = cStart;
+                p2BaseRow = rStart;
+                break;
+            }
+        }
+        auto& p2Econ = engine.getPlayerEconomyMut(2);
+        p2Econ.wood = 5000;
+        p2Econ.iron = 5000;
+        p2Econ.copper = 5000;
+        p2Econ.coal = 5000;
+        p2Econ.silicon = 5000;
+        p2Econ.silver = 5000;
+        p2Econ.gold = 5000;
+        p2Econ.money = 5000;
+        sf::Vector2f centerPos = engine.getGridSlot(2, p2BaseCol + 1, p2BaseRow + 1);
+        bool p2Placed = engine.placeBuilding(2, BuildingType::WIND_TURBINE, centerPos, msg);
+        if (!p2Placed) {
+            std::cerr << "P2 placement failed: " << msg << " at col " << (p2BaseCol + 1) << " row " << (p2BaseRow + 1) << "\n";
+        }
+        assert(p2Placed && "Failed to place center windmill for player 2");
 
-        // (baseCol + 1, baseRow + 1) is adjacent to baseCol+2, baseRow+1 (windmill) -> Yellow
-        sf::Color cMed = engine.getPlacementTileColor(1, BuildingType::WIND_TURBINE, baseCol + 1, baseRow + 1);
-        assert(cMed == sf::Color(255, 215, 0) && "Moderate deduction tile must be Yellow");
+        // 1x1 Orthogonal neighbor (up) must be Red
+        sf::Color cOrthogonal = engine.getPlacementTileColor(2, BuildingType::WIND_TURBINE, p2BaseCol + 1, p2BaseRow);
+        assert(cOrthogonal == sf::Color(255, 45, 45) && "1x1 orthogonal neighbor must be Red");
 
-        // (baseCol, baseRow + 3) is in line with baseCol, baseRow -> Red
-        // But only if purchased!
+        // 1x1 Corner neighbor (top-left) must be Yellow
+        sf::Color cCorner = engine.getPlacementTileColor(2, BuildingType::WIND_TURBINE, p2BaseCol, p2BaseRow);
+        assert(cCorner == sf::Color(255, 215, 0) && "1x1 corner diagonal neighbor must be Yellow");
+
+        // Outside 1x1 radius on P1's plot (baseCol + 2, baseRow) -> Green
+        sf::Color cOutside = engine.getPlacementTileColor(1, BuildingType::WIND_TURBINE, baseCol + 2, baseRow);
+        assert(cOutside == sf::Color(45, 230, 85) && "Tile outside 1x1 radius must be Green");
+
         // Unpurchased plot must NOT be highlighted (must be Transparent)
         int unpurchasedCol = 7, unpurchasedRow = 11;
         assert(engine.isSlotOnPurchasedLand(1, unpurchasedCol, unpurchasedRow) == false);
         sf::Color cUnpurchased = engine.getPlacementTileColor(1, BuildingType::WIND_TURBINE, unpurchasedCol, unpurchasedRow);
         assert(cUnpurchased == sf::Color::Transparent && "Unpurchased plots must NOT be highlighted!");
-        std::cout << "  [PASS] Grid highlighting colors (Green / Yellow / Red / Transparent on unpurchased) verified.\n";
+        std::cout << "  [PASS] Grid highlighting colors (1x1 Red orthogonal, 1x1 Yellow corner, Green outside, Transparent unpurchased) verified.\n";
     }
 
     // =========================================================================

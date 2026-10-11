@@ -28,6 +28,9 @@ UI_main::UI_main(const ShotOptions& shotOptions)
 #endif
     window.setFramerateLimit(60);
     window.setKeyRepeatEnabled(false); // A held key must not re-trigger menu/pause/hotkey events
+#if defined(__ANDROID__)
+    mainMenu.setBlitzMode(true);
+#endif
     updateViewport();
     if (!shot.enabled) UI_audio::get().init(); // [b-effects] synthesised sound and music (screenshots stay silent)
     std::cout << "[UI_main] SFML RenderWindow (1600x900 virtual canvas) initialized.\n";
@@ -328,6 +331,7 @@ int UI_main::render() {
                         mainMenu.resetPlayRequest();
                         matchWasCompleted = false;
                         map.setBotVsBot(mainMenu.isBotVsBot(), mainMenu.getSelectedBotDifficulty());
+                        map.setBlitzMode(mainMenu.isBlitzMode());
                         map.restartMatch();
                         map.setControlScheme(mainMenu.getSelectedControlScheme());
                         map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
@@ -339,6 +343,7 @@ int UI_main::render() {
                     mainMenu.resetPlayRequest();
                     matchWasCompleted = false;
                     map.setBotVsBot(mainMenu.isBotVsBot(), mainMenu.getSelectedBotDifficulty());
+                    map.setBlitzMode(mainMenu.isBlitzMode());
                     map.restartMatch();
                     map.setControlScheme(mainMenu.getSelectedControlScheme());
                     map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());

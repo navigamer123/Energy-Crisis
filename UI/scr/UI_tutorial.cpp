@@ -8,6 +8,14 @@
 #include <algorithm>
 #include <iostream>
 
+namespace {
+inline bool isTouchInside(const sf::FloatRect& bounds, sf::Vector2f pt, float pad = 18.0f) {
+    sf::FloatRect expanded({ bounds.position.x - pad, bounds.position.y - pad },
+                          { bounds.size.x + 2.0f * pad, bounds.size.y + 2.0f * pad });
+    return expanded.contains(pt);
+}
+} // namespace
+
 UI_tutorial::UI_tutorial()
     : p1Step(TutorialStep::WELCOME),
       p2Step(TutorialStep::WELCOME),
@@ -20,7 +28,20 @@ UI_tutorial::UI_tutorial()
       initialP1BuildingCount(0),
       initialP2BuildingCount(0) {
     // Single player centered card
-    cardBounds = sf::FloatRect({ 480.0f, 765.0f }, { 640.0f, 120.0f });
+    cardBounds = sf::FloatRect({ 480.0f, 760.0f }, { 640.0f, 128.0f });
+#if defined(__ANDROID__)
+    // Touchscreen-adapted dimensions: larger touch targets for fingers
+    float skipW = 150.0f;
+    float skipH = 34.0f;
+    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - skipW - 14.0f,
+                                   cardBounds.position.y + 8.0f },
+                                 { skipW, skipH });
+    float nextW = 180.0f;
+    float nextH = 40.0f;
+    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - nextW - 14.0f,
+                                   cardBounds.position.y + cardBounds.size.y - nextH - 8.0f },
+                                 { nextW, nextH });
+#else
     float skipW = cardBounds.size.x * 0.24f;
     float skipH = cardBounds.size.y * 0.20f;
     skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - skipW - cardBounds.size.x * 0.02f,
@@ -31,6 +52,7 @@ UI_tutorial::UI_tutorial()
     nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - nextW - cardBounds.size.x * 0.02f,
                                    cardBounds.position.y + cardBounds.size.y - nextH - cardBounds.size.y * 0.07f },
                                  { nextW, nextH });
+#endif
 
     // Co-op decoupled dual cards
     p1CardBounds = sf::FloatRect({ 258.0f, 765.0f }, { 520.0f, 122.0f });
@@ -62,6 +84,41 @@ std::string UI_tutorial::getStepDescription(int player, TutorialStep currentStep
     (void)engine;
     bool isEn = (UI_settings::get().getLanguage() == "en");
     bool isArcade = ArcadeMode::isEnabled();
+
+#if defined(__ANDROID__)
+    (void)player; (void)isArcade;
+    switch (currentStep) {
+        case TutorialStep::WELCOME:
+            return isEn ? "Tap stations to gather resources. Tap buildings to select and place!\nFirst gather resources to construct a Solar Panel."
+                        : "Докоснете станциите за ресурси. Докоснете сградите за строеж!\nПърво съберете ресурси за Слънчев панел.";
+        case TutorialStep::GATHER_WOOD:
+            return isEn ? "Tap the FOREST station to gather Wood."
+                        : "Докоснете станция ГОРА, за да съберете Дървесина.";
+        case TutorialStep::GATHER_IRON:
+            return isEn ? "Tap onto the IRON station to gather Iron."
+                        : "Докоснете станция ЖЕЛЯЗО, за да съберете Желязо.";
+        case TutorialStep::GATHER_COPPER:
+            return isEn ? "Tap onto the COPPER station to gather Copper."
+                        : "Докоснете станция МЕД, за да съберете Мед.";
+        case TutorialStep::GATHER_SILICON:
+            return isEn ? "Tap onto the SILICON station to gather Silicon."
+                        : "Докоснете станция СИЛИЦИЙ, за да съберете Силиций.";
+        case TutorialStep::SELECT_SOLAR:
+            return isEn ? "Tap the Solar Panel card in the bottom bar to select it."
+                        : "Докоснете картата на Слънчевия панел в долния панел за избор.";
+        case TutorialStep::PLACE_SOLAR:
+            return isEn ? "Tap on any open plot on your land grid to place the Solar Panel!"
+                        : "Докоснете свободен парцел в мрежата си за поставяне!";
+        case TutorialStep::UPGRADE_MINE:
+            return isEn ? "Tap the upgrade button on a mine station to upgrade it!"
+                        : "Докоснете бутона за надграждане на мина за +75% добив!";
+        case TutorialStep::COMPLETED:
+            return isEn ? "The panel produces +60 MW power and generates income ($)!\nTap mines to upgrade and tap land plots to expand!"
+                        : "Панелът произвежда +60 MW ток и ви носи печалба ($)!\nДокосвайте мините за надграждане и парцелите за разширение!";
+        default:
+            return "";
+    }
+#else
 
     switch (currentStep) {
         case TutorialStep::WELCOME:
@@ -160,6 +217,7 @@ std::string UI_tutorial::getStepDescription(int player, TutorialStep currentStep
         default:
             return "";
     }
+#endif
 }
 
 void UI_tutorial::reset() {
@@ -729,6 +787,17 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             break;
     }
 
+#if defined(__ANDROID__)
+    showNextBtn = true;
+    if (currentStep == TutorialStep::WELCOME) {
+        nextBtnLabel = isEn ? "START [TAP]" : "ЗАПОЧНИ [ДОКОСНИ]";
+    } else if (currentStep == TutorialStep::COMPLETED) {
+        nextBtnLabel = isEn ? "CLOSE [TAP]" : "ЗАТВОРИ [ДОКОСНИ]";
+    } else {
+        nextBtnLabel = isEn ? "NEXT [TAP]" : "НАПРЕД [ДОКОСНИ]";
+    }
+#endif
+
     // Draw Badge
     sf::Vector2f badgePos(bounds.position.x + 14.0f, bounds.position.y + 10.0f);
     sf::Text& tBadge = ui::pooledText(font, toUtf8(badgeText), fontsize::Caption);
@@ -792,7 +861,11 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
     skipBtnRect.setOutlineThickness(1.0f);
     skipBtnRect.setOutlineColor(theme::Line);
     window.draw(skipBtnRect);
+#if defined(__ANDROID__)
+    sf::Text& tSkip = ui::pooledText(font, toUtf8(isEn ? "SKIP [TAP]" : "ПРОПУСНИ [ДОКОСНИ]"), fontsize::Caption);
+#else
     sf::Text& tSkip = ui::pooledText(font, toUtf8(isArcade ? (isEn ? "SKIP [B]" : "ПРОПУСНИ [B]") : (isEn ? "SKIP [ESC]" : "ПРОПУСНИ [ESC]")), fontsize::Caption);
+#endif
     tSkip.setFillColor(theme::TextSecondary);
     sf::FloatRect sb = tSkip.getLocalBounds();
     tSkip.setPosition({ skipBtn.position.x + (skipBtn.size.x - sb.size.x) / 2.0f - sb.position.x,
@@ -950,11 +1023,11 @@ bool UI_tutorial::handleClick(sf::Vector2f mousePos, GameEngine* engine) {
     if (isCoop) {
         // Player 1 Card Clicks
         if (p1Active && p1Step != TutorialStep::INACTIVE) {
-            if (p1SkipBtnBounds.contains(mousePos)) {
+            if (isTouchInside(p1SkipBtnBounds, mousePos, 18.0f)) {
                 skipP1(engine);
                 return true;
             }
-            if ((p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED) && p1NextBtnBounds.contains(mousePos)) {
+            if ((p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED) && isTouchInside(p1NextBtnBounds, mousePos, 18.0f)) {
                 if (p1Step == TutorialStep::WELCOME) p1Step = TutorialStep::GATHER_WOOD;
                 else skipP1(engine);
                 return true;
@@ -962,11 +1035,11 @@ bool UI_tutorial::handleClick(sf::Vector2f mousePos, GameEngine* engine) {
         }
         // Player 2 Card Clicks
         if (p2Active && p2Step != TutorialStep::INACTIVE) {
-            if (p2SkipBtnBounds.contains(mousePos)) {
+            if (isTouchInside(p2SkipBtnBounds, mousePos, 18.0f)) {
                 skipP2(engine);
                 return true;
             }
-            if ((p2Step == TutorialStep::WELCOME || p2Step == TutorialStep::COMPLETED) && p2NextBtnBounds.contains(mousePos)) {
+            if ((p2Step == TutorialStep::WELCOME || p2Step == TutorialStep::COMPLETED) && isTouchInside(p2NextBtnBounds, mousePos, 18.0f)) {
                 if (p2Step == TutorialStep::WELCOME) p2Step = TutorialStep::GATHER_WOOD;
                 else skipP2(engine);
                 return true;
@@ -974,15 +1047,34 @@ bool UI_tutorial::handleClick(sf::Vector2f mousePos, GameEngine* engine) {
         }
     } else {
         if (p1Active && p1Step != TutorialStep::INACTIVE) {
-            if (skipBtnBounds.contains(mousePos)) {
+            if (isTouchInside(skipBtnBounds, mousePos, 18.0f)) {
                 skip(engine);
                 return true;
             }
-            if ((p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED) && nextBtnBounds.contains(mousePos)) {
+#if defined(__ANDROID__)
+            if (isTouchInside(nextBtnBounds, mousePos, 18.0f)) {
+                if (p1Step == TutorialStep::WELCOME) p1Step = TutorialStep::GATHER_WOOD;
+                else if (p1Step == TutorialStep::GATHER_WOOD) p1Step = TutorialStep::GATHER_IRON;
+                else if (p1Step == TutorialStep::GATHER_IRON) p1Step = TutorialStep::GATHER_COPPER;
+                else if (p1Step == TutorialStep::GATHER_COPPER) p1Step = TutorialStep::GATHER_SILICON;
+                else if (p1Step == TutorialStep::GATHER_SILICON) p1Step = TutorialStep::SELECT_SOLAR;
+                else if (p1Step == TutorialStep::SELECT_SOLAR) p1Step = TutorialStep::PLACE_SOLAR;
+                else if (p1Step == TutorialStep::PLACE_SOLAR) p1Step = TutorialStep::UPGRADE_MINE;
+                else if (p1Step == TutorialStep::UPGRADE_MINE) {
+                    if (engine) grantExitBoost(1, *engine);
+                    p1Step = TutorialStep::COMPLETED;
+                } else {
+                    skip(engine);
+                }
+                return true;
+            }
+#else
+            if ((p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED) && isTouchInside(nextBtnBounds, mousePos, 18.0f)) {
                 if (p1Step == TutorialStep::WELCOME) p1Step = TutorialStep::GATHER_WOOD;
                 else skip(engine);
                 return true;
             }
+#endif
         }
     }
 

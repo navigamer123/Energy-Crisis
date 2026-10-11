@@ -11,6 +11,7 @@ enum class MenuState {
     CALIBRATE_BLUE,
     CALIBRATE_RED,
     MAIN,
+    MATCH_TYPE_SELECT,
     MODE_SELECT,
     PLAY_CONTROLS,
     BOT_DIFFICULTY,
@@ -25,12 +26,14 @@ private:
     bool requestQuit;
 
     int selectedMainIndex;       // 0: Play, 1: Settings, 2: Quit
+    int selectedMatchTypeIndex;  // 0: 30m Battle, 1: 5m Blitz, 2: Back
     int selectedModeIndex;       // 0: Co-op (2P), 1: Single Player (VS Bot), 2: Back
     int selectedDifficultyIndex; // 0: Easy, 1: Medium, 2: Hard, 3: Back
     int selectedSettingsIndex;   // 0: Language, 1: Volume, 2: SoundFX, 3: Difficulty, 4: Controls, 5: Back
     sf::Vector2f lastMenuMousePos = { -999.0f, -999.0f };
 
     BotDifficulty selectedBotDifficulty;
+    bool blitzMode = false;
 
     // Controls remapping state (SETTINGS_CONTROLS)
     int remapSelectedPlayer = 1; // 1: Player 1, 2: Player 2
@@ -72,6 +75,7 @@ private:
     void drawPressAToStart(sf::RenderWindow& window);
     void drawCalibration(sf::RenderWindow& window, bool isBlue);
     void drawMainMenu(sf::RenderWindow& window);
+    void drawMatchTypeMenu(sf::RenderWindow& window);
     void drawModeSelectMenu(sf::RenderWindow& window);
     void drawBotDifficultyMenu(sf::RenderWindow& window);
     void drawSettingsMenu(sf::RenderWindow& window);
@@ -110,6 +114,8 @@ public:
     }
     bool isBotVsBot() const { return botVsBotMode; }
     void setBotVsBot(bool enabled) { botVsBotMode = enabled; }
+    bool isBlitzMode() const { return blitzMode; }
+    void setBlitzMode(bool b) { blitzMode = b; }
     // [b-effects] Audio settings read every frame by UI_main
     int getVolume() const { return volume; }
     bool isSoundEffectsEnabled() const { return soundEffects; }

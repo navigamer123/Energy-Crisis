@@ -133,8 +133,7 @@ void UI_map::drawBackground(sf::RenderWindow& window) {
 void UI_map::restartMatch() {
     MatchConfig cfg;
     if (ArcadeMode::isEnabled()) {
-        // Arcade: 4 days @ 60s each = 240s = 4m total play time
-        int arcadeDays = 4;
+        int arcadeDays = 5;
         const char* envDays = std::getenv("ARCADE_DAYS");
         if (envDays) {
             try { arcadeDays = std::stoi(envDays); } catch (...) {}
@@ -145,8 +144,16 @@ void UI_map::restartMatch() {
         if (envSec) { try { daySec = std::stof(envSec); } catch (...) {} }
         cfg.daySeconds = daySec;
         cfg.graceDays = 0; // Arcade: grace period completely disabled
+        cfg.isBlitz = true;
+    } else if (isBlitzMode) {
+        // 5m Blitz: 5 days @ 60s each = 300s = 5m total play time
+        cfg.isBlitz = true;
+        cfg.finalDay = 5;
+        cfg.daySeconds = 60.0f;
+        cfg.graceDays = 0; // Immediate competition
     } else {
-        // PC & other platforms: standard 20 days @ 1:30 (90s) each
+        // PC 30m Battle: standard 20 days @ 1:30 (90s) each = 1800s = 30m
+        cfg.isBlitz = false;
         cfg.finalDay = Balance::FINAL_DAY;
         cfg.daySeconds = Balance::SECONDS_PER_DAY;
         cfg.graceDays = Balance::GRACE_PERIOD_DAYS;

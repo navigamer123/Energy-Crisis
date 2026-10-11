@@ -166,7 +166,7 @@ void GameEngine::init(const MatchConfig& cfg) {
                 // Prices mirror around the river, so both players pay the same for mirrored plots.
                 int ownCol = (player == 1) ? c : (Balance::PLOT_COLS - 1 - c);
                 plot.isPurchased = (r == 0 && ownCol == 0);
-                plot.costGold = Balance::getLandPlotCost(r, ownCol);
+                plot.costGold = Balance::getLandPlotCost(r, ownCol, config.isBlitz);
                 plot.costMoney = plot.costGold;
                 landPlots.push_back(plot);
             }
@@ -334,13 +334,9 @@ void GameEngine::payCityRevenue() {
         p2.gold += scaleByMult(Balance::calculateGoldDividend(p2.energyMW, city.cityEnergyDemand), p2Mods.incomeMult);
     }
 
-    // Dynamic demand scaling in arcade mode or when grace period is disabled:
-    // Demand scales continuously based on players' actual usage / generation capacity
-    if (config.graceDays <= 0 && (p1.energyMW > 0 || p2.energyMW > 0)) {
+    if (config.isBlitz && (p1.energyMW > 0 || p2.energyMW > 0)) {
         int playerUsage = std::max(p1.energyMW, p2.energyMW);
-        int combinedUsage = p1.energyMW + p2.energyMW;
-        int targetArcadeDemand = std::max(Balance::STARTING_CITY_DEMAND_MW,
-                                          std::max(playerUsage, static_cast<int>(combinedUsage * 0.75f)));
+        int targetArcadeDemand = std::max(Balance::STARTING_CITY_DEMAND_MW, static_cast<int>(playerUsage * 0.65f));
         if (targetArcadeDemand > city.cityEnergyDemand) {
             city.cityEnergyDemand = targetArcadeDemand;
         }
@@ -412,13 +408,32 @@ void GameEngine::updateBuildingsEnergy(float dt) {
         const float effWind = Balance::getBuildingEfficiencyMultiplier(BuildingType::WIND_TURBINE, countWind);
         const float effHydro = Balance::getBuildingEfficiencyMultiplier(BuildingType::HYDRO_PLANT, countHydro);
 
+        const PlacedBuilding* grid[Balance::GRID_COLS][Balance::GRID_ROWS] = {};
+        for (const auto& b : buildings) {
+            if (b.playerOwner != player) continue;
+            int c = 0, r = 0;
+            getClosestGridIndex(player, b.position, c, r);
+            if (c >= 0 && c < Balance::GRID_COLS && r >= 0 && r < Balance::GRID_ROWS) {
+                grid[c][r] = &b;
+            }
+        }
+
         for (auto& b : buildings) {
             if (b.playerOwner != player) continue;
             switch (b.type) {
                 case BuildingType::SOLAR_PANEL: {
                     int c = 0, r = 0;
                     getClosestGridIndex(player, b.position, c, r);
-                    float deduction = getSolarDeductionAt(player, c, r);
+                    float deduction = 0.0f;
+                    if (r > 0 && grid[c][r - 1] && grid[c][r - 1]->type == BuildingType::WIND_TURBINE) {
+                        deduction += 0.20f;
+                    }
+                    bool leftWm = (c > 0 && grid[c - 1][r] && grid[c - 1][r]->type == BuildingType::WIND_TURBINE);
+                    bool rightWm = (c + 1 < Balance::GRID_COLS && grid[c + 1][r] && grid[c + 1][r]->type == BuildingType::WIND_TURBINE);
+                    if (leftWm && rightWm) deduction += 0.20f;
+                    else if (leftWm || rightWm) deduction += 0.10f;
+                    deduction = std::min(1.0f, deduction);
+
                     const float mult = solarMult * effSolar * std::max(0.0f, 1.0f - deduction);
                     float out = basePowerOf(b.type) * mult;
                     b.currentOutputMW = out;
@@ -438,7 +453,19 @@ void GameEngine::updateBuildingsEnergy(float dt) {
                 case BuildingType::WIND_TURBINE: {
                     int c = 0, r = 0;
                     getClosestGridIndex(player, b.position, c, r);
-                    float deduction = getWindmillDeductionAt(player, c, r);
+                    int frontCount = 0;
+                    for (int fr = 0; fr < r; ++fr) {
+                        if (grid[c][fr] && grid[c][fr]->type == BuildingType::WIND_TURBINE) {
+                            frontCount++;
+                        }
+                    }
+                    float inLinePenalty = frontCount * 0.20f;
+                    int adjCount = 0;
+                    if (c > 0 && grid[c - 1][r] && grid[c - 1][r]->type == BuildingType::WIND_TURBINE) adjCount++;
+                    if (c + 1 < Balance::GRID_COLS && grid[c + 1][r] && grid[c + 1][r]->type == BuildingType::WIND_TURBINE) adjCount++;
+                    float adjPenalty = adjCount * 0.10f;
+                    float deduction = std::min(1.0f, inLinePenalty + adjPenalty);
+
                     const float mult = windMult * effWind * std::max(0.0f, 1.0f - deduction);
                     float out = basePowerOf(b.type) * mult;
                     b.currentOutputMW = out;
@@ -830,6 +857,10 @@ bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg)
 
 bool GameEngine::buyLandPlot(int player, int plotId, std::string& outMsg) {
     auto& econ = (player == 1) ? p1 : p2;
+    if (config.isBlitz && econ.landTier >= Balance::LAND_BLITZ_MAX_TIER) {
+        outMsg = "ДОСТИГНАТ Е ЛИМИТЪТ: МАКСИМУМ 4 ПАРЦЕЛА ЗА БЛИЦ РЕЖИМ!";
+        return false;
+    }
     for (auto& plot : landPlots) {
         if (plot.id == plotId && plot.playerOwner == player) {
             if (plot.isPurchased) {
@@ -1332,9 +1363,10 @@ bool GameEngine::isSlotOnPurchasedLand(int player, int col, int row) const {
 const PlacedBuilding* GameEngine::getBuildingAtSlot(int player, int col, int row) const {
     if (col < 0 || col >= Balance::GRID_COLS || row < 0 || row >= Balance::GRID_ROWS) return nullptr;
     sf::Vector2f pos = getGridSlot(player, col, row);
-    int idx = findOwnedBuildingInSlot(player, pos);
-    if (idx >= 0 && idx < static_cast<int>(buildings.size())) {
-        return &buildings[idx];
+    for (const auto& b : buildings) {
+        if (b.playerOwner == player && std::abs(b.position.x - pos.x) < 2.0f && std::abs(b.position.y - pos.y) < 2.0f) {
+            return &b;
+        }
     }
     return nullptr;
 }
@@ -1443,35 +1475,46 @@ sf::Color GameEngine::getPlacementTileColor(int player, BuildingType type, int c
     }
 
     if (type == BuildingType::WIND_TURBINE) {
-        // 1. In-Line Penalty: placed behind existing windmill OR in front of existing windmill
-        bool inLineConflict = false;
-        for (int r = 0; r < Balance::GRID_ROWS; ++r) {
-            if (r == row) continue;
-            const PlacedBuilding* b = getBuildingAtSlot(player, col, r);
-            if (b && b->type == BuildingType::WIND_TURBINE) {
-                inLineConflict = true;
-                break;
+        // 1-by-1 radius highlighting:
+        // Orthogonal 1x1 neighbors (up, down, left, right) -> Red
+        bool hasOrthogonal = false;
+        const int dr[] = { -1, 1, 0, 0 };
+        const int dc[] = { 0, 0, -1, 1 };
+        for (int i = 0; i < 4; ++i) {
+            int nc = col + dc[i];
+            int nr = row + dr[i];
+            if (nc >= 0 && nc < Balance::GRID_COLS && nr >= 0 && nr < Balance::GRID_ROWS) {
+                const PlacedBuilding* b = getBuildingAtSlot(player, nc, nr);
+                if (b && b->type == BuildingType::WIND_TURBINE) {
+                    hasOrthogonal = true;
+                    break;
+                }
             }
         }
-        if (inLineConflict) {
-            return sf::Color(255, 45, 45); // Plain Red
+        if (hasOrthogonal) {
+            return sf::Color(255, 45, 45); // Red in 1x1 orthogonal radius
         }
 
-        // 2. Adjacent left or right: -10% per adjacent windmill
-        bool adjConflict = false;
-        if (col > 0) {
-            const PlacedBuilding* b = getBuildingAtSlot(player, col - 1, row);
-            if (b && b->type == BuildingType::WIND_TURBINE) adjConflict = true;
+        // Corner 1x1 diagonal neighbors -> Yellow
+        bool hasCorner = false;
+        const int cr[] = { -1, -1, 1, 1 };
+        const int cc[] = { -1, 1, -1, 1 };
+        for (int i = 0; i < 4; ++i) {
+            int nc = col + cc[i];
+            int nr = row + cr[i];
+            if (nc >= 0 && nc < Balance::GRID_COLS && nr >= 0 && nr < Balance::GRID_ROWS) {
+                const PlacedBuilding* b = getBuildingAtSlot(player, nc, nr);
+                if (b && b->type == BuildingType::WIND_TURBINE) {
+                    hasCorner = true;
+                    break;
+                }
+            }
         }
-        if (col + 1 < Balance::GRID_COLS) {
-            const PlacedBuilding* b = getBuildingAtSlot(player, col + 1, row);
-            if (b && b->type == BuildingType::WIND_TURBINE) adjConflict = true;
-        }
-        if (adjConflict) {
-            return sf::Color(255, 215, 0); // Yellow
+        if (hasCorner) {
+            return sf::Color(255, 215, 0); // Yellow in 1x1 corner radius
         }
 
-        // 3. Diagonal or isolated: Green
+        // Outside 1x1 radius / no interference -> Green
         return sf::Color(45, 230, 85); // Green
     }
     else if (type == BuildingType::SOLAR_PANEL) {

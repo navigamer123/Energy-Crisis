@@ -89,12 +89,16 @@ UI_resourceNodes::UI_resourceNodes() {
 
 ResourceType UI_resourceNodes::getP1ResourceAt(sf::Vector2f pt) const {
     for (const auto& s : stations) {
-        if (s.playerOwner == 1 && s.bounds.contains(pt)) {
-            // If clicking/cursor in upgrade area (bottom 26px), don't trigger mining
-            if (pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f) {
-                return ResourceType::NONE;
+        if (s.playerOwner == 1) {
+            sf::FloatRect padded({ s.bounds.position.x - 8.0f, s.bounds.position.y - 8.0f },
+                                 { s.bounds.size.x + 16.0f, s.bounds.size.y + 16.0f });
+            if (padded.contains(pt)) {
+                // If clicking/cursor in upgrade area (bottom 26px), don't trigger mining
+                if (pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f) {
+                    return ResourceType::NONE;
+                }
+                return s.type;
             }
-            return s.type;
         }
     }
     return ResourceType::NONE;
@@ -102,12 +106,16 @@ ResourceType UI_resourceNodes::getP1ResourceAt(sf::Vector2f pt) const {
 
 ResourceType UI_resourceNodes::getP2ResourceAt(sf::Vector2f pt) const {
     for (const auto& s : stations) {
-        if (s.playerOwner == 2 && s.bounds.contains(pt)) {
-            // If clicking/cursor in upgrade area (bottom 26px), don't trigger mining
-            if (pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f) {
-                return ResourceType::NONE;
+        if (s.playerOwner == 2) {
+            sf::FloatRect padded({ s.bounds.position.x - 8.0f, s.bounds.position.y - 8.0f },
+                                 { s.bounds.size.x + 16.0f, s.bounds.size.y + 16.0f });
+            if (padded.contains(pt)) {
+                // If clicking/cursor in upgrade area (bottom 26px), don't trigger mining
+                if (pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f) {
+                    return ResourceType::NONE;
+                }
+                return s.type;
             }
-            return s.type;
         }
     }
     return ResourceType::NONE;
@@ -116,8 +124,10 @@ ResourceType UI_resourceNodes::getP2ResourceAt(sf::Vector2f pt) const {
 ResourceType UI_resourceNodes::getP1UpgradeAt(sf::Vector2f pt) const {
     for (const auto& s : stations) {
         if (s.playerOwner == 1) {
+            sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - 6.0f, s.upgradeBtnBounds.position.y - 6.0f },
+                                    { s.upgradeBtnBounds.size.x + 12.0f, s.upgradeBtnBounds.size.y + 12.0f });
             // Generous hit box: either inside button bounds or within bottom 26px of station card
-            if (s.upgradeBtnBounds.contains(pt) ||
+            if (paddedBtn.contains(pt) ||
                 (s.bounds.contains(pt) && pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f)) {
                 return s.type;
             }
@@ -129,8 +139,10 @@ ResourceType UI_resourceNodes::getP1UpgradeAt(sf::Vector2f pt) const {
 ResourceType UI_resourceNodes::getP2UpgradeAt(sf::Vector2f pt) const {
     for (const auto& s : stations) {
         if (s.playerOwner == 2) {
+            sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - 6.0f, s.upgradeBtnBounds.position.y - 6.0f },
+                                    { s.upgradeBtnBounds.size.x + 12.0f, s.upgradeBtnBounds.size.y + 12.0f });
             // Generous hit box: either inside button bounds or within bottom 26px of station card
-            if (s.upgradeBtnBounds.contains(pt) ||
+            if (paddedBtn.contains(pt) ||
                 (s.bounds.contains(pt) && pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f)) {
                 return s.type;
             }
@@ -302,24 +314,63 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
         ui::lint::solid(sf::FloatRect({ b.position.x - 13.0f, b.position.y - 13.0f }, { 26.0f, 26.0f })); // no text may hide under it
 
         if (b.type == BuildingType::SOLAR_PANEL) {
-            sf::RectangleShape frame({ 26.0f, 20.0f });
-            frame.setOrigin({ 13.0f, 10.0f });
-            frame.setPosition(b.position);
-            frame.setFillColor(sf::Color(25, 35, 55));
+            // Grounded mounting foot
+            sf::RectangleShape foot({ 16.0f, 3.0f });
+            foot.setOrigin({ 8.0f, 1.5f });
+            foot.setPosition({ b.position.x, b.position.y + 10.5f });
+            foot.setFillColor(sf::Color(60, 72, 85));
+            foot.setOutlineThickness(0.8f);
+            foot.setOutlineColor(sf::Color(40, 48, 58));
+            window.draw(foot);
+
+            // Angled mounting support struts connecting foot to panel
+            sf::RectangleShape strutLeft({ 2.5f, 7.0f });
+            strutLeft.setOrigin({ 1.25f, 0.0f });
+            strutLeft.setPosition({ b.position.x - 5.0f, b.position.y + 4.0f });
+            strutLeft.setFillColor(sf::Color(110, 125, 140));
+            window.draw(strutLeft);
+
+            sf::RectangleShape strutRight({ 2.5f, 7.0f });
+            strutRight.setOrigin({ 1.25f, 0.0f });
+            strutRight.setPosition({ b.position.x + 5.0f, b.position.y + 4.0f });
+            strutRight.setFillColor(sf::Color(110, 125, 140));
+            window.draw(strutRight);
+
+            // Elevated solar panel frame
+            sf::RectangleShape frame({ 28.0f, 18.0f });
+            frame.setOrigin({ 14.0f, 9.0f });
+            frame.setPosition({ b.position.x, b.position.y - 2.0f });
+            frame.setFillColor(sf::Color(20, 28, 44));
             frame.setOutlineThickness(1.2f);
             frame.setOutlineColor(ownerColor);
             window.draw(frame);
 
+            // Photovoltaic cells mathematically centered within the 28x18 frame
+            // 3 cols x 2 rows, cell size 7x6, gap 1.5. Total cell block: 24x13.5 -> 2.0px margin
+            const float cellW = 7.0f;
+            const float cellH = 6.0f;
+            const float startX = b.position.x - 12.0f;
+            const float startY = b.position.y - 8.75f;
             for (int r = 0; r < 2; r++) {
                 for (int c = 0; c < 3; c++) {
-                    sf::RectangleShape cell({ 6.0f, 6.0f });
-                    cell.setPosition({ b.position.x - 10.0f + c * 7.5f, b.position.y - 7.0f + r * 7.5f });
-                    cell.setFillColor(sf::Color(20, 100, 220, 220));
+                    sf::RectangleShape cell({ cellW, cellH });
+                    cell.setPosition({ startX + c * 8.5f, startY + r * 7.5f });
+                    cell.setFillColor(sf::Color(22, 105, 215, 235));
                     cell.setOutlineThickness(0.5f);
-                    cell.setOutlineColor(sf::Color(100, 180, 255, 180));
+                    cell.setOutlineColor(sf::Color(110, 185, 255, 190));
                     window.draw(cell);
                 }
             }
+
+            // Subtle glass anti-reflective reflection highlight
+            sf::VertexArray gleam(sf::PrimitiveType::Triangles, 3);
+            gleam[0].position = { b.position.x - 11.0f, b.position.y - 8.0f };
+            gleam[0].color = sf::Color(255, 255, 255, 45);
+            gleam[1].position = { b.position.x - 4.0f, b.position.y - 8.0f };
+            gleam[1].color = sf::Color(255, 255, 255, 20);
+            gleam[2].position = { b.position.x - 11.0f, b.position.y - 1.0f };
+            gleam[2].color = sf::Color(255, 255, 255, 10);
+            window.draw(gleam);
         } else if (b.type == BuildingType::WIND_TURBINE) {
             sf::RectangleShape mast({ 3.0f, 22.0f });
             mast.setOrigin({ 1.5f, 22.0f });
@@ -416,29 +467,66 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
                 ui::drawText(window, tPct);
             }
         } else if (b.type == BuildingType::LAMP) {
-            sf::RectangleShape pole({ 3.0f, 20.0f });
-            pole.setOrigin({ 1.5f, 20.0f });
+            // Grounded mounting base plate
+            sf::RectangleShape basePlate({ 10.0f, 3.5f });
+            basePlate.setOrigin({ 5.0f, 3.5f });
+            basePlate.setPosition(b.position);
+            basePlate.setFillColor(sf::Color(65, 75, 88));
+            basePlate.setOutlineThickness(0.8f);
+            basePlate.setOutlineColor(sf::Color(40, 48, 58));
+            window.draw(basePlate);
+
+            // Lamp pole connecting seamlessly from ground (y) to fixture (y - 24)
+            sf::RectangleShape pole({ 3.0f, 24.0f });
+            pole.setOrigin({ 1.5f, 24.0f });
             pole.setPosition(b.position);
             pole.setFillColor(sf::Color(170, 185, 205));
+            pole.setOutlineThickness(0.8f);
+            pole.setOutlineColor(sf::Color(100, 115, 135));
             window.draw(pole);
 
-            sf::CircleShape head(6.5f);
-            head.setOrigin({ 6.5f, 6.5f });
-            head.setPosition({ b.position.x, b.position.y - 24.0f });
+            // Fixture hood / bracket above bulb
+            sf::RectangleShape hood({ 14.0f, 3.5f });
+            hood.setOrigin({ 7.0f, 3.5f });
+            hood.setPosition({ b.position.x, b.position.y - 24.0f });
+            hood.setFillColor(sf::Color(75, 88, 102));
+            hood.setOutlineThickness(1.0f);
+            hood.setOutlineColor(ownerColor);
+            window.draw(hood);
+
+            // Lamp head / bulb hanging right under the hood
+            const sf::Vector2f headPos = { b.position.x, b.position.y - 22.0f };
             bool isPowered = (b.lightRadius > 0.0f);
-            head.setFillColor(isPowered ? sf::Color(255, 235, 120) : sf::Color(65, 70, 80));
+            sf::CircleShape head(5.5f);
+            head.setOrigin({ 5.5f, 5.5f });
+            head.setPosition(headPos);
+            head.setFillColor(isPowered ? sf::Color(255, 238, 130) : sf::Color(65, 70, 80));
             head.setOutlineThickness(1.0f);
-            head.setOutlineColor(ownerColor);
+            head.setOutlineColor(isPowered ? sf::Color(255, 255, 200, 220) : sf::Color(45, 50, 58));
             window.draw(head);
 
             if (isPowered) {
+                // Bright glowing inner filament core
+                sf::CircleShape core(2.5f);
+                core.setOrigin({ 2.5f, 2.5f });
+                core.setPosition(headPos);
+                core.setFillColor(sf::Color(255, 255, 245));
+                window.draw(core);
+
+                // Glow centered at the light head (y - 22), NOT on the ground dirt
                 sf::CircleShape glow(b.lightRadius);
                 glow.setOrigin({ b.lightRadius, b.lightRadius });
-                glow.setPosition(b.position);
+                glow.setPosition(headPos);
                 glow.setFillColor(sf::Color(255, 230, 120, 22));
                 glow.setOutlineThickness(1.0f);
                 glow.setOutlineColor(sf::Color(255, 220, 100, 50));
                 window.draw(glow);
+
+                sf::CircleShape innerGlow(20.0f);
+                innerGlow.setOrigin({ 20.0f, 20.0f });
+                innerGlow.setPosition(headPos);
+                innerGlow.setFillColor(sf::Color(255, 240, 140, 45));
+                window.draw(innerGlow);
             }
         }
     }
@@ -465,10 +553,43 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
     footprint.setOutlineColor(tint);
     window.draw(footprint);
 
-    if (type == BuildingType::LAMP) {
+    if (type == BuildingType::SOLAR_PANEL) {
+        // Ghost solar panel frame & centered cells preview
+        sf::RectangleShape ghostFrame({ 28.0f, 18.0f });
+        ghostFrame.setOrigin({ 14.0f, 9.0f });
+        ghostFrame.setPosition({ pos.x, pos.y - 2.0f });
+        ghostFrame.setFillColor(theme::withAlpha(tint, 40));
+        ghostFrame.setOutlineThickness(1.2f);
+        ghostFrame.setOutlineColor(tint);
+        window.draw(ghostFrame);
+
+        for (int r = 0; r < 2; r++) {
+            for (int c = 0; c < 3; c++) {
+                sf::RectangleShape cell({ 7.0f, 6.0f });
+                cell.setPosition({ pos.x - 12.0f + c * 8.5f, pos.y - 10.75f + r * 7.5f });
+                cell.setFillColor(theme::withAlpha(tint, 70));
+                cell.setOutlineThickness(0.5f);
+                cell.setOutlineColor(theme::withAlpha(tint, 140));
+                window.draw(cell);
+            }
+        }
+    } else if (type == BuildingType::LAMP) {
+        // Ghost lamp pole & lantern preview
+        sf::RectangleShape ghostPole({ 3.0f, 24.0f });
+        ghostPole.setOrigin({ 1.5f, 24.0f });
+        ghostPole.setPosition(pos);
+        ghostPole.setFillColor(theme::withAlpha(tint, 180));
+        window.draw(ghostPole);
+
+        sf::CircleShape ghostHead(5.5f);
+        ghostHead.setOrigin({ 5.5f, 5.5f });
+        ghostHead.setPosition({ pos.x, pos.y - 22.0f });
+        ghostHead.setFillColor(theme::withAlpha(tint, 220));
+        window.draw(ghostHead);
+
         sf::CircleShape lampCone(150.0f);
         lampCone.setOrigin({ 150.0f, 150.0f });
-        lampCone.setPosition(pos);
+        lampCone.setPosition({ pos.x, pos.y - 22.0f });
         lampCone.setFillColor(isValidPlacement ? sf::Color(255, 235, 120, 28) : sf::Color(255, 80, 80, 20));
         lampCone.setOutlineThickness(1.5f);
         lampCone.setOutlineColor(isValidPlacement ? sf::Color(255, 220, 100, 120) : sf::Color(255, 80, 80, 100));

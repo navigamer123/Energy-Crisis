@@ -1624,7 +1624,9 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 
         // 3. Click on Land Plots directly (Buy Plot with Money or Place Building)
         for (const auto& plot : engine.getLandPlots()) {
-            if (plot.bounds.contains(clickPos)) {
+            sf::FloatRect paddedPlot({ plot.bounds.position.x - 6.0f, plot.bounds.position.y - 6.0f },
+                                     { plot.bounds.size.x + 12.0f, plot.bounds.size.y + 12.0f });
+            if (paddedPlot.contains(clickPos)) {
                 int pOwner = plot.playerOwner;
                 BuildingType sel = engine.getSelectedBuilding(pOwner);
                 if (!plot.isPurchased) {

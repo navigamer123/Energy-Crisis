@@ -4,7 +4,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#if !defined(__ANDROID__)
 #include <sqlite3.h>
+#endif
 
 CreditsManager& CreditsManager::get() {
     static CreditsManager instance;
@@ -18,6 +20,11 @@ CreditsManager::CreditsManager() {
 CreditsManager::~CreditsManager() {}
 
 std::string CreditsManager::resolveDatabasePath() {
+#if defined(__ANDROID__)
+    dbAvailable = false;
+    currentCredits = 999;
+    return "";
+#else
     // 1) Environment variable DHO_DB_PATH (Arcade system)
     const char* envPath = std::getenv("DHO_DB_PATH");
     if (envPath && envPath[0] != '\0') {
@@ -45,9 +52,16 @@ std::string CreditsManager::resolveDatabasePath() {
         }
     }
     return fallbackPath;
+#endif
 }
 
 void CreditsManager::init() {
+#if defined(__ANDROID__)
+    dbAvailable = false;
+    currentCredits = 999;
+    lastCredits = 999;
+    hasShownInitial = true;
+#else
     resolvedDbPath = resolveDatabasePath();
     if (!resolvedDbPath.empty()) {
         int initial = readCreditsFromDb(resolvedDbPath);
@@ -58,9 +72,14 @@ void CreditsManager::init() {
             std::cout << "[CreditsManager] Initial credits: " << currentCredits << "\n";
         }
     }
+#endif
 }
 
 int CreditsManager::readCreditsFromDb(const std::string& path) {
+#if defined(__ANDROID__)
+    (void)path;
+    return 999;
+#else
     std::lock_guard<std::mutex> lock(dbMutex);
     sqlite3* db = nullptr;
     if (sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_SHAREDCACHE, nullptr) != SQLITE_OK) {
@@ -95,9 +114,15 @@ int CreditsManager::readCreditsFromDb(const std::string& path) {
     sqlite3_close(db);
 
     return credits;
+#endif
 }
 
 bool CreditsManager::writeCreditsToDb(const std::string& path, int newCredits) {
+#if defined(__ANDROID__)
+    (void)path;
+    (void)newCredits;
+    return true;
+#else
     std::lock_guard<std::mutex> lock(dbMutex);
     sqlite3* db = nullptr;
     if (sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_SHAREDCACHE, nullptr) != SQLITE_OK) {
@@ -121,6 +146,7 @@ bool CreditsManager::writeCreditsToDb(const std::string& path, int newCredits) {
     }
     sqlite3_close(db);
     return ok;
+#endif
 }
 
 void CreditsManager::update(float dt) {

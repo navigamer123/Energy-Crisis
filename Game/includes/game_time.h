@@ -44,7 +44,6 @@ inline SeasonType getSeasonForDay(int day, int finalDay = 20) {
     int d = (day < 1) ? 1 : day;
     int daysPerSeason = std::max(1, finalDay / 4);
     int seasonIdx = (d - 1) / daysPerSeason;
-    if (seasonIdx > 3) seasonIdx = 3;
     return static_cast<SeasonType>(seasonIdx % 4);
 }
 

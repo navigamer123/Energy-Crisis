@@ -18,6 +18,7 @@ struct MatchConfig {
     std::vector<std::string> mutators;              // rule variations by name, read by later features
     int mapPreset = 0;                              // 0 = standard map (the only layout so far)
     bool sandbox = false;                           // no victory: the match never ends
+    bool isBlitz = false;                           // 5m Blitz match: higher land prices, max 4 bought plots
 
     // Valid ranges the engine enforces (init() clamps out-of-range values)
     static constexpr int MIN_FINAL_DAY = 1;

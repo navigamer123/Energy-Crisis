@@ -52,4 +52,28 @@ struct Rect {
 using FloatRect = Rect<float>;
 using IntRect = Rect<int>;
 
+struct Color {
+    unsigned char r{0};
+    unsigned char g{0};
+    unsigned char b{0};
+    unsigned char a{255};
+    constexpr Color() = default;
+    constexpr Color(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha = 255)
+        : r(red), g(green), b(blue), a(alpha) {}
+    constexpr bool operator==(const Color& o) const { return r == o.r && g == o.g && b == o.b && a == o.a; }
+    constexpr bool operator!=(const Color& o) const { return !(*this == o); }
+    static const Color Red;
+    static const Color Green;
+    static const Color Yellow;
+    static const Color White;
+    static const Color Transparent;
+};
+
+inline const Color Color::Red{255, 0, 0, 255};
+inline const Color Color::Green{0, 255, 0, 255};
+inline const Color Color::Yellow{255, 255, 0, 255};
+inline const Color Color::White{255, 255, 255, 255};
+inline const Color Color::Transparent{0, 0, 0, 0};
+
 } // namespace sf
+

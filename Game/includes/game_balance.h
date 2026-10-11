@@ -212,13 +212,21 @@ constexpr int LAND_BASE_COST_MONEY = 150;
 constexpr int LAND_BASE_COST_GOLD = 150; // Legacy backwards compatibility
 constexpr int LAND_TIER_COST_GROWTH = 45;
 
+constexpr int LAND_BLITZ_BASE_COST_MONEY = 400;
+constexpr int LAND_BLITZ_TIER_COST_GROWTH = 150;
+constexpr int LAND_BLITZ_MAX_PURCHASES = 4;
+constexpr int LAND_BLITZ_MAX_TIER = 1 + LAND_BLITZ_MAX_PURCHASES; // 1 starter + 4 purchases = 5
+
 // row/col are counted from the player's own starting corner (col 0 = far side,
 // col 2 = river side), so both players pay the same price for mirrored plots.
-inline int getLandPlotCost(int row, int col) {
+inline int getLandPlotCost(int row, int col, bool isBlitz = false) {
+  if (isBlitz) {
+    return LAND_BLITZ_BASE_COST_MONEY + (row * 3 + col) * LAND_BLITZ_TIER_COST_GROWTH;
+  }
   return LAND_BASE_COST_MONEY + (row * 3 + col) * LAND_TIER_COST_GROWTH;
 }
-inline int getLandPlotCostMoney(int row, int col) {
-  return getLandPlotCost(row, col);
+inline int getLandPlotCostMoney(int row, int col, bool isBlitz = false) {
+  return getLandPlotCost(row, col, isBlitz);
 }
 
 // Feature 2A: Anti-spam diminishing returns (wake effect / density saturation)

@@ -33,6 +33,7 @@ UI_mainMenu::UI_mainMenu()
       requestPlay(false),
       requestQuit(false),
       selectedMainIndex(0),
+      selectedMatchTypeIndex(0),
       selectedModeIndex(0),
       selectedDifficultyIndex(1),
       selectedSettingsIndex(0),
@@ -176,6 +177,7 @@ void UI_mainMenu::returnToMain() {
     botVsBotMode = false;
     state = ArcadeMode::isEnabled() ? MenuState::PRESS_A_TO_START : MenuState::MAIN;
     selectedMainIndex = 0;
+    selectedMatchTypeIndex = 0;
     enterHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
     spaceHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
 }
@@ -389,8 +391,26 @@ void UI_mainMenu::drawCalibration(sf::RenderWindow& window, bool isBlue) {
 void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     drawHeader(window, true);
 
-    float screenWidth = VIRTUAL_WIDTH;
+    const sf::Color defaultBtn = theme::Button;
+    const sf::Color whiteText = theme::TextPrimary;
 
+#if defined(__ANDROID__)
+    // Android: Clean 2-button screen (PLAY and QUIT) in fullscreen
+    sf::Vector2f mousePos = ui::pointerPos(window);
+    sf::FloatRect playBtn = mainButtonRect(0);
+    sf::FloatRect quitBtn = mainButtonRect(1);
+
+    bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
+    if (mouseMoved) {
+        lastMenuMousePos = mousePos;
+        if (playBtn.contains(mousePos)) selectedMainIndex = 0;
+        else if (quitBtn.contains(mousePos)) selectedMainIndex = 1;
+    }
+
+    drawButton(window, playBtn, toUtf8(Lang::tr("menu.play")), defaultBtn, theme::GoodFill, whiteText, selectedMainIndex == 0);
+    drawButton(window, quitBtn, toUtf8(Lang::tr("menu.quit")), defaultBtn, theme::BadFill, whiteText, selectedMainIndex == 1);
+#else
+    float screenWidth = VIRTUAL_WIDTH;
     sf::Vector2f mousePos = ui::pointerPos(window);
     sf::FloatRect playBtn = mainButtonRect(0);
     sf::FloatRect settingsBtn = mainButtonRect(1);
@@ -404,9 +424,6 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
         else if (quitBtn.contains(mousePos)) selectedMainIndex = 2;
     }
 
-    const sf::Color defaultBtn = theme::Button;
-    const sf::Color whiteText = theme::TextPrimary;
-
     drawButton(window, playBtn, toUtf8(Lang::tr("menu.play")), defaultBtn, theme::GoodFill, whiteText, selectedMainIndex == 0);
     drawButton(window, settingsBtn, toUtf8(Lang::tr("menu.settings")), defaultBtn, theme::InfoFill, whiteText, selectedMainIndex == 1);
     drawButton(window, quitBtn, toUtf8(Lang::tr("menu.quit")), defaultBtn, theme::BadFill, whiteText, selectedMainIndex == 2);
@@ -416,6 +433,58 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, MAIN_BTN_Y[2] + MAIN_BTN_H + 34.0f });
+        ui::drawText(window, hint);
+    }
+#endif
+}
+
+void UI_mainMenu::drawMatchTypeMenu(sf::RenderWindow& window) {
+    drawHeader(window);
+
+    float screenWidth = VIRTUAL_WIDTH;
+    float btnWidth = 560.0f;
+    float btnHeight = 54.0f;
+    float btnX = (screenWidth - btnWidth) / 2.0f;
+    float startY = 220.0f;
+    float spacing = 76.0f;
+
+    sf::Vector2f mousePos = ui::pointerPos(window);
+    sf::FloatRect stdBtn({ btnX, startY }, { btnWidth, btnHeight });
+    sf::FloatRect blitzBtn({ btnX, startY + spacing }, { btnWidth, btnHeight });
+    sf::FloatRect backBtn({ btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 16.0f }, { 240.0f, 46.0f });
+
+    bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
+    if (mouseMoved) {
+        lastMenuMousePos = mousePos;
+        if (stdBtn.contains(mousePos)) selectedMatchTypeIndex = 0;
+        else if (blitzBtn.contains(mousePos)) selectedMatchTypeIndex = 1;
+        else if (backBtn.contains(mousePos)) selectedMatchTypeIndex = 2;
+    }
+
+    const sf::Color defaultBtn = theme::Button;
+    const sf::Color whiteText = theme::TextPrimary;
+
+    drawButton(window, stdBtn, toUtf8(Lang::tr("menu.match_30m")), defaultBtn, theme::GoodFill, whiteText, selectedMatchTypeIndex == 0);
+    drawButton(window, blitzBtn, toUtf8(Lang::tr("menu.match_5m")), defaultBtn, sf::Color(140, 100, 20), whiteText, selectedMatchTypeIndex == 1);
+    drawButton(window, backBtn, toUtf8(Lang::tr("common.back")), defaultBtn, theme::ButtonHover, whiteText, selectedMatchTypeIndex == 2);
+
+    if (fontLoaded) {
+        std::string desc = (selectedMatchTypeIndex == 0)
+            ? Lang::tr("menu.match_30m_desc")
+            : (selectedMatchTypeIndex == 1)
+                ? Lang::tr("menu.match_5m_desc")
+                : Lang::tr("menu.mode_back_desc");
+
+        sf::Text& descText = ui::pooledText(font, toUtf8(desc), fontsize::Body);
+        descText.setFillColor(theme::TextSecondary);
+        sf::FloatRect db = descText.getLocalBounds();
+        descText.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 2.0f * spacing + 85.0f });
+        ui::drawText(window, descText);
+
+        sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_mode")), fontsize::Label);
+        hint.setFillColor(theme::TextMuted);
+        sf::FloatRect hb = hint.getLocalBounds();
+        hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 120.0f });
         ui::drawText(window, hint);
     }
 }
@@ -1003,19 +1072,53 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             onPlay();
             return;
         } else if (state == MenuState::MAIN) {
+#if defined(__ANDROID__)
+            if (isUp || isDown) {
+                selectedMainIndex = (selectedMainIndex == 0) ? 1 : 0;
+            } else if (isSelect) {
+                if (selectedMainIndex == 0) {
+                    blitzMode = true;
+                    selectedBotDifficulty = BotDifficulty::NONE;
+                    onPlay();
+                } else if (selectedMainIndex == 1) {
+                    onQuit();
+                }
+            }
+#else
             if (isUp) {
                 selectedMainIndex = (selectedMainIndex + 2) % 3;
             } else if (isDown) {
                 selectedMainIndex = (selectedMainIndex + 1) % 3;
             } else if (isSelect) {
                 if (selectedMainIndex == 0) {
-                    state = MenuState::MODE_SELECT;
-                    selectedModeIndex = 0;
+                    state = MenuState::MATCH_TYPE_SELECT;
+                    selectedMatchTypeIndex = 0;
                 } else if (selectedMainIndex == 1) {
                     onSettings();
                 } else if (selectedMainIndex == 2) {
                     onQuit();
                 }
+            }
+#endif
+        } else if (state == MenuState::MATCH_TYPE_SELECT) {
+            if (isUp) {
+                selectedMatchTypeIndex = (selectedMatchTypeIndex + 2) % 3;
+            } else if (isDown) {
+                selectedMatchTypeIndex = (selectedMatchTypeIndex + 1) % 3;
+            } else if (isSelect) {
+                if (selectedMatchTypeIndex == 0) {
+                    blitzMode = false; // 30m Battle
+                    state = MenuState::MODE_SELECT;
+                    selectedModeIndex = 0;
+                } else if (selectedMatchTypeIndex == 1) {
+                    blitzMode = true; // 5m Blitz
+                    state = MenuState::MODE_SELECT;
+                    selectedModeIndex = 0;
+                } else if (selectedMatchTypeIndex == 2) {
+                    state = MenuState::MAIN;
+                }
+            } else if (isEscape) {
+                state = MenuState::MAIN;
             }
         } else if (state == MenuState::MODE_SELECT) {
             if (isUp) {
@@ -1038,10 +1141,10 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     selectedBotDifficulty = BotDifficulty::HARD;
                     onPlay();
                 } else if (selectedModeIndex == 3) {
-                    state = MenuState::MAIN;
+                    state = MenuState::MATCH_TYPE_SELECT;
                 }
             } else if (isEscape) {
-                state = MenuState::MAIN;
+                state = MenuState::MATCH_TYPE_SELECT;
             }
         } else if (state == MenuState::BOT_DIFFICULTY) {
             if (isUp) {
@@ -1182,13 +1285,41 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             float screenWidth = VIRTUAL_WIDTH;
 
             if (state == MenuState::MAIN) {
+#if defined(__ANDROID__)
                 if (isPointInside(mainButtonRect(0), clickPos)) {
-                    state = MenuState::MODE_SELECT;
-                    selectedModeIndex = 0;
+                    blitzMode = true;
+                    selectedBotDifficulty = BotDifficulty::NONE;
+                    onPlay();
+                } else if (isPointInside(mainButtonRect(1), clickPos)) {
+                    onQuit();
+                }
+#else
+                if (isPointInside(mainButtonRect(0), clickPos)) {
+                    state = MenuState::MATCH_TYPE_SELECT;
+                    selectedMatchTypeIndex = 0;
                 } else if (isPointInside(mainButtonRect(1), clickPos)) {
                     onSettings();
                 } else if (isPointInside(mainButtonRect(2), clickPos)) {
                     onQuit();
+                }
+#endif
+            } else if (state == MenuState::MATCH_TYPE_SELECT) {
+                float btnWidth = 560.0f;
+                float btnHeight = 54.0f;
+                float btnX = (screenWidth - btnWidth) / 2.0f;
+                float startY = 220.0f;
+                float spacing = 76.0f;
+
+                if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
+                    blitzMode = false; // 30m Battle
+                    state = MenuState::MODE_SELECT;
+                    selectedModeIndex = 0;
+                } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
+                    blitzMode = true; // 5m Blitz
+                    state = MenuState::MODE_SELECT;
+                    selectedModeIndex = 0;
+                } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 16.0f }, { 240.0f, 46.0f } }, clickPos)) {
+                    state = MenuState::MAIN;
                 }
             } else if (state == MenuState::MODE_SELECT) {
                 float btnWidth = 540.0f;
@@ -1211,7 +1342,7 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     selectedBotDifficulty = BotDifficulty::HARD;
                     onPlay();
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 10.0f }, { 240.0f, 44.0f } }, clickPos)) {
-                    state = MenuState::MAIN;
+                    state = MenuState::MATCH_TYPE_SELECT;
                 }
             } else if (state == MenuState::BOT_DIFFICULTY) {
                 float btnWidth = 460.0f;
@@ -1328,6 +1459,8 @@ void UI_mainMenu::render(sf::RenderWindow& window) {
         drawCalibration(window, false);
     } else if (state == MenuState::MAIN) {
         drawMainMenu(window);
+    } else if (state == MenuState::MATCH_TYPE_SELECT) {
+        drawMatchTypeMenu(window);
     } else if (state == MenuState::MODE_SELECT) {
         drawModeSelectMenu(window);
     } else if (state == MenuState::PLAY_CONTROLS) {
@@ -1345,6 +1478,7 @@ void UI_mainMenu::render(sf::RenderWindow& window) {
 void UI_mainMenu::showState(MenuState s) {
     state = s;
     selectedMainIndex = 0;
+    selectedMatchTypeIndex = 0;
     selectedModeIndex = 0;
     selectedDifficultyIndex = settingsDifficultyIndex;
     selectedSettingsIndex = 0;

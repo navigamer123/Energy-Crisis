@@ -46,6 +46,7 @@ private:
     UIBot bot;
     UIBot bot1;
     bool botVsBotMode = false;
+    bool isBlitzMode = false;
     UI_tutorial tutorial;
     UI_fx fx; // [b-effects] juice, power grid, lighting, river, seasons and audio feedback
 
@@ -281,6 +282,9 @@ public:
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
     void render(sf::RenderWindow& window);
     void restartMatch();
+
+    void setBlitzMode(bool blitz) { isBlitzMode = blitz; }
+    bool getBlitzMode() const { return isBlitzMode; }
 
     // Input resync (UI_map_controls.cpp)
     void primeInputEdges(int player = 0); // Keys held right now are not fresh presses (0 = both players)
