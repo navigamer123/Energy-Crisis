@@ -231,8 +231,10 @@ void UI_map::restartMatch() {
 
 bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
     for (const auto& plot : engine.getLandPlots()) {
-        if (plot.playerOwner == player && plot.isPurchased && plot.bounds.contains(pos)) {
-            return true;
+        if (plot.playerOwner == player && plot.isPurchased) {
+            if (plot.bounds.contains(pos)) {
+                return true;
+            }
         }
     }
     return false;
@@ -361,33 +363,53 @@ void UI_map::render(sf::RenderWindow& window) {
         BuildingType sel = (player == 1) ? p1Sel : p2Sel;
         sf::Vector2f cursor = (player == 1) ? p1Pos : p2Pos;
         if (sel == BuildingType::NONE) continue;
+        // 1. Grid highlighting for all valid placement spots across purchased plots
+        if (sel != BuildingType::DEMOLISH) {
+            for (int r = 0; r < Balance::GRID_ROWS; ++r) {
+                for (int c = 0; c < Balance::GRID_COLS; ++c) {
+                    if (!engine.isSlotOnPurchasedLand(player, c, r)) continue;
+                    if (engine.getBuildingAtSlot(player, c, r) != nullptr) continue;
+                    sf::Vector2f slotPos = engine.getGridSlot(player, c, r);
+                    if (sel == BuildingType::HYDRO_PLANT && !engine.isRiverBankSlot(player, slotPos)) continue;
+
+                    sf::Color tileColor = engine.getPlacementTileColor(player, sel, c, r);
+                    if (tileColor.a == 0) continue;
+
+#if defined(__ANDROID__)
+                    sf::RectangleShape tileBox({ 32.0f, 28.0f });
+                    tileBox.setOrigin({ 16.0f, 14.0f });
+                    tileBox.setPosition(slotPos);
+                    tileBox.setFillColor(theme::withAlpha(tileColor, 55));
+                    tileBox.setOutlineThickness(2.0f);
+                    tileBox.setOutlineColor(theme::withAlpha(tileColor, 235));
+#else
+                    sf::RectangleShape tileBox({ 30.0f, 26.0f });
+                    tileBox.setOrigin({ 15.0f, 13.0f });
+                    tileBox.setPosition(slotPos);
+                    tileBox.setFillColor(theme::withAlpha(tileColor, 35));
+                    tileBox.setOutlineThickness(1.5f);
+                    tileBox.setOutlineColor(theme::withAlpha(tileColor, 180));
+#endif
+                    window.draw(tileBox);
+                }
+            }
+        } else {
+            // Demolition mode: highlight all own buildings with target indicators
+            for (const auto& b : engine.getBuildings()) {
+                if (b.playerOwner != player) continue;
+                sf::CircleShape demoRing(22.0f);
+                demoRing.setOrigin({ 22.0f, 22.0f });
+                demoRing.setPosition(b.position);
+                demoRing.setFillColor(sf::Color(230, 45, 45, 40));
+                demoRing.setOutlineThickness(2.0f);
+                demoRing.setOutlineColor(sf::Color(255, 60, 60, 220));
+                window.draw(demoRing);
+            }
+        }
+
         bool onPurchased = isPosOnPurchasedLand(player, cursor);
         if (sel == BuildingType::DEMOLISH || onPurchased) {
             sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? cursor : engine.snapToBuildingGrid(player, cursor);
-
-            // Dynamic grid highlighting for Windmill, Solar Panel, and Hydro Plant
-            // Note: DO NOT highlight or apply logic to any grid/plot that has not been purchased yet!
-            if (sel == BuildingType::WIND_TURBINE || sel == BuildingType::SOLAR_PANEL || sel == BuildingType::HYDRO_PLANT) {
-                for (int r = 0; r < Balance::GRID_ROWS; ++r) {
-                    for (int c = 0; c < Balance::GRID_COLS; ++c) {
-                        if (!engine.isSlotOnPurchasedLand(player, c, r)) continue;
-                        if (engine.getBuildingAtSlot(player, c, r) != nullptr) continue;
-                        sf::Vector2f slotPos = engine.getGridSlot(player, c, r);
-                        if (sel == BuildingType::HYDRO_PLANT && !engine.isRiverBankSlot(player, slotPos)) continue;
-
-                        sf::Color tileColor = engine.getPlacementTileColor(player, sel, c, r);
-                        if (tileColor.a == 0) continue;
-
-                        sf::RectangleShape tileBox({ 30.0f, 26.0f });
-                        tileBox.setOrigin({ 15.0f, 13.0f });
-                        tileBox.setPosition(slotPos);
-                        tileBox.setFillColor(theme::withAlpha(tileColor, 35));
-                        tileBox.setOutlineThickness(1.5f);
-                        tileBox.setOutlineColor(theme::withAlpha(tileColor, 180));
-                        window.draw(tileBox);
-                    }
-                }
-            }
 
             std::string reason;
             bool valid = engine.canPlaceBuilding(player, sel, targetPos, reason);
@@ -401,7 +423,8 @@ void UI_map::render(sf::RenderWindow& window) {
 
             nodes.drawBuildingGhost(window, font, resourcesLoaded, sel, targetPos, valid, engine.getBuildingCost(sel), ghostTint);
             ghosts[player - 1] = { true, sel, targetPos, valid };
-        } else {
+        } else if (cursor.y < 750.0f) {
+            // Only draw warning ring if cursor is over map/plots/water, not resting on HUD cards
             bool isOwnUnpurchased = false;
             int plotCost = 0;
             for (const auto& plot : engine.getLandPlots()) {
@@ -426,6 +449,15 @@ void UI_map::render(sf::RenderWindow& window) {
             if (resourcesLoaded) {
                 std::string labelText;
                 if (isOwnUnpurchased) {
+#if defined(__ANDROID__)
+                    if (player == 2 && bot.isActive()) {
+                        labelText = isEn ? ("[BOT] BUY PLOT (" + std::to_string(plotCost) + " $)")
+                                         : ("[БОТ] КУПИ ПАРЦЕЛ (" + std::to_string(plotCost) + " $)");
+                    } else {
+                        labelText = isEn ? ("[TAP] BUY PLOT (" + std::to_string(plotCost) + " $)")
+                                         : ("[ДОКОСНИ] КУПИ ПАРЦЕЛ (" + std::to_string(plotCost) + " $)");
+                    }
+#else
                     if (ArcadeMode::isEnabled()) {
                         labelText = isEn ? ("[A] BUY PLOT (" + std::to_string(plotCost) + " $)")
                                          : ("[A] КУПИ ПАРЦЕЛ (" + std::to_string(plotCost) + " $)");
@@ -435,6 +467,7 @@ void UI_map::render(sf::RenderWindow& window) {
                                          : ((player == 1) ? ("[SPACE] КУПИ ПАРЦЕЛ (" + std::to_string(plotCost) + " $)")
                                                            : ("[ENTER] КУПИ ПАРЦЕЛ (" + std::to_string(plotCost) + " $)"));
                     }
+#endif
                 } else {
                     labelText = isEn ? "[!] UNPURCHASED LAND" : "[!] НЕЗАКУПЕНА ТЕРИТОРИЯ";
                 }
@@ -502,7 +535,9 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // 12. Left & Right Building Menus
     p1Buildings.setHotkeys(BuildHotkeys::DIGITS);
+    p1Buildings.setBot(false);
     p2Buildings.setHotkeys(bot.isActive() ? BuildHotkeys::NONE : BuildHotkeys::NUMPAD);
+    p2Buildings.setBot(bot.isActive());
     p1Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p1Sel, p1Pos);
     p2Buildings.draw(window, font, resourcesLoaded, mousePos, engine, p2Sel, p2Pos);
 

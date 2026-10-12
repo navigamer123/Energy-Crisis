@@ -40,12 +40,13 @@ int main() {
         cfg.graceDays = 0;
         engine.init(cfg);
 
-        // Give Player 1 plenty of gold
-        engine.getPlayerEconomyMut(1).gold = 50000;
+        // Give Player 1 realistic 5m blitz cash (4000 money)
+        engine.getPlayerEconomyMut(1).money = 4000;
+        engine.getPlayerEconomyMut(1).gold = 0;
 
         int purchasedCount = 0;
         std::string msg;
-        // Try to buy 6 land plots
+        // Try to buy 6 land plots with 4000 cash
         for (int i = 0; i < 6; ++i) {
             bool ok = engine.buyNextLandTier(1, msg);
             if (ok) {
@@ -53,13 +54,21 @@ int main() {
                 std::cout << "  Purchased land tier " << purchasedCount << " successfully.\n";
             } else {
                 std::cout << "  Purchase rejected at attempt " << (i + 1) << " with message: " << msg << "\n";
-                assert(msg.find("ЛИМИТ") != std::string::npos || msg.find("LIMIT") != std::string::npos);
+                // Rejected due to cash shortage for the 5th plot (cost has a zero added: 11500 $)
+                assert(msg.find("ПАРИ") != std::string::npos || msg.find("MONEY") != std::string::npos);
                 break;
             }
         }
         assert(purchasedCount == 4);
         assert(engine.getPlayerEconomy(1).landTier == 5);
-        std::cout << "  -> PASS: Blitz strictly caps purchased land plots at 4.\n";
+        std::cout << "  -> PASS: Blitz naturally limits purchased land plots to 4 max with cash.\n";
+
+        // Verify that there is NO artificial hard limit: if player has 15000 cash, they CAN buy plot 5
+        engine.getPlayerEconomyMut(1).money = 15000;
+        bool ok5 = engine.buyNextLandTier(1, msg);
+        assert(ok5 == true);
+        assert(engine.getPlayerEconomy(1).landTier == 6);
+        std::cout << "  -> PASS: No hard limit: player with sufficient cash (15000 $) can buy the escalated 5th plot.\n";
     }
 
     // -------------------------------------------------------------------------

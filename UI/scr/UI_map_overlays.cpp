@@ -33,7 +33,8 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     mBox.setOutlineColor(hoverMenu ? theme::Focus : theme::LineStrong);
     window.draw(mBox);
 
-    // 2. Fullscreen Button [ ⛶ ЦЯЛ ЕКРАН (F11) ]
+#if !defined(__ANDROID__)
+    // 2. Fullscreen Button [ ⛶ ЦЯЛ ЕКРАН (F11) ] - not needed on mobile Android
     sf::FloatRect fsBtn({ 1600.0f - 275.0f, 900.0f - 34.0f }, { 135.0f, 28.0f });
     bool hoverFs = fsBtn.contains(mousePos);
     sf::RectangleShape fsBox(fsBtn.size);
@@ -42,9 +43,14 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     fsBox.setOutlineThickness(hoverFs ? 1.5f : 1.0f);
     fsBox.setOutlineColor(hoverFs ? theme::Focus : theme::LineStrong);
     window.draw(fsBox);
+#endif
 
-    // 3. Help Button [ ? ПОМОЩ (H) ]
+    // 3. Help Button
+#if defined(__ANDROID__)
+    sf::FloatRect helpBtn({ 1600.0f - 265.0f, 900.0f - 34.0f }, { 125.0f, 28.0f });
+#else
     sf::FloatRect helpBtn({ 1600.0f - 405.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
+#endif
     bool hoverHelp = helpBtn.contains(mousePos);
     sf::RectangleShape hBox(helpBtn.size);
     hBox.setPosition(helpBtn.position);
@@ -54,21 +60,31 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     window.draw(hBox);
 
     if (resourcesLoaded) {
+#if defined(__ANDROID__)
+        sf::Text& mt = ui::pooledText(font, toUtf8(isEn ? "MENU" : "МЕНЮ"), fontsize::Label);
+#else
         sf::Text& mt = ui::pooledText(font, toUtf8(isEn ? "ESC / MENU" : "ESC / МЕНЮ"), fontsize::Label);
+#endif
         mt.setStyle(sf::Text::Bold);
         mt.setFillColor(theme::TextPrimary);
         sf::FloatRect mb = mt.getLocalBounds();
         mt.setPosition({ menuBtn.position.x + (menuBtn.size.x - mb.size.x) / 2.0f, menuBtn.position.y + 5.0f });
         ui::drawText(window, mt, menuBtn);
 
+#if !defined(__ANDROID__)
         sf::Text& fst = ui::pooledText(font, toUtf8(isEn ? "FULLSCREEN (F11)" : "ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
         fst.setStyle(sf::Text::Bold);
         fst.setFillColor(theme::TextPrimary);
         sf::FloatRect fsb = fst.getLocalBounds();
         fst.setPosition({ fsBtn.position.x + (fsBtn.size.x - fsb.size.x) / 2.0f, fsBtn.position.y + 6.0f });
         ui::drawText(window, fst, fsBtn);
+#endif
 
+#if defined(__ANDROID__)
+        sf::Text& htBtn = ui::pooledText(font, toUtf8(isEn ? "? HELP" : "? ПОМОЩ"), fontsize::Label);
+#else
         sf::Text& htBtn = ui::pooledText(font, toUtf8(isEn ? "? HELP (H)" : "? ПОМОЩ (H)"), fontsize::Label);
+#endif
         htBtn.setStyle(sf::Text::Bold);
         htBtn.setFillColor(theme::TextPrimary);
         sf::FloatRect htbBtn = htBtn.getLocalBounds();
@@ -76,6 +92,23 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
         ui::drawText(window, htBtn, helpBtn);
 
         // Persistent Controls Reminder Bar
+#if defined(__ANDROID__)
+        sf::RectangleShape helpBar({ 1060.0f, 26.0f });
+        helpBar.setPosition({ 250.0f, 900.0f - 30.0f });
+        helpBar.setFillColor(theme::withAlpha(theme::Panel, 225));
+        helpBar.setOutlineThickness(1.0f);
+        helpBar.setOutlineColor(theme::Line);
+        window.draw(helpBar);
+
+        std::string helpText = isEn
+            ? "Tap station: Gather  |  Tap card: Select  |  Tap plot: Place  |  Two-finger tap: Cancel"
+            : "Докоснете станция: Добив  |  Докоснете карта: Избор  |  Докоснете парцел: Постави  |  2 пръста: Отказ";
+        sf::Text& ht = ui::pooledText(font, toUtf8(helpText), fontsize::Caption);
+        ht.setFillColor(theme::TextSecondary);
+        sf::FloatRect htb = ht.getLocalBounds();
+        ht.setPosition({ 250.0f + (1060.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
+        ui::drawText(window, ht, sf::FloatRect(helpBar.getPosition(), helpBar.getSize()));
+#else
         sf::RectangleShape helpBar({ 930.0f, 26.0f });
         helpBar.setPosition({ 250.0f, 900.0f - 30.0f });
         helpBar.setFillColor(theme::withAlpha(theme::Panel, 225));
@@ -91,6 +124,7 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
         sf::FloatRect htb = ht.getLocalBounds();
         ht.setPosition({ 250.0f + (930.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
         ui::drawText(window, ht, sf::FloatRect(helpBar.getPosition(), helpBar.getSize()));
+#endif
     }
 }
 
@@ -200,6 +234,16 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
                         "- Upgrade using the button below the mine or key [F] (P1) / [RShift] (P2) / Joystick Button [C].\n"
                         "- When ALL human players stand on resource stations, time advances " + speedupStr + "x faster.",
                         theme::Gold);
+#if defined(__ANDROID__)
+            drawSection("4. TOUCH CONTROLS",
+                        "- TAP STATION: Gather resource instantly\n"
+                        "- TAP BUILDING CARD: Select building to construct\n"
+                        "- TAP OWNED PLOT: Place selected building / buy unowned plot\n"
+                        "- TAP UPGRADE BUTTON: Upgrade mine yield with Gold\n"
+                        "- TWO PLAYERS: Left screen half = Player 1 (West), Right half = Player 2 (East)\n"
+                        "- SYSTEM: [MENU] button at bottom right to Pause / Exit to Main Menu",
+                        theme::Good);
+#else
             drawSection("4. CONTROLS & SHORTCUTS",
                         isArcade ? "- ARCADE CONTROLS: [Joystick] - Move | [A] - Action/Mine | [D] - Building | [C] - Upgrade | [B] - Cancel\n"
                                    "- SYSTEM: [Top CG Button] - Help Handbook | [Top Person Button (2x)] - Exit Game"
@@ -207,6 +251,7 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
                                    "- PLAYER 2 (East/Pink): [Arrows] - Move | [ENTER/Click] - Build/Mine | [PgDn]/[PgUp] or [Num1-6] - Building | [RShift] - Upgrade | [Del] - Demolish\n"
                                    "- SYSTEM: [ESC] - Pause Menu | [H]/[F1] - Help | [F11] - Fullscreen | [Tab] - Energy Dashboard",
                         theme::Good);
+#endif
         } else {
             const std::string graceLine = (graceDays == 1)
                 ? "- Ден 1 е ГРАТИСЕН ПЕРИОД: Градът иска 0 MW за спокойно първоначално развитие!\n"
@@ -236,6 +281,16 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
                         " пъти по-бързо (ботът не ускорява времето).",
                         theme::Gold);
 
+#if defined(__ANDROID__)
+            drawSection("4. СЕНЗОРНО УПРАВЛЕНИЕ",
+                        "- ДОКОСВАНЕ НА СТАНЦИЯ: Мигновен добив на ресурс\n"
+                        "- ДОКОСВАНЕ НА КАРТА: Избор на сграда за строеж\n"
+                        "- ДОКОСВАНЕ НА ПАРЦЕЛ: Поставяне на избраната сграда / покупка на нов парцел\n"
+                        "- ДОКОСВАНЕ НА ЪПГРЕЙД: Надграждане на мината със Злато\n"
+                        "- ДВАМА ИГРАЧИ: Лява половина = Играч 1 (Запад), Дясна половина = Играч 2 (Изток)\n"
+                        "- СИСТЕМНИ: Бутон [МЕНЮ] долу вдясно за Пауза / Изход към Главно меню",
+                        theme::Good);
+#else
             drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
                         isArcade ? "- АРКАДНО УПРАВЛЕНИЕ: [Стик] - Движение | [A] - Действие/Добив | [D] - Сграда | [C] - Ъпгрейд | [B] - Отказ\n"
                                    "- СИСТЕМНИ: [Горен бутон CG] - Наръчник/Помощ | [Горен бутон Човече (2x)] - Изход от играта"
@@ -244,6 +299,7 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
                                    "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран\n"
                                    "- ИНФОРМАЦИЯ: задръжте [Tab] - Енергийно табло  |  [L] в паузата - Дневник на събитията  |  [F3] - Панел за разработчици",
                         theme::Good);
+#endif
         }
     }
 }
@@ -308,8 +364,13 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 16.0f });
         ui::drawText(window, tHeader);
 
+#if defined(__ANDROID__)
+        std::string subTxt = isEn ? "Tap an option to select"
+                                  : "Докоснете опция за избор";
+#else
         std::string subTxt = isEn ? "Use [Arrows] / [Enter] or Mouse to select"
                                   : "Използвайте [Стрелки] / [Enter] или мишката за избор";
+#endif
         sf::Text& tSub = ui::pooledText(font, toUtf8(subTxt), fontsize::Label);
         tSub.setFillColor(theme::TextSecondary);
         sf::FloatRect sb = tSub.getLocalBounds();
@@ -340,6 +401,13 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
 
     bool isEn = (UI_settings::get().getLanguage() == "en");
 
+#if defined(__ANDROID__)
+    std::string resumeLbl  = isEn ? "RESUME" : "ПРОДЪЛЖИ";
+    std::string restartLbl = isEn ? "NEW GAME" : "НОВА ИГРА";
+    std::string helpLbl    = isEn ? "HELP & RULES" : "ПОМОЩ И ПРАВИЛА";
+    std::string logLbl     = isEn ? "EVENT LOG" : "ДНЕВНИК НА СЪБИТИЯТА";
+    std::string menuLbl    = isEn ? "MAIN MENU" : "ГЛАВНО МЕНЮ";
+#else
     std::string resumeLbl  = isEn ? (isArcade ? "RESUME  [B / A]" : "RESUME  [ESC / ENTER]")
                                   : (isArcade ? "ПРОДЪЛЖИ  [B / A]" : "ПРОДЪЛЖИ  [ESC / ENTER]");
     std::string restartLbl = isEn ? "NEW GAME  [R]" : "НОВА ИГРА  [R]";
@@ -347,6 +415,7 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
                                   : (isArcade ? "ПОМОЩ И ПРАВИЛА  [CG]" : "ПОМОЩ И ПРАВИЛА  [H]");
     std::string logLbl     = isEn ? "EVENT LOG  [L]" : "ДНЕВНИК НА СЪБИТИЯТА  [L]";
     std::string menuLbl    = isEn ? "MAIN MENU  [M]" : "ГЛАВНО МЕНЮ  [M]";
+#endif
 
     PauseOption opts[5] = {
         { pauseResumeBtn,  resumeLbl,  theme::GoodFill, theme::GoodFill, theme::Good },

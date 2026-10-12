@@ -104,8 +104,8 @@ std::string UI_tutorial::getStepDescription(int player, TutorialStep currentStep
             return isEn ? "Tap onto the SILICON station to gather Silicon."
                         : "Докоснете станция СИЛИЦИЙ, за да съберете Силиций.";
         case TutorialStep::SELECT_SOLAR:
-            return isEn ? "Tap the Solar Panel card in the bottom bar to select it."
-                        : "Докоснете картата на Слънчевия панел в долния панел за избор.";
+            return isEn ? "Tap the Solar Panel card in the left panel to select it."
+                        : "Докоснете картата на Слънчевия панел в левия панел за избор.";
         case TutorialStep::PLACE_SOLAR:
             return isEn ? "Tap on any open plot on your land grid to place the Solar Panel!"
                         : "Докоснете свободен парцел в мрежата си за поставяне!";
@@ -601,9 +601,14 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
     float progressRatio = 0.0f;
     bool showNextBtn = false;
     bool isArcade = ArcadeMode::isEnabled();
+#if defined(__ANDROID__)
+    showNextBtn = true;
+    std::string nextBtnLabel = isEn ? "NEXT [TAP]" : "НАПРЕД [ДОКОСНИ]";
+#else
     std::string nextBtnLabel = isArcade ? (isEn ? "NEXT [A]" : "НАПРЕД [A]")
                                         : (isEn ? (player == 1 ? "NEXT [SPACE]" : "NEXT [ENTER]")
                                                 : (player == 1 ? "НАПРЕД [SPACE]" : "НАПРЕД [ENTER]"));
+#endif
 
     switch (currentStep) {
         case TutorialStep::WELCOME:
@@ -615,6 +620,10 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
                                 : "Движение: [СТИК]  |  Действие: [A]  |  Сграда: [D]  |  Отказ: [B]\n"
                                   "Първо съберете суровини за изграждане на Слънчев панел.";
             } else {
+#if defined(__ANDROID__)
+                descText = isEn ? "Tap stations to gather resources. Tap buildings to select & place!"
+                                : "Докоснете станциите за ресурси. Докоснете сградите за строеж!";
+#else
                 if (player == 1) {
                     descText = isEn ? "Move: [W/A/S/D]  |  Action: [SPACE]  |  Build: [E]  |  Cancel: [X]\n"
                                       "Or use Mouse to select & place. Gather resources first!"
@@ -626,11 +635,16 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
                                     : "Движение: [СТРЕЛКИ]  |  Действие: [ENTER]  |  Сграда: [PgDn]  |  Отказ: [DEL]\n"
                                       "Първо съберете ресурси за Слънчев панел.";
                 }
+#endif
             }
             showNextBtn = true;
+#if defined(__ANDROID__)
+            nextBtnLabel = isEn ? "START [TAP]" : "ЗАПОЧНИ [ДОКОСНИ]";
+#else
             nextBtnLabel = isArcade ? (isEn ? "START [A]" : "ЗАПОЧНИ [A]")
                                     : (isEn ? (player == 1 ? "START [SPACE]" : "START [ENTER]")
                                             : (player == 1 ? "ЗАПОЧНИ [SPACE]" : "ЗАПОЧНИ [ENTER]"));
+#endif
             break;
 
         case TutorialStep::GATHER_WOOD:
@@ -796,6 +810,12 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
     } else {
         nextBtnLabel = isEn ? "NEXT [TAP]" : "НАПРЕД [ДОКОСНИ]";
     }
+    descText = getStepDescription(player, currentStep, engine);
+    if (currentStep == TutorialStep::PLACE_SOLAR) {
+        progressText = isEn ? "[TAP PLOT]: Place" : "[ДОКОСНИ ПАРЦЕЛ]: Постави";
+    } else if (currentStep == TutorialStep::UPGRADE_MINE) {
+        progressText = isEn ? "[TAP UPGRADE]: Upgrade" : "[ДОКОСНИ ЪПГРЕЙД]: Надграждане";
+    }
 #endif
 
     // Draw Badge
@@ -898,6 +918,7 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
 
     bool isEn = (UI_settings::get().getLanguage() == "en");
     bool isArcade = ArcadeMode::isEnabled();
+    (void)isArcade;
 
     // Dim background if both players or active single player is in WELCOME or COMPLETED
     bool p1Dim = (p1Active && (p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED));
@@ -923,7 +944,11 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
             if (st) {
                 sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
                 std::string prefix = isEn ? "MINE: " : "ДОБИВ: ";
+#if defined(__ANDROID__)
+                std::string act = isEn ? " [TAP]" : " [ДОКОСНИ]";
+#else
                 std::string act = isArcade ? " [A]" : (player == 1 ? " [SPACE]" : " [ENTER]");
+#endif
                 return { center, prefix + name + act };
             }
         }
@@ -934,7 +959,11 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     if (p1Active && p1Step != TutorialStep::INACTIVE && p1Step != TutorialStep::WELCOME && p1Step != TutorialStep::COMPLETED) {
         if (p1Step == TutorialStep::SELECT_SOLAR) {
             sf::Vector2f arrowTarget(248.0f, 170.0f);
+#if defined(__ANDROID__)
+            std::string p1Sel = isEn ? " [TAP]" : " [ДОКОСНИ]";
+#else
             std::string p1Sel = isArcade ? " [D]" : " [E]";
+#endif
             drawArrow(window, arrowTarget, isEn ? ("P1: SELECT" + p1Sel) : ("P1: ИЗБЕРЕТЕ" + p1Sel), font, animTime, ArrowDir::LEFT, theme::P1);
         } else if (p1Step == TutorialStep::PLACE_SOLAR) {
             int targetCol = 1;
@@ -949,13 +978,21 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                 }
             }
             sf::Vector2f slot = engine.getGridSlot(1, targetCol, targetRow);
+#if defined(__ANDROID__)
+            std::string p1Place = isEn ? " [TAP]" : " [ДОКОСНИ]";
+#else
             std::string p1Place = isArcade ? " [A]" : " [SPACE]";
+#endif
             drawArrow(window, slot, isEn ? ("P1: PLACE" + p1Place) : ("P1: ПОСТАВЕТЕ" + p1Place), font, animTime, ArrowDir::DOWN, theme::P1);
         } else if (p1Step == TutorialStep::UPGRADE_MINE) {
             const auto* st = nodes.getStation(1, ResourceType::WOOD);
             if (st) {
                 sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
+#if defined(__ANDROID__)
+                std::string p1Up = isEn ? " [TAP]" : " [ДОКОСНИ]";
+#else
                 std::string p1Up = isArcade ? " [C]" : " [F]";
+#endif
                 drawArrow(window, center, isEn ? ("P1: UPGRADE" + p1Up) : ("P1: НАДГРАДИ" + p1Up), font, animTime, ArrowDir::DOWN, theme::P1);
             }
         } else {
@@ -970,7 +1007,11 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
     if (isCoop && p2Active && p2Step != TutorialStep::INACTIVE && p2Step != TutorialStep::WELCOME && p2Step != TutorialStep::COMPLETED) {
         if (p2Step == TutorialStep::SELECT_SOLAR) {
             sf::Vector2f arrowTarget(1350.0f, 170.0f);
+#if defined(__ANDROID__)
+            std::string p2Sel = isEn ? " [TAP]" : " [ДОКОСНИ]";
+#else
             std::string p2Sel = isArcade ? " [D]" : " [PgDn]";
+#endif
             drawArrow(window, arrowTarget, isEn ? ("P2: SELECT" + p2Sel) : ("P2: ИЗБЕРЕТЕ" + p2Sel), font, animTime, ArrowDir::RIGHT, theme::P2);
         } else if (p2Step == TutorialStep::PLACE_SOLAR) {
             int targetCol = 7;
@@ -985,13 +1026,21 @@ void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool font
                 }
             }
             sf::Vector2f slot = engine.getGridSlot(2, targetCol, targetRow);
+#if defined(__ANDROID__)
+            std::string p2Place = isEn ? " [TAP]" : " [ДОКОСНИ]";
+#else
             std::string p2Place = isArcade ? " [A]" : " [ENTER]";
+#endif
             drawArrow(window, slot, isEn ? ("P2: PLACE" + p2Place) : ("P2: ПОСТАВЕТЕ" + p2Place), font, animTime, ArrowDir::DOWN, theme::P2);
         } else if (p2Step == TutorialStep::UPGRADE_MINE) {
             const auto* st = nodes.getStation(2, ResourceType::WOOD);
             if (st) {
                 sf::Vector2f center(st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 35.0f);
+#if defined(__ANDROID__)
+                std::string p2Up = isEn ? " [TAP]" : " [ДОКОСНИ]";
+#else
                 std::string p2Up = isArcade ? " [C]" : " [Shift]";
+#endif
                 drawArrow(window, center, isEn ? ("P2: UPGRADE" + p2Up) : ("P2: НАДГРАДИ" + p2Up), font, animTime, ArrowDir::DOWN, theme::P2);
             }
         } else {
@@ -1027,11 +1076,30 @@ bool UI_tutorial::handleClick(sf::Vector2f mousePos, GameEngine* engine) {
                 skipP1(engine);
                 return true;
             }
+#if defined(__ANDROID__)
+            if (isTouchInside(p1NextBtnBounds, mousePos, 18.0f)) {
+                if (p1Step == TutorialStep::WELCOME) p1Step = TutorialStep::GATHER_WOOD;
+                else if (p1Step == TutorialStep::GATHER_WOOD) p1Step = TutorialStep::GATHER_IRON;
+                else if (p1Step == TutorialStep::GATHER_IRON) p1Step = TutorialStep::GATHER_COPPER;
+                else if (p1Step == TutorialStep::GATHER_COPPER) p1Step = TutorialStep::GATHER_SILICON;
+                else if (p1Step == TutorialStep::GATHER_SILICON) p1Step = TutorialStep::SELECT_SOLAR;
+                else if (p1Step == TutorialStep::SELECT_SOLAR) p1Step = TutorialStep::PLACE_SOLAR;
+                else if (p1Step == TutorialStep::PLACE_SOLAR) p1Step = TutorialStep::UPGRADE_MINE;
+                else if (p1Step == TutorialStep::UPGRADE_MINE) {
+                    if (engine) grantExitBoost(1, *engine);
+                    p1Step = TutorialStep::COMPLETED;
+                } else {
+                    skipP1(engine);
+                }
+                return true;
+            }
+#else
             if ((p1Step == TutorialStep::WELCOME || p1Step == TutorialStep::COMPLETED) && isTouchInside(p1NextBtnBounds, mousePos, 18.0f)) {
                 if (p1Step == TutorialStep::WELCOME) p1Step = TutorialStep::GATHER_WOOD;
                 else skipP1(engine);
                 return true;
             }
+#endif
         }
         // Player 2 Card Clicks
         if (p2Active && p2Step != TutorialStep::INACTIVE) {
@@ -1039,11 +1107,30 @@ bool UI_tutorial::handleClick(sf::Vector2f mousePos, GameEngine* engine) {
                 skipP2(engine);
                 return true;
             }
+#if defined(__ANDROID__)
+            if (isTouchInside(p2NextBtnBounds, mousePos, 18.0f)) {
+                if (p2Step == TutorialStep::WELCOME) p2Step = TutorialStep::GATHER_WOOD;
+                else if (p2Step == TutorialStep::GATHER_WOOD) p2Step = TutorialStep::GATHER_IRON;
+                else if (p2Step == TutorialStep::GATHER_IRON) p2Step = TutorialStep::GATHER_COPPER;
+                else if (p2Step == TutorialStep::GATHER_COPPER) p2Step = TutorialStep::GATHER_SILICON;
+                else if (p2Step == TutorialStep::GATHER_SILICON) p2Step = TutorialStep::SELECT_SOLAR;
+                else if (p2Step == TutorialStep::SELECT_SOLAR) p2Step = TutorialStep::PLACE_SOLAR;
+                else if (p2Step == TutorialStep::PLACE_SOLAR) p2Step = TutorialStep::UPGRADE_MINE;
+                else if (p2Step == TutorialStep::UPGRADE_MINE) {
+                    if (engine) grantExitBoost(2, *engine);
+                    p2Step = TutorialStep::COMPLETED;
+                } else {
+                    skipP2(engine);
+                }
+                return true;
+            }
+#else
             if ((p2Step == TutorialStep::WELCOME || p2Step == TutorialStep::COMPLETED) && isTouchInside(p2NextBtnBounds, mousePos, 18.0f)) {
                 if (p2Step == TutorialStep::WELCOME) p2Step = TutorialStep::GATHER_WOOD;
                 else skipP2(engine);
                 return true;
             }
+#endif
         }
     } else {
         if (p1Active && p1Step != TutorialStep::INACTIVE) {

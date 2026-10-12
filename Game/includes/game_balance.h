@@ -214,16 +214,24 @@ constexpr int LAND_TIER_COST_GROWTH = 45;
 
 constexpr int LAND_BLITZ_BASE_COST_MONEY = 400;
 constexpr int LAND_BLITZ_TIER_COST_GROWTH = 150;
+constexpr int LAND_BLITZ_SOFT_CAP_PURCHASES = 4;
 constexpr int LAND_BLITZ_MAX_PURCHASES = 4;
 constexpr int LAND_BLITZ_MAX_TIER = 1 + LAND_BLITZ_MAX_PURCHASES; // 1 starter + 4 purchases = 5
 
 // row/col are counted from the player's own starting corner (col 0 = far side,
 // col 2 = river side), so both players pay the same price for mirrored plots.
 inline int getLandPlotCost(int row, int col, bool isBlitz = false) {
+  int tierIndex = row * 3 + col;
   if (isBlitz) {
-    return LAND_BLITZ_BASE_COST_MONEY + (row * 3 + col) * LAND_BLITZ_TIER_COST_GROWTH;
+    int cost = LAND_BLITZ_BASE_COST_MONEY + tierIndex * LAND_BLITZ_TIER_COST_GROWTH;
+    // Limit with cash: after 4 purchases (tierIndex > 4), add a zero to the cost (* 10)
+    // so players can naturally only afford up to 4 plots in a 5m blitz match without an artificial hard limit.
+    if (tierIndex > LAND_BLITZ_SOFT_CAP_PURCHASES) {
+      cost *= 10;
+    }
+    return cost;
   }
-  return LAND_BASE_COST_MONEY + (row * 3 + col) * LAND_TIER_COST_GROWTH;
+  return LAND_BASE_COST_MONEY + tierIndex * LAND_TIER_COST_GROWTH;
 }
 inline int getLandPlotCostMoney(int row, int col, bool isBlitz = false) {
   return getLandPlotCost(row, col, isBlitz);

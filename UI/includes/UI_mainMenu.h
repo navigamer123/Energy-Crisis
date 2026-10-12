@@ -107,7 +107,14 @@ public:
     bool isQuitRequested() const { return requestQuit; }
     void resetPlayRequest() { requestPlay = false; }
     ControlScheme getSelectedControlScheme() const {
+#if defined(__ANDROID__)
+        if (selectedBotDifficulty == BotDifficulty::NONE) {
+            return ControlScheme::BOTH_MOUSE;
+        }
+        return ControlScheme::P1_MOUSE_P2_KEYBOARD;
+#else
         return playControls.getSelectedScheme();
+#endif
     }
     BotDifficulty getSelectedBotDifficulty() const {
         return selectedBotDifficulty;

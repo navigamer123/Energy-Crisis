@@ -857,10 +857,6 @@ bool GameEngine::upgradeMine(int player, ResourceType type, std::string& outMsg)
 
 bool GameEngine::buyLandPlot(int player, int plotId, std::string& outMsg) {
     auto& econ = (player == 1) ? p1 : p2;
-    if (config.isBlitz && econ.landTier >= Balance::LAND_BLITZ_MAX_TIER) {
-        outMsg = "ДОСТИГНАТ Е ЛИМИТЪТ: МАКСИМУМ 4 ПАРЦЕЛА ЗА БЛИЦ РЕЖИМ!";
-        return false;
-    }
     for (auto& plot : landPlots) {
         if (plot.id == plotId && plot.playerOwner == player) {
             if (plot.isPurchased) {

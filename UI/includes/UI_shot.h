@@ -42,6 +42,8 @@ void setSeedEnv(unsigned int seed);
 float frameDt(float realDt);
 float clockSeconds(float realSeconds);
 void tickFrame();
+void setTouchPixelPos(sf::Vector2i pixelPos);
+void clearTouchPixelPos();
 } // namespace shot
 
 // Pointer position on the 1600x900 canvas. In screenshot mode the real mouse is ignored and a

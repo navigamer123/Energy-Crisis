@@ -49,10 +49,25 @@ void setSeedEnv(unsigned int seed) {
 #endif
 }
 
+static sf::Vector2i s_lastTouchPixelPos(-1, -1);
+static bool s_hasTouchPos = false;
+
+void setTouchPixelPos(sf::Vector2i pixelPos) {
+    s_lastTouchPixelPos = pixelPos;
+    s_hasTouchPos = true;
+}
+
+void clearTouchPixelPos() {
+    s_hasTouchPos = false;
+}
+
 } // namespace shot
 
 sf::Vector2f pointerPos(const sf::RenderWindow& window) {
     if (g_shotActive) return { -10000.0f, -10000.0f };
+    if (shot::s_hasTouchPos) {
+        return window.mapPixelToCoords(shot::s_lastTouchPixelPos);
+    }
     return window.mapPixelToCoords(sf::Mouse::getPosition(window));
 }
 

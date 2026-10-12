@@ -21,13 +21,15 @@ CPPFLAGS  = -IUI/includes -IGame/includes
 DEPFLAGS  = -MMD -MP
 LDFLAGS   =
 LIBS      = -lsfml-audio -lsfml-graphics -lsfml-window -lsfml-system -lsqlite3
-TARGET    ?= test_game
+TARGET    ?= Energy_Crisis
 
-ifeq ($(TARGET),ArcadeTemplate.x86_64)
+ifeq ($(TARGET),Energy_Crisis)
 CXXFLAGS  += -DARCADE_MODE=1
-BUILD_DIR = build/arcade
+BUILD_DIR  = build/arcade
+# Look for bundled libraries in $ORIGIN/lib for arcade build
+LDFLAGS   += -Wl,-rpath,'$$ORIGIN/lib' -Wl,--disable-new-dtags
 else
-BUILD_DIR = build/make
+BUILD_DIR  = build/make
 endif
 
 ifdef SFML_DIR
@@ -94,6 +96,9 @@ all: $(GAME_BIN) $(SFML_DLLS)
 
 $(GAME_BIN): $(GAME_OBJS)
 	$(CXX) $(LDFLAGS) $(GAME_OBJS) $(LIBS) -o $@
+ifeq ($(TARGET),Energy_Crisis)
+	@command -v patchelf >/dev/null 2>&1 && patchelf --force-rpath --set-rpath '$$ORIGIN/lib' $@ || true
+endif
 
 $(BUILD_DIR)/game/%.o: %.cpp
 	@$(call MKDIR_P,$(@D))
@@ -114,10 +119,14 @@ endif
 run: all
 	$(call RUN,$(GAME_BIN))
 
-# Arcade cabinet build: produces ArcadeTemplate.x86_64
+# Arcade cabinet build: produces Energy_Crisis
 arcade:
-	$(MAKE) TARGET=ArcadeTemplate.x86_64
+	$(MAKE) TARGET=Energy_Crisis
 .PHONY: arcade
+
+arcade-package:
+	./scripts/package_arcade.sh
+.PHONY: arcade-package
 
 # Android APK build target: compiles native C++ and packages APK via Gradle
 android:
@@ -166,7 +175,7 @@ $(ENGINE_OBJS): $(TEST_OBJ_DIR)/%.o: Game/scr/%.cpp
 clean:
 	$(call RM_RF,build)
 	$(call RM_RF,$(TEST_DIR)/bin)
-	-$(call RM_F,test_game ArcadeTemplate.x86_64 $(SFML_DLL_NAMES))
+	-$(call RM_F,test_game Energy_Crisis $(SFML_DLL_NAMES))
 
 -include $(GAME_OBJS:.o=.d) $(ENGINE_OBJS:.o=.d) $(TEST_BINS:$(EXE)=.d)
 

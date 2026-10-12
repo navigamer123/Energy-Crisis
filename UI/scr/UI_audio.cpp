@@ -125,15 +125,21 @@ void UI_audio::buildReadyBuffers() {
         const std::vector<sf::SoundChannel> mono = { sf::SoundChannel::Mono };
         try {
             for (const auto& s : sfxSamples) {
+                if (s.empty()) continue;
                 sfxBuffers.push_back(std::make_unique<sf::SoundBuffer>(s.data(), s.size(), 1u, AudioSynth::SFX_RATE, mono));
             }
-            for (int i = 0; i < VOICES; ++i) {
-                auto v = std::make_unique<sf::Sound>(*sfxBuffers.front());
-                v->setSpatializationEnabled(false);
-                voices.push_back(std::move(v));
+            if (!sfxBuffers.empty() && sfxBuffers.front()) {
+                for (int i = 0; i < VOICES; ++i) {
+                    auto v = std::make_unique<sf::Sound>(*sfxBuffers.front());
+                    v->setSpatializationEnabled(false);
+                    voices.push_back(std::move(v));
+                }
+                sfxBuilt = true;
+                std::cout << "[UI_audio] " << sfxBuffers.size() << " procedural sound effects ready (" << VOICES << " voices).\n";
+            } else {
+                std::cerr << "[UI_audio] No sound buffers loaded; sound effects disabled.\n";
+                disabled = true;
             }
-            sfxBuilt = true;
-            std::cout << "[UI_audio] " << sfxBuffers.size() << " procedural sound effects ready (" << VOICES << " voices).\n";
         } catch (const std::exception& e) {
             std::cerr << "[UI_audio] Sound effects unavailable (" << e.what() << ").\n";
             disabled = true;
@@ -145,20 +151,26 @@ void UI_audio::buildReadyBuffers() {
         if (worker.joinable()) worker.join();
         const std::vector<sf::SoundChannel> mono = { sf::SoundChannel::Mono };
         try {
-            dayBuffer = std::make_unique<sf::SoundBuffer>(daySamples.data(), daySamples.size(), 1u, AudioSynth::MUSIC_RATE, mono);
-            nightBuffer = std::make_unique<sf::SoundBuffer>(nightSamples.data(), nightSamples.size(), 1u, AudioSynth::MUSIC_RATE, mono);
-            dayMusic = std::make_unique<sf::Sound>(*dayBuffer);
-            nightMusic = std::make_unique<sf::Sound>(*nightBuffer);
-            for (sf::Sound* m : { dayMusic.get(), nightMusic.get() }) {
-                m->setSpatializationEnabled(false);
-                m->setLooping(true);
-                m->setVolume(0.0f);
+            if (!daySamples.empty() && !nightSamples.empty()) {
+                dayBuffer = std::make_unique<sf::SoundBuffer>(daySamples.data(), daySamples.size(), 1u, AudioSynth::MUSIC_RATE, mono);
+                nightBuffer = std::make_unique<sf::SoundBuffer>(nightSamples.data(), nightSamples.size(), 1u, AudioSynth::MUSIC_RATE, mono);
+                if (dayBuffer && nightBuffer) {
+                    dayMusic = std::make_unique<sf::Sound>(*dayBuffer);
+                    nightMusic = std::make_unique<sf::Sound>(*nightBuffer);
+                    for (sf::Sound* m : { dayMusic.get(), nightMusic.get() }) {
+                        if (m) {
+                            m->setSpatializationEnabled(false);
+                            m->setLooping(true);
+                            m->setVolume(0.0f);
+                        }
+                    }
+                    // Start together: both stems share tempo, chords and length, so they stay aligned
+                    if (dayMusic) dayMusic->play();
+                    if (nightMusic) nightMusic->play();
+                    musicBuilt = true;
+                    std::cout << "[UI_audio] Day/night music stems ready (" << AudioSynth::musicLoopSeconds() << " s loops).\n";
+                }
             }
-            // Start together: both stems share tempo, chords and length, so they stay aligned
-            dayMusic->play();
-            nightMusic->play();
-            musicBuilt = true;
-            std::cout << "[UI_audio] Day/night music stems ready (" << AudioSynth::musicLoopSeconds() << " s loops).\n";
         } catch (const std::exception& e) {
             std::cerr << "[UI_audio] Music unavailable (" << e.what() << ").\n";
         }
@@ -190,8 +202,10 @@ void UI_audio::play(Sfx id, int player, float volume, float pitch) {
 
 void UI_audio::playAtX(Sfx id, float x, float volume, float pitch) {
     if (disabled || !sfxBuilt || !sfxOn || masterPct <= 0 || sfxPct <= 0) return;
+    if (voices.empty() || sfxBuffers.empty()) return;
     int idx = static_cast<int>(id);
     if (idx < 0 || idx >= AudioSynth::SFX_COUNT || idx >= static_cast<int>(sfxBuffers.size())) return;
+    if (!sfxBuffers[static_cast<std::size_t>(idx)]) return;
     if (clock - lastPlayTime[static_cast<std::size_t>(idx)] < sfxMinInterval(id)) return;
     lastPlayTime[static_cast<std::size_t>(idx)] = clock;
 
@@ -199,6 +213,7 @@ void UI_audio::playAtX(Sfx id, float x, float volume, float pitch) {
     int best = 0;
     float oldest = 1e9f;
     for (int i = 0; i < VOICES; ++i) {
+        if (!voices[static_cast<std::size_t>(i)]) continue;
         if (voices[static_cast<std::size_t>(i)]->getStatus() != sf::SoundSource::Status::Playing) {
             best = i;
             oldest = -1.0f;
@@ -209,6 +224,7 @@ void UI_audio::playAtX(Sfx id, float x, float volume, float pitch) {
             best = i;
         }
     }
+    if (best >= static_cast<int>(voices.size()) || !voices[static_cast<std::size_t>(best)]) return;
     sf::Sound& v = *voices[static_cast<std::size_t>(best)];
     v.stop();
     v.setBuffer(*sfxBuffers[static_cast<std::size_t>(idx)]);
@@ -226,7 +242,7 @@ void UI_audio::update(float dt, Scene scene, float nightAmount) {
     if (disabled) return;
     clock += std::max(0.0f, dt);
     buildReadyBuffers();
-    if (!musicBuilt) return;
+    if (!musicBuilt || !dayMusic || !nightMusic) return;
 
     float night = Ease::clamp01(nightAmount);
     float targetDay = 0.0f, targetNight = 0.0f;

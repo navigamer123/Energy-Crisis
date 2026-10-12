@@ -28,10 +28,10 @@ static std::string formatCost(const BuildingCost& c) {
 // Which player the mouse acts for. Single Player: the human (P1). Co-op: only the player whose
 // scheme includes the mouse; in the shared-mouse scheme, the player whose half the pointer is in.
 int UI_map::mouseOwnerAt(sf::Vector2f pos) const {
-#if defined(__ANDROID__)
-    if (bot.isActive() || controlScheme != ControlScheme::BOTH_MOUSE) return 1;
-#endif
     if (bot.isActive()) return 1;
+#if defined(__ANDROID__)
+    return (pos.x < 800.0f) ? 1 : 2;
+#else
     switch (controlScheme) {
         case ControlScheme::P1_MOUSE_P2_KEYBOARD: return 1;
         case ControlScheme::P1_KEYBOARD_P2_MOUSE: return 2;
@@ -40,6 +40,7 @@ int UI_map::mouseOwnerAt(sf::Vector2f pos) const {
         case ControlScheme::BOTH_KEYBOARD:
         default:                                  return 0; // Arcade & Keyboard-only co-op: the mouse drives no player
     }
+#endif
 }
 
 // A modal is dismissed only by its own player's confirm/cancel keys
@@ -309,7 +310,11 @@ void UI_map::executeP1Action() {
         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p1Pos : engine.snapToBuildingGrid(1, p1Pos);
         std::string msg;
         if (engine.placeBuilding(1, sel, targetPos, msg)) {
+#if defined(__ANDROID__)
+            triggerPlayerPopup(1, "УСПЕХ", "Действието е успешно!", msg, "[ДОКОСНИ КАРТА]: Постави отново", theme::Good);
+#else
             triggerPlayerPopup(1, "УСПЕХ", "Действието е успешно!", msg, "[E]: Постави отново същата", theme::Good);
+#endif
             spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, theme::Good);
             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(1);
         } else {
@@ -334,7 +339,11 @@ void UI_map::executeP1Action() {
                 sf::Color c = st ? st->themeColor : theme::P1;
                 spawnMiningParticles(p1Pos, c, 18);
                 char tipBuf[64];
+#if defined(__ANDROID__)
+                std::snprintf(tipBuf, sizeof(tipBuf), "[ДОКОСНИ]: Добив (на %.1f сек)", newCd);
+#else
                 std::snprintf(tipBuf, sizeof(tipBuf), "[SPACE]: Добив (на %.1f сек)", newCd);
+#endif
                 triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", tipBuf, c);
                 spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), c);
             }
@@ -344,13 +353,21 @@ void UI_map::executeP1Action() {
                     if (!plot.isPurchased) {
                         std::string msg;
                         if (engine.buyLandPlot(1, plot.id, msg)) {
+#if defined(__ANDROID__)
+                            triggerPlayerPopup(1, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Изберете сграда за строеж.", "[ДОКОСНИ КАРТА]: Избери сграда", theme::Gold);
+#else
                             triggerPlayerPopup(1, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете E за избор на сграда.", "[E]: Избери сграда", theme::Gold);
+#endif
                             spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p1Pos, theme::Gold);
                         } else {
                             triggerPlayerModal(1, "НЕДОСТИГ НА ПАРИ", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари ($)!", theme::Warn);
                         }
                     } else {
+#if defined(__ANDROID__)
+                        triggerPlayerPopup(1, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[ДОКОСНИ КАРТА]: Изберете сграда за строеж", theme::P1);
+#else
                         triggerPlayerPopup(1, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[E]: Изберете сграда за строеж", theme::P1);
+#endif
                     }
                     break;
                 }
@@ -368,10 +385,17 @@ void UI_map::executeP2Action() {
         engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(pickedCard2);
         syncBuildingSelectionPos(2);
         BuildingCost c = engine.getBuildingCost(pickedCard2);
+#if defined(__ANDROID__)
+        triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                           (pickedCard2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                 : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
+                           "[ДОКОСНИ ЗЕМЯ]: Постави сграда | [ДОКОСНИ КАРТА]: Отказ", theme::P2);
+#else
         triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                            (pickedCard2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                  : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
                            "[ENTER НА ЗЕМЯ]: Постави | [PgDn]: Друга сграда | [Del]: Отказ", theme::P2);
+#endif
         spawnNotice(std::string("ИЗБРАНА СГРАДА: ") + c.nameBg, p2Pos, theme::P2);
         return;
     }
@@ -386,9 +410,15 @@ void UI_map::executeP2Action() {
                     engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(b.type);
                     syncBuildingSelectionPos(2);
                     BuildingCost c = engine.getBuildingCost(b.type);
+#if defined(__ANDROID__)
+                    triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                                       formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
+                                       "[ДОКОСНИ ЗЕМЯ]: Постави сграда | [ДОКОСНИ ДРУГАДЕ]: Отказ", theme::P2);
+#else
                     triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                        formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
                                        "[ENTER НА ЗЕМЯ]: Постави | [PgDn]: Друга сграда | [Del]: Отказ", theme::P2);
+#endif
                     spawnNotice(std::string("ИЗБРАНА СГРАДА: ") + c.nameBg, p2Pos, theme::P2);
                     return;
                 }
@@ -414,7 +444,11 @@ void UI_map::executeP2Action() {
                         if (!plot.isPurchased) {
                             std::string msg;
                             if (engine.buyLandPlot(2, plot.id, msg)) {
+#if defined(__ANDROID__)
+                                triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Вече можете да строите върху него.", "[ДОКОСНИ]: Постави сграда", theme::Gold);
+#else
                                 triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Вече можете да строите върху него.", ArcadeMode::isEnabled() ? "[A]: Постави сграда" : "[ENTER]: Постави сграда", theme::Gold);
+#endif
                                 spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, theme::Gold);
                             } else {
                                 triggerPlayerModal(2, "НЕДОСТИГ НА ПАРИ", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари ($)!", theme::Warn);
@@ -439,7 +473,11 @@ void UI_map::executeP2Action() {
         sf::Vector2f targetPos = (sel == BuildingType::DEMOLISH) ? p2Pos : engine.snapToBuildingGrid(2, p2Pos);
         std::string msg;
         if (engine.placeBuilding(2, sel, targetPos, msg)) {
+#if defined(__ANDROID__)
+            triggerPlayerPopup(2, "УСПЕХ", "Действието е успешно!", msg, "[ДОКОСНИ КАРТА]: Постави отново", theme::P2);
+#else
             triggerPlayerPopup(2, "УСПЕХ", "Действието е успешно!", msg, "[PgDn]: Постави отново същата", theme::P2);
+#endif
             spawnNotice("ПОСТРОЕНА СГРАДА!", targetPos, theme::P2);
             if (sel != BuildingType::DEMOLISH) engine.clearBuildingSelection(2);
         } else {
@@ -464,7 +502,11 @@ void UI_map::executeP2Action() {
                 sf::Color c = st ? st->themeColor : theme::P2Light;
                 spawnMiningParticles(p2Pos, c, 18);
                 char tipBuf[64];
+#if defined(__ANDROID__)
+                std::snprintf(tipBuf, sizeof(tipBuf), "[ДОКОСНИ]: Добив (на %.1f сек)", newCd);
+#else
                 std::snprintf(tipBuf, sizeof(tipBuf), "[ENTER]: Добив (на %.1f сек)", newCd);
+#endif
                 triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", tipBuf, c);
                 spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), c);
             }
@@ -474,13 +516,21 @@ void UI_map::executeP2Action() {
                     if (!plot.isPurchased) {
                         std::string msg;
                         if (engine.buyLandPlot(2, plot.id, msg)) {
+#if defined(__ANDROID__)
+                            triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Изберете сграда за строеж.", "[ДОКОСНИ КАРТА]: Избери сграда", theme::Gold);
+#else
                             triggerPlayerPopup(2, "ЗЕМЯ", "Закупен парцел!", "Парцелът е ваш. Натиснете PgDn за избор.", "[PgDn]: Избери сграда", theme::Gold);
+#endif
                             spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", p2Pos, theme::Gold);
                         } else {
                             triggerPlayerPopup(2, "ГРЕШКА", "Няма пари!", msg, "Продавайте ток на града за пари ($)!", theme::Bad);
                         }
                     } else {
+#if defined(__ANDROID__)
+                        triggerPlayerPopup(2, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[ДОКОСНИ КАРТА]: Изберете сграда за строеж", theme::P2Light);
+#else
                         triggerPlayerPopup(2, "ИНФО", "Ваш парцел", "Земята е свободна за строителство.", "[PgDn]: Изберете сграда за строеж", theme::P2Light);
+#endif
                     }
                     break;
                 }
@@ -622,7 +672,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     int nextRow = p1GridRow;
                     int nextCol = p1GridCol;
                     if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.up) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)))) || joyUp1) {
-                        if (p1GridRow > 0) {
+                        if (p1GridRow > 0 && engine.isSlotOnPurchasedLand(1, p1GridCol, p1GridRow - 1)) {
                             nextRow = p1GridRow - 1;
                             moved = true;
                         } else {
@@ -630,7 +680,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p1GridStepCooldown = 0.14f;
                         }
                     } else if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.down) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)))) || joyDown1) {
-                        if (p1GridRow < 11) {
+                        if (p1GridRow < 11 && engine.isSlotOnPurchasedLand(1, p1GridCol, p1GridRow + 1)) {
                             nextRow = p1GridRow + 1;
                             moved = true;
                         } else {
@@ -639,7 +689,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         }
                     }
                     if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.left) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)))) || joyLeft1) {
-                        if (p1GridCol > 0) {
+                        if (p1GridCol > 0 && engine.isSlotOnPurchasedLand(1, p1GridCol - 1, p1GridRow)) {
                             nextCol = p1GridCol - 1;
                             moved = true;
                         } else {
@@ -647,7 +697,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p1GridStepCooldown = 0.14f;
                         }
                     } else if ((allowKb && (sf::Keyboard::isKeyPressed(p1Bindings.right) || (allowArrowsForP1 && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)))) || joyRight1) {
-                        if (p1GridCol < 8) {
+                        if (p1GridCol < 8 && engine.isSlotOnPurchasedLand(1, p1GridCol + 1, p1GridRow)) {
                             nextCol = p1GridCol + 1;
                             moved = true;
                         } else {
@@ -761,7 +811,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                     int nextRow = p2GridRow;
                     int nextCol = p2GridCol;
                     if ((allowKb && sf::Keyboard::isKeyPressed(p2Bindings.up)) || joyUp2) {
-                        if (p2GridRow > 0) {
+                        if (p2GridRow > 0 && engine.isSlotOnPurchasedLand(2, p2GridCol, p2GridRow - 1)) {
                             nextRow = p2GridRow - 1;
                             moved = true;
                         } else {
@@ -769,7 +819,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p2GridStepCooldown = 0.14f;
                         }
                     } else if ((allowKb && sf::Keyboard::isKeyPressed(p2Bindings.down)) || joyDown2) {
-                        if (p2GridRow < 11) {
+                        if (p2GridRow < 11 && engine.isSlotOnPurchasedLand(2, p2GridCol, p2GridRow + 1)) {
                             nextRow = p2GridRow + 1;
                             moved = true;
                         } else {
@@ -778,7 +828,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                         }
                     }
                     if ((allowKb && sf::Keyboard::isKeyPressed(p2Bindings.left)) || joyLeft2) {
-                        if (p2GridCol > 0) {
+                        if (p2GridCol > 0 && engine.isSlotOnPurchasedLand(2, p2GridCol - 1, p2GridRow)) {
                             nextCol = p2GridCol - 1;
                             moved = true;
                         } else {
@@ -786,7 +836,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
                             p2GridStepCooldown = 0.14f;
                         }
                     } else if ((allowKb && sf::Keyboard::isKeyPressed(p2Bindings.right)) || joyRight2) {
-                        if (p2GridCol < 8) {
+                        if (p2GridCol < 8 && engine.isSlotOnPurchasedLand(2, p2GridCol + 1, p2GridRow)) {
                             nextCol = p2GridCol + 1;
                             moved = true;
                         } else {
@@ -1397,6 +1447,16 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
     }
+    if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+        if (p1Modal.active) {
+            closePlayerModal(1);
+            return;
+        }
+        if (p2Modal.active) {
+            closePlayerModal(2);
+            return;
+        }
+    }
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         if (p1Modal.active && isModalDismissKey(1, key->code)) {
             closePlayerModal(1);
@@ -1527,6 +1587,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
 
+#if !defined(__ANDROID__)
         // Click on Fullscreen button
         if (sf::FloatRect({ 1600.0f - 275.0f, 900.0f - 34.0f }, { 135.0f, 28.0f }).contains(clickPos)) {
             requestFullscreenToggle = true;
@@ -1541,6 +1602,16 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             showHelpOverlay = true;
             return;
         }
+#else
+        // Click on Help button on Android (positioned next to MENU)
+        if (sf::FloatRect({ 1600.0f - 265.0f, 900.0f - 34.0f }, { 125.0f, 28.0f }).contains(clickPos)) {
+            isPaused = true;
+            pauseSelectedIdx = 0;
+            helpOpenedFromPause = false;
+            showHelpOverlay = true;
+            return;
+        }
+#endif
 
         // 1. Building Menu Clicks (User Request 2: Click directly on building card to select it!)
         // Active in all control schemes so clicking cards always works smoothly
@@ -1554,10 +1625,17 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             engine.getPlayerEconomyMut(1).selectedBuilding = static_cast<int>(clickedP1);
             syncBuildingSelectionPos(1);
             BuildingCost c = engine.getBuildingCost(clickedP1);
+#if defined(__ANDROID__)
+            triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
+                               (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                    : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
+                               "[ДОКОСНИ ЗЕМЯ]: Постави | [ДОКОСНИ КАРТА]: Отказ", theme::P1);
+#else
             triggerPlayerPopup(1, "СТРОЕЖ", c.nameBg,
                                (clickedP1 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                     : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
                                "[КЛИК НА ЗЕМЯ]: Постави | [КЛИК КАРТА / ДЕСЕН КЛИК]: Отказ", theme::P1);
+#endif
             return;
         }
 
@@ -1571,26 +1649,85 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             engine.getPlayerEconomyMut(2).selectedBuilding = static_cast<int>(clickedP2);
             syncBuildingSelectionPos(2);
             BuildingCost c = engine.getBuildingCost(clickedP2);
+#if defined(__ANDROID__)
+            triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
+                               (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
+                                                                    : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
+                               "[ДОКОСНИ ЗЕМЯ]: Постави | [ДОКОСНИ КАРТА]: Отказ", theme::P2);
+#else
             triggerPlayerPopup(2, "СТРОЕЖ", c.nameBg,
                                (clickedP2 == BuildingType::DEMOLISH ? std::string("Посочете ваша сграда за разрушаване.")
                                                                     : formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW."),
                                "[КЛИК НА ЗЕМЯ]: Постави | [КЛИК КАРТА / ДЕСЕН КЛИК]: Отказ", theme::P2);
+#endif
             return;
         }
 
-        // Also: Clicking on an existing placed building selects it to build another one (User Request 2)
+        // Demolition and Building selection on existing buildings
         for (const auto& b : engine.getBuildings()) {
             float dx = b.position.x - clickPos.x;
             float dy = b.position.y - clickPos.y;
-            if (std::sqrt(dx * dx + dy * dy) <= 28.0f) {
+            if (std::sqrt(dx * dx + dy * dy) <= 32.0f) {
                 int targetPlayer = (owner != 0 ? owner : b.playerOwner);
-                engine.getPlayerEconomyMut(targetPlayer).selectedBuilding = static_cast<int>(b.type);
-                syncBuildingSelectionPos(targetPlayer);
-                BuildingCost c = engine.getBuildingCost(b.type);
-                triggerPlayerPopup(targetPlayer, "СТРОЕЖ", c.nameBg,
-                                   formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
-                                   "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", (targetPlayer == 1 ? theme::P1 : theme::P2));
-                return;
+                BuildingType sel = engine.getSelectedBuilding(targetPlayer);
+
+                if (sel == BuildingType::DEMOLISH) {
+                    if (b.playerOwner == targetPlayer) {
+                        std::string msg;
+                        if (engine.removeBuilding(targetPlayer, b.position, msg)) {
+                            triggerPlayerPopup(targetPlayer, "ДЕМОНТИРАНО", "Сградата е разрушена!", msg, "", theme::Good);
+                            spawnNotice("ДЕМОНТИРАНО!", b.position, theme::Good);
+                        } else {
+                            reportBuildFailure(targetPlayer, sel, msg);
+                        }
+                    } else {
+                        triggerPlayerPopup(targetPlayer, "ГРЕШКА", "Чужда сграда!", "Не можете да разрушавате сгради на противника!", "", theme::Bad);
+                    }
+                    return;
+                }
+
+                // If no building is currently selected, clicking an existing building selects it to replicate:
+                if (sel == BuildingType::NONE) {
+                    engine.getPlayerEconomyMut(targetPlayer).selectedBuilding = static_cast<int>(b.type);
+                    syncBuildingSelectionPos(targetPlayer);
+                    BuildingCost c = engine.getBuildingCost(b.type);
+#if defined(__ANDROID__)
+                    triggerPlayerPopup(targetPlayer, "СТРОЕЖ", c.nameBg,
+                                       formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
+                                       "[ДОКОСНИ ЗЕМЯ]: Постави | [ДОКОСНИ КАРТА]: Отказ", (targetPlayer == 1 ? theme::P1 : theme::P2));
+#else
+                    triggerPlayerPopup(targetPlayer, "СТРОЕЖ", c.nameBg,
+                                       formatCost(c) + ".\nДобив: +" + std::to_string(c.basePowerMW) + " MW.",
+                                       "[КЛИК НА ЗЕМЯ]: Постави | [ДЕСЕН КЛИК]: Отказ", (targetPlayer == 1 ? theme::P1 : theme::P2));
+#endif
+                    return;
+                }
+            }
+        }
+
+        // Tap-to-Place for active building selection across purchased plots and river bank
+        int buildPlayer = (owner != 0 ? owner : 1);
+        BuildingType activeSel = engine.getSelectedBuilding(buildPlayer);
+        if (activeSel != BuildingType::NONE && activeSel != BuildingType::DEMOLISH) {
+            int closeCol = 0, closeRow = 0;
+            engine.getClosestGridIndex(buildPlayer, clickPos, closeCol, closeRow);
+            sf::Vector2f slotPos = engine.getGridSlot(buildPlayer, closeCol, closeRow);
+            float distToSlot = std::hypot(clickPos.x - slotPos.x, clickPos.y - slotPos.y);
+
+            // Allow placement if tapping near any grid slot on purchased land (relaxed to 75px for shoreline hydro plants)
+            bool slotPurchased = engine.isSlotOnPurchasedLand(buildPlayer, closeCol, closeRow);
+            float maxTapDist = (activeSel == BuildingType::HYDRO_PLANT) ? 75.0f : 48.0f;
+            if (slotPurchased && distToSlot <= maxTapDist) {
+                std::string msg;
+                if (engine.placeBuilding(buildPlayer, activeSel, slotPos, msg)) {
+                    triggerPlayerPopup(buildPlayer, "УСПЕХ", "Сградата е построена!", msg, "", theme::Good);
+                    spawnNotice("ПОСТРОЕНО!", slotPos, theme::Good);
+                    engine.clearBuildingSelection(buildPlayer);
+                    return;
+                } else {
+                    reportBuildFailure(buildPlayer, activeSel, msg);
+                    return;
+                }
             }
         }
 
@@ -1598,7 +1735,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         if (resourceHUD.getP1BuyLandButton().contains(clickPos)) {
             std::string msg;
             if (engine.buyNextLandTier(1, msg)) {
+#if defined(__ANDROID__)
+                triggerPlayerPopup(1, "ЗЕМЯ", "Разширена земя!", msg, "[ДОКОСНИ КАРТА]: Избери сграда", theme::Good);
+#else
                 triggerPlayerPopup(1, "ЗЕМЯ", "Разширена земя!", msg, "[E]: Избери сграда за строеж", theme::Good);
+#endif
             } else {
                 triggerPlayerPopup(1, "ГРЕШКА", "Няма пари!", msg, "Продавайте ток на града за пари ($)!", theme::Bad);
             }
@@ -1607,7 +1748,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         if (resourceHUD.getP2BuyLandButton().contains(clickPos)) {
             std::string msg;
             if (engine.buyNextLandTier(2, msg)) {
+#if defined(__ANDROID__)
+                triggerPlayerPopup(2, "ЗЕМЯ", "Разширена земя!", msg, "[ДОКОСНИ КАРТА]: Избери сграда", theme::Good);
+#else
                 triggerPlayerPopup(2, "ЗЕМЯ", "Разширена земя!", msg, "[PgDn]: Избери сграда", theme::Good);
+#endif
             } else {
                 triggerPlayerPopup(2, "ГРЕШКА", "Няма пари!", msg, "Продавайте ток на града за пари ($)!", theme::Bad);
             }
@@ -1624,15 +1769,24 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 
         // 3. Click on Land Plots directly (Buy Plot with Money or Place Building)
         for (const auto& plot : engine.getLandPlots()) {
+#if defined(__ANDROID__)
+            sf::FloatRect paddedPlot({ plot.bounds.position.x - 14.0f, plot.bounds.position.y - 14.0f },
+                                     { plot.bounds.size.x + 28.0f, plot.bounds.size.y + 28.0f });
+#else
             sf::FloatRect paddedPlot({ plot.bounds.position.x - 6.0f, plot.bounds.position.y - 6.0f },
                                      { plot.bounds.size.x + 12.0f, plot.bounds.size.y + 12.0f });
+#endif
             if (paddedPlot.contains(clickPos)) {
                 int pOwner = plot.playerOwner;
                 BuildingType sel = engine.getSelectedBuilding(pOwner);
                 if (!plot.isPurchased) {
                     std::string msg;
                     if (engine.buyLandPlot(pOwner, plot.id, msg)) {
+#if defined(__ANDROID__)
+                        triggerPlayerPopup(pOwner, "ЗЕМЯ", "Купихте парцел!", msg + "\nВече можете да строите тук.", "[ДОКОСНИ]: Постави сграда", theme::Good);
+#else
                         triggerPlayerPopup(pOwner, "ЗЕМЯ", "Купихте парцел!", msg + "\nВече можете да строите тук.", "[КЛИК]: Постави сграда", theme::Good);
+#endif
                         spawnNotice("ЗАКУПЕН ПАРЦЕЛ!", clickPos, theme::Good);
                     } else {
                         triggerPlayerModal(pOwner, "НЕДОСТИГ НА ПАРИ", "Не можете да купите парцела!", msg, "Продавайте ток на града за да печелите пари ($)!", theme::Warn);
@@ -1662,9 +1816,14 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 std::string msg;
                 if (engine.upgradeMine(1, p1Up, msg)) {
                     spawnMiningParticles(clickPos, theme::Gold, 25);
+#if defined(__ANDROID__)
+                    triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
+                                       "[ДОКОСНИ СТАНЦИЯ]: Добив", theme::Gold);
+#else
                     bool isArcade1 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
                     triggerPlayerPopup(1, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
                                        isArcade1 ? "[A]: Добив | [C]: Нов ъпгрейд" : "[SPACE]: Добив | [F]: Нов ъпгрейд", theme::Gold);
+#endif
                     spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
                 } else {
                     triggerPlayerPopup(1, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
@@ -1678,9 +1837,14 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 std::string msg;
                 if (engine.upgradeMine(2, p2Up, msg)) {
                     spawnMiningParticles(clickPos, theme::Gold, 25);
+#if defined(__ANDROID__)
+                    triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
+                                       "[ДОКОСНИ СТАНЦИЯ]: Добив", theme::Gold);
+#else
                     bool isArcade2 = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
                     triggerPlayerPopup(2, "НАДГРАЖДАНЕ", msg, "Добивът от тази мина е увеличен с +75%!",
                                        isArcade2 ? "[A]: Добив | [C]: Нов ъпгрейд" : "[ENTER]: Добив | [RShift]: Нов ъпгрейд", theme::Gold);
+#endif
                     spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Gold);
                 } else {
                     triggerPlayerPopup(2, "ГРЕШКА", msg, "Печелете злато от доставка на ток към града!", "", theme::Bad);
@@ -1713,7 +1877,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     const auto* st = nodes.getStation(1, p1Res);
                     sf::Color c = st ? st->themeColor : theme::P1;
                     spawnMiningParticles(clickPos, c, 18);
+#if defined(__ANDROID__)
+                    triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[ДОКОСНИ КАРТА]: Избери сграда", c);
+#else
                     triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[E]: Избери сграда", c);
+#endif
                     spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
                 }
                 return;
@@ -1740,7 +1908,11 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                     const auto* st = nodes.getStation(2, p2Res);
                     sf::Color c = st ? st->themeColor : theme::P2Light;
                     spawnMiningParticles(clickPos, c, 18);
+#if defined(__ANDROID__)
+                    triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[ДОКОСНИ КАРТА]: Избери сграда", c);
+#else
                     triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[PgDn]: Избери сграда", c);
+#endif
                     spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
                 }
                 return;

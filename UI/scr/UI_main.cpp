@@ -275,8 +275,22 @@ int UI_main::render() {
                 }
             }
 
+            // Reset touch position when actual mouse moves on desktop
+            if (event->is<sf::Event::MouseMoved>()) {
+                ui::shot::clearTouchPixelPos();
+            }
+
             // Touch input support for mobile / touchscreens
             if (const auto* touchBegan = event->getIf<sf::Event::TouchBegan>()) {
+                std::cout << "[UI_main] TouchBegan at (" << touchBegan->position.x << "," << touchBegan->position.y << ") finger=" << touchBegan->finger << "\n";
+#if defined(__ANDROID__)
+                static sf::Clock s_touchDebounceClock;
+                if (s_touchDebounceClock.getElapsedTime().asMilliseconds() < 80) {
+                    continue;
+                }
+                s_touchDebounceClock.restart();
+#endif
+                ui::shot::setTouchPixelPos(touchBegan->position);
                 if (currentState == UIState::MAIN_MENU && !shot.enabled) {
                     UI_audio::get().play(AudioSynth::Sfx::UiClick);
                 }
@@ -293,6 +307,7 @@ int UI_main::render() {
 
             if (const auto* touchMoved = event->getIf<sf::Event::TouchMoved>()) {
                 if (touchMoved->finger == 0) {
+                    ui::shot::setTouchPixelPos(touchMoved->position);
                     sf::Event mouseEv = sf::Event::MouseMoved{ touchMoved->position };
                     if (currentState == UIState::MAIN_MENU) {
                         mainMenu.handleEvent(mouseEv, window);
@@ -304,6 +319,7 @@ int UI_main::render() {
             }
 
             if (const auto* touchEnded = event->getIf<sf::Event::TouchEnded>()) {
+                ui::shot::setTouchPixelPos(touchEnded->position);
                 sf::Mouse::Button btn = (touchEnded->finger == 0) ? sf::Mouse::Button::Left : sf::Mouse::Button::Right;
                 sf::Event mouseEv = sf::Event::MouseButtonReleased{ btn, touchEnded->position };
                 if (currentState == UIState::MAIN_MENU) {
@@ -330,11 +346,11 @@ int UI_main::render() {
                     } else {
                         mainMenu.resetPlayRequest();
                         matchWasCompleted = false;
-                        map.setBotVsBot(mainMenu.isBotVsBot(), mainMenu.getSelectedBotDifficulty());
                         map.setBlitzMode(mainMenu.isBlitzMode());
-                        map.restartMatch();
                         map.setControlScheme(mainMenu.getSelectedControlScheme());
                         map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
+                        map.setBotVsBot(mainMenu.isBotVsBot(), mainMenu.getSelectedBotDifficulty());
+                        map.restartMatch();
                         map.resetMatchInputState();
                         UI_audio::get().play(AudioSynth::Sfx::UiConfirm);
                         currentState = UIState::PLAYING;
@@ -342,11 +358,11 @@ int UI_main::render() {
                 } else {
                     mainMenu.resetPlayRequest();
                     matchWasCompleted = false;
-                    map.setBotVsBot(mainMenu.isBotVsBot(), mainMenu.getSelectedBotDifficulty());
                     map.setBlitzMode(mainMenu.isBlitzMode());
-                    map.restartMatch();
                     map.setControlScheme(mainMenu.getSelectedControlScheme());
                     map.setBotDifficulty(mainMenu.getSelectedBotDifficulty());
+                    map.setBotVsBot(mainMenu.isBotVsBot(), mainMenu.getSelectedBotDifficulty());
+                    map.restartMatch();
                     map.resetMatchInputState();
                     UI_audio::get().play(AudioSynth::Sfx::UiConfirm);
                     currentState = UIState::PLAYING;

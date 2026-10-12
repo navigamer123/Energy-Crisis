@@ -298,8 +298,12 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
             break;
         case InfoEventType::LOST_LIGHTNING: {
             std::string name = engine.getBuildingCost(ev.building).nameBg;
+#if defined(__ANDROID__)
+            std::string act = "[ДОКОСНИ]: Постройте отново";
+#else
             std::string act = ArcadeMode::isEnabled() ? "[A]: Постройте отново"
                                                       : (p == 1 ? "[SPACE]: Постройте отново" : "[ENTER]: Постройте отново");
+#endif
             push(p, ToastPriority::CRITICAL, "", "МЪЛНИЯ!", "Загубена сграда",
                  "Мълния унищожи " + name + ". Клетката е свободна за нов строеж.",
                  act, COL_CRIT, false);
@@ -626,7 +630,11 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
     }
 
     // Footer: scroll position and keys
+#if defined(__ANDROID__)
+    std::string footer = "Докоснете или плъзнете за превъртане   ·   Докоснете за изход";
+#else
     std::string footer = "[Стрелки] или колелцето на мишката: превъртане   ·   [L] / [ESC]: обратно към паузата";
+#endif
     if (total > visibleRows) {
         int from = logScroll + 1;
         int to = std::min(total, logScroll + visibleRows);

@@ -159,6 +159,41 @@ void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std:
             finalAction = "[PgDn]: Choose building";
     }
 
+#if defined(__ANDROID__)
+    bool isEnLang = (UI_settings::get().getLanguage() == "en");
+    if (player == 2 && bot.isActive()) {
+        finalAction = isEnLang ? "[BOT]: Automated action" : "[БОТ]: Автоматично действие";
+    } else {
+        if (finalAction.find("Постави отново") != std::string::npos || finalAction.find("Place another") != std::string::npos ||
+            finalAction.find("[E]") != std::string::npos || finalAction.find("[PgDn]") != std::string::npos) {
+            if (finalAction.find("Избери") != std::string::npos || finalAction.find("Choose") != std::string::npos) {
+                finalAction = isEnLang ? "[TAP CARD]: Choose building" : "[ДОКОСНИ КАРТА]: Избери сграда";
+            } else if (finalAction.find("Постави отново") != std::string::npos || finalAction.find("Place another") != std::string::npos) {
+                finalAction = isEnLang ? "[TAP CARD]: Place again" : "[ДОКОСНИ КАРТА]: Постави отново";
+            } else if (finalAction.find("Постави") != std::string::npos || finalAction.find("Place") != std::string::npos) {
+                finalAction = isEnLang ? "[TAP PLOT]: Place building" : "[ДОКОСНИ ПАРЦЕЛ]: Постави сграда";
+            } else {
+                finalAction = isEnLang ? "[TAP]: Action" : "[ДОКОСНИ]: Действие";
+            }
+        } else if (finalAction.find("[SPACE]") != std::string::npos || finalAction.find("[ENTER]") != std::string::npos ||
+                   finalAction.find("[A]") != std::string::npos) {
+            if (finalAction.find("Постави") != std::string::npos || finalAction.find("Place") != std::string::npos) {
+                finalAction = isEnLang ? "[TAP PLOT]: Place building" : "[ДОКОСНИ ПАРЦЕЛ]: Постави сграда";
+            } else if (finalAction.find("Добив") != std::string::npos || finalAction.find("Gather") != std::string::npos) {
+                finalAction = isEnLang ? "[TAP]: Gather resource" : "[ДОКОСНИ]: Добий ресурс";
+            } else {
+                finalAction = isEnLang ? "[TAP]: Action" : "[ДОКОСНИ]: Действие";
+            }
+        } else if (finalAction.find("[F]") != std::string::npos || finalAction.find("[Shift]") != std::string::npos) {
+            finalAction = isEnLang ? "[TAP UPGRADE]: Upgrade mine" : "[ДОКОСНИ ЪПГРЕЙД]: Надгради мина";
+        }
+
+        if (finalDetail.find("Натиснете E") != std::string::npos || finalDetail.find("Натиснете PgDn") != std::string::npos) {
+            finalDetail = isEnLang ? "The plot is yours. Tap a building card to construct." : "Парцелът е ваш. Докоснете карта на сграда за строеж.";
+        }
+    }
+#endif
+
     notifications.push(player, prio, channel, finalBadge, finalTitle, finalDetail, finalAction, accent, false);
 }
 
@@ -238,6 +273,11 @@ void UI_map::reportBuildFailure(int player, BuildingType sel, const std::string&
         BuildingCost cost = engine.getBuildingCost(sel);
         std::string missing = missingResourcesText(engine.getPlayerEconomy(player), cost);
         if (!missing.empty()) {
+#if defined(__ANDROID__)
+            std::string tipStr = isEn
+                ? "Gather them from stations below: tap on the station."
+                : "Добийте ги от станциите долу: докоснете станцията.";
+#else
             bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
             std::string key = isArcade ? "[A]" : ((player == 1) ? "[SPACE]" : "[ENTER]");
             std::string tipStr = isEn
@@ -245,6 +285,7 @@ void UI_map::reportBuildFailure(int player, BuildingType sel, const std::string&
                             : ("Gather them from stations below: stand over a station and press " + key + " (or click it)."))
                 : (isArcade ? ("Добийте ги от станциите: застанете върху станция и натиснете " + key + ".")
                             : ("Добийте ги от станциите долу: застанете върху станция и натиснете " + key + " (или кликнете върху нея)."));
+#endif
             std::string badge = isEn ? "NOT ENOUGH RESOURCES" : "НЕДОСТИГ НА РЕСУРСИ";
             std::string title = isEn ? ("Missing resources for " + cost.nameEn) : ("Не стигат ресурси за " + cost.nameBg);
             triggerPlayerModal(player, badge, title, missing, tipStr, errorColor);
@@ -338,8 +379,14 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         btn.setOutlineColor(btnHover ? theme::Focus : theme::Good);
         window.draw(btn);
 
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+#if defined(__ANDROID__)
+        std::string okLabel = isEn ? "GOT IT [TAP]" : "РАЗБРАХ [ДОКОСНИ]";
+#else
         bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
-        std::string okLabel = isArcade ? "РАЗБРАХ [A]" : (pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]");
+        std::string okLabel = isEn ? (isArcade ? "GOT IT [A]" : (pIdx == 1 ? "GOT IT [SPACE]" : "GOT IT [ENTER]"))
+                                   : (isArcade ? "РАЗБРАХ [A]" : (pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]"));
+#endif
         sf::Text& tOk = ui::pooledText(font, toUtf8(okLabel), fontsize::Label);
         tOk.setStyle(sf::Text::Bold);
         tOk.setFillColor(theme::TextPrimary);
@@ -406,9 +453,17 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         }
     };
 
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+#if defined(__ANDROID__)
+    std::string p1Key = isEn ? "[TAP]" : "[ДОКОСНИ]";
+    std::string p2Key = bot.isActive() ? (isEn ? "[BOT]" : "[БОТ]") : (isEn ? "[TAP]" : "[ДОКОСНИ]");
+#else
     bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
-    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, isArcade ? "[A]" : "[SPACE]", getP1ResourceCooldown(p1Res));
-    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, isArcade ? "[A]" : "[ENTER]", getP2ResourceCooldown(p2Res));
+    std::string p1Key = isArcade ? "[A]" : "[SPACE]";
+    std::string p2Key = isArcade ? "[A]" : "[ENTER]";
+#endif
+    if (p1Res != ResourceType::NONE) drawPrompt(1, p1Pos, p1Res, p1Key, getP1ResourceCooldown(p1Res));
+    if (p2Res != ResourceType::NONE) drawPrompt(2, p2Pos, p2Res, p2Key, getP2ResourceCooldown(p2Res));
 
     // The 6x mining speed-up is shown inside each player's clock card (UI_clock)
 }

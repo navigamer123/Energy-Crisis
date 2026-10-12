@@ -141,7 +141,9 @@ void UI_buildings::setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size,
 
 BuildingType UI_buildings::handleClick(sf::Vector2f clickPos) {
   for (auto &b : buildings) {
-    if (b.btnBounds.contains(clickPos)) {
+    sf::FloatRect expanded({ b.btnBounds.position.x - 8.0f, b.btnBounds.position.y - 6.0f },
+                           { b.btnBounds.size.x + 16.0f, b.btnBounds.size.y + 12.0f });
+    if (expanded.contains(clickPos)) {
       return b.type;
     }
   }
@@ -169,6 +171,14 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
   if (fontLoaded) {
     bool isEn = (UI_settings::get().getLanguage() == "en");
     std::string pTag;
+#if defined(__ANDROID__)
+    if (playerIndex == 1) {
+      pTag = isEn ? "BUILDINGS (PLAYER 1)" : "ПОСТРОЙКИ (ИГРАЧ 1)";
+    } else {
+      pTag = isBot ? (isEn ? "BUILDINGS (AI BOT)" : "ПОСТРОЙКИ (БОТ)")
+                   : (isEn ? "BUILDINGS (PLAYER 2)" : "ПОСТРОЙКИ (ИГРАЧ 2)");
+    }
+#else
     if (ArcadeMode::isEnabled()) {
       pTag = isEn ? ((playerIndex == 1) ? "BUILDINGS (PLAYER 1) [D]"
                                         : "BUILDINGS (PLAYER 2) [D]")
@@ -180,6 +190,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
                   : ((playerIndex == 1) ? "ПОСТРОЙКИ (ИГРАЧ 1) [E]"
                                         : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]");
     }
+#endif
     sf::Text& tHeader = ui::pooledText(font, toUtf8(pTag), fontsize::Label);
     tHeader.setStyle(sf::Text::Bold);
     tHeader.setFillColor(accentColor);
@@ -320,10 +331,12 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       mult = WeatherSystem::getHydroMultiplier(weather);
 
     std::string hotkeyStr;
+#if !defined(__ANDROID__)
     if (!ArcadeMode::isEnabled()) {
       if (hotkeys == BuildHotkeys::DIGITS) hotkeyStr = "[" + std::to_string(i + 1) + "]";
       else if (hotkeys == BuildHotkeys::NUMPAD) hotkeyStr = "[Num" + std::to_string(i + 1) + "]";
     }
+#endif
 
     float hotkeyW = 0.0f;
     const float statusY = y + 37.0f;

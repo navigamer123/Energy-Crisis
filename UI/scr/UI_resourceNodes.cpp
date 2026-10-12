@@ -88,13 +88,20 @@ UI_resourceNodes::UI_resourceNodes() {
 }
 
 ResourceType UI_resourceNodes::getP1ResourceAt(sf::Vector2f pt) const {
+#if defined(__ANDROID__)
+    const float pad = 24.0f;
+    const float upH = 34.0f;
+#else
+    const float pad = 8.0f;
+    const float upH = 26.0f;
+#endif
     for (const auto& s : stations) {
         if (s.playerOwner == 1) {
-            sf::FloatRect padded({ s.bounds.position.x - 8.0f, s.bounds.position.y - 8.0f },
-                                 { s.bounds.size.x + 16.0f, s.bounds.size.y + 16.0f });
+            sf::FloatRect padded({ s.bounds.position.x - pad, s.bounds.position.y - pad },
+                                 { s.bounds.size.x + pad * 2.0f, s.bounds.size.y + pad * 2.0f });
             if (padded.contains(pt)) {
-                // If clicking/cursor in upgrade area (bottom 26px), don't trigger mining
-                if (pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f) {
+                // If clicking/cursor in upgrade area (bottom upH px), don't trigger mining
+                if (pt.y >= s.bounds.position.y + s.bounds.size.y - upH) {
                     return ResourceType::NONE;
                 }
                 return s.type;
@@ -105,13 +112,20 @@ ResourceType UI_resourceNodes::getP1ResourceAt(sf::Vector2f pt) const {
 }
 
 ResourceType UI_resourceNodes::getP2ResourceAt(sf::Vector2f pt) const {
+#if defined(__ANDROID__)
+    const float pad = 24.0f;
+    const float upH = 34.0f;
+#else
+    const float pad = 8.0f;
+    const float upH = 26.0f;
+#endif
     for (const auto& s : stations) {
         if (s.playerOwner == 2) {
-            sf::FloatRect padded({ s.bounds.position.x - 8.0f, s.bounds.position.y - 8.0f },
-                                 { s.bounds.size.x + 16.0f, s.bounds.size.y + 16.0f });
+            sf::FloatRect padded({ s.bounds.position.x - pad, s.bounds.position.y - pad },
+                                 { s.bounds.size.x + pad * 2.0f, s.bounds.size.y + pad * 2.0f });
             if (padded.contains(pt)) {
-                // If clicking/cursor in upgrade area (bottom 26px), don't trigger mining
-                if (pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f) {
+                // If clicking/cursor in upgrade area (bottom upH px), don't trigger mining
+                if (pt.y >= s.bounds.position.y + s.bounds.size.y - upH) {
                     return ResourceType::NONE;
                 }
                 return s.type;
@@ -122,13 +136,20 @@ ResourceType UI_resourceNodes::getP2ResourceAt(sf::Vector2f pt) const {
 }
 
 ResourceType UI_resourceNodes::getP1UpgradeAt(sf::Vector2f pt) const {
+#if defined(__ANDROID__)
+    const float padBtn = 18.0f;
+    const float upH = 34.0f;
+#else
+    const float padBtn = 6.0f;
+    const float upH = 26.0f;
+#endif
     for (const auto& s : stations) {
         if (s.playerOwner == 1) {
-            sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - 6.0f, s.upgradeBtnBounds.position.y - 6.0f },
-                                    { s.upgradeBtnBounds.size.x + 12.0f, s.upgradeBtnBounds.size.y + 12.0f });
-            // Generous hit box: either inside button bounds or within bottom 26px of station card
+            sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - padBtn, s.upgradeBtnBounds.position.y - padBtn },
+                                     { s.upgradeBtnBounds.size.x + padBtn * 2.0f, s.upgradeBtnBounds.size.y + padBtn * 2.0f });
+            // Generous hit box: either inside button bounds or within bottom upH px of station card
             if (paddedBtn.contains(pt) ||
-                (s.bounds.contains(pt) && pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f)) {
+                (s.bounds.contains(pt) && pt.y >= s.bounds.position.y + s.bounds.size.y - upH)) {
                 return s.type;
             }
         }
@@ -137,13 +158,20 @@ ResourceType UI_resourceNodes::getP1UpgradeAt(sf::Vector2f pt) const {
 }
 
 ResourceType UI_resourceNodes::getP2UpgradeAt(sf::Vector2f pt) const {
+#if defined(__ANDROID__)
+    const float padBtn = 18.0f;
+    const float upH = 34.0f;
+#else
+    const float padBtn = 6.0f;
+    const float upH = 26.0f;
+#endif
     for (const auto& s : stations) {
         if (s.playerOwner == 2) {
-            sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - 6.0f, s.upgradeBtnBounds.position.y - 6.0f },
-                                    { s.upgradeBtnBounds.size.x + 12.0f, s.upgradeBtnBounds.size.y + 12.0f });
-            // Generous hit box: either inside button bounds or within bottom 26px of station card
+            sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - padBtn, s.upgradeBtnBounds.position.y - padBtn },
+                                     { s.upgradeBtnBounds.size.x + padBtn * 2.0f, s.upgradeBtnBounds.size.y + padBtn * 2.0f });
+            // Generous hit box: either inside button bounds or within bottom upH px of station card
             if (paddedBtn.contains(pt) ||
-                (s.bounds.contains(pt) && pt.y >= s.bounds.position.y + s.bounds.size.y - 26.0f)) {
+                (s.bounds.contains(pt) && pt.y >= s.bounds.position.y + s.bounds.size.y - upH)) {
                 return s.type;
             }
         }

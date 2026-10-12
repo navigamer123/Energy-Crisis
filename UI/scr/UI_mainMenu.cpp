@@ -77,7 +77,13 @@ UI_mainMenu::~UI_mainMenu() {
 }
 
 bool UI_mainMenu::isPointInside(sf::FloatRect bounds, sf::Vector2f pt) const {
+#if defined(__ANDROID__)
+    sf::FloatRect padded({ bounds.position.x - 12.0f, bounds.position.y - 12.0f },
+                         { bounds.size.x + 24.0f, bounds.size.y + 24.0f });
+    return padded.contains(pt);
+#else
     return bounds.contains(pt);
+#endif
 }
 
 void UI_mainMenu::drawButton(sf::RenderWindow& window, sf::FloatRect bounds, const sf::String& text,
@@ -394,22 +400,6 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     const sf::Color defaultBtn = theme::Button;
     const sf::Color whiteText = theme::TextPrimary;
 
-#if defined(__ANDROID__)
-    // Android: Clean 2-button screen (PLAY and QUIT) in fullscreen
-    sf::Vector2f mousePos = ui::pointerPos(window);
-    sf::FloatRect playBtn = mainButtonRect(0);
-    sf::FloatRect quitBtn = mainButtonRect(1);
-
-    bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
-    if (mouseMoved) {
-        lastMenuMousePos = mousePos;
-        if (playBtn.contains(mousePos)) selectedMainIndex = 0;
-        else if (quitBtn.contains(mousePos)) selectedMainIndex = 1;
-    }
-
-    drawButton(window, playBtn, toUtf8(Lang::tr("menu.play")), defaultBtn, theme::GoodFill, whiteText, selectedMainIndex == 0);
-    drawButton(window, quitBtn, toUtf8(Lang::tr("menu.quit")), defaultBtn, theme::BadFill, whiteText, selectedMainIndex == 1);
-#else
     float screenWidth = VIRTUAL_WIDTH;
     sf::Vector2f mousePos = ui::pointerPos(window);
     sf::FloatRect playBtn = mainButtonRect(0);
@@ -429,13 +419,16 @@ void UI_mainMenu::drawMainMenu(sf::RenderWindow& window) {
     drawButton(window, quitBtn, toUtf8(Lang::tr("menu.quit")), defaultBtn, theme::BadFill, whiteText, selectedMainIndex == 2);
 
     if (fontLoaded) {
+#if defined(__ANDROID__)
+        sf::Text& hint = ui::pooledText(font, toUtf8(UI_settings::get().getLanguage() == "en" ? "Tap an option to select" : "Докоснете опция за избор"), fontsize::Label);
+#else
         sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_main")), fontsize::Label);
+#endif
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, MAIN_BTN_Y[2] + MAIN_BTN_H + 34.0f });
         ui::drawText(window, hint);
     }
-#endif
 }
 
 void UI_mainMenu::drawMatchTypeMenu(sf::RenderWindow& window) {
@@ -481,7 +474,11 @@ void UI_mainMenu::drawMatchTypeMenu(sf::RenderWindow& window) {
         descText.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 2.0f * spacing + 85.0f });
         ui::drawText(window, descText);
 
+#if defined(__ANDROID__)
+        sf::Text& hint = ui::pooledText(font, toUtf8(UI_settings::get().getLanguage() == "en" ? "Tap a match type to continue" : "Докоснете тип игра за продължаване"), fontsize::Label);
+#else
         sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_mode")), fontsize::Label);
+#endif
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 120.0f });
@@ -537,7 +534,11 @@ void UI_mainMenu::drawModeSelectMenu(sf::RenderWindow& window) {
         tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 3.0f * spacing + 68.0f });
         ui::drawText(window, tDesc);
 
+#if defined(__ANDROID__)
+        sf::Text& hint = ui::pooledText(font, toUtf8(UI_settings::get().getLanguage() == "en" ? "Tap a mode to continue" : "Докоснете режим за продължаване"), fontsize::Label);
+#else
         sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_mode")), fontsize::Label);
+#endif
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 3.0f * spacing + 102.0f });
@@ -593,7 +594,11 @@ void UI_mainMenu::drawBotDifficultyMenu(sf::RenderWindow& window) {
         tDesc.setPosition({ (screenWidth - db.size.x) / 2.0f, startY + 3.0f * spacing + 70.0f });
         ui::drawText(window, tDesc);
 
+#if defined(__ANDROID__)
+        sf::Text& hint = ui::pooledText(font, toUtf8(UI_settings::get().getLanguage() == "en" ? "Tap difficulty to start match" : "Докоснете трудност за старт на мача"), fontsize::Label);
+#else
         sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("menu.hint_difficulty")), fontsize::Label);
+#endif
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 3.0f * spacing + 102.0f });
@@ -768,7 +773,11 @@ void UI_mainMenu::drawSettingsMenu(sf::RenderWindow& window) {
 
     // Hints
     if (fontLoaded) {
+#if defined(__ANDROID__)
+        sf::Text& hint = ui::pooledText(font, toUtf8(UI_settings::get().getLanguage() == "en" ? "Tap settings to adjust" : "Докоснете настройките за промяна"), fontsize::Label);
+#else
         sf::Text& hint = ui::pooledText(font, toUtf8(Lang::tr("settings.hint")), fontsize::Label);
+#endif
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 12.0f });
@@ -930,7 +939,11 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
         joyText.setPosition({ (screenWidth - jb.size.x) / 2.0f, panelY + panelHeight + 8.0f });
         ui::drawText(window, joyText);
 
+#if defined(__ANDROID__)
+        sf::Text& hint = ui::pooledText(font, toUtf8(UI_settings::get().getLanguage() == "en" ? "Tap control options to adjust" : "Докоснете опциите за управление"), fontsize::Label);
+#else
         sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S/A/D, Стрелки, Аркаден стик] | Избор: [Enter / Бутон 1] | Отказ: [Esc / Бутон 2]"), fontsize::Label);
+#endif
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, panelY + panelHeight + 26.0f });
@@ -1072,19 +1085,6 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             onPlay();
             return;
         } else if (state == MenuState::MAIN) {
-#if defined(__ANDROID__)
-            if (isUp || isDown) {
-                selectedMainIndex = (selectedMainIndex == 0) ? 1 : 0;
-            } else if (isSelect) {
-                if (selectedMainIndex == 0) {
-                    blitzMode = true;
-                    selectedBotDifficulty = BotDifficulty::NONE;
-                    onPlay();
-                } else if (selectedMainIndex == 1) {
-                    onQuit();
-                }
-            }
-#else
             if (isUp) {
                 selectedMainIndex = (selectedMainIndex + 2) % 3;
             } else if (isDown) {
@@ -1099,7 +1099,6 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     onQuit();
                 }
             }
-#endif
         } else if (state == MenuState::MATCH_TYPE_SELECT) {
             if (isUp) {
                 selectedMatchTypeIndex = (selectedMatchTypeIndex + 2) % 3;
@@ -1129,8 +1128,12 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 if (selectedModeIndex == 0) {
                     botVsBotMode = false;
                     selectedBotDifficulty = BotDifficulty::NONE;
+#if defined(__ANDROID__)
+                    onPlay();
+#else
                     state = MenuState::PLAY_CONTROLS;
                     playControls.resetRequests();
+#endif
                 } else if (selectedModeIndex == 1) {
                     botVsBotMode = false;
                     state = MenuState::BOT_DIFFICULTY;
@@ -1280,29 +1283,35 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
     }
 
     if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+        std::cout << "[UI_mainMenu] MouseButtonPressed at (" << mb->position.x << "," << mb->position.y << ") state=" << static_cast<int>(state) << "\n";
         if (mb->button == sf::Mouse::Button::Left) {
+            static sf::Clock s_menuTransitionClock;
+            if (s_menuTransitionClock.getElapsedTime().asMilliseconds() < 160) {
+                std::cout << "[UI_mainMenu] Blocked by transition clock debounce\n";
+                return;
+            }
             sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            std::cout << "[UI_mainMenu] clickPos=(" << clickPos.x << "," << clickPos.y << ")\n";
             float screenWidth = VIRTUAL_WIDTH;
 
             if (state == MenuState::MAIN) {
-#if defined(__ANDROID__)
                 if (isPointInside(mainButtonRect(0), clickPos)) {
-                    blitzMode = true;
-                    selectedBotDifficulty = BotDifficulty::NONE;
-                    onPlay();
-                } else if (isPointInside(mainButtonRect(1), clickPos)) {
-                    onQuit();
-                }
-#else
-                if (isPointInside(mainButtonRect(0), clickPos)) {
+                    std::cout << "[UI_mainMenu] Transitioning MAIN -> MATCH_TYPE_SELECT\n";
                     state = MenuState::MATCH_TYPE_SELECT;
                     selectedMatchTypeIndex = 0;
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside(mainButtonRect(1), clickPos)) {
+                    std::cout << "[UI_mainMenu] Transitioning MAIN -> SETTINGS\n";
                     onSettings();
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside(mainButtonRect(2), clickPos)) {
+                    std::cout << "[UI_mainMenu] Transitioning MAIN -> QUIT\n";
                     onQuit();
+                    s_menuTransitionClock.restart();
+                    return;
                 }
-#endif
             } else if (state == MenuState::MATCH_TYPE_SELECT) {
                 float btnWidth = 560.0f;
                 float btnHeight = 54.0f;
@@ -1314,12 +1323,18 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     blitzMode = false; // 30m Battle
                     state = MenuState::MODE_SELECT;
                     selectedModeIndex = 0;
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
                     blitzMode = true; // 5m Blitz
                     state = MenuState::MODE_SELECT;
                     selectedModeIndex = 0;
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 16.0f }, { 240.0f, 46.0f } }, clickPos)) {
                     state = MenuState::MAIN;
+                    s_menuTransitionClock.restart();
+                    return;
                 }
             } else if (state == MenuState::MODE_SELECT) {
                 float btnWidth = 540.0f;
@@ -1331,18 +1346,30 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
                     botVsBotMode = false;
                     selectedBotDifficulty = BotDifficulty::NONE;
+#if defined(__ANDROID__)
+                    onPlay();
+#else
                     state = MenuState::PLAY_CONTROLS;
                     playControls.resetRequests();
+#endif
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
                     botVsBotMode = false;
                     state = MenuState::BOT_DIFFICULTY;
                     selectedDifficultyIndex = settingsDifficultyIndex; // default from НАСТРОЙКИ
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside({ { btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight } }, clickPos)) {
                     botVsBotMode = true;
                     selectedBotDifficulty = BotDifficulty::HARD;
                     onPlay();
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 10.0f }, { 240.0f, 44.0f } }, clickPos)) {
                     state = MenuState::MATCH_TYPE_SELECT;
+                    s_menuTransitionClock.restart();
+                    return;
                 }
             } else if (state == MenuState::BOT_DIFFICULTY) {
                 float btnWidth = 460.0f;
@@ -1354,14 +1381,22 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
                     selectedBotDifficulty = BotDifficulty::EASY;
                     onPlay();
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
                     selectedBotDifficulty = BotDifficulty::MEDIUM;
                     onPlay();
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside({ { btnX, startY + 2.0f * spacing }, { btnWidth, btnHeight } }, clickPos)) {
                     selectedBotDifficulty = BotDifficulty::HARD;
                     onPlay();
+                    s_menuTransitionClock.restart();
+                    return;
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 3.0f * spacing + 10.0f }, { 240.0f, 46.0f } }, clickPos)) {
                     state = MenuState::MODE_SELECT;
+                    s_menuTransitionClock.restart();
+                    return;
                 }
             } else if (state == MenuState::SETTINGS) {
                 float panelWidth = 580.0f;

@@ -46,6 +46,7 @@ private:
     sf::Vector2f panelSize;
     sf::Color accentColor;
     BuildHotkeys hotkeys = BuildHotkeys::NONE;
+    bool isBot = false;
 
     std::vector<BuildingTypeInfo> buildings;
 
@@ -55,6 +56,8 @@ public:
 
     void setPlayer(int playerIdx, sf::Vector2f pos, sf::Vector2f size, sf::Color accent);
     void setHotkeys(BuildHotkeys keys) { hotkeys = keys; }
+    void setBot(bool b) { isBot = b; }
+    bool getBot() const { return isBot; }
     BuildingType handleClick(sf::Vector2f clickPos);
 
     // Cards show the building icon, each cost as amount + resource icon (green when the player has
