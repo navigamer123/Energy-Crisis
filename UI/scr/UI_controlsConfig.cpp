@@ -1,4 +1,5 @@
 #include "../includes/UI_controlsConfig.h"
+#include "../includes/UI_settings.h"
 #include <SFML/Window/Keyboard.hpp>
 
 sf::Keyboard::Key PlayerBindings::getKey(ControlAction actionType) const {
@@ -31,7 +32,21 @@ void PlayerBindings::setKey(ControlAction actionType, sf::Keyboard::Key key) {
     }
 }
 
-const char* getControlActionNameBg(ControlAction actionType) {
+const char* getControlActionName(ControlAction actionType, bool isEn) {
+    if (isEn) {
+        switch (actionType) {
+            case ControlAction::MOVE_UP:       return "Move Up";
+            case ControlAction::MOVE_DOWN:     return "Move Down";
+            case ControlAction::MOVE_LEFT:     return "Move Left";
+            case ControlAction::MOVE_RIGHT:    return "Move Right";
+            case ControlAction::ACTION:        return "Action / Build";
+            case ControlAction::UPGRADE:       return "Upgrade Mine";
+            case ControlAction::NEXT_BUILDING: return "Next Building";
+            case ControlAction::PREV_BUILDING: return "Previous Building";
+            case ControlAction::CANCEL:        return "Cancel / Demolish";
+            default:                           return "";
+        }
+    }
     switch (actionType) {
         case ControlAction::MOVE_UP:       return "Движение Нагоре";
         case ControlAction::MOVE_DOWN:     return "Движение Надолу";
@@ -44,6 +59,10 @@ const char* getControlActionNameBg(ControlAction actionType) {
         case ControlAction::CANCEL:        return "Отказ / Разрушаване";
         default:                           return "";
     }
+}
+
+const char* getControlActionNameBg(ControlAction actionType) {
+    return getControlActionName(actionType, false);
 }
 
 std::string keyToString(sf::Keyboard::Key key) {
@@ -230,8 +249,19 @@ std::string UI_controlsConfig::getJoystickName(int player) const {
 }
 
 std::string UI_controlsConfig::getJoystickStatusBg() const {
+    bool isEn = (UI_settings::get().getLanguage() == "en");
     bool p1Connected = isJoystickConnected(1);
     bool p2Connected = isJoystickConnected(2);
+    if (isEn) {
+        if (p1Connected && p2Connected) {
+            return "DevHub One Arcade: PLAYER 1 [CONNECTED]  ·  PLAYER 2 [CONNECTED]";
+        } else if (p1Connected) {
+            return "DevHub One Arcade: PLAYER 1 [CONNECTED]  ·  PLAYER 2 [KEYBOARD]";
+        } else if (p2Connected) {
+            return "DevHub One Arcade: PLAYER 1 [KEYBOARD]  ·  PLAYER 2 [CONNECTED]";
+        }
+        return "DevHub One Arcade: Standby (Connect gamepads/arcade joysticks)";
+    }
     if (p1Connected && p2Connected) {
         return "DevHub One Аркада: ИГРАЧ 1 [СВЪРЗАН]  ·  ИГРАЧ 2 [СВЪРЗАН]";
     } else if (p1Connected) {

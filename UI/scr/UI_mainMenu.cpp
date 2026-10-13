@@ -884,16 +884,25 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
     ui::lint::occlude(sf::FloatRect({ panelX, panelY }, { panelWidth, panelHeight }));
 
     sf::Vector2f mousePos = ui::pointerPos(window);
+    bool isEn = (UI_settings::get().getLanguage() == "en");
 
     if (fontLoaded) {
-        sf::Text& title = ui::pooledText(font, toUtf8("НАСТРОЙКИ: ПРЕНАЗНАЧАВАНЕ НА УПРАВЛЕНИЕТО"), fontsize::H1);
+        sf::Text& title = ui::pooledText(font, toUtf8(isEn ? "SETTINGS: REMAP CONTROLS" : "НАСТРОЙКИ: ПРЕНАЗНАЧАВАНЕ НА УПРАВЛЕНИЕТО"), fontsize::H1);
         title.setStyle(sf::Text::Bold);
         title.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = title.getLocalBounds();
         title.setPosition({ panelX + (panelWidth - tb.size.x) / 2.0f, panelY + 14.0f });
         ui::drawText(window, title);
 
-        sf::Text& sub = ui::pooledText(font, toUtf8(isRebinding ? "НАТИСНЕТЕ ЖЕЛАН КЛАВИШ ОТ КЛАВИАТУРАТА (ИЛИ ESC ЗА ОТКАЗ)" : "Изберете контрол с [Enter] или клик, след което натиснете новия клавиш"), fontsize::Body);
+        std::string subText;
+        if (isRebinding) {
+            subText = isEn ? "PRESS DESIRED KEY ON KEYBOARD (OR ESC TO CANCEL)"
+                           : "НАТИСНЕТЕ ЖЕЛАН КЛАВИШ ОТ КЛАВИАТУРАТА (ИЛИ ESC ЗА ОТКАЗ)";
+        } else {
+            subText = isEn ? "Select control with [Enter] or click, then press new key"
+                           : "Изберете контрол с [Enter] или клик, след което натиснете новия клавиш";
+        }
+        sf::Text& sub = ui::pooledText(font, toUtf8(subText), fontsize::Body);
         sub.setFillColor(isRebinding ? theme::Gold : theme::TextSecondary);
         if (isRebinding) sub.setStyle(sf::Text::Bold);
         sf::FloatRect sb = sub.getLocalBounds();
@@ -919,7 +928,8 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
 
         // Player section title
         if (fontLoaded) {
-            std::string pTitle = (p == 1) ? "ИГРАЧ 1 (ЗАПАДЕН СЕКТОР)" : "ИГРАЧ 2 (ИЗТОЧЕН СЕКТОР)";
+            std::string pTitle = (p == 1) ? (isEn ? "PLAYER 1 (WEST SECTOR)" : "ИГРАЧ 1 (ЗАПАДЕН СЕКТОР)")
+                                          : (isEn ? "PLAYER 2 (EAST SECTOR)" : "ИГРАЧ 2 (ИЗТОЧЕН СЕКТОР)");
             sf::Text& colTitle = ui::pooledText(font, toUtf8(pTitle), fontsize::H2);
             colTitle.setStyle(sf::Text::Bold);
             colTitle.setFillColor(playerColorLight);
@@ -961,7 +971,7 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
 
             // Action label
             if (fontLoaded) {
-                std::string actionName = getControlActionNameBg(actionType);
+                std::string actionName = getControlActionName(actionType, isEn);
                 if (isRowSelected) actionName = "> " + actionName;
                 sf::Text& actText = ui::pooledText(font, toUtf8(actionName), fontsize::Body);
                 actText.setFillColor((isRowSelected || isCurrentRebinding) ? theme::TextPrimary : theme::TextSecondary);
@@ -987,7 +997,7 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
             window.draw(badge);
 
             if (fontLoaded) {
-                std::string badgeLabel = isCurrentRebinding ? "[ ВЪВЕДЕТЕ... ]" : ("[" + keyName + "]");
+                std::string badgeLabel = isCurrentRebinding ? (isEn ? "[ PRESS KEY... ]" : "[ ВЪВЕДЕТЕ... ]") : ("[" + keyName + "]");
                 sf::Text& bText = ui::pooledText(font, toUtf8(badgeLabel), fontsize::Label);
                 bText.setStyle(sf::Text::Bold);
                 bText.setFillColor(isCurrentRebinding ? sf::Color::Black : theme::TextPrimary);
@@ -1007,9 +1017,9 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
     bool resetSelected = (!isRebinding && remapSelectedRow == 9);
     bool backSelected = (!isRebinding && remapSelectedRow == 10);
 
-    drawButton(window, resetBtn, toUtf8("ВЪЗСТАНОВИ ПО ПОДРАЗБИРАНЕ"),
+    drawButton(window, resetBtn, toUtf8(isEn ? "RESET TO DEFAULT" : "ВЪЗСТАНОВИ ПО ПОДРАЗБИРАНЕ"),
                theme::Button, theme::ButtonHover, theme::TextPrimary, resetSelected || (!isRebinding && resetBtn.contains(mousePos)));
-    drawButton(window, backBtn, toUtf8("НАЗАД"),
+    drawButton(window, backBtn, toUtf8(isEn ? "BACK" : "НАЗАД"),
                theme::Button, theme::ButtonHover, theme::TextPrimary, backSelected || (!isRebinding && backBtn.contains(mousePos)));
 
     if (fontLoaded) {
@@ -1021,9 +1031,10 @@ void UI_mainMenu::drawControlsRemapMenu(sf::RenderWindow& window) {
         ui::drawText(window, joyText);
 
 #if defined(__ANDROID__)
-        sf::Text& hint = ui::pooledText(font, toUtf8(UI_settings::get().getLanguage() == "en" ? "Tap control options to adjust" : "Докоснете опциите за управление"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8(isEn ? "Tap control options to adjust" : "Докоснете опциите за управление"), fontsize::Label);
 #else
-        sf::Text& hint = ui::pooledText(font, toUtf8("Навигация: [W/S/A/D, Стрелки, Аркаден стик] | Избор: [Enter / Бутон 1] | Отказ: [Esc / Бутон 2]"), fontsize::Label);
+        sf::Text& hint = ui::pooledText(font, toUtf8(isEn ? "Navigation: [W/S/A/D, Arrows, Arcade Stick] | Select: [Enter / Btn 1] | Cancel: [Esc / Btn 2]"
+                                                          : "Навигация: [W/S/A/D, Стрелки, Аркаден стик] | Избор: [Enter / Бутон 1] | Отказ: [Esc / Бутон 2]"), fontsize::Label);
 #endif
         hint.setFillColor(theme::TextMuted);
         sf::FloatRect hb = hint.getLocalBounds();

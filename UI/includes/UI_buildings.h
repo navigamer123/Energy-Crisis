@@ -32,6 +32,7 @@ std::vector<ResourceNeed> buildingNeeds(const PlayerEconomy& econ, const Buildin
 
 // Lower-case Bulgarian resource name ("желязо") for messages
 const char* resourceNameBg(ResourceType type);
+const char* resourceNameEn(ResourceType type);
 
 // Whole recipe in one style: "6 дърво, 4 желязо, 6 мед, 8 силиций"
 std::string recipeText(const BuildingCost& cost);

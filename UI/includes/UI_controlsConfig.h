@@ -36,6 +36,7 @@ struct PlayerBindings {
 
 std::string keyToString(sf::Keyboard::Key key);
 const char* getControlActionNameBg(ControlAction actionType);
+const char* getControlActionName(ControlAction actionType, bool isEn = false);
 
 class UI_controlsConfig {
 public:

@@ -226,7 +226,7 @@ void UI_map::restartMatch() {
     resetInfoUI(); // team info: clear telemetry, toasts and the event log
     fx.reset(engine); // [b-effects] clear effects and resync the feedback event tracker
 
-    spawnNotice("НОВА ИГРА СТАРТИРАНА!", { 800.0f, 450.0f }, theme::Good);
+    spawnNotice((UI_settings::get().getLanguage() == "en" ? "NEW GAME STARTED!" : "НОВА ИГРА СТАРТИРАНА!"), { 800.0f, 450.0f }, theme::Good);
 }
 
 bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {

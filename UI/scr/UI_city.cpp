@@ -101,7 +101,8 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
     window.draw(tag);
 
     if (fontLoaded) {
-        sf::Text& bText = ui::pooledText(font, toUtf8("ЦЕНТРАЛНА ГРАНИЦА"), fontsize::Label);
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        sf::Text& bText = ui::pooledText(font, toUtf8(isEn ? "CENTER BORDER" : "ЦЕНТРАЛНА ГРАНИЦА"), fontsize::Label);
         bText.setStyle(sf::Text::Bold);
         bText.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = bText.getLocalBounds();
@@ -355,9 +356,11 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
                     displayMsg = "GRACE PERIOD ENDED! THE CITY NOW REQUIRES POWER!";
                 } else if (cutMessage.find("ПРИКЛЮЧИ [ГРАТИСЕН ПЕРИОД]") != std::string::npos) {
                     displayMsg = "DAY ENDED [GRACE PERIOD]: CITY REQUIRED 0 MW.";
-                } else if (cutMessage.find("И ДВАМАТА ИГРАЧИ ЗАХРАНИХА ГРАДА") != std::string::npos) {
+                } else if (cutMessage.find("И ДВАМАТА ЗАХРАНИХА ГРАДА") != std::string::npos ||
+                           cutMessage.find("И ДВАМАТА ИГРАЧИ ЗАХРАНИХА ГРАДА") != std::string::npos) {
                     displayMsg = "BOTH PLAYERS POWERED THE CITY! NO TERRITORY SHIFT.";
-                } else if (cutMessage.find("НИТО ЕДИН ИГРАЧ НЕ ЗАХРАНИ ГРАДА") != std::string::npos) {
+                } else if (cutMessage.find("НИТО ЕДИН НЕ ЗАХРАНИ ГРАДА") != std::string::npos ||
+                           cutMessage.find("НИТО ЕДИН ИГРАЧ НЕ ЗАХРАНИ ГРАДА") != std::string::npos) {
                     displayMsg = "NEITHER PLAYER POWERED THE CITY! NO TERRITORY SHIFT.";
                 } else if (cutMessage.find("ИГРАЧ 1 ЗАХРАНИ ГРАДА") != std::string::npos) {
                     displayMsg = "PLAYER 1 POWERED THE CITY AND GAINED TERRITORY!";

@@ -1,5 +1,6 @@
 #include "../includes/UI_playControls.h"
 #include "../includes/UI_controlsConfig.h"
+#include "../includes/UI_settings.h"
 #include "../includes/UI_main.h"
 #include "../includes/UI_shot.h"
 #include "../includes/UI_text.h"
@@ -58,10 +59,12 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
   window.draw(card);
   const sf::FloatRect cardRect({cardX, cardY}, {cardWidth, cardHeight});
 
+  bool isEn = (UI_settings::get().getLanguage() == "en");
+
   if (fontLoaded) {
     // Modal title
     sf::Text &title = ui::pooledText(
-        font, toUtf8("ИЗБЕРЕТЕ УПРАВЛЕНИЕ ЗА ДВАМА ИГРАЧИ"), fontsize::H1);
+        font, toUtf8(isEn ? "CHOOSE A 2-PLAYER CONTROL SCHEME" : "ИЗБЕРЕТЕ УПРАВЛЕНИЕ ЗА ДВАМА ИГРАЧИ"), fontsize::H1);
     title.setStyle(sf::Text::Bold);
     title.setFillColor(theme::TextPrimary);
     sf::FloatRect tb = title.getLocalBounds();
@@ -101,35 +104,51 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
     const char *badgeText;
   };
 
-  OptionData options[5] = {
+  static const OptionData optionsBg[5] = {
       {"1. СПОДЕЛЕНА КЛАВИАТУРА",
-       "Играч 1 (Запад): [W][A][S][D] Движение  ·  [SPACE] Действие  ·  [E] / "
-       "[Q] Сграда",
-       "Играч 2 (Изток): [Стрелки] Движение  ·  [ENTER] Действие  ·  [PgDn] / "
-       "[PgUp] Сграда",
+       "Играч 1 (Запад): [W][A][S][D] Движение  ·  [SPACE] Действие  ·  [E] / [Q] Сграда",
+       "Играч 2 (Изток): [Стрелки] Движение  ·  [ENTER] Действие  ·  [PgDn] / [PgUp] Сграда",
        "КЛАВ. + КЛАВ."},
       {"2. ИГРАЧ 1 КЛАВИАТУРА + ИГРАЧ 2 МИШКА",
-       "Играч 1 (Запад): [W][A][S][D] Движение  ·  [SPACE] Действие  ·  [E] / "
-       "[Q] Сграда",
-       "Играч 2 (Изток): [Мишка] Позиция  ·  [Ляв клик] Действие  ·  [Десен "
-       "клик] Отказ",
+       "Играч 1 (Запад): [W][A][S][D] Движение  ·  [SPACE] Действие  ·  [E] / [Q] Сграда",
+       "Играч 2 (Изток): [Мишка] Позиция  ·  [Ляв клик] Действие  ·  [Десен клик] Отказ",
        "КЛАВ. + МИШКА"},
       {"3. ИГРАЧ 1 МИШКА + ИГРАЧ 2 КЛАВИАТУРА",
-       "Играч 1 (Запад): [Мишка] Позиция  ·  [Ляв клик] Действие  ·  [Десен "
-       "клик] Отказ",
-       "Играч 2 (Изток): [Стрелки] Движение  ·  [ENTER] Действие  ·  [PgDn] / "
-       "[PgUp] Сграда",
+       "Играч 1 (Запад): [Мишка] Позиция  ·  [Ляв клик] Действие  ·  [Десен клик] Отказ",
+       "Играч 2 (Изток): [Стрелки] Движение  ·  [ENTER] Действие  ·  [PgDn] / [PgUp] Сграда",
        "МИШКА + КЛАВ."},
       {"4. ОБЩА МИШКА (ЕДНА МИШКА, ИГРА НА РЕД)",
        "Играч 1 (Запад): [Мишката в западната половина] Движение и Действие",
        "Играч 2 (Изток): [Мишката в източната половина] Движение и Действие",
        "1 МИШКА"},
       {"5. DEVHUB ONE АРКАДНА КОНЗОЛА (АРКАДНИ СТИКОВЕ & БУТОНИ)",
-       "Играч 1 (Запад): Аркаден стик 1  ·  [Бутон 1/A] Действие  ·  [2/B] "
-       "Отказ  ·  [3/X] Надграждане",
-       "Играч 2 (Изток): Аркаден стик 2  ·  [Бутон 1/A] Действие  ·  [2/B] "
-       "Отказ  ·  [3/X] Надграждане",
+       "Играч 1 (Запад): Аркаден стик 1  ·  [Бутон 1/A] Действие  ·  [2/B] Отказ  ·  [3/X] Надграждане",
+       "Играч 2 (Изток): Аркаден стик 2  ·  [Бутон 1/A] Действие  ·  [2/B] Отказ  ·  [3/X] Надграждане",
        "DEVHUB ONE"}};
+
+  static const OptionData optionsEn[5] = {
+      {"1. SHARED KEYBOARD",
+       "Player 1 (West): [W][A][S][D] Move  ·  [SPACE] Action  ·  [E] / [Q] Building",
+       "Player 2 (East): [Arrows] Move  ·  [ENTER] Action  ·  [PgDn] / [PgUp] Building",
+       "KB + KB"},
+      {"2. PLAYER 1 KEYBOARD + PLAYER 2 MOUSE",
+       "Player 1 (West): [W][A][S][D] Move  ·  [SPACE] Action  ·  [E] / [Q] Building",
+       "Player 2 (East): [Mouse] Position  ·  [Left Click] Action  ·  [Right Click] Cancel",
+       "KB + MOUSE"},
+      {"3. PLAYER 1 MOUSE + PLAYER 2 KEYBOARD",
+       "Player 1 (West): [Mouse] Position  ·  [Left Click] Action  ·  [Right Click] Cancel",
+       "Player 2 (East): [Arrows] Move  ·  [ENTER] Action  ·  [PgDn] / [PgUp] Building",
+       "MOUSE + KB"},
+      {"4. SHARED MOUSE (ONE MOUSE, TAKE TURNS)",
+       "Player 1 (West): [Mouse in west half] Move & Action",
+       "Player 2 (East): [Mouse in east half] Move & Action",
+       "1x MOUSE"},
+      {"5. DEVHUB ONE ARCADE (ARCADE STICKS & BUTTONS)",
+       "Player 1 (West): Arcade Stick 1  ·  [Button 1/A] Action  ·  [2/B] Cancel  ·  [3/X] Upgrade",
+       "Player 2 (East): Arcade Stick 2  ·  [Button 1/A] Action  ·  [2/B] Cancel  ·  [3/X] Upgrade",
+       "DEVHUB ONE"}};
+
+  const OptionData* options = isEn ? optionsEn : optionsBg;
 
   bool mouseMoved = (std::abs(mousePos.x - lastMousePos.x) > 2.0f ||
                      std::abs(mousePos.y - lastMousePos.y) > 2.0f);
@@ -219,7 +238,7 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
       window.draw(badge);
 
       sf::Text &bText = ui::pooledText(
-          font, toUtf8(isActive ? "ИЗБРАНО" : options[i].badgeText),
+          font, toUtf8(isActive ? (isEn ? "SELECTED" : "ИЗБРАНО") : options[i].badgeText),
           fontsize::Label);
       bText.setFillColor(isActive
                              ? theme::TextPrimary
@@ -248,18 +267,20 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
       selectedIndex = 6;
   }
 
-  drawButton(window, font, fontLoaded, startBtn, toUtf8("СТАРТ НА ИГРАТА"),
+  drawButton(window, font, fontLoaded, startBtn, toUtf8(isEn ? "START GAME" : "СТАРТ НА ИГРАТА"),
              theme::GoodFill, theme::GoodFill, theme::TextPrimary,
              selectedIndex == 5);
-  drawButton(window, font, fontLoaded, backBtn, toUtf8("НАЗАД"), theme::Button,
+  drawButton(window, font, fontLoaded, backBtn, toUtf8(isEn ? "BACK" : "НАЗАД"), theme::Button,
              theme::ButtonHover, theme::TextPrimary, selectedIndex == 6);
 
   // Keyboard hints
   if (fontLoaded) {
+    std::string hintStr = isEn
+        ? "Navigate: [Arrows / Stick / W,S] | Select: [Enter / Button 1 / Start] | Back: [ESC / Button 2]"
+        : "Навигация: [Стрелки / Стик / W,S] | Избор: [Enter / Бутон 1 / Start] | Назад: [ESC / Бутон 2]";
     sf::Text &hint = ui::pooledText(
         font,
-        toUtf8("Навигация: [Стрелки / Стик / W,S] | Избор: [Enter / Бутон 1 / "
-               "Start] | Назад: [ESC / Бутон 2]"),
+        toUtf8(hintStr),
         fontsize::Label);
     hint.setFillColor(theme::TextMuted);
     sf::FloatRect hb = hint.getLocalBounds();

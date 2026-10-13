@@ -5,35 +5,228 @@
 #include "../includes/UI_icons.h"
 #include "../includes/UI_arcadeMode.h"
 #include "../includes/UI_settings.h"
+#include "../includes/UI_buildings.h"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
+
+namespace {
+
+std::string replaceAll(std::string str, const std::string& from, const std::string& to) {
+    if (from.empty()) return str;
+    size_t startPos = 0;
+    while ((startPos = str.find(from, startPos)) != std::string::npos) {
+        str.replace(startPos, from.length(), to);
+        startPos += to.length();
+    }
+    return str;
+}
+
+std::string translateNoticeText(const std::string& text) {
+    if (text == "ЗАКУПЕН ПАРЦЕЛ!") return "PLOT PURCHASED!";
+    if (text == "ПОСТРОЕНА СГРАДА!") return "BUILDING COMPLETE!";
+    if (text == "ПОСТРОЕНО!") return "BUILT!";
+    if (text == "ДЕМОНТИРАНО!") return "DEMOLISHED!";
+    if (text == "РЕЖИМ ДОБИВ") return "GATHER MODE";
+    if (text == "НЕЗАКУПЕНА ТЕРИТОРИЯ!") return "UNPURCHASED LAND!";
+    if (text == "МЪЛНИЯ УДАРИ СЪОРЪЖЕНИЕТО!") return "LIGHTNING STRUCK FACILITY!";
+    if (text == "СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!") return "FACILITY DESTROYED!";
+    if (text == "ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!") return "STAND OVER A MINE TO UPGRADE IT!";
+    if (text == "НОВА ИГРА СТАРТИРАНА!") return "NEW GAME STARTED!";
+
+    if (text.rfind("ИЗБРАНА СГРАДА: ", 0) == 0) {
+        std::string sub = text.substr(std::string("ИЗБРАНА СГРАДА: ").length());
+        if (sub == "Слънчев панел") sub = "Solar Panel";
+        else if (sub == "Вятърна мелница") sub = "Wind Turbine";
+        else if (sub == "ВЕЦ / Хидро") sub = "Hydro Plant";
+        else if (sub == "Батерия") sub = "Battery Storage";
+        else if (sub == "Осветителна лампа") sub = "Work Lamp";
+        return "SELECTED: " + sub;
+    }
+    if (text.rfind("ИЗЧАКАЙТЕ: ", 0) == 0) {
+        return "WAIT: " + text.substr(std::string("ИЗЧАКАЙТЕ: ").length());
+    }
+    if (text.rfind("НАДГРАДЕНО: ", 0) == 0) {
+        std::string s = replaceAll(text, "НАДГРАДЕНО: ", "UPGRADED: ");
+        s = replaceAll(s, "ДЪРВОДОБИВ", "FOREST STATION");
+        s = replaceAll(s, "ЖЕЛЯЗНА МИНА", "IRON MINE");
+        s = replaceAll(s, "МЕДНА МИНА", "COPPER MINE");
+        s = replaceAll(s, "ВЪГЛИЩНА МИНА", "COAL MINE");
+        s = replaceAll(s, "СИЛИЦИЕВА КАРИЕРА", "SILICON QUARRY");
+        s = replaceAll(s, "СРЕБЪРНА МИНА", "SILVER MINE");
+        s = replaceAll(s, "ЗЛАТНА ЖИЛА", "GOLD VEIN");
+        s = replaceAll(s, "МИНА", "MINE");
+        s = replaceAll(s, "(НИВО ", "(LEVEL ");
+        s = replaceAll(s, "(+75% ДОБИВ)", "(+75% YIELD)");
+        return s;
+    }
+    if (text.rfind("МАКСИМАЛНО НИВО НА МИНАТА", 0) == 0) {
+        std::string s = replaceAll(text, "МАКСИМАЛНО НИВО НА МИНАТА", "MAX MINE LEVEL");
+        s = replaceAll(s, "(НИВО ", "(LEVEL ");
+        return s;
+    }
+    if (text.rfind("НЕДОСТИГ НА ЗЛАТО! НУЖНО: ", 0) == 0) {
+        std::string s = replaceAll(text, "НЕДОСТИГ НА ЗЛАТО! НУЖНО: ", "NOT ENOUGH GOLD! NEED: ");
+        s = replaceAll(s, "(ИМАТЕ ", "(YOU HAVE ");
+        return s;
+    }
+
+    if (text.rfind("+", 0) == 0) {
+        std::string s = text;
+        s = replaceAll(s, "Дървесина (Гора)", "Wood (Forest)");
+        s = replaceAll(s, "Желязо (Желязна мина)", "Iron (Iron Mine)");
+        s = replaceAll(s, "Мед (Медна мина)", "Copper (Copper Mine)");
+        s = replaceAll(s, "Въглища (Въглищна мина)", "Coal (Coal Mine)");
+        s = replaceAll(s, "Силиций (Силициева кариера)", "Silicon (Silicon Quarry)");
+        s = replaceAll(s, "Сребро (Сребърна мина)", "Silver (Silver Mine)");
+        s = replaceAll(s, "Злато (Златна жила)", "Gold (Gold Vein)");
+        s = replaceAll(s, "Дърво", "Wood");
+        s = replaceAll(s, "Желязо", "Iron");
+        s = replaceAll(s, "Мед", "Copper");
+        s = replaceAll(s, "Въглища", "Coal");
+        s = replaceAll(s, "Силиций", "Silicon");
+        s = replaceAll(s, "Сребро", "Silver");
+        s = replaceAll(s, "Злато", "Gold");
+        s = replaceAll(s, "[НИВО ", "[LEVEL ");
+        return s;
+    }
+
+    return text;
+}
+
+std::string translatePopupDetail(const std::string& text) {
+    if (text == "Парцелът е ваш. Вече можете да строите върху него.") return "The plot is yours. You can now build on it.";
+    if (text == "Парцелът е ваш. Натиснете E за избор на сграда.") return "The plot is yours. Press E to choose a building.";
+    if (text == "Парцелът е ваш. Натиснете PgDn за избор на сграда.") return "The plot is yours. Press PgDn to choose a building.";
+    if (text == "Парцелът е ваш. Изберете сграда за строеж.") return "The plot is yours. Choose a building to construct.";
+    if (text == "Не може да строите върху незакупена земя.") return "You cannot build on unowned land.";
+    if (text == "Не можете да разрушавате сгради на противника!") return "You cannot demolish opponent's buildings!";
+    if (text == "Земята е свободна за строителство.") return "Land is ready for construction.";
+    if (text == "Свободен режим.") return "Free mode.";
+    if (text == "Посочете сграда за разрушаване.") return "Select a building to demolish.";
+    if (text == "Посочете сградата, която искате да махнете.") return "Select the building you want to demolish.";
+    if (text == "Посочете ваша сграда за разрушаване.") return "Select your building to demolish.";
+    if (text == "Режимът за поставяне е прекратен.") return "Placement mode has been cancelled.";
+    if (text == "Ресурсът е добавен в склада.") return "Resource added to warehouse.";
+    if (text == "Добивът от тази мина е увеличен с +75%!") return "Yield from this mine increased by +75%!";
+    if (text == "Печелете злато от доставка на ток към града!") return "Earn gold from supplying electricity to the city!";
+    if (text.find("Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.") != std::string::npos)
+        return "Click on your building to demolish.\nRefunds 50% of construction resources.";
+
+    std::string s = text;
+    s = replaceAll(s, ".\nДобив: +", ".\nYield: +");
+    s = replaceAll(s, ".\nОсветява нощем за строителство.", ".\nIlluminates at night for building.");
+    s = replaceAll(s, " MW ток.", " MW power.");
+    s = replaceAll(s, " MW ток", " MW power");
+    s = replaceAll(s, "Нужно: ", "Cost: ");
+    s = replaceAll(s, "дърво", "wood");
+    s = replaceAll(s, "желязо", "iron");
+    s = replaceAll(s, "мед", "copper");
+    s = replaceAll(s, "въглища", "coal");
+    s = replaceAll(s, "силиций", "silicon");
+    s = replaceAll(s, "сребро", "silver");
+    s = replaceAll(s, "злато", "gold");
+    s = replaceAll(s, "ток", "power");
+    return s;
+}
+
+std::string translatePopupAction(const std::string& text) {
+    std::string s = text;
+    s = replaceAll(s, ": Постави в грида", ": Place in grid");
+    s = replaceAll(s, ": Постави сграда", ": Place building");
+    s = replaceAll(s, ": Постави отново същата", ": Place another");
+    s = replaceAll(s, ": Постави отново", ": Place another");
+    s = replaceAll(s, ": Постави", ": Place");
+    s = replaceAll(s, ": Друга сграда", ": Cycle");
+    s = replaceAll(s, ": Смени сграда", ": Cycle building");
+    s = replaceAll(s, ": Смени", ": Cycle");
+    s = replaceAll(s, ": Следваща", ": Next");
+    s = replaceAll(s, ": Предишна", ": Prev");
+    s = replaceAll(s, ": Отказ", ": Cancel");
+    s = replaceAll(s, ": Премахни", ": Demolish");
+    s = replaceAll(s, ": Избери сграда", ": Choose building");
+    s = replaceAll(s, ": Изберете сграда за строеж", ": Choose building");
+    s = replaceAll(s, ": Избери", ": Choose");
+    s = replaceAll(s, ": Нов ъпгрейд", ": Upgrade");
+    s = replaceAll(s, ": Надгради мина", ": Upgrade mine");
+    s = replaceAll(s, ": Добив", ": Gather");
+    s = replaceAll(s, ": Добий ресурс", ": Gather resource");
+    s = replaceAll(s, "[SPACE НА ЗЕМЯ]", "[SPACE ON LAND]");
+    s = replaceAll(s, "[ENTER НА ЗЕМЯ]", "[ENTER ON LAND]");
+    s = replaceAll(s, "[ДОКОСНИ ЗЕМЯ]", "[TAP LAND]");
+    s = replaceAll(s, "[ДОКОСНИ ПАРЦЕЛ]", "[TAP PLOT]");
+    s = replaceAll(s, "[ДОКОСНИ КАРТА]", "[TAP CARD]");
+    s = replaceAll(s, "[ДОКОСНИ СТАНЦИЯ]", "[TAP STATION]");
+    s = replaceAll(s, "[ДОКОСНИ ЪПГРЕЙД]", "[TAP UPGRADE]");
+    s = replaceAll(s, "[КЛИК НА ЗЕМЯ]", "[CLICK ON LAND]");
+    s = replaceAll(s, "[КЛИК]", "[CLICK]");
+    s = replaceAll(s, "[ДОКОСНИ]", "[TAP]");
+    s = replaceAll(s, "(на ", "(every ");
+    s = replaceAll(s, " сек)", " sec)");
+    s = replaceAll(s, " сек.", " sec");
+    s = replaceAll(s, "с)", "s)");
+    return s;
+}
+
+std::string translateModalDetail(const std::string& text) {
+    if (text == "ТОЗИ ПАРЦЕЛ ВЕЧЕ Е ЗАКУПЕН!") return "THIS PLOT IS ALREADY PURCHASED!";
+    if (text == "НЕВАЛИДЕН ПАРЦЕЛ!") return "INVALID PLOT!";
+    if (text == "ВСИЧКИ ПАРЦЕЛИ СА ЗАКУПЕНИ!") return "ALL PLOTS PURCHASED!";
+    if (text == "НЯМА ИЗБРАНА СГРАДА!") return "NO BUILDING SELECTED!";
+    if (text == "НЕПОЗНАТ ВИД СГРАДА!") return "UNKNOWN BUILDING TYPE!";
+    if (text == "НЕВАЛИДНА ПОЗИЦИЯ ЗА СТРОЕЖ!") return "INVALID BUILDING POSITION!";
+    if (text == "НЯМА ВАША СГРАДА В ТАЗИ ТОЧКА ЗА ПРЕМАХВАНЕ!") return "NO BUILDING OF YOURS HERE TO DEMOLISH!";
+    if (text == "МОЖЕТЕ ДА СТРОИТЕ САМО ВЪРХУ ВАША ЗАКУПЕНА ЗЕМЯ!") return "YOU CAN ONLY BUILD ON YOUR PURCHASED LAND!";
+    if (text == "В ТАЗИ КЛЕТКА ВЕЧЕ ИМА СГРАДА!") return "THIS CELL ALREADY CONTAINS A BUILDING!";
+    if (text == "НОЩЕН МРАК!") return "NIGHT DARKNESS!";
+    if (text == "ВЕЦ СЕ СТРОИ САМО НА БРЕГА НА РЕКАТА!") return "HYDRO PLANT CAN ONLY BE BUILT ON RIVER BANK!";
+    if (text.rfind("НЕДОСТИГ НА ПАРИ! НУЖНО: ", 0) == 0) {
+        return "NOT ENOUGH MONEY! NEED: " + text.substr(std::string("НЕДОСТИГ НА ПАРИ! НУЖНО: ").length());
+    }
+    if (text.rfind("НЕ СТИГАТ ПАРИ ЗА ЗЕМЯ! НУЖНО: ", 0) == 0) {
+        return "NOT ENOUGH MONEY FOR LAND! NEED: " + text.substr(std::string("НЕ СТИГАТ ПАРИ ЗА ЗЕМЯ! НУЖНО: ").length());
+    }
+    if (text.rfind("Недостигат: ", 0) == 0) {
+        std::string s = replaceAll(text, "Недостигат: ", "Missing: ");
+        s = replaceAll(s, "дърво", "wood");
+        s = replaceAll(s, "желязо", "iron");
+        s = replaceAll(s, "мед", "copper");
+        s = replaceAll(s, "въглища", "coal");
+        s = replaceAll(s, "силиций", "silicon");
+        s = replaceAll(s, "сребро", "silver");
+        s = replaceAll(s, "злато", "gold");
+        return s;
+    }
+    return text;
+}
+
+std::string translateModalTip(const std::string& text) {
+    if (text == "Продавайте ток на града за да печелите пари ($)!") return "Sell electricity to the city to earn money ($)!";
+    if (text == "Поставете и захранете Осветителна лампа за работа нощем!") return "Place and power a Work Lamp to build at night!";
+    if (text == "Изберете свободна клетка от ваш закупен парцел.") return "Choose an empty cell on your purchased plot.";
+    if (text == "Добийте ги от станциите долу: докоснете станцията.") return "Gather them from stations below: tap on the station.";
+    if (text.find("Добийте ги от станциите") != std::string::npos) {
+        if (text.find("[A]") != std::string::npos) {
+            return "Gather them from stations: stand over a station and press [A].";
+        }
+        if (text.find("[SPACE]") != std::string::npos) {
+            return "Gather them from stations below: stand over a station and press [SPACE] (or click it).";
+        }
+        if (text.find("[ENTER]") != std::string::npos) {
+            return "Gather them from stations below: stand over a station and press [ENTER] (or click it).";
+        }
+    }
+    return text;
+}
+
+} // namespace
 
 // =============================================================================
 // UI_map Popups, Notices, Interactive Modals & Mining Prompts
 // =============================================================================
 
 void UI_map::spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color color) {
-    std::string finalText = text;
-    if (UI_settings::get().getLanguage() == "en") {
-        if (finalText == "ЗАКУПЕН ПАРЦЕЛ!") finalText = "PLOT PURCHASED!";
-        else if (finalText == "ПОСТРОЕНА СГРАДА!") finalText = "BUILDING COMPLETE!";
-        else if (finalText == "РЕЖИМ ДОБИВ") finalText = "GATHER MODE";
-        else if (finalText == "НЕЗАКУПЕНА ТЕРИТОРИЯ!") finalText = "UNPURCHASED LAND!";
-        else if (finalText == "МЪЛНИЯ УДАРИ СЪОРЪЖЕНИЕТО!") finalText = "LIGHTNING STRUCK FACILITY!";
-        else if (finalText == "СЪОРЪЖЕНИЕТО Е УНИЩОЖЕНО!") finalText = "FACILITY DESTROYED!";
-        else if (finalText.find("ИЗБРАНА СГРАДА: ") == 0) {
-            std::string sub = finalText.substr(std::string("ИЗБРАНА СГРАДА: ").length());
-            if (sub == "Слънчев панел") sub = "Solar Panel";
-            else if (sub == "Вятърна мелница") sub = "Wind Turbine";
-            else if (sub == "ВЕЦ / Хидро") sub = "Hydro Plant";
-            else if (sub == "Батерия") sub = "Battery Storage";
-            else if (sub == "Осветителна лампа") sub = "Work Lamp";
-            finalText = "SELECTED: " + sub;
-        } else if (finalText.find("ИЗЧАКАЙТЕ: ") == 0) {
-            finalText = "WAIT: " + finalText.substr(std::string("ИЗЧАКАЙТЕ: ").length());
-        }
-    }
+    std::string finalText = (UI_settings::get().getLanguage() == "en") ? translateNoticeText(text) : text;
     FloatingNotice n;
     n.text = finalText;
     n.pos = pos;
@@ -119,44 +312,13 @@ void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std:
             if (in == "ВЕЦ / Хидро") return "Hydro Plant";
             if (in == "Батерия") return "Battery Storage";
             if (in == "Осветителна лампа") return "Work Lamp";
+            if (in == "Премахване") return "Demolish";
             return in;
         };
         finalBadge = translateStr(finalBadge);
         finalTitle = translateStr(finalTitle);
-
-        if (finalDetail == "Парцелът е ваш. Вече можете да строите върху него.") finalDetail = "The plot is yours. You can now build on it.";
-        else if (finalDetail == "Не може да строите върху незакупена земя.") finalDetail = "You cannot build on unowned land.";
-        else if (finalDetail == "Земята е свободна за строителство.") finalDetail = "Land is ready for construction.";
-        else if (finalDetail == "Свободен режим.") finalDetail = "Free mode.";
-        else if (finalDetail == "Посочете сградата, която искате да махнете.") finalDetail = "Select the building you want to demolish.";
-        else if (finalDetail == "Режимът за поставяне е прекратен.") finalDetail = "Placement mode has been cancelled.";
-        else if (finalDetail.find("Кликнете върху ваша сграда за разрушаване.\nВръща 50% от ресурсите.") != std::string::npos)
-            finalDetail = "Click on your building to demolish.\nRefunds 50% of construction resources.";
-
-        if (finalAction == "[SPACE НА ЗЕМЯ]: Постави | [E]: Друга сграда | [X]: Отказ")
-            finalAction = "[SPACE ON LAND]: Place | [E]: Cycle | [X]: Cancel";
-        else if (finalAction == "[ENTER НА ЗЕМЯ]: Постави | [PgDn]: Друга сграда | [Del]: Отказ")
-            finalAction = "[ENTER ON LAND]: Place | [PgDn]: Cycle | [Del]: Cancel";
-        else if (finalAction == "[E]: Постави отново същата")
-            finalAction = "[E]: Place another";
-        else if (finalAction == "[PgDn]: Постави отново същата")
-            finalAction = "[PgDn]: Place another";
-        else if (finalAction == "[A]: Постави сграда")
-            finalAction = "[A]: Place building";
-        else if (finalAction == "[SPACE]: Постави сграда")
-            finalAction = "[SPACE]: Place building";
-        else if (finalAction == "[ENTER]: Постави сграда")
-            finalAction = "[ENTER]: Place building";
-        else if (finalAction == "[КЛИК]: Постави сграда")
-            finalAction = "[CLICK]: Place building";
-        else if (finalAction == "[E]: Избери сграда")
-            finalAction = "[E]: Choose building";
-        else if (finalAction == "[PgDn]: Избери сграда")
-            finalAction = "[PgDn]: Choose building";
-        else if (finalAction == "[E]: Изберете сграда за строеж")
-            finalAction = "[E]: Choose building";
-        else if (finalAction == "[PgDn]: Изберете сграда за строеж")
-            finalAction = "[PgDn]: Choose building";
+        finalDetail = translatePopupDetail(finalDetail);
+        finalAction = translatePopupAction(finalAction);
     }
 
 #if defined(__ANDROID__)
@@ -224,17 +386,8 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
         else if (modalBadge == "НЕДОСТИГ НА РЕСУРСИ") modalBadge = "NOT ENOUGH RESOURCES";
         else if (modalBadge == "ГРЕШКА ПРИ СТРОЕЖ") modalBadge = "BUILD ERROR";
         if (modalTitle == "Не можете да купите парцела!") modalTitle = "Cannot purchase plot!";
-        if (modalDetail.find("НЕДОСТИГ НА ПАРИ! НУЖНО: ") == 0) {
-            modalDetail = "NOT ENOUGH MONEY! NEED: " + modalDetail.substr(std::string("НЕДОСТИГ НА ПАРИ! НУЖНО: ").length());
-        } else if (modalDetail == "ТОЗИ ПАРЦЕЛ ВЕЧЕ Е ЗАКУПЕН!") {
-            modalDetail = "THIS PLOT IS ALREADY PURCHASED!";
-        } else if (modalDetail == "НЕВАЛИДЕН ПАРЦЕЛ!") {
-            modalDetail = "INVALID PLOT!";
-        } else if (modalDetail == "ВСИЧКИ ПАРЦЕЛИ СА ЗАКУПЕНИ!") {
-            modalDetail = "ALL PLOTS PURCHASED!";
-        }
-        if (modalTip == "Продавайте ток на града за да печелите пари ($)!")
-            modalTip = "Sell electricity to the city to earn money ($)!";
+        modalDetail = translateModalDetail(modalDetail);
+        modalTip = translateModalTip(modalTip);
     }
 
     m.badge = modalBadge;
@@ -411,14 +564,34 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         const auto* st = nodes.getStation(player, res);
         const int yield = UI_resourceNodes::mineYield(res, engine.getMineLevel(player, res));
         const bool cooling = cd > 0.05f;
-        std::string name = st ? st->nameBg : std::string("ДОБИВ");
+        bool isEn = (UI_settings::get().getLanguage() == "en");
+        std::string name;
+        if (isEn) {
+            if (st) {
+                switch (st->type) {
+                    case ResourceType::WOOD: name = "FOREST"; break;
+                    case ResourceType::IRON: name = "IRON"; break;
+                    case ResourceType::COPPER: name = "COPPER"; break;
+                    case ResourceType::COAL: name = "COAL"; break;
+                    case ResourceType::SILICON: name = "SILICON"; break;
+                    case ResourceType::SILVER: name = "SILVER"; break;
+                    case ResourceType::GOLD: name = "GOLD"; break;
+                    default: name = "GATHER"; break;
+                }
+            } else {
+                name = "GATHER";
+            }
+        } else {
+            name = st ? st->nameBg : std::string("ДОБИВ");
+        }
         std::string promptText;
         if (cooling) {
             char buf[48];
-            std::snprintf(buf, sizeof(buf), " · изчакайте %.1fс", static_cast<double>(cd));
+            std::snprintf(buf, sizeof(buf), isEn ? " · wait %.1fs" : " · изчакайте %.1fс", static_cast<double>(cd));
             promptText = name + buf;
         } else {
-            promptText = name + " +" + std::to_string(yield) + " " + resourceNameBg(res) + " · " + keyStr;
+            std::string resName = isEn ? resourceNameEn(res) : resourceNameBg(res);
+            promptText = name + " +" + std::to_string(yield) + " " + resName + " · " + keyStr;
         }
 
         sf::Text& t = ui::pooledText(font, toUtf8(promptText), fontsize::Label);
@@ -454,6 +627,7 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
     };
 
     bool isEn = (UI_settings::get().getLanguage() == "en");
+    (void)isEn;
 #if defined(__ANDROID__)
     std::string p1Key = isEn ? "[TAP]" : "[ДОКОСНИ]";
     std::string p2Key = bot.isActive() ? (isEn ? "[BOT]" : "[БОТ]") : (isEn ? "[TAP]" : "[ДОКОСНИ]");

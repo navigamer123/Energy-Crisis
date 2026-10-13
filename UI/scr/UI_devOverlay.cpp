@@ -1,6 +1,7 @@
 #include "../includes/UI_devOverlay.h"
 #include "../includes/UI_infoCharts.h"
 #include "../includes/UI_types.h"
+#include "../includes/UI_settings.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -63,12 +64,14 @@ void UI_devOverlay::draw(sf::RenderTarget& target, const sf::Font& font, const G
     avg = (frameCount > 0) ? avg / static_cast<float>(frameCount) : 0.0f;
     const float fps = (avg > 0.0f) ? 1.0f / avg : 0.0f;
 
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+
     rect(target, DEV_PANEL, COL_BG, COL_EDGE, 1.5f);
     const float x = DEV_PANEL.position.x + 12.0f;
     const float vx = DEV_PANEL.position.x + DEV_PANEL.size.x - 12.0f;
     float y = DEV_PANEL.position.y + 8.0f;
-    text(target, font, "РАЗРАБОТЧИК  [F3]", 13, { x, y }, COL_HEAD, true);
-    textRight(target, font, paused ? "ПАУЗА" : "", 12, { vx, y + 1.0f }, COL_WARN, true);
+    text(target, font, isEn ? "DEV OVERLAY  [F3]" : "РАЗРАБОТЧИК  [F3]", 13, { x, y }, COL_HEAD, true);
+    textRight(target, font, paused ? (isEn ? "PAUSED" : "ПАУЗА") : "", 12, { vx, y + 1.0f }, COL_WARN, true);
     y += 24.0f;
 
     auto row = [&](const std::string& k, const std::string& v, sf::Color vc = COL_VAL) {
@@ -77,19 +80,19 @@ void UI_devOverlay::draw(sf::RenderTarget& target, const sf::Font& font, const G
         y += 17.0f;
     };
     row("FPS", fmt1(fps), fps < 50.0f ? COL_WARN : COL_VAL);
-    row("Кадър: средно / най-бавен", fmt1(avg * 1000.0f) + " / " + fmt1(worst * 1000.0f) + " ms",
+    row(isEn ? "Frame: avg / worst" : "Кадър: средно / най-бавен", fmt1(avg * 1000.0f) + " / " + fmt1(worst * 1000.0f) + " ms",
         worst > 0.034f ? COL_WARN : COL_VAL);
     row("Seed (EC_SEED)", std::to_string(engine.getSeed()));
-    row("Ден / час", std::to_string(engine.getCurrentDay()) + " / " + Balance::formatHourMinute(engine.getHour24()));
+    row(isEn ? "Day / hour" : "Ден / час", std::to_string(engine.getCurrentDay()) + " / " + Balance::formatHourMinute(engine.getHour24()));
     const float mult = timeMultiplier();
-    row("Скорост: игра x разработчик", "x" + fmt1(engine.getTimeScale()) + " x" + fmt1(mult), mult > 1.0f ? COL_WARN : COL_VAL);
+    row(isEn ? "Speed: game x dev" : "Скорост: игра x разработчик", "x" + fmt1(engine.getTimeScale()) + " x" + fmt1(mult), mult > 1.0f ? COL_WARN : COL_VAL);
     y += 4.0f;
-    row("Сгради P1 / P2", std::to_string(c.buildingsP1) + " / " + std::to_string(c.buildingsP2));
-    row("Частици: време / добив", std::to_string(c.weatherParticles) + " / " + std::to_string(c.miningParticles));
-    row("Надписи / мълнии / известия", std::to_string(c.notices) + " / " + std::to_string(c.lightnings) + " / " +
+    row(isEn ? "Buildings P1 / P2" : "Сгради P1 / P2", std::to_string(c.buildingsP1) + " / " + std::to_string(c.buildingsP2));
+    row(isEn ? "Particles: weather / mine" : "Частици: време / добив", std::to_string(c.weatherParticles) + " / " + std::to_string(c.miningParticles));
+    row(isEn ? "Notices / lightning / toasts" : "Надписи / мълнии / известия", std::to_string(c.notices) + " / " + std::to_string(c.lightnings) + " / " +
                                            std::to_string(c.toasts));
-    row("Проби в телеметрията", std::to_string(c.samples));
-    row("Записи в дневника", std::to_string(c.logEntries));
+    row(isEn ? "Telemetry samples" : "Проби в телеметрията", std::to_string(c.samples));
+    row(isEn ? "Log entries" : "Записи в дневника", std::to_string(c.logEntries));
     y += 6.0f;
-    text(target, font, "[F6] по-бавно   [F7] по-бързо   [F8] x1", 11, { x, y }, COL_KEY);
+    text(target, font, isEn ? "[F6] slower   [F7] faster   [F8] x1" : "[F6] по-бавно   [F7] по-бързо   [F8] x1", 11, { x, y }, COL_KEY);
 }

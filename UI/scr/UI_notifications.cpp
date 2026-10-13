@@ -4,6 +4,7 @@
 #include <iterator>
 #include "../includes/UI_types.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_settings.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -55,17 +56,35 @@ sf::Color withAlpha(sf::Color c, float a) {
     return c;
 }
 
-std::string playerName(int p) { return (p == 1) ? "Играч 1" : "Играч 2"; }
+inline bool isEnLang() {
+    return UI_settings::get().getLanguage() == "en";
+}
+
+std::string playerName(int p) {
+    if (isEnLang()) return (p == 1) ? "Player 1" : "Player 2";
+    return (p == 1) ? "Играч 1" : "Играч 2";
+}
 
 std::string fmtMult(float v) {
     char buf[16];
     std::snprintf(buf, sizeof(buf), "%.1f", static_cast<double>(v));
     std::string s(buf);
-    std::replace(s.begin(), s.end(), '.', ',');
+    if (!isEnLang()) std::replace(s.begin(), s.end(), '.', ',');
     return s;
 }
 
 const char* weatherBg(WeatherType w) {
+    if (isEnLang()) {
+        switch (w) {
+            case WeatherType::SUNNY:  return "Sunny";
+            case WeatherType::WINDY:  return "Windy";
+            case WeatherType::RAINY:  return "Rainy";
+            case WeatherType::STORMY: return "Storm";
+            case WeatherType::SNOWY:  return "Snow";
+            case WeatherType::CLOUDY: return "Cloudy";
+        }
+        return "Sunny";
+    }
     switch (w) {
         case WeatherType::SUNNY:  return "Слънчево";
         case WeatherType::WINDY:  return "Ветровито";
@@ -78,6 +97,15 @@ const char* weatherBg(WeatherType w) {
 }
 
 const char* seasonBg(SeasonType s) {
+    if (isEnLang()) {
+        switch (s) {
+            case SeasonType::SPRING: return "Spring";
+            case SeasonType::SUMMER: return "Summer";
+            case SeasonType::AUTUMN: return "Autumn";
+            case SeasonType::WINTER: return "Winter";
+        }
+        return "Spring";
+    }
     switch (s) {
         case SeasonType::SPRING: return "пролетта";
         case SeasonType::SUMMER: return "лятото";
@@ -88,6 +116,18 @@ const char* seasonBg(SeasonType s) {
 }
 
 const char* mineBg(ResourceType r) {
+    if (isEnLang()) {
+        switch (r) {
+            case ResourceType::WOOD:    return "woodcutters";
+            case ResourceType::IRON:    return "iron mine";
+            case ResourceType::COPPER:  return "copper mine";
+            case ResourceType::COAL:    return "coal mine";
+            case ResourceType::SILICON: return "silicon quarry";
+            case ResourceType::SILVER:  return "silver mine";
+            case ResourceType::GOLD:    return "gold vein";
+            default:                    return "mine";
+        }
+    }
     switch (r) {
         case ResourceType::WOOD:    return "дърводобива";
         case ResourceType::IRON:    return "желязната мина";
@@ -101,6 +141,10 @@ const char* mineBg(ResourceType r) {
 }
 
 std::string sunTimes(SeasonType s) {
+    if (isEnLang()) {
+        return "Sunrise " + Balance::formatHourMinute(Balance::getSunriseHour(s)) + ", sunset " +
+               Balance::formatHourMinute(Balance::getSunsetHour(s)) + ".";
+    }
     return "Изгрев " + Balance::formatHourMinute(Balance::getSunriseHour(s)) + ", залез " +
            Balance::formatHourMinute(Balance::getSunsetHour(s)) + ".";
 }
@@ -219,9 +263,13 @@ void UI_notifications::evaluateAlerts(const GameEngine& engine, bool botActive) 
         // 1. Nightfall soon and no lamp: building at night will be impossible
         if (others > 0 && lamps == 0 && hour >= sunset - 1.5f && hour < sunset &&
             alertOnce(player, NIGHT_SOON, day)) {
-            push(player, ToastPriority::WARNING, "alert-night", "НОЩ", "Нощта идва след около 1 час",
-                 "Без захранена лампа строежът нощем е забранен. Поставете Осветителна лампа.",
-                 player == 1 ? "[5] или [E]: Осветителна лампа" : "[PgDn]: Осветителна лампа", COL_WARN, true);
+            std::string b = isEnLang() ? "NIGHT" : "НОЩ";
+            std::string t = isEnLang() ? "Night arrives in ~1 hour" : "Нощта идва след около 1 час";
+            std::string d = isEnLang() ? "Without a powered lamp, building at night is forbidden. Place a Work Lamp."
+                                       : "Без захранена лампа строежът нощем е забранен. Поставете Осветителна лампа.";
+            std::string act = isEnLang() ? (player == 1 ? "[5] or [E]: Work Lamp" : "[PgDn]: Work Lamp")
+                                         : (player == 1 ? "[5] или [E]: Осветителна лампа" : "[PgDn]: Осветителна лампа");
+            push(player, ToastPriority::WARNING, "alert-night", b, t, d, act, COL_WARN, true);
         }
 
         // 2. Settlement risk in the last 4 game hours before the 06:00 settlement
@@ -234,10 +282,13 @@ void UI_notifications::evaluateAlerts(const GameEngine& engine, bool botActive) 
             const float demand = static_cast<float>(city.cityEnergyDemand);
             if (projected < demand && alertOnce(player, SETTLEMENT_RISK, day)) {
                 bool severe = projected < 0.8f * demand;
-                push(player, severe ? ToastPriority::CRITICAL : ToastPriority::WARNING, "alert-risk", "РИСК",
-                     "~" + std::to_string(static_cast<int>(projected)) + " от " +
-                         std::to_string(city.cityEnergyDemand) + " MW",
-                     "Отчетът е в 06:00, а средната доставка за деня е под нуждата. Вятър, ВЕЦ и батерии помагат нощем.", "",
+                std::string b = isEnLang() ? "RISK" : "РИСК";
+                std::string t = "~" + std::to_string(static_cast<int>(projected)) +
+                                (isEnLang() ? " of " : " от ") +
+                                std::to_string(city.cityEnergyDemand) + " MW";
+                std::string d = isEnLang() ? "Settlement at 06:00, and daily average delivery is below demand. Wind, Hydro and batteries help at night."
+                                           : "Отчетът е в 06:00, а средната доставка за деня е под нуждата. Вятър, ВЕЦ и батерии помагат нощем.";
+                push(player, severe ? ToastPriority::CRITICAL : ToastPriority::WARNING, "alert-risk", b, t, d, "",
                      severe ? COL_CRIT : COL_WARN, true);
             }
         }
@@ -245,20 +296,27 @@ void UI_notifications::evaluateAlerts(const GameEngine& engine, bool botActive) 
         // 3. Battery bank below 20% while it is dark
         if (batteries > 0 && !engine.isDaylight() && capacity > 0.0f && stored < 0.2f * capacity &&
             alertOnce(player, BATTERY_LOW, day)) {
-            push(player, ToastPriority::INFO, "alert-battery", "БАТЕРИИ", "Батериите са под 20%",
-                 "Заредени " + std::to_string(static_cast<int>(stored)) + " от " +
-                     std::to_string(static_cast<int>(capacity)) + " MWh. Изгрев в " +
-                     Balance::formatHourMinute(engine.getSunriseHour()) + ".",
-                 "", own, true);
+            std::string b = isEnLang() ? "BATTERIES" : "БАТЕРИИ";
+            std::string t = isEnLang() ? "Batteries below 20%" : "Батериите са под 20%";
+            std::string d = isEnLang()
+                ? ("Charged " + std::to_string(static_cast<int>(stored)) + " of " +
+                   std::to_string(static_cast<int>(capacity)) + " MWh. Sunrise at " +
+                   Balance::formatHourMinute(engine.getSunriseHour()) + ".")
+                : ("Заредени " + std::to_string(static_cast<int>(stored)) + " от " +
+                   std::to_string(static_cast<int>(capacity)) + " MWh. Изгрев в " +
+                   Balance::formatHourMinute(engine.getSunriseHour()) + ".");
+            push(player, ToastPriority::INFO, "alert-battery", b, t, d, "", own, true);
         }
 
         // 4. The season changes at the coming midnight
         SeasonType tomorrow = Balance::getSeasonForDay(day + 1);
         if (tomorrow != engine.getSeason() && hour >= 17.0f && hour < 18.0f &&
             alertOnce(player, SEASON_TOMORROW, day)) {
-            push(player, ToastPriority::INFO, "alert-season", "УТРЕ", std::string("Утре започва ") + seasonBg(tomorrow),
-                 sunTimes(tomorrow), "", COL_CITY, false);
-            if (player == 1) log(0, ToastPriority::INFO, std::string("Утре започва ") + seasonBg(tomorrow) + ". " + sunTimes(tomorrow));
+            std::string b = isEnLang() ? "TOMORROW" : "УТРЕ";
+            std::string t = isEnLang() ? (std::string("Tomorrow starts ") + seasonBg(tomorrow))
+                                       : (std::string("Утре започва ") + seasonBg(tomorrow));
+            push(player, ToastPriority::INFO, "alert-season", b, t, sunTimes(tomorrow), "", COL_CITY, false);
+            if (player == 1) log(0, ToastPriority::INFO, t + ". " + sunTimes(tomorrow));
         }
     }
 }
@@ -279,93 +337,142 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
         int& last = opponentDay[other - 1][kind];
         if (last == curDay) return;
         last = curDay;
-        push(other, ToastPriority::INFO, "opponent", "СЪПЕРНИК", title, detail, "", (other == 1) ? COL_P2 : COL_P1, false);
+        push(other, ToastPriority::INFO, "opponent", isEnLang() ? "OPPONENT" : "СЪПЕРНИК", title, detail, "", (other == 1) ? COL_P2 : COL_P1, false);
     };
 
     switch (ev.type) {
         case InfoEventType::BUILT: {
-            std::string name = engine.getBuildingCost(ev.building).nameBg;
-            log(p, ToastPriority::INFO, playerName(p) + " построи " + name +
+            std::string name = isEnLang() ? engine.getBuildingCost(ev.building).nameEn : engine.getBuildingCost(ev.building).nameBg;
+            log(p, ToastPriority::INFO, playerName(p) + (isEnLang() ? " built " : " построи ") + name +
                                             (ev.value > 1 ? " (x" + std::to_string(ev.value) + ")" : ""));
             if (ev.building == BuildingType::HYDRO_PLANT) {
-                opponentAlert(1, "Съперникът построи ВЕЦ", "ВЕЦ дава ток денем и нощем и е най-силен при дъжд.");
+                opponentAlert(1, isEnLang() ? "Opponent built Hydro" : "Съперникът построи ВЕЦ",
+                              isEnLang() ? "Hydro produces power day & night and is strongest in rain."
+                                         : "ВЕЦ дава ток денем и нощем и е най-силен при дъжд.");
             }
             break;
         }
         case InfoEventType::DEMOLISHED:
-            log(p, ToastPriority::INFO, playerName(p) + " премахна " + std::to_string(ev.value) +
-                                            (ev.value == 1 ? " сграда" : " сгради"));
+            log(p, ToastPriority::INFO, playerName(p) + (isEnLang()
+                ? (" demolished " + std::to_string(ev.value) + (ev.value == 1 ? " building" : " buildings"))
+                : (" премахна " + std::to_string(ev.value) + (ev.value == 1 ? " сграда" : " сгради"))));
             break;
         case InfoEventType::LOST_LIGHTNING: {
-            std::string name = engine.getBuildingCost(ev.building).nameBg;
+            std::string name = isEnLang() ? engine.getBuildingCost(ev.building).nameEn : engine.getBuildingCost(ev.building).nameBg;
 #if defined(__ANDROID__)
-            std::string act = "[ДОКОСНИ]: Постройте отново";
+            std::string act = isEnLang() ? "[TAP]: Rebuild" : "[ДОКОСНИ]: Постройте отново";
 #else
-            std::string act = ArcadeMode::isEnabled() ? "[A]: Постройте отново"
-                                                      : (p == 1 ? "[SPACE]: Постройте отново" : "[ENTER]: Постройте отново");
+            std::string act = ArcadeMode::isEnabled() ? (isEnLang() ? "[A]: Rebuild" : "[A]: Постройте отново")
+                                                      : (p == 1 ? (isEnLang() ? "[SPACE]: Rebuild" : "[SPACE]: Постройте отново")
+                                                                : (isEnLang() ? "[ENTER]: Rebuild" : "[ENTER]: Постройте отново"));
 #endif
-            push(p, ToastPriority::CRITICAL, "", "МЪЛНИЯ!", "Загубена сграда",
-                 "Мълния унищожи " + name + ". Клетката е свободна за нов строеж.",
+            push(p, ToastPriority::CRITICAL, "", isEnLang() ? "LIGHTNING!" : "МЪЛНИЯ!",
+                 isEnLang() ? "Building Lost" : "Загубена сграда",
+                 isEnLang() ? ("Lightning destroyed " + name + ". Cell is cleared for new construction.")
+                            : ("Мълния унищожи " + name + ". Клетката е свободна за нов строеж."),
                  act, COL_CRIT, false);
-            log(p, ToastPriority::CRITICAL, "Мълния унищожи " + name + " (" + playerName(p) + ")");
+            log(p, ToastPriority::CRITICAL, (isEnLang() ? "Lightning destroyed " : "Мълния унищожи ") + name + " (" + playerName(p) + ")");
             break;
         }
         case InfoEventType::PLOT_BOUGHT:
-            log(p, ToastPriority::INFO, playerName(p) + " купи парцел (" + std::to_string(ev.value) + " от " +
-                                            std::to_string(Balance::PLOTS_PER_PLAYER) + ")");
-            opponentAlert(0, "Съперникът купи земя",
-                          "Вече има " + std::to_string(ev.value) + " от " + std::to_string(Balance::PLOTS_PER_PLAYER) +
-                              " парцела.");
+            log(p, ToastPriority::INFO, playerName(p) + (isEnLang() ? (" bought plot (" + std::to_string(ev.value) + " of " + std::to_string(Balance::PLOTS_PER_PLAYER) + ")")
+                                                                   : (" купи парцел (" + std::to_string(ev.value) + " от " + std::to_string(Balance::PLOTS_PER_PLAYER) + ")")));
+            opponentAlert(0, isEnLang() ? "Opponent bought land" : "Съперникът купи земя",
+                          isEnLang() ? ("Now has " + std::to_string(ev.value) + " of " + std::to_string(Balance::PLOTS_PER_PLAYER) + " plots.")
+                                     : ("Вече има " + std::to_string(ev.value) + " от " + std::to_string(Balance::PLOTS_PER_PLAYER) + " парцела."));
             break;
         case InfoEventType::MINE_UPGRADED:
-            log(p, ToastPriority::INFO, playerName(p) + " надгради " + mineBg(ev.resource) + " до ниво " +
-                                            std::to_string(ev.value));
+            log(p, ToastPriority::INFO, playerName(p) + (isEnLang() ? (" upgraded " + std::string(mineBg(ev.resource)) + " to level " + std::to_string(ev.value))
+                                                                   : (" надгради " + std::string(mineBg(ev.resource)) + " до ниво " + std::to_string(ev.value))));
             if (ev.value >= 4) {
-                opponentAlert(2, "Съперникът надгради мина", std::string("Ниво ") + std::to_string(ev.value) +
-                                                                  " на " + mineBg(ev.resource) + ".");
+                opponentAlert(2, isEnLang() ? "Opponent upgraded mine" : "Съперникът надгради мина",
+                              isEnLang() ? ("Level " + std::to_string(ev.value) + " on " + mineBg(ev.resource) + ".")
+                                         : (std::string("Ниво ") + std::to_string(ev.value) + " на " + mineBg(ev.resource) + "."));
             }
             break;
         case InfoEventType::DAY_SETTLED: {
             const auto outcome = static_cast<UI_matchStats::DayOutcome>(ev.value2);
-            const std::string dayTag = "ДЕН " + std::to_string(ev.value);
+            const std::string dayTag = (isEnLang() ? "DAY " : "ДЕН ") + std::to_string(ev.value);
             const int p1Pct = static_cast<int>(std::lround(ev.share * 100.0f));
             const std::string demandStr = std::to_string(std::max(0, ev.demand));
+
+            auto translateCutMsg = [](const std::string& cutMessage) -> std::string {
+                if (!isEnLang()) return cutMessage;
+                if (cutMessage.find("ДОБРЕ ДОШЛИ! БЕЗ ГРАТИСЕН ПЕРИОД") != std::string::npos) {
+                    return "WELCOME! NO GRACE PERIOD: CITY DEMANDS POWER FROM DAY 1!";
+                } else if (cutMessage.find("ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИЯ ДЕН") != std::string::npos) {
+                    return "WELCOME! GRACE PERIOD: CITY REQUIRES 0 POWER ON DAY 1!";
+                } else if (cutMessage.find("ДОБРЕ ДОШЛИ! ГРАТИСЕН ПЕРИОД: ПЪРВИТЕ ") != std::string::npos) {
+                    return "WELCOME! GRACE PERIOD: CITY REQUIRES 0 POWER FOR INITIAL DAYS!";
+                } else if (cutMessage.find("ПРИКЛЮЧИ: КРАЙ НА ГРАТИСНИЯ ПЕРИОД") != std::string::npos) {
+                    return "GRACE PERIOD ENDED! THE CITY NOW REQUIRES POWER!";
+                } else if (cutMessage.find("ПРИКЛЮЧИ [ГРАТИСЕН ПЕРИОД]") != std::string::npos) {
+                    return "DAY ENDED [GRACE PERIOD]: CITY REQUIRED 0 MW.";
+                } else if (cutMessage.find("И ДВАМАТА ЗАХРАНИХА ГРАДА") != std::string::npos ||
+                           cutMessage.find("И ДВАМАТА ИГРАЧИ ЗАХРАНИХА ГРАДА") != std::string::npos) {
+                    return "BOTH PLAYERS POWERED THE CITY! NO TERRITORY SHIFT.";
+                } else if (cutMessage.find("НИТО ЕДИН НЕ ЗАХРАНИ ГРАДА") != std::string::npos ||
+                           cutMessage.find("НИТО ЕДИН ИГРАЧ НЕ ЗАХРАНИ ГРАДА") != std::string::npos) {
+                    return "NEITHER PLAYER POWERED THE CITY! NO TERRITORY SHIFT.";
+                } else if (cutMessage.find("ИГРАЧ 1 ЗАХРАНИ ГРАДА") != std::string::npos) {
+                    return "PLAYER 1 POWERED THE CITY AND GAINED TERRITORY!";
+                } else if (cutMessage.find("ИГРАЧ 2 ЗАХРАНИ ГРАДА") != std::string::npos) {
+                    return "PLAYER 2 POWERED THE CITY AND GAINED TERRITORY!";
+                } else if (cutMessage.find("ПОБЕДА ЗА ИГРАЧ 1") != std::string::npos) {
+                    return "VICTORY FOR PLAYER 1!";
+                } else if (cutMessage.find("ПОБЕДА ЗА ИГРАЧ 2") != std::string::npos) {
+                    return "VICTORY FOR PLAYER 2!";
+                } else if (cutMessage.find("РАВЕНСТВО") != std::string::npos) {
+                    return "DRAW - CITY IS SPLIT EQUALLY!";
+                }
+                return cutMessage;
+            };
+
             log(0, outcome == UI_matchStats::DayOutcome::NONE_MET ? ToastPriority::WARNING : ToastPriority::INFO,
-                engine.getCityState().lastCutMessage);
+                translateCutMsg(engine.getCityState().lastCutMessage));
 
             if (outcome == UI_matchStats::DayOutcome::GRACE) {
                 for (int q = 1; q <= 2; ++q) {
                     if (!isHuman(q, botActive)) continue;
-                    push(q, ToastPriority::INFO, "day", dayTag, "Денят приключи",
-                         "Гратисен период: градът още не иска ток. Строете и купувайте земя.", "", COL_GOOD, false);
+                    push(q, ToastPriority::INFO, "day", dayTag, isEnLang() ? "Day ended" : "Денят приключи",
+                         isEnLang() ? "Grace period: city requires 0 power yet. Build and buy land."
+                                    : "Гратисен период: градът още не иска ток. Строете и купувайте земя.", "", COL_GOOD, false);
                 }
             } else if (outcome == UI_matchStats::DayOutcome::P1_TOOK || outcome == UI_matchStats::DayOutcome::P2_TOOK) {
                 const int winner = (outcome == UI_matchStats::DayOutcome::P1_TOOK) ? 1 : 2;
                 const int loser = (winner == 1) ? 2 : 1;
                 const int winPct = (winner == 1) ? p1Pct : 100 - p1Pct;
                 if (isHuman(winner, botActive)) {
-                    push(winner, ToastPriority::INFO, "day", dayTag, "Градът: " + std::to_string(winPct) + "% ваш",
-                         "Доставихте средно " + std::to_string(std::max(0, ev.avgMW[winner - 1])) + " от " + demandStr +
-                             " MW. Съперникът не успя и загуби територия.",
+                    push(winner, ToastPriority::INFO, "day", dayTag,
+                         isEnLang() ? ("City: " + std::to_string(winPct) + "% yours") : ("Градът: " + std::to_string(winPct) + "% ваш"),
+                         isEnLang() ? ("Delivered average " + std::to_string(std::max(0, ev.avgMW[winner - 1])) + " of " + demandStr +
+                                       " MW. Opponent failed and lost territory.")
+                                    : ("Доставихте средно " + std::to_string(std::max(0, ev.avgMW[winner - 1])) + " от " + demandStr +
+                                       " MW. Съперникът не успя и загуби територия."),
                          "", COL_GOOD, false);
                 }
                 if (isHuman(loser, botActive)) {
-                    push(loser, ToastPriority::CRITICAL, "day", dayTag, "Остават ви " + std::to_string(100 - winPct) + "%",
-                         "Доставихте средно " + std::to_string(std::max(0, ev.avgMW[loser - 1])) + " от " + demandStr +
-                             " MW. Нужни са още централи или батерии.",
+                    push(loser, ToastPriority::CRITICAL, "day", dayTag,
+                         isEnLang() ? ("Remaining: " + std::to_string(100 - winPct) + "%") : ("Остават ви " + std::to_string(100 - winPct) + "%"),
+                         isEnLang() ? ("Delivered average " + std::to_string(std::max(0, ev.avgMW[loser - 1])) + " of " + demandStr +
+                                       " MW. Need more power plants or batteries.")
+                                    : ("Доставихте средно " + std::to_string(std::max(0, ev.avgMW[loser - 1])) + " от " + demandStr +
+                                       " MW. Нужни са още централи или батерии."),
                          "", COL_CRIT, false);
                 }
             } else if (outcome == UI_matchStats::DayOutcome::BOTH_MET) {
                 for (int q = 1; q <= 2; ++q) {
                     if (!isHuman(q, botActive)) continue;
-                    push(q, ToastPriority::INFO, "day", dayTag, "Градът е захранен",
-                         "И двамата покрихте " + demandStr + " MW. Територията не се променя.", "", COL_GOOD, false);
+                    push(q, ToastPriority::INFO, "day", dayTag, isEnLang() ? "City powered" : "Градът е захранен",
+                         isEnLang() ? ("Both players covered " + demandStr + " MW. Territory unchanged.")
+                                    : ("И двамата покрихте " + demandStr + " MW. Територията не се променя."), "", COL_GOOD, false);
                 }
             } else {
                 for (int q = 1; q <= 2; ++q) {
                     if (!isHuman(q, botActive)) continue;
-                    push(q, ToastPriority::WARNING, "day", dayTag, "Градът остана без ток",
-                         "Никой не покри средно " + demandStr + " MW. Територията не се променя.", "", COL_WARN, false);
+                    push(q, ToastPriority::WARNING, "day", dayTag, isEnLang() ? "City had blackout" : "Градът остана без ток",
+                         isEnLang() ? ("Neither player covered " + demandStr + " MW. Territory unchanged.")
+                                    : ("Никой не покри средно " + demandStr + " MW. Територията не се променя."), "", COL_WARN, false);
                 }
             }
             break;
@@ -373,18 +480,22 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
         case InfoEventType::GRACE_ENDED:
             for (int q = 1; q <= 2; ++q) {
                 if (!isHuman(q, botActive)) continue;
-                push(q, ToastPriority::WARNING, "grace", "ВНИМАНИЕ", "Край на гратисния период",
-                     "От днес градът иска средно " + std::to_string(Balance::STARTING_CITY_DEMAND_MW) +
-                         " MW за деня. Отчет всяка сутрин в 06:00.",
-                     "Задръжте [Tab] за енергийното табло", COL_WARN, false);
+                push(q, ToastPriority::WARNING, "grace", isEnLang() ? "WARNING" : "ВНИМАНИЕ",
+                     isEnLang() ? "Grace period ended" : "Край на гратисния период",
+                     isEnLang() ? ("From today the city demands average " + std::to_string(Balance::STARTING_CITY_DEMAND_MW) +
+                                   " MW for the day. Settlement every morning at 06:00.")
+                                : ("От днес градът иска средно " + std::to_string(Balance::STARTING_CITY_DEMAND_MW) +
+                                   " MW за деня. Отчет всяка сутрин в 06:00."),
+                     isEnLang() ? "Hold [Tab] for Energy Dashboard" : "Задръжте [Tab] за енергийното табло", COL_WARN, false);
             }
             break;
         case InfoEventType::SEASON_CHANGED: {
             const auto season = static_cast<SeasonType>(ev.value);
-            std::string title = std::string("Започна ") + seasonBg(season);
+            std::string title = isEnLang() ? (std::string("Started ") + seasonBg(season))
+                                           : (std::string("Започна ") + seasonBg(season));
             for (int q = 1; q <= 2; ++q) {
                 if (!isHuman(q, botActive)) continue;
-                push(q, ToastPriority::INFO, "alert-season", "СЕЗОН", title, sunTimes(season), "", COL_CITY, false);
+                push(q, ToastPriority::INFO, "alert-season", isEnLang() ? "SEASON" : "СЕЗОН", title, sunTimes(season), "", COL_CITY, false);
             }
             log(0, ToastPriority::INFO, title + ". " + sunTimes(season));
             break;
@@ -393,19 +504,29 @@ void UI_notifications::onInfoEvent(const InfoEvent& ev, const GameEngine& engine
             const auto w = static_cast<WeatherType>(ev.value);
             const SeasonType s = engine.getSeason();
             const float noon = 0.5f * (Balance::getSunriseHour(s) + Balance::getSunsetHour(s));
-            std::string mults = "Слънце x" + fmtMult(WeatherSystem::getSolarMultiplier(w, noon, s)) + " · Вятър x" +
-                                fmtMult(WeatherSystem::getWindMultiplier(w, 12.0f)) + " · ВЕЦ x" +
-                                fmtMult(WeatherSystem::getHydroMultiplier(w));
-            log(p, ToastPriority::INFO, playerName(p) + ": времето е " + weatherBg(w) + " (" + mults + ")");
+            std::string mults = (isEnLang() ? "Solar x" : "Слънце x") + fmtMult(WeatherSystem::getSolarMultiplier(w, noon, s)) +
+                                (isEnLang() ? " · Wind x" : " · Вятър x") + fmtMult(WeatherSystem::getWindMultiplier(w, 12.0f)) +
+                                (isEnLang() ? " · Hydro x" : " · ВЕЦ x") + fmtMult(WeatherSystem::getHydroMultiplier(w));
+            log(p, ToastPriority::INFO, playerName(p) + (isEnLang() ? ": weather is " : ": времето е ") + weatherBg(w) + " (" + mults + ")");
             if (w == WeatherType::STORMY && isHuman(p, botActive)) {
-                push(p, ToastPriority::WARNING, "weather", "ВРЕМЕ", "Буря в сектора ви",
-                     "Мълнии могат да унищожат сгради. " + mults + ".", "", COL_WARN, false);
+                push(p, ToastPriority::WARNING, "weather", isEnLang() ? "WEATHER" : "ВРЕМЕ",
+                     isEnLang() ? "Storm in your sector" : "Буря в сектора ви",
+                     isEnLang() ? ("Lightning can destroy facilities. " + mults + ".")
+                                : ("Мълнии могат да унищожат сгради. " + mults + "."), "", COL_WARN, false);
             }
             break;
         }
-        case InfoEventType::MATCH_ENDED:
-            log(0, ToastPriority::CRITICAL, engine.getCityState().lastCutMessage);
+        case InfoEventType::MATCH_ENDED: {
+            auto translateCutMsg = [](const std::string& cutMessage) -> std::string {
+                if (!isEnLang()) return cutMessage;
+                if (cutMessage.find("ПОБЕДА ЗА ИГРАЧ 1") != std::string::npos) return "VICTORY FOR PLAYER 1!";
+                if (cutMessage.find("ПОБЕДА ЗА ИГРАЧ 2") != std::string::npos) return "VICTORY FOR PLAYER 2!";
+                if (cutMessage.find("РАВЕНСТВО") != std::string::npos) return "DRAW - CITY IS SPLIT EQUALLY!";
+                return cutMessage;
+            };
+            log(0, ToastPriority::CRITICAL, translateCutMsg(engine.getCityState().lastCutMessage));
             break;
+        }
     }
 }
 
@@ -563,14 +684,15 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
     header.setFillColor(sf::Color(22, 35, 58));
     target.draw(header);
 
-    sf::Text& title = ui::pooledText(font, toUtf8("ДНЕВНИК НА СЪБИТИЯТА"), 20);
+    sf::Text& title = ui::pooledText(font, toUtf8(isEnLang() ? "EVENT LOG" : "ДНЕВНИК НА СЪБИТИЯТА"), 20);
     title.setStyle(sf::Text::Bold);
     title.setFillColor(COL_P1);
     title.setPosition({ pos.x + 24.0f, pos.y + 13.0f });
     target.draw(title);
 
-    std::string countStr = std::to_string(entries.size()) + (entries.size() == 1 ? " запис" : " записа") +
-                           " · най-новите са най-отгоре";
+    std::string countStr = isEnLang()
+        ? (std::to_string(entries.size()) + (entries.size() == 1 ? " entry" : " entries") + " · newest at top")
+        : (std::to_string(entries.size()) + (entries.size() == 1 ? " запис" : " записа") + " · най-новите са най-отгоре");
     sf::Text& count = ui::pooledText(font, toUtf8(countStr), 12);
     count.setFillColor(COL_LOG_DIM);
     float cw = infoText::width(count);
@@ -579,7 +701,8 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
 
     const float listTop = pos.y + 64.0f;
     if (entries.empty()) {
-        sf::Text& empty = ui::pooledText(font, toUtf8("Още няма събития. Те се появяват тук по време на мача."), 14);
+        sf::Text& empty = ui::pooledText(font, toUtf8(isEnLang() ? "No events recorded yet. They will appear here during the match."
+                                                                 : "Още няма събития. Те се появяват тук по време на мача."), 14);
         empty.setFillColor(COL_LOG_DIM);
         empty.setPosition({ pos.x + 30.0f, listTop + 10.0f });
         target.draw(empty);
@@ -599,14 +722,14 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
             target.draw(zebra);
         }
 
-        std::string stamp = "Д" + std::to_string(e.day) + "  " + Balance::formatHourMinute(e.hour);
+        std::string stamp = (isEnLang() ? "D" : "Д") + std::to_string(e.day) + "  " + Balance::formatHourMinute(e.hour);
         sf::Text& tStamp = ui::pooledText(font, toUtf8(stamp), 12);
         tStamp.setFillColor(COL_LOG_DIM);
         tStamp.setPosition({ pos.x + 26.0f, ry + 3.0f });
         target.draw(tStamp);
 
         // Who: a small coloured chip (text label too, not colour only)
-        const char* who = (e.player == 1) ? "P1" : (e.player == 2 ? "P2" : "ГРАД");
+        const char* who = (e.player == 1) ? "P1" : (e.player == 2 ? "P2" : (isEnLang() ? "CITY" : "ГРАД"));
         sf::Color whoCol = (e.player == 1) ? COL_P1 : (e.player == 2 ? COL_P2 : COL_CITY);
         sf::RectangleShape chip({ 44.0f, 15.0f });
         chip.setPosition({ pos.x + 116.0f, ry + 3.0f });
@@ -631,14 +754,16 @@ void UI_notifications::drawLog(sf::RenderTarget& target, const sf::Font& font) c
 
     // Footer: scroll position and keys
 #if defined(__ANDROID__)
-    std::string footer = "Докоснете или плъзнете за превъртане   ·   Докоснете за изход";
+    std::string footer = isEnLang() ? "Tap or drag to scroll   ·   Tap to exit"
+                                    : "Докоснете или плъзнете за превъртане   ·   Докоснете за изход";
 #else
-    std::string footer = "[Стрелки] или колелцето на мишката: превъртане   ·   [L] / [ESC]: обратно към паузата";
+    std::string footer = isEnLang() ? "[Arrows] or mouse wheel: scroll   ·   [L] / [ESC]: back to pause"
+                                    : "[Стрелки] или колелцето на мишката: превъртане   ·   [L] / [ESC]: обратно към паузата";
 #endif
     if (total > visibleRows) {
         int from = logScroll + 1;
         int to = std::min(total, logScroll + visibleRows);
-        footer = std::to_string(from) + "-" + std::to_string(to) + " от " + std::to_string(total) + "   ·   " + footer;
+        footer = std::to_string(from) + "-" + std::to_string(to) + (isEnLang() ? " of " : " от ") + std::to_string(total) + "   ·   " + footer;
     }
     sf::Text& tFoot = ui::pooledText(font, toUtf8(footer), 12);
     tFoot.setFillColor(COL_ACTION);
