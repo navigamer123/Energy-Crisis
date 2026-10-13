@@ -6,6 +6,8 @@
 #include "../includes/UI_arcadePopup.h"
 #include "../includes/UI_credits.h"
 #include "../includes/UI_arcadeMode.h"
+#include "../includes/UI_arcadeLifecycle.h"
+#include "../includes/UI_arcadeIpc.h"
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
@@ -122,6 +124,8 @@ int UI_main::finishShot() {
 }
 
 UI_main::~UI_main() {
+    ArcadeIpcClient::get().endSession();
+    ArcadeIpcClient::get().shutdown();
     UI_audio::get().shutdown(); // [b-effects] release audio before SFML tears down
     if (window.isOpen()) {
         window.close();
@@ -211,35 +215,49 @@ int UI_main::render() {
         }
         if (ArcadeMode::isEnabled()) {
             CreditsManager::get().update(dt);
+            ArcadeLifecycle& lifecycle = ArcadeLifecycle::get();
 
-            if (currentState == UIState::PLAYING) {
-                if (map.getEngine().getCityState().winner != 0 && !matchWasCompleted) {
-                    matchWasCompleted = true;
-                    CreditsManager::get().onMatchCompleted();
-                    std::cout << "[Credits] Match completed. Total completed matches: "
-                              << CreditsManager::get().getMatchesCompletedCount() << "\n";
+            if (currentState == UIState::MAIN_MENU) {
+                lifecycle.setState(ArcadeLifecycleState::START_MENU);
+            } else if (currentState == UIState::PLAYING) {
+                if (map.getEngine().getCityState().winner != 0) {
+                    lifecycle.setState(ArcadeLifecycleState::END_GAME_MENU);
+                    if (!matchWasCompleted) {
+                        matchWasCompleted = true;
+                        CreditsManager::get().onMatchCompleted();
+                        ArcadeIpcClient::get().endSession();
+                        std::cout << "[Credits] Match completed. Total completed matches: "
+                                  << CreditsManager::get().getMatchesCompletedCount() << "\n";
+                    }
+                } else {
+                    lifecycle.setState(ArcadeLifecycleState::ACTIVE_GAMEPLAY);
                 }
+            }
+
+            lifecycle.update(dt);
+            if (lifecycle.shouldExit()) {
+                std::cout << "[UI_main] ArcadeLifecycle requested exit. Exiting game...\n";
+                currentState = UIState::QUIT;
+                window.close();
+                break;
             }
         }
 
         while (const auto event = window.pollEvent()) {
-            // Global controller exit: BTN_BASE4 / Button 9 (Person button) pressed 2 times within 2.5 seconds
+            if (ArcadeMode::isEnabled()) {
+                ArcadeLifecycle::get().onPlayerActivity();
+            }
+
+            // Global controller exit: Button 8 (CG button) handled via ArcadeLifecycle
             if (const auto* jb = event->getIf<sf::Event::JoystickButtonPressed>()) {
-                if (jb->button == 9) {
-                    float elapsed = changeGameClock.getElapsedTime().asSeconds();
-                    if (changeGamePressCount >= 1 && elapsed <= 2.5f) {
-                        std::cout << "[UI_main] Controller exit confirmed (2x within 2.5s). Exiting game...\n";
-                        currentState = UIState::QUIT;
-                        window.close();
-                        break;
-                    } else {
-                        changeGamePressCount = 1;
-                        changeGameClock.restart();
-                        std::cout << "[UI_main] Controller exit button pressed (1/2). Press again within 2.5s to exit.\n";
-                        bool isEn = (UI_settings::get().getLanguage() == "en");
-                        std::string msg = isEn ? "Press one more time to exit." : "Натисни още веднъж за изход.";
-                        ArcadePopup::get().show(msg, 2.5f);
-                    }
+                if (jb->button == 8) {
+                    ArcadeLifecycle::get().onExitButtonDown();
+                    continue;
+                }
+            }
+            if (const auto* jb = event->getIf<sf::Event::JoystickButtonReleased>()) {
+                if (jb->button == 8) {
+                    ArcadeLifecycle::get().onExitButtonUp();
                     continue;
                 }
             }
@@ -354,6 +372,9 @@ int UI_main::render() {
                         map.resetMatchInputState();
                         UI_audio::get().play(AudioSynth::Sfx::UiConfirm);
                         currentState = UIState::PLAYING;
+                        if (ArcadeMode::isEnabled()) {
+                            ArcadeIpcClient::get().startSession();
+                        }
                     }
                 } else {
                     mainMenu.resetPlayRequest();
@@ -366,6 +387,9 @@ int UI_main::render() {
                     map.resetMatchInputState();
                     UI_audio::get().play(AudioSynth::Sfx::UiConfirm);
                     currentState = UIState::PLAYING;
+                    if (ArcadeMode::isEnabled()) {
+                        ArcadeIpcClient::get().startSession();
+                    }
                 }
             } else if (mainMenu.isQuitRequested()) {
                 currentState = UIState::QUIT;
@@ -376,6 +400,9 @@ int UI_main::render() {
             if (map.isMenuRequested()) {
                 map.resetMenuRequest();
                 map.setBotVsBot(false);
+                if (ArcadeMode::isEnabled()) {
+                    ArcadeIpcClient::get().endSession();
+                }
                 mainMenu.returnToMain(); // Show the top-level menu, not the last submenu
                 currentState = UIState::MAIN_MENU;
             }

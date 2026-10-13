@@ -246,7 +246,7 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
 #else
             drawSection("4. CONTROLS & SHORTCUTS",
                         isArcade ? "- ARCADE CONTROLS: [Joystick] - Move | [A] - Action/Mine | [D] - Building | [C] - Upgrade | [B] - Cancel\n"
-                                   "- SYSTEM: [Top CG Button] - Help Handbook | [Top Person Button (2x)] - Exit Game"
+                                   "- SYSTEM: [Top CG Button (2x)] - Exit Game | [Top Person Button] - Help Handbook"
                                  : "- PLAYER 1 (West/Blue): [W/A/S/D] - Move | [SPACE/Click] - Build/Mine | [E]/[Q] or [1-6] - Building | [F] - Upgrade | [X] - Demolish\n"
                                    "- PLAYER 2 (East/Pink): [Arrows] - Move | [ENTER/Click] - Build/Mine | [PgDn]/[PgUp] or [Num1-6] - Building | [RShift] - Upgrade | [Del] - Demolish\n"
                                    "- SYSTEM: [ESC] - Pause Menu | [H]/[F1] - Help | [F11] - Fullscreen | [Tab] - Energy Dashboard",
@@ -293,7 +293,7 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
 #else
             drawSection("4. УПРАВЛЕНИЕ И БЪРЗИ КЛАВИШИ",
                         isArcade ? "- АРКАДНО УПРАВЛЕНИЕ: [Стик] - Движение | [A] - Действие/Добив | [D] - Сграда | [C] - Ъпгрейд | [B] - Отказ\n"
-                                   "- СИСТЕМНИ: [Горен бутон CG] - Наръчник/Помощ | [Горен бутон Човече (2x)] - Изход от играта"
+                                   "- СИСТЕМНИ: [Горен бутон CG (2x)] - Изход от играта | [Горен бутон Човече] - Наръчник/Помощ"
                                  : "- ИГРАЧ 1 (Запад/Син): [W/A/S/D] - Движение  |  [SPACE/Клик] - Строеж/Добив  |  [E]/[Q] или [1-6] - Сграда  |  [F] - Ъпгрейд мина  |  [X] - Разруши\n"
                                    "- ИГРАЧ 2 (Изток/Розов): [Стрелки] - Движение | [ENTER/Клик] - Строеж/Добив | [PgDn]/[PgUp] или [Num1-6] - Сграда | [RShift/End] - Ъпгрейд | [Del] - Разруши\n"
                                    "- СИСТЕМНИ: [ESC] - Меню Пауза (там [R] - Нова игра, [M] - Главно меню)  |  [H]/[F1] - Помощ  |  [F11] - Цял екран\n"

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 ArcadePopup& ArcadePopup::get() {
     static ArcadePopup instance;
@@ -44,14 +45,64 @@ void ArcadePopup::update(float dt) {
 void ArcadePopup::draw(sf::RenderWindow& window) {
     if (timer <= 0.0f || currentMessage.empty()) return;
 
-    const float boxWidth = 340.0f;
-    const float boxHeight = 84.0f;
-    const float boxX = VIRTUAL_WIDTH - boxWidth - 35.0f;
+    if (!fontLoaded) return;
+
+    // Split message by newline, with word wrapping if any individual line exceeds max width
+    const unsigned int charSize = 13;
+    const float lineHeight = 26.0f;
+    const float maxAllowedContentWidth = 520.0f;
+
+    std::vector<std::string> rawLines;
+    std::stringstream ss(currentMessage);
+    std::string rawLine;
+    while (std::getline(ss, rawLine)) {
+        rawLines.push_back(rawLine);
+    }
+    if (rawLines.empty()) return;
+
+    std::vector<std::string> lines;
+    for (const auto& rLine : rawLines) {
+        sf::Text testText(font, toUtf8(rLine), charSize);
+        if (testText.getLocalBounds().size.x <= maxAllowedContentWidth) {
+            lines.push_back(rLine);
+        } else {
+            // Word wrap
+            std::stringstream lineStream(rLine);
+            std::string word;
+            std::string currentWrapped;
+            while (lineStream >> word) {
+                std::string candidate = currentWrapped.empty() ? word : (currentWrapped + " " + word);
+                sf::Text candidateText(font, toUtf8(candidate), charSize);
+                if (candidateText.getLocalBounds().size.x > maxAllowedContentWidth && !currentWrapped.empty()) {
+                    lines.push_back(currentWrapped);
+                    currentWrapped = word;
+                } else {
+                    currentWrapped = candidate;
+                }
+            }
+            if (!currentWrapped.empty()) {
+                lines.push_back(currentWrapped);
+            }
+        }
+    }
+    if (lines.empty()) return;
+
+    // Calculate maximum width across all lines
+    float maxLineWidth = 0.0f;
+    for (const auto& l : lines) {
+        sf::Text t(font, toUtf8(l), charSize);
+        maxLineWidth = std::max(maxLineWidth, t.getLocalBounds().size.x);
+    }
+
+    const float totalTextHeight = static_cast<float>(lines.size()) * lineHeight;
+    const float boxWidth = std::clamp(maxLineWidth + 50.0f, 360.0f, VIRTUAL_WIDTH - 60.0f);
+    const float boxHeight = std::max(84.0f, totalTextHeight + 36.0f);
+    const float boxX = std::clamp(VIRTUAL_WIDTH - boxWidth - 35.0f, 20.0f, VIRTUAL_WIDTH - boxWidth - 20.0f);
     const float boxY = 24.0f;
 
     // Outer glow / shadow
-    sf::RectangleShape shadow({ boxWidth + 4.0f, boxHeight + 4.0f });
-    shadow.setPosition({ boxX - 2.0f, boxY - 2.0f });
+    sf::RectangleShape shadow({ boxWidth + 6.0f, boxHeight + 6.0f });
+    shadow.setPosition({ boxX - 3.0f, boxY - 3.0f });
     shadow.setFillColor(sf::Color(0, 0, 0, 160));
     window.draw(shadow);
 
@@ -63,22 +114,7 @@ void ArcadePopup::draw(sf::RenderWindow& window) {
     box.setOutlineColor(sf::Color::White);
     window.draw(box);
 
-    if (!fontLoaded) return;
-
-    // Split message by newline
-    std::vector<std::string> lines;
-    std::stringstream ss(currentMessage);
-    std::string line;
-    while (std::getline(ss, line)) {
-        lines.push_back(line);
-    }
-
-    if (lines.empty()) return;
-
-    const unsigned int charSize = 13;
-    const float lineHeight = 26.0f;
-    float totalTextHeight = lines.size() * lineHeight;
-    float startY = boxY + (boxHeight - totalTextHeight) / 2.0f;
+    const float startY = boxY + (boxHeight - totalTextHeight) / 2.0f;
 
     for (size_t i = 0; i < lines.size(); ++i) {
         sf::Text t(font, toUtf8(lines[i]), charSize);
@@ -86,7 +122,7 @@ void ArcadePopup::draw(sf::RenderWindow& window) {
         t.setStyle(sf::Text::Bold);
         sf::FloatRect b = t.getLocalBounds();
         float textX = boxX + (boxWidth - b.size.x) / 2.0f - b.position.x;
-        float textY = startY + i * lineHeight - b.position.y;
+        float textY = startY + static_cast<float>(i) * lineHeight - b.position.y;
         t.setPosition({ textX, textY });
         window.draw(t);
     }

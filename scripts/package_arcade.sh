@@ -126,34 +126,43 @@ exec "$EXE" "$@"
 EOF
 chmod +x "$PKG_DIR/launch.sh"
 
-echo "==> Creating metadata.json..."
-cat << 'EOF' > "$PKG_DIR/metadata.json"
-{
-  "name": "Energy Crisis",
-  "id": "energy_crisis",
-  "version": "1.0.0",
-  "executable": "Energy_Crisis.x86_64",
-  "launcher": "launch.sh",
-  "description": "Energy Crisis - Post-apocalyptic Renewable Energy Management Game",
-  "genre": "Strategy / Arcade",
-  "players": 2,
-  "controls": {
-    "p1": "Joystick 1 / Arcade Buttons",
-    "p2": "Joystick 2 / Arcade Buttons"
-  }
-}
-EOF
+echo "==> Copying metadata, release and capability manifest..."
+cp -f "$ROOT_DIR/metadata.json" "$PKG_DIR/metadata.json"
+cp -f "$ROOT_DIR/game_release.json" "$PKG_DIR/game_release.json"
+cp -f "$ROOT_DIR/capability_manifest.json" "$PKG_DIR/capability_manifest.json"
+if [ -f "$ROOT_DIR/thumbnail.png" ]; then
+    cp -f "$ROOT_DIR/thumbnail.png" "$PKG_DIR/thumbnail.png"
+fi
 
 # Clean any scratch/settings files inside package directory
 rm -f "$PKG_DIR/settings.ini"
 
-# Create zip archive where the files are at the root
+# Create standard package zip archive
 echo "==> Creating Energy_Crisis.zip..."
-rm -f "$ROOT_DIR/Energy_Crisis.zip" "$ROOT_DIR/Energy_Crysis.zip" "$ROOT_DIR/dist/Energy_Crisis.zip"
+mkdir -p "$ROOT_DIR/dist"
+rm -f "$ROOT_DIR/Energy_Crisis.zip" "$ROOT_DIR/Energy_Crysis.zip" "$ROOT_DIR/dist/Energy_Crisis.zip" "$ROOT_DIR/dist/Energy_Crisis-0.1.2.zip"
 (cd "$PKG_DIR" && zip -r -9 -q "$ROOT_DIR/Energy_Crisis.zip" ./*)
 cp -f "$ROOT_DIR/Energy_Crisis.zip" "$ROOT_DIR/Energy_Crysis.zip"
-mkdir -p "$ROOT_DIR/dist"
 cp -f "$ROOT_DIR/Energy_Crisis.zip" "$ROOT_DIR/dist/Energy_Crisis.zip"
+cp -f "$ROOT_DIR/Energy_Crisis.zip" "$ROOT_DIR/dist/Energy_Crisis-0.1.2.zip"
 
-echo "==> Clean package archive created at:"
-echo "    $ROOT_DIR/Energy_Crisis.zip"
+# Create transitional Platform CI upload format (StandaloneLinux64 + root sidecars)
+PLATFORM_STAGE="$ROOT_DIR/build/platform_stage"
+rm -rf "$PLATFORM_STAGE"
+mkdir -p "$PLATFORM_STAGE/StandaloneLinux64"
+cp -r "$PKG_DIR"/* "$PLATFORM_STAGE/StandaloneLinux64/"
+mkdir -p "$PLATFORM_STAGE/StandaloneLinux64/Energy_Crisis_Data"
+cp -f "$ROOT_DIR/game_release.json" "$PLATFORM_STAGE/game_release.json"
+cp -f "$ROOT_DIR/capability_manifest.json" "$PLATFORM_STAGE/capability_manifest.json"
+if [ -f "$ROOT_DIR/thumbnail.png" ]; then
+    cp -f "$ROOT_DIR/thumbnail.png" "$PLATFORM_STAGE/thumbnail.png"
+fi
+
+echo "==> Creating transitional platform uploader package: Energy_Crisis-0.1.2-platform.zip..."
+(cd "$PLATFORM_STAGE" && zip -r -9 -q "$ROOT_DIR/dist/Energy_Crisis-0.1.2-platform.zip" ./*)
+rm -rf "$PLATFORM_STAGE"
+
+echo "==> Clean package archives created at:"
+echo "    $ROOT_DIR/dist/Energy_Crisis-0.1.2.zip"
+echo "    $ROOT_DIR/dist/Energy_Crisis-0.1.2-platform.zip"
+

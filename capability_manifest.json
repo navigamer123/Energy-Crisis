@@ -1,0 +1,21 @@
+{
+  "manifest_version": 1,
+  "promo_code_rewards": false,
+  "wheel_of_luck": false,
+  "end_of_game_video": false,
+  "dynamic_textures_sprites": false,
+  "dynamic_models_materials": false,
+  "dynamic_audio": false,
+  "branding": false,
+  "vending": false,
+  "score_reporting": false,
+  "custom_reward_presentation": false,
+  "custom_thumbnails_metadata": false,
+  "supported_sdk_version": "1.0.0",
+  "supported_local_protocol_version": 1,
+  "supported_arcade_system_release_range": {
+    "min": "1.0.0",
+    "max": "1.0.0"
+  },
+  "supported_dynamic_asset_formats": []
+}

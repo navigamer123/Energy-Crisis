@@ -8,6 +8,7 @@
 
 enum class MenuState {
     PRESS_A_TO_START,
+    ARCADE_BOT_DIFFICULTY,
     CALIBRATE_BLUE,
     CALIBRATE_RED,
     MAIN,
@@ -48,6 +49,9 @@ private:
     bool soundEffects;           // sound effects on/off ([b-effects] applied by UI_main to UI_audio)
     int settingsDifficultyIndex; // 0..2: default bot difficulty preselected in the single-player menu
 
+    int arcadeSelectedModeIndex = 0;       // 0: Player vs Player, 1: Player vs Bot
+    int arcadeSelectedDifficultyIndex = 1; // 0: Easy, 1: Medium, 2: Hard, 3: Back
+
     // Enter/Space must be released before they can select again (filters key auto-repeat)
     bool enterHeld = false;
     bool spaceHeld = false;
@@ -73,6 +77,7 @@ private:
     // Logo title: large on the top-level menu, compact above the submenus
     void drawHeader(sf::RenderWindow& window, bool large = false);
     void drawPressAToStart(sf::RenderWindow& window);
+    void drawArcadeBotDifficulty(sf::RenderWindow& window);
     void drawCalibration(sf::RenderWindow& window, bool isBlue);
     void drawMainMenu(sf::RenderWindow& window);
     void drawMatchTypeMenu(sf::RenderWindow& window);

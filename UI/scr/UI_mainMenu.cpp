@@ -175,6 +175,8 @@ void UI_mainMenu::onPlay() {
     // Arcade version returns to the attract screen (PRESS A TO START) after match; PC returns to MAIN
     state = ArcadeMode::isEnabled() ? MenuState::PRESS_A_TO_START : MenuState::MAIN;
     selectedMainIndex = 0;
+    arcadeSelectedModeIndex = 0;
+    arcadeSelectedDifficultyIndex = 1;
     enterHeld = false;
     spaceHeld = false;
 }
@@ -184,6 +186,8 @@ void UI_mainMenu::returnToMain() {
     state = ArcadeMode::isEnabled() ? MenuState::PRESS_A_TO_START : MenuState::MAIN;
     selectedMainIndex = 0;
     selectedMatchTypeIndex = 0;
+    arcadeSelectedModeIndex = 0;
+    arcadeSelectedDifficultyIndex = 1;
     enterHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
     spaceHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
 }
@@ -206,8 +210,6 @@ void UI_mainMenu::drawPressAToStart(sf::RenderWindow& window) {
     const sf::Font& textFont = arcadeFontLoaded ? arcadeFont : font;
 
     bool isEn = (UI_settings::get().getLanguage() == "en");
-    // Requirement 2: Must be Bulgarian by default ("Натисни A за да влезеш"), only English if -language=en was passed
-    std::string promptText = isEn ? "Press A to join" : "Натисни A за да влезеш";
 
     float t = animClock.getElapsedTime().asSeconds();
     float pulse = 0.5f + 0.5f * std::sin(t * 4.5f);
@@ -248,7 +250,7 @@ void UI_mainMenu::drawPressAToStart(sf::RenderWindow& window) {
         ui::drawText(window, tDesc1);
     }
 
-    // 2. Player 2 (Red Player) Layout Guide on Right
+    // 2. Player 2 (Red Player / Bot) Layout Guide on Right
     {
         sf::FloatRect p2Slot({ 1090.0f, 310.0f }, { 440.0f, 440.0f });
         sf::RectangleShape p2Box(p2Slot.size);
@@ -258,7 +260,9 @@ void UI_mainMenu::drawPressAToStart(sf::RenderWindow& window) {
         p2Box.setOutlineColor(theme::withAlpha(sf::Color(255, 100, 100), 180));
         window.draw(p2Box);
 
-        std::string p2Title = isEn ? "PLAYER 2 (RED)" : "ИГРАЧ 2 (ЧЕРВЕН)";
+        std::string p2Title = (arcadeSelectedModeIndex == 1)
+            ? (isEn ? "PLAYER 2 (BOT)" : "ИГРАЧ 2 (РОБОТ)")
+            : (isEn ? "PLAYER 2 (RED)" : "ИГРАЧ 2 (ЧЕРВЕН)");
         sf::Text& tP2 = ui::pooledText(fontLoaded ? font : textFont, toUtf8(p2Title), fontsize::H2);
         tP2.setStyle(sf::Text::Bold);
         tP2.setFillColor(sf::Color(255, 100, 100));
@@ -274,8 +278,10 @@ void UI_mainMenu::drawPressAToStart(sf::RenderWindow& window) {
             window.draw(p2Spr);
         }
 
-        std::string p2Desc = isEn ? "STICK: Move  |  A: Action\nC: Upgrade  |  D: Building  |  B: Cancel"
-                                  : "СТИК: Движение  |  A: Действие\nC: Ъпгрейд  |  D: Сграда  |  B: Отказ";
+        std::string p2Desc = (arcadeSelectedModeIndex == 1)
+            ? (isEn ? "AI OPPONENT (BOT)\n3 DIFFICULTIES AVAILABLE" : "АВТОМАТИЧЕН БОТ (ИИ)\n3 НАЛИЧНИ ТРУДНОСТИ")
+            : (isEn ? "STICK: Move  |  A: Action\nC: Upgrade  |  D: Building  |  B: Cancel"
+                    : "СТИК: Движение  |  A: Действие\nC: Ъпгрейд  |  D: Сграда  |  B: Отказ");
         sf::Text& tDesc2 = ui::pooledText(fontLoaded ? font : textFont, toUtf8(p2Desc), fontsize::Caption);
         tDesc2.setFillColor(theme::TextSecondary);
         sf::FloatRect db2 = tDesc2.getLocalBounds();
@@ -283,21 +289,29 @@ void UI_mainMenu::drawPressAToStart(sf::RenderWindow& window) {
         ui::drawText(window, tDesc2);
     }
 
-    // 3. Center Join Prompt & Status
+    // 3. Center Arcade Menu (Player vs Player / Player vs Bot)
     if (arcadeFontLoaded || fontLoaded) {
-        sf::Text& prompt = ui::pooledText(textFont, toUtf8(promptText), arcadeFontLoaded ? 22 : fontsize::H1);
+        float btnW = 460.0f;
+        float btnH = 54.0f;
+        float btnX = (screenWidth - btnW) / 2.0f;
+
+        sf::FloatRect pvpBtn({ btnX, 335.0f }, { btnW, btnH });
+        sf::FloatRect pvbBtn({ btnX, 405.0f }, { btnW, btnH });
+
+        std::string pvpText = isEn ? "Player vs Player" : "Играч срещу играч";
+        std::string pvbText = isEn ? "Player vs Bot" : "Играч срещу робот";
+
+        drawButton(window, pvpBtn, toUtf8(pvpText), theme::Button, theme::GoodFill, theme::TextPrimary, arcadeSelectedModeIndex == 0);
+        drawButton(window, pvbBtn, toUtf8(pvbText), theme::Button, theme::InfoFill, theme::TextPrimary, arcadeSelectedModeIndex == 1);
+
+        // Blinking text below them: "press a to start"
+        std::string promptText = isEn ? "PRESS A TO START" : "НАТИСНИ A ЗА ДА СТАРТИРАШ";
+        sf::Text& prompt = ui::pooledText(textFont, toUtf8(promptText), arcadeFontLoaded ? 20 : fontsize::H1);
         prompt.setFillColor(sf::Color(255, 235, 70, alpha));
         prompt.setStyle(sf::Text::Bold);
         sf::FloatRect pb = prompt.getLocalBounds();
-        prompt.setPosition({ (screenWidth - pb.size.x) / 2.0f - pb.position.x, 475.0f - pb.position.y });
+        prompt.setPosition({ (screenWidth - pb.size.x) / 2.0f - pb.position.x, 490.0f - pb.position.y });
         ui::drawText(window, prompt);
-
-        std::string coOpStr = isEn ? "2 PLAYERS · CO-OP MATCH" : "2 ИГРАЧА · СЪВМЕСТНА ИГРА";
-        sf::Text& coOpText = ui::pooledText(fontLoaded ? font : textFont, toUtf8(coOpStr), fontsize::Body);
-        coOpText.setFillColor(theme::TextSecondary);
-        sf::FloatRect cb = coOpText.getLocalBounds();
-        coOpText.setPosition({ (screenWidth - cb.size.x) / 2.0f - cb.position.x, 540.0f - cb.position.y });
-        ui::drawText(window, coOpText);
 
         if (ArcadeMode::isEnabled()) {
             int creds = CreditsManager::get().getCurrentCredits();
@@ -306,17 +320,84 @@ void UI_mainMenu::drawPressAToStart(sf::RenderWindow& window) {
             crText.setStyle(sf::Text::Bold);
             crText.setFillColor(creds > 0 ? theme::Gold : theme::Bad);
             sf::FloatRect crb = crText.getLocalBounds();
-            crText.setPosition({ (screenWidth - crb.size.x) / 2.0f - crb.position.x, 600.0f - crb.position.y });
+            crText.setPosition({ (screenWidth - crb.size.x) / 2.0f - crb.position.x, 560.0f - crb.position.y });
             ui::drawText(window, crText);
         } else {
             std::string sub = isEn ? "OR PRESS [ENTER] / [SPACE] ON KEYBOARD" : "ИЛИ НАТИСНЕТЕ [ENTER] / [SPACE] НА КЛАВИАТУРАТА";
             sf::Text& subPrompt = ui::pooledText(fontLoaded ? font : textFont, toUtf8(sub), fontsize::Label);
             subPrompt.setFillColor(theme::TextMuted);
             sf::FloatRect sb = subPrompt.getLocalBounds();
-            subPrompt.setPosition({ (screenWidth - sb.size.x) / 2.0f - sb.position.x, 600.0f - sb.position.y });
+            subPrompt.setPosition({ (screenWidth - sb.size.x) / 2.0f - sb.position.x, 560.0f - sb.position.y });
             ui::drawText(window, subPrompt);
         }
+
+        std::string hintStr = isEn ? "[STICK]: Select Mode   |   [A]: Start" : "[СТИК]: Избор на режим   |   [A]: Старт";
+        sf::Text& hintText = ui::pooledText(fontLoaded ? font : textFont, toUtf8(hintStr), fontsize::Caption);
+        hintText.setFillColor(theme::TextMuted);
+        sf::FloatRect hb = hintText.getLocalBounds();
+        hintText.setPosition({ (screenWidth - hb.size.x) / 2.0f - hb.position.x, 620.0f - hb.position.y });
+        ui::drawText(window, hintText);
     }
+}
+
+void UI_mainMenu::drawArcadeBotDifficulty(sf::RenderWindow& window) {
+    drawHeader(window, true);
+
+    const float screenWidth = VIRTUAL_WIDTH;
+    const sf::Font& textFont = arcadeFontLoaded ? arcadeFont : font;
+    bool isEn = (UI_settings::get().getLanguage() == "en");
+
+    float t = animClock.getElapsedTime().asSeconds();
+    float pulse = 0.5f + 0.5f * std::sin(t * 4.5f);
+    std::uint8_t alpha = static_cast<std::uint8_t>(140 + 115 * pulse);
+
+    // Title
+    std::string titleStr = isEn ? "SELECT BOT DIFFICULTY" : "ИЗБЕРЕТЕ ТРУДНОСТ НА БОТА";
+    sf::Text& titleText = ui::pooledText(fontLoaded ? font : textFont, toUtf8(titleStr), fontsize::H2);
+    titleText.setStyle(sf::Text::Bold);
+    titleText.setFillColor(theme::Energy);
+    sf::FloatRect tb = titleText.getLocalBounds();
+    titleText.setPosition({ (screenWidth - tb.size.x) / 2.0f - tb.position.x, 295.0f - tb.position.y });
+    ui::drawText(window, titleText);
+
+    // 3 difficulty buttons + back button
+    float btnW = 460.0f;
+    float btnH = 50.0f;
+    float btnX = (screenWidth - btnW) / 2.0f;
+    float startY = 345.0f;
+    float spacing = 58.0f;
+
+    sf::FloatRect easyBtn({ btnX, startY }, { btnW, btnH });
+    sf::FloatRect medBtn({ btnX, startY + spacing }, { btnW, btnH });
+    sf::FloatRect hardBtn({ btnX, startY + 2.0f * spacing }, { btnW, btnH });
+    sf::FloatRect backBtn({ btnX + 70.0f, startY + 3.0f * spacing + 6.0f }, { btnW - 140.0f, 44.0f });
+
+    std::string easyText = isEn ? "EASY" : "ЛЕСЕН";
+    std::string medText = isEn ? "MEDIUM" : "СРЕДЕН";
+    std::string hardText = isEn ? "HARD" : "ТРУДЕН";
+    std::string backText = isEn ? "BACK" : "НАЗАД";
+
+    drawButton(window, easyBtn, toUtf8(easyText), theme::Button, theme::GoodFill, theme::TextPrimary, arcadeSelectedDifficultyIndex == 0);
+    drawButton(window, medBtn, toUtf8(medText), theme::Button, theme::WarnFill, theme::TextPrimary, arcadeSelectedDifficultyIndex == 1);
+    drawButton(window, hardBtn, toUtf8(hardText), theme::Button, theme::BadFill, theme::TextPrimary, arcadeSelectedDifficultyIndex == 2);
+    drawButton(window, backBtn, toUtf8(backText), theme::Button, theme::ButtonHover, theme::TextPrimary, arcadeSelectedDifficultyIndex == 3);
+
+    // Blinking prompt below them
+    std::string promptText = isEn ? "PRESS A TO START" : "НАТИСНИ A ЗА ДА СТАРТИРАШ";
+    sf::Text& prompt = ui::pooledText(textFont, toUtf8(promptText), arcadeFontLoaded ? 20 : fontsize::H1);
+    prompt.setFillColor(sf::Color(255, 235, 70, alpha));
+    prompt.setStyle(sf::Text::Bold);
+    sf::FloatRect pb = prompt.getLocalBounds();
+    prompt.setPosition({ (screenWidth - pb.size.x) / 2.0f - pb.position.x, 605.0f - pb.position.y });
+    ui::drawText(window, prompt);
+
+    // Hint
+    std::string hintStr = isEn ? "[STICK]: Change   |   [A]: Start   |   [B]: Back" : "[СТИК]: Смяна   |   [A]: Старт   |   [B]: Назад";
+    sf::Text& hintText = ui::pooledText(fontLoaded ? font : textFont, toUtf8(hintStr), fontsize::Caption);
+    hintText.setFillColor(theme::TextMuted);
+    sf::FloatRect hb = hintText.getLocalBounds();
+    hintText.setPosition({ (screenWidth - hb.size.x) / 2.0f - hb.position.x, 660.0f - hb.position.y });
+    ui::drawText(window, hintText);
 }
 
 void UI_mainMenu::drawCalibration(sf::RenderWindow& window, bool isBlue) {
@@ -1029,28 +1110,79 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
     if (isUp || isDown || isLeft || isRight || isSelect || isEscape) {
 
         if (state == MenuState::PRESS_A_TO_START) {
-            if (ArcadeMode::isEnabled()) {
-                if (!event.is<sf::Event::JoystickButtonPressed>()) {
-                    return; // Ignore keyboard or other non-joystick inputs completely
-                }
-                const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>();
-                if (jb->button != 0 && jb->button != 7) {
-                    return; // Only Button A (0) or Start (7)
-                }
-                // Check credits for Game 2 onwards
-                if (CreditsManager::get().requiresCreditForNewGame()) {
-                    int curCredits = CreditsManager::get().getCurrentCredits();
-                    if (curCredits < 1) {
-                        bool isEn = (UI_settings::get().getLanguage() == "en");
-                        std::string msg = isEn ? "INSERT COIN\n(0 CREDITS)" : "НЯМА КРЕДИТИ!\nПУСНЕТЕ МОНЕТА";
-                        ArcadePopup::get().show(msg, 2.5f);
-                        return; // Block completely from starting
+            if (isUp || isDown) {
+                arcadeSelectedModeIndex = (arcadeSelectedModeIndex + 1) % 2;
+                return;
+            }
+            if (isSelect) {
+                if (ArcadeMode::isEnabled()) {
+                    // Check credits for Game 2 onwards
+                    if (CreditsManager::get().requiresCreditForNewGame()) {
+                        int curCredits = CreditsManager::get().getCurrentCredits();
+                        if (curCredits < 1) {
+                            bool isEn = (UI_settings::get().getLanguage() == "en");
+                            std::string msg = isEn ? "INSERT COIN\n(0 CREDITS)" : "НЯМА КРЕДИТИ!\nПУСНЕТЕ МОНЕТА";
+                            ArcadePopup::get().show(msg, 2.5f);
+                            return; // Block completely from starting
+                        }
                     }
                 }
+                if (arcadeSelectedModeIndex == 0) {
+                    // Player vs Player
+                    selectedBotDifficulty = BotDifficulty::NONE;
+                    state = MenuState::CALIBRATE_BLUE;
+                    enterHeld = true;
+                    spaceHeld = true;
+                    return;
+                } else {
+                    // Player vs Bot: show 3 difficulties
+                    state = MenuState::ARCADE_BOT_DIFFICULTY;
+                    arcadeSelectedDifficultyIndex = 1; // default Medium
+                    enterHeld = true;
+                    spaceHeld = true;
+                    return;
+                }
             }
-            state = MenuState::CALIBRATE_BLUE;
-            enterHeld = true;
-            spaceHeld = true;
+            return;
+        } else if (state == MenuState::ARCADE_BOT_DIFFICULTY) {
+            if (isUp) {
+                arcadeSelectedDifficultyIndex = (arcadeSelectedDifficultyIndex + 3) % 4;
+                return;
+            } else if (isDown) {
+                arcadeSelectedDifficultyIndex = (arcadeSelectedDifficultyIndex + 1) % 4;
+                return;
+            } else if (isEscape) {
+                state = MenuState::PRESS_A_TO_START;
+                enterHeld = true;
+                spaceHeld = true;
+                return;
+            } else if (isSelect) {
+                if (arcadeSelectedDifficultyIndex == 3) {
+                    state = MenuState::PRESS_A_TO_START;
+                    enterHeld = true;
+                    spaceHeld = true;
+                    return;
+                }
+                if (ArcadeMode::isEnabled()) {
+                    if (CreditsManager::get().requiresCreditForNewGame()) {
+                        int curCredits = CreditsManager::get().getCurrentCredits();
+                        if (curCredits < 1) {
+                            bool isEn = (UI_settings::get().getLanguage() == "en");
+                            std::string msg = isEn ? "INSERT COIN\n(0 CREDITS)" : "НЯМА КРЕДИТИ!\nПУСНЕТЕ МОНЕТА";
+                            ArcadePopup::get().show(msg, 2.5f);
+                            return;
+                        }
+                    }
+                }
+                if (arcadeSelectedDifficultyIndex == 0) selectedBotDifficulty = BotDifficulty::EASY;
+                else if (arcadeSelectedDifficultyIndex == 1) selectedBotDifficulty = BotDifficulty::MEDIUM;
+                else if (arcadeSelectedDifficultyIndex == 2) selectedBotDifficulty = BotDifficulty::HARD;
+
+                state = MenuState::CALIBRATE_BLUE;
+                enterHeld = true;
+                spaceHeld = true;
+                return;
+            }
             return;
         } else if (state == MenuState::CALIBRATE_BLUE) {
             if (ArcadeMode::isEnabled() && !event.is<sf::Event::JoystickButtonPressed>()) {
@@ -1062,9 +1194,20 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             } else {
                 UI_controlsConfig::get().setPlayerJoystick(1, 0);
             }
-            state = MenuState::CALIBRATE_RED;
             enterHeld = true;
             spaceHeld = true;
+
+            if (selectedBotDifficulty != BotDifficulty::NONE) {
+                // In Player vs Bot mode, Player 2 is BOT! No need to calibrate red controller.
+                std::cout << "[Calibration] Bot mode active (" << static_cast<int>(selectedBotDifficulty)
+                          << "). Skipping Player 2 calibration and launching match.\n";
+                UI_controlsConfig::get().setPlayerJoystick(2, 1);
+                playControls.setActiveSchemeIndex(static_cast<int>(ControlScheme::DEVHUB_ARCADE));
+                onPlay();
+                return;
+            }
+
+            state = MenuState::CALIBRATE_RED;
             return;
         } else if (state == MenuState::CALIBRATE_RED) {
             if (ArcadeMode::isEnabled() && !event.is<sf::Event::JoystickButtonPressed>()) {
@@ -1488,6 +1631,8 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
 void UI_mainMenu::render(sf::RenderWindow& window) {
     if (state == MenuState::PRESS_A_TO_START) {
         drawPressAToStart(window);
+    } else if (state == MenuState::ARCADE_BOT_DIFFICULTY) {
+        drawArcadeBotDifficulty(window);
     } else if (state == MenuState::CALIBRATE_BLUE) {
         drawCalibration(window, true);
     } else if (state == MenuState::CALIBRATE_RED) {

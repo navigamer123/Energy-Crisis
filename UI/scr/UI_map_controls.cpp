@@ -1519,7 +1519,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
     }
 
     if (const auto* jb = event.getIf<sf::Event::JoystickButtonPressed>()) {
-        if (jb->button == 8) { // CG button (top system button) -> Toggle Help Overlay
+        if (jb->button == 9) { // Person button (top system button) -> Toggle Help Overlay
             if (showHelpOverlay) {
                 showHelpOverlay = false;
                 isPaused = helpOpenedFromPause;

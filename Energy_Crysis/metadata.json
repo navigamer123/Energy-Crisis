@@ -2,6 +2,7 @@
   "name": "Energy Crisis",
   "id": "energy_crisis",
   "version": "1.0.0",
+  "release_id": "ec-release-0.1.2",
   "executable": "Energy_Crisis.x86_64",
   "launcher": "launch.sh",
   "description": "Energy Crisis - Post-apocalyptic Renewable Energy Management Game",

@@ -1,6 +1,7 @@
 #include "../includes/UI_credits.h"
 #include "../includes/UI_arcadePopup.h"
 #include "../includes/UI_settings.h"
+#include "../includes/UI_arcadeIpc.h"
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -56,6 +57,7 @@ std::string CreditsManager::resolveDatabasePath() {
 }
 
 void CreditsManager::init() {
+    ArcadeIpcClient::get().init();
 #if defined(__ANDROID__)
     dbAvailable = false;
     currentCredits = 999;
@@ -73,6 +75,13 @@ void CreditsManager::init() {
         }
     }
 #endif
+}
+
+int CreditsManager::getCurrentCredits() const {
+    if (ArcadeIpcClient::get().isConnected()) {
+        return ArcadeIpcClient::get().getCredits();
+    }
+    return currentCredits;
 }
 
 int CreditsManager::readCreditsFromDb(const std::string& path) {
@@ -182,6 +191,10 @@ void CreditsManager::update(float dt) {
 
 bool CreditsManager::tryConsumeCredits(int amount) {
     if (amount <= 0) return true;
+
+    if (ArcadeIpcClient::get().isConnected()) {
+        return ArcadeIpcClient::get().consumeCredit(amount);
+    }
 
     if (resolvedDbPath.empty()) {
         resolvedDbPath = resolveDatabasePath();

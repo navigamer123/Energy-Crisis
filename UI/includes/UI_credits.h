@@ -12,7 +12,7 @@ public:
     void update(float dt);
 
     bool isDatabaseAvailable() const { return dbAvailable; }
-    int getCurrentCredits() const { return currentCredits; }
+    int getCurrentCredits() const;
 
     // Consumes amount of credits. Returns true if successful.
     bool tryConsumeCredits(int amount = 1);
