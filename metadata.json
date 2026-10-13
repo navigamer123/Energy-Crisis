@@ -1,0 +1,14 @@
+{
+  "name": "Energy Crisis",
+  "id": "energy_crisis",
+  "version": "1.0.0",
+  "executable": "Energy_Crisis.x86_64",
+  "launcher": "launch.sh",
+  "description": "Energy Crisis - Post-apocalyptic Renewable Energy Management Game",
+  "genre": "Strategy / Arcade",
+  "players": 2,
+  "controls": {
+    "p1": "Joystick 1 / Arcade Buttons",
+    "p2": "Joystick 2 / Arcade Buttons"
+  }
+}

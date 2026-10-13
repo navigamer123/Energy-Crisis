@@ -1,0 +1,13 @@
+.git
+.cache
+build
+build-*
+dist
+*.zip
+*.x86_64
+Energy_Crisis
+Energy_Crysis
+android
+presentation
+scratch
+.gemini
