@@ -58,7 +58,7 @@ COPY . .
 
 # Build the arcade version: Energy_Crisis (with -DARCADE_MODE=1)
 RUN make clean || true
-RUN make TARGET=Energy_Crisis SFML_DIR=/usr/local
+RUN make -j$(nproc) TARGET=Energy_Crisis SFML_DIR=/usr/local
 
 # Package the portable arcade release and validate GLIBC inside container
 RUN chmod +x /src/scripts/package_inside_docker.sh /src/scripts/check_glibc_symbols.py /src/launch.sh \

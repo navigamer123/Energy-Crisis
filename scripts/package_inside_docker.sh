@@ -18,10 +18,11 @@ mkdir -p "$DEST_DIR/lib"
 echo "==> 1. Copying main executable..."
 cp "$BUILD_BIN" "$DEST_DIR/Energy_Crisis.x86_64"
 chmod +x "$DEST_DIR/Energy_Crisis.x86_64"
+ln -sf "Energy_Crisis.x86_64" "$DEST_DIR/Energy_Crisis"
 
 echo "==> 2. Resolving and bundling runtime libraries..."
 # Blacklist: libraries that MUST be provided by the host NixOS system
-EXCLUDE_REGEX="^(libc\.so|ld-linux|libm\.so|libmvec\.so|libdl\.so|libpthread\.so|librt\.so|linux-vdso\.so|libGL\.so|libGLX\.so|libOpenGL\.so|libEGL\.so|libdrm\.so|libglapi\.so)"
+EXCLUDE_REGEX="^(libc\.so|ld-linux|libm\.so|libmvec\.so|libdl\.so|libpthread\.so|librt\.so|libresolv\.so|libutil\.so|libnss_|linux-vdso\.so|libGL\.so|libGLX\.so|libOpenGL\.so|libEGL\.so|libdrm\.so|libglapi\.so)"
 
 collect_deps() {
     local target="$1"
@@ -72,11 +73,17 @@ cp /src/launch.sh "$DEST_DIR/launch.sh"
 chmod +x "$DEST_DIR/launch.sh"
 
 cp /src/metadata.json "$DEST_DIR/metadata.json"
+if [ -f /src/capability_manifest.json ]; then
+    cp /src/capability_manifest.json "$DEST_DIR/capability_manifest.json"
+fi
+if [ -f /src/game_release.json ]; then
+    cp /src/game_release.json "$DEST_DIR/game_release.json"
+fi
 
-if [ -f /src/assets/logo.png ]; then
-    cp /src/assets/logo.png "$DEST_DIR/thumbnail.png"
-elif [ -f /src/thumbnail.png ]; then
+if [ -f /src/thumbnail.png ]; then
     cp /src/thumbnail.png "$DEST_DIR/thumbnail.png"
+elif [ -f /src/assets/logo.png ]; then
+    cp /src/assets/logo.png "$DEST_DIR/thumbnail.png"
 fi
 
 cat << 'EOF' > "$DEST_DIR/NOTICE.txt"

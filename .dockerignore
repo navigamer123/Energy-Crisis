@@ -3,6 +3,8 @@
 build
 build-*
 dist
+lib
+test_game
 *.zip
 *.x86_64
 Energy_Crisis
@@ -11,3 +13,4 @@ android
 presentation
 scratch
 .gemini
+

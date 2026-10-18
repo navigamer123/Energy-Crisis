@@ -61,6 +61,19 @@ make            # компилира играта
 make run        # стартира играта
 ```
 
+### 🕹️ DHO Arcade (NixOS) — Преносимо издание
+
+За пускане на DevHub One / DHO Arcade конзоли с **NixOS** (glibc 2.40) играта се компилира **винаги в изолиран Docker контейнер** (Debian 12 / glibc 2.36), за да се избегнат несъвместимости с по-нови хост библиотеки:
+
+```bash
+make arcade-package
+# или директно:
+./scripts/build-linux-release.sh
+```
+
+Командата генерира самодостатъчен архив `Energy_Crisis.zip` и разархивирана директория `dist/Energy_Crisis/`.
+Подробно ръководство и архитектура: [docs/ARCADE_BUILD.md](docs/ARCADE_BUILD.md).
+
 ### Windows (MinGW-w64 + SFML 3.1)
 
 ```bash
@@ -124,6 +137,7 @@ make test EC_SEED=42  # същото време и същите случайни
 | Документ | Съдържание |
 | :--- | :--- |
 | [BUILD.md](docs/BUILD.md) | Компилиране за Windows и Linux (CMake / Makefile) |
+| [ARCADE_BUILD.md](docs/ARCADE_BUILD.md) | Преносимо компилиране с Docker за DHO Arcade (NixOS, glibc 2.40) |
 | [ANDROID.md](docs/ANDROID.md) | Компилиране и инсталиране на Android APK (Gradle + NDK) |
 | [CONTROLS.md](docs/CONTROLS.md) | Клавиатура, мишка, сензорен екран (Touch) и геймпад |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Двигател и интерфейс, основни класове, поток на данните |

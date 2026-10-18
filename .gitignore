@@ -7,10 +7,10 @@ ArcadeTemplate.x86_64
 *.d
 *.exe
 # Build folders (CMake: build/, Makefile objects: build/make/)
-build/
-build-*/
-dist/
-out/
+/build/
+/build-*/
+/dist/
+/out/
 cmake-build-*/
 CMakeUserPresets.json
 *.dll
