@@ -24,6 +24,23 @@ if ! command -v java &> /dev/null && [ -z "$JAVA_HOME" ]; then
     exit 1
 fi
 
+if [ -d "$HOME/Android/Sdk" ]; then
+    export ANDROID_HOME="$HOME/Android/Sdk"
+    if [ ! -f "$ROOT_DIR/android/local.properties" ]; then
+        echo "sdk.dir=$HOME/Android/Sdk" > "$ROOT_DIR/android/local.properties"
+    fi
+fi
+
+if [ ! -f "$ROOT_DIR/android/local.properties" ] && [ -z "$ANDROID_HOME" ]; then
+    echo ""
+    echo "Android SDK location was not found."
+    echo "Please run the setup script to download the SDK & NDK automatically:"
+    echo "  ./scripts/setup-android-sdk.sh"
+    echo ""
+    echo "Or open the '$ROOT_DIR/android' folder in Android Studio."
+    exit 1
+fi
+
 cd "$ROOT_DIR/android"
 chmod +x gradlew
 ./gradlew bundleRelease
