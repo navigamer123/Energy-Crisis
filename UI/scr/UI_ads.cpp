@@ -11,6 +11,8 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 static JavaVM* g_vm = nullptr;
+static jclass g_activityClass = nullptr;
+static jobject g_activityObj = nullptr;
 
 extern "C" {
 
@@ -20,10 +22,20 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT void JNICALL Java_bg_energycrisis_game_MainActivity_nativeInitVM(JNIEnv* env, jclass /*clazz*/) {
+JNIEXPORT void JNICALL Java_bg_energycrisis_game_MainActivity_nativeInitVM(JNIEnv* env, jobject activity) {
     if (env) {
         env->GetJavaVM(&g_vm);
-        LOGI("nativeInitVM called: g_vm captured as %p", g_vm);
+        if (activity) {
+            if (g_activityObj) env->DeleteGlobalRef(g_activityObj);
+            if (g_activityClass) env->DeleteGlobalRef(g_activityClass);
+
+            g_activityObj = env->NewGlobalRef(activity);
+            jclass localClass = env->GetObjectClass(activity);
+            g_activityClass = (jclass)env->NewGlobalRef(localClass);
+            env->DeleteLocalRef(localClass);
+        }
+        LOGI("nativeInitVM called: g_vm=%p, g_activityObj=%p, g_activityClass=%p",
+             g_vm, g_activityObj, g_activityClass);
     } else {
         LOGE("nativeInitVM called with null JNIEnv!");
     }
@@ -96,8 +108,7 @@ void AdManager::clearStatusMessage() {
 
 bool AdManager::isAdReady() const {
 #if defined(__ANDROID__)
-    if (!g_vm) {
-        LOGE("isAdReady: g_vm is null!");
+    if (!g_vm || !g_activityClass) {
         return false;
     }
     JNIEnv* env = nullptr;
@@ -107,26 +118,16 @@ bool AdManager::isAdReady() const {
         if (g_vm->AttachCurrentThread(&env, nullptr) == JNI_OK) {
             attached = true;
         } else {
-            LOGE("isAdReady: failed to attach thread!");
             return false;
         }
     } else if (getEnvRes != JNI_OK) {
-        LOGE("isAdReady: GetEnv failed with %d", getEnvRes);
         return false;
     }
 
     bool ready = false;
-    jclass activityClass = env->FindClass("bg/energycrisis/game/MainActivity");
-    if (activityClass) {
-        jmethodID isReadyMethod = env->GetStaticMethodID(activityClass, "isAdReadyFromNative", "()Z");
-        if (isReadyMethod) {
-            ready = env->CallStaticBooleanMethod(activityClass, isReadyMethod);
-        } else {
-            LOGE("isAdReady: isAdReadyFromNative method not found!");
-        }
-        env->DeleteLocalRef(activityClass);
-    } else {
-        LOGE("isAdReady: MainActivity class not found!");
+    jmethodID isReadyMethod = env->GetStaticMethodID(g_activityClass, "isAdReadyFromNative", "()Z");
+    if (isReadyMethod) {
+        ready = env->CallStaticBooleanMethod(g_activityClass, isReadyMethod);
     }
 
     if (attached) {
@@ -140,14 +141,14 @@ bool AdManager::isAdReady() const {
 
 void AdManager::showRewardedAd() {
 #if defined(__ANDROID__)
-    LOGI("AdManager::showRewardedAd entered, g_vm=%p", g_vm);
+    LOGI("AdManager::showRewardedAd entered, g_vm=%p, g_activityClass=%p", g_vm, g_activityClass);
 #endif
     m_status = AdStatus::SHOWING;
     m_statusMessage = Lang::tr("menu.ad_status_loading");
 
 #if defined(__ANDROID__)
-    if (!g_vm) {
-        LOGE("showRewardedAd: g_vm is null! Ad failed.");
+    if (!g_vm || !g_activityClass) {
+        LOGE("showRewardedAd: g_vm (%p) or g_activityClass (%p) is null! Ad failed.", g_vm, g_activityClass);
         m_status = AdStatus::FAILED;
         m_statusMessage = Lang::tr("menu.ad_status_failed");
         return;
@@ -172,20 +173,12 @@ void AdManager::showRewardedAd() {
         return;
     }
 
-    jclass activityClass = env->FindClass("bg/energycrisis/game/MainActivity");
-    if (activityClass) {
-        jmethodID showAdMethod = env->GetStaticMethodID(activityClass, "showAdFromNative", "()V");
-        if (showAdMethod) {
-            LOGI("showRewardedAd: Calling MainActivity.showAdFromNative()");
-            env->CallStaticVoidMethod(activityClass, showAdMethod);
-        } else {
-            LOGE("showRewardedAd: showAdFromNative method not found!");
-            m_status = AdStatus::FAILED;
-            m_statusMessage = Lang::tr("menu.ad_status_failed");
-        }
-        env->DeleteLocalRef(activityClass);
+    jmethodID showAdMethod = env->GetStaticMethodID(g_activityClass, "showAdFromNative", "()V");
+    if (showAdMethod) {
+        LOGI("showRewardedAd: Calling MainActivity.showAdFromNative() via cached class reference");
+        env->CallStaticVoidMethod(g_activityClass, showAdMethod);
     } else {
-        LOGE("showRewardedAd: MainActivity class not found!");
+        LOGE("showRewardedAd: showAdFromNative static method not found!");
         m_status = AdStatus::FAILED;
         m_statusMessage = Lang::tr("menu.ad_status_failed");
     }

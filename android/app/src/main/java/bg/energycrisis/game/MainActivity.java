@@ -46,7 +46,7 @@ public class MainActivity extends NativeActivity {
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
 
     // Native C++ JNI callbacks implemented in UI_ads.cpp
-    public static native void nativeInitVM();
+    public native void nativeInitVM();
     public static native void nativeOnRewardEarned();
     public static native void nativeOnAdClosed();
     public static native void nativeOnAdFailed();
