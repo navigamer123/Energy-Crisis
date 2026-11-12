@@ -1,0 +1,93 @@
+================================================================================
+GOOGLE PLAY STORE LISTING INFORMATION - ENERGY CRISIS
+================================================================================
+
+1. BASIC DETAILS
+--------------------------------------------------------------------------------
+App Name (max 30 chars):
+Energy Crisis: Power Strategy
+
+Short Description (max 80 chars):
+Build energy grids, manage resources, and power the city in real-time RTS.
+
+Category:
+Games > Strategy / Simulation
+
+Tags:
+Real-time Strategy, City Builder, Resource Management, Tactical, Offline
+
+
+2. FULL DESCRIPTION (Copy & paste into Google Play Console):
+--------------------------------------------------------------------------------
+Power the metropolis. Outsmart rival energy barons. Survive the elements.
+
+Welcome to Energy Crisis, a high-stakes real-time strategy game where you design, construct, and defend the energy infrastructure of tomorrow. Balance power production, expand into strategic territories, and deliver electricity to a booming city before your competitors do!
+
+⚡ CHOOSE YOUR PLAY STYLE:
+• 5-Minute Blitz Mode (100% Free):
+  Fast-paced tactical action! Zero grace period, aggressive land costs, and quick decisions. Perfect for quick sessions on the go.
+• 30-Minute Epic Battle (Standard Mode):
+  Deep 20-day strategic competition. Research advanced clean energy, expand across multiple land plots, build high-voltage grids, and execute long-term victory plans. Watch a quick rewarded video to unlock the full battle session!
+
+🏭 COMPLETE ENERGY PORTFOLIO:
+Harness renewable and conventional power sources to dominate the power market:
+• Solar Panels & Wind Turbines (clean, weather-dependent power)
+• Hydro Plants, Coal & Gas Power Stations (reliable baseline energy)
+• Advanced Battery Storage (store surplus power to survive harsh night blackouts)
+• Research Labs & High-Voltage Transformers
+
+🌪️ DYNAMIC WEATHER & DISASTERS:
+Mother Nature won't make it easy. Adapt your production to changing seasons, freezing winter cold snaps, and devastating storms that test the resilience of your grid.
+
+🤖 SMART AI & VERSATILE CONTROLS:
+• Challenge responsive AI bots across multiple difficulty tiers (Easy, Medium, Hard).
+• Intuitive touch controls designed specifically for mobile play.
+• Full bilingual support: English & Bulgarian.
+
+Can you keep the lights on and claim majority share of the city? Download Energy Crisis now and build your energy empire!
+
+
+3. GOOGLE PLAY CONSOLE POLICY QUESTIONNAIRE ANSWERS:
+--------------------------------------------------------------------------------
+A. Ads Declaration:
+   • Question: "Does your app contain ads?"
+   • Answer: YES (select "Yes, it contains ads").
+
+B. App Access:
+   • Answer: "All functionality is available without special access".
+
+C. Content Rating:
+   • Violence: None
+   • Sexuality: None
+   • Language: None
+   • Controlled Substances: None
+   • Expected Rating: Everyone / PEGI 3
+
+D. Target Audience and Content:
+   • Target age: 13 and older (or General Audience).
+
+E. Data Safety Section:
+   • Does your app collect or share user data?
+     Select "YES" (due to Google Mobile Ads SDK).
+   • Data types collected by Google Mobile Ads SDK:
+     - Device or other IDs (Advertising ID / GAID) for Advertising/Marketing.
+     - App info and performance (Diagnostics, crash logs) for Analytics/Advertising.
+   • Is data encrypted in transit? YES (HTTPS).
+   • Can users request that their data be deleted? YES.
+
+F. Privacy Policy URL:
+   • Upload playstore_assets/privacy_policy.html to your website or GitHub Pages
+     (e.g., https://<username>.github.io/Energy-Crisis/privacy_policy.html)
+     and paste that URL here.
+
+
+4. RELEASE KEYSTORE CREDENTIALS (Saved in android/release.keystore):
+--------------------------------------------------------------------------------
+Keystore File:  android/release.keystore
+Keystore Pass:  N@v!-energycrisis-GameDev-1967
+Key Alias:      energycrisis
+Key Password:   N@v!-energycrisis-GameDev-1967
+
+Keep this file safe! It is used to sign all Android App Bundles (.aab).
+================================================================================
+

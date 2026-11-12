@@ -79,6 +79,16 @@ menu.hint_main = Navigate: [Arrows / W,S] | Select: [Enter]
 menu.match_type_title = SELECT MATCH TYPE
 menu.match_30m = 30M BATTLE (STANDARD)
 menu.match_30m_desc = Standard 30-minute competition (20 days). Full land expansion & strategic depth.
+menu.match_30m_locked = 30M BATTLE [WATCH AD]
+menu.match_30m_unlocked = 30M BATTLE [UNLOCKED]
+menu.ad_unlock_title = UNLOCK 30M BATTLE MODE
+menu.ad_unlock_desc = 5m Blitz is always 100% free! Watch a short video ad to unlock the full 30m Battle mode for this session.
+menu.ad_watch_btn = WATCH AD TO PLAY (30M)
+menu.ad_free_blitz_btn = PLAY 5M BLITZ INSTEAD (FREE)
+menu.ad_status_loading = Loading ad, please wait...
+menu.ad_status_failed = Ad not available. Check your connection or play 5m Blitz free.
+menu.ad_status_not_ready = Ad still loading. Please tap again in a moment.
+menu.ad_reward_success = Unlocked! Enjoy your 30m battle.
 menu.match_5m = 5M BLITZ (FAST-PACED)
 menu.match_5m_desc = Rapid 5-minute blitz (5 days, 0 grace days). Expensive land (hard cap: max 4 plots).
 # UI/scr/UI_mainMenu.cpp:189

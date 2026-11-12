@@ -17,7 +17,8 @@ enum class MenuState {
     PLAY_CONTROLS,
     BOT_DIFFICULTY,
     SETTINGS,
-    SETTINGS_CONTROLS
+    SETTINGS_CONTROLS,
+    AD_UNLOCK_PROMPT
 };
 
 class UI_mainMenu {
@@ -31,6 +32,7 @@ private:
     int selectedModeIndex;       // 0: Co-op (2P), 1: Single Player (VS Bot), 2: Back
     int selectedDifficultyIndex; // 0: Easy, 1: Medium, 2: Hard, 3: Back
     int selectedSettingsIndex;   // 0: Language, 1: Volume, 2: SoundFX, 3: Difficulty, 4: Controls, 5: Back
+    int selectedAdPromptIndex = 0; // 0: Watch Ad, 1: Play 5m Blitz, 2: Back
     sf::Vector2f lastMenuMousePos = { -999.0f, -999.0f };
 
     BotDifficulty selectedBotDifficulty;
@@ -85,6 +87,7 @@ private:
     void drawBotDifficultyMenu(sf::RenderWindow& window);
     void drawSettingsMenu(sf::RenderWindow& window);
     void drawControlsRemapMenu(sf::RenderWindow& window);
+    void drawAdUnlockPrompt(sf::RenderWindow& window);
 
     void drawButton(sf::RenderWindow& window, sf::FloatRect bounds, const sf::String& text,
                     sf::Color baseColor, sf::Color hoverColor, sf::Color textColor,

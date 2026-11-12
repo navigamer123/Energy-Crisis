@@ -31,6 +31,11 @@ android {
         }
     }
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
     val copyAssetsTree = tasks.register<Sync>("copyAssetsTree") {
         from("../../assets") {
             into("assets")
@@ -49,6 +54,20 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = rootProject.file("release.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "N@v!-energycrisis-GameDev-1967"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "energycrisis"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "N@v!-energycrisis-GameDev-1967"
+            } else {
+                initWith(getByName("debug"))
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -56,7 +75,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             isDebuggable = true
@@ -80,5 +99,6 @@ android {
 }
 
 dependencies {
-    // Pure native C++ NativeActivity app - no Java/AndroidX runtime dependencies needed
+    implementation("com.google.android.gms:play-services-ads:23.5.0")
+    implementation("androidx.annotation:annotation:1.9.1")
 }

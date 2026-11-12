@@ -8,6 +8,7 @@
 #include "../includes/UI_arcadeMode.h"
 #include "../includes/UI_credits.h"
 #include "../includes/UI_arcadePopup.h"
+#include "../includes/UI_ads.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -538,13 +539,16 @@ void UI_mainMenu::drawMatchTypeMenu(sf::RenderWindow& window) {
     const sf::Color defaultBtn = theme::Button;
     const sf::Color whiteText = theme::TextPrimary;
 
-    drawButton(window, stdBtn, toUtf8(Lang::tr("menu.match_30m")), defaultBtn, theme::GoodFill, whiteText, selectedMatchTypeIndex == 0);
+    bool is30mUnlocked = AdManager::get().is30mUnlocked();
+    std::string match30mLabel = is30mUnlocked ? Lang::tr("menu.match_30m") : Lang::tr("menu.match_30m_locked");
+
+    drawButton(window, stdBtn, toUtf8(match30mLabel), defaultBtn, theme::GoodFill, whiteText, selectedMatchTypeIndex == 0);
     drawButton(window, blitzBtn, toUtf8(Lang::tr("menu.match_5m")), defaultBtn, sf::Color(140, 100, 20), whiteText, selectedMatchTypeIndex == 1);
     drawButton(window, backBtn, toUtf8(Lang::tr("common.back")), defaultBtn, theme::ButtonHover, whiteText, selectedMatchTypeIndex == 2);
 
     if (fontLoaded) {
         std::string desc = (selectedMatchTypeIndex == 0)
-            ? Lang::tr("menu.match_30m_desc")
+            ? (is30mUnlocked ? Lang::tr("menu.match_30m_desc") : Lang::tr("menu.ad_unlock_desc"))
             : (selectedMatchTypeIndex == 1)
                 ? Lang::tr("menu.match_5m_desc")
                 : Lang::tr("menu.mode_back_desc");
@@ -564,6 +568,71 @@ void UI_mainMenu::drawMatchTypeMenu(sf::RenderWindow& window) {
         sf::FloatRect hb = hint.getLocalBounds();
         hint.setPosition({ (screenWidth - hb.size.x) / 2.0f, startY + 2.0f * spacing + 120.0f });
         ui::drawText(window, hint);
+    }
+}
+
+void UI_mainMenu::drawAdUnlockPrompt(sf::RenderWindow& window) {
+    if (AdManager::get().pollRewardEarned()) {
+        blitzMode = false;
+        state = MenuState::MODE_SELECT;
+        selectedModeIndex = 0;
+        return;
+    }
+
+    drawHeader(window);
+
+    float screenWidth = VIRTUAL_WIDTH;
+    float btnWidth = 560.0f;
+    float btnHeight = 54.0f;
+    float btnX = (screenWidth - btnWidth) / 2.0f;
+    float startY = 280.0f;
+    float spacing = 72.0f;
+
+    sf::Vector2f mousePos = ui::pointerPos(window);
+    sf::FloatRect watchBtn({ btnX, startY }, { btnWidth, btnHeight });
+    sf::FloatRect blitzBtn({ btnX, startY + spacing }, { btnWidth, btnHeight });
+    sf::FloatRect backBtn({ btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 16.0f }, { 240.0f, 46.0f });
+
+    bool mouseMoved = (std::abs(mousePos.x - lastMenuMousePos.x) > 2.0f || std::abs(mousePos.y - lastMenuMousePos.y) > 2.0f);
+    if (mouseMoved) {
+        lastMenuMousePos = mousePos;
+        if (watchBtn.contains(mousePos)) selectedAdPromptIndex = 0;
+        else if (blitzBtn.contains(mousePos)) selectedAdPromptIndex = 1;
+        else if (backBtn.contains(mousePos)) selectedAdPromptIndex = 2;
+    }
+
+    if (fontLoaded) {
+        // Title
+        sf::Text& titleText = ui::pooledText(font, toUtf8(Lang::tr("menu.ad_unlock_title")), fontsize::H2);
+        titleText.setFillColor(theme::Gold);
+        sf::FloatRect tb = titleText.getLocalBounds();
+        titleText.setPosition({ (screenWidth - tb.size.x) / 2.0f, 180.0f });
+        ui::drawText(window, titleText);
+
+        // Description
+        sf::Text& descText = ui::pooledText(font, toUtf8(Lang::tr("menu.ad_unlock_desc")), fontsize::Body);
+        descText.setFillColor(theme::TextSecondary);
+        sf::FloatRect db = descText.getLocalBounds();
+        descText.setPosition({ (screenWidth - db.size.x) / 2.0f, 225.0f });
+        ui::drawText(window, descText);
+    }
+
+    const sf::Color defaultBtn = theme::Button;
+    const sf::Color whiteText = theme::TextPrimary;
+
+    drawButton(window, watchBtn, toUtf8(Lang::tr("menu.ad_watch_btn")), defaultBtn, theme::GoodFill, whiteText, selectedAdPromptIndex == 0);
+    drawButton(window, blitzBtn, toUtf8(Lang::tr("menu.ad_free_blitz_btn")), defaultBtn, sf::Color(140, 100, 20), whiteText, selectedAdPromptIndex == 1);
+    drawButton(window, backBtn, toUtf8(Lang::tr("common.back")), defaultBtn, theme::ButtonHover, whiteText, selectedAdPromptIndex == 2);
+
+    if (fontLoaded) {
+        const std::string& statusMsg = AdManager::get().getStatusMessage();
+        if (!statusMsg.empty()) {
+            sf::Text& statusText = ui::pooledText(font, toUtf8(statusMsg), fontsize::Label);
+            statusText.setFillColor(theme::Warn);
+            sf::FloatRect sb = statusText.getLocalBounds();
+            statusText.setPosition({ (screenWidth - sb.size.x) / 2.0f, startY + 2.0f * spacing + 75.0f });
+            ui::drawText(window, statusText);
+        }
     }
 }
 
@@ -1260,9 +1329,14 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 selectedMatchTypeIndex = (selectedMatchTypeIndex + 1) % 3;
             } else if (isSelect) {
                 if (selectedMatchTypeIndex == 0) {
-                    blitzMode = false; // 30m Battle
-                    state = MenuState::MODE_SELECT;
-                    selectedModeIndex = 0;
+                    if (AdManager::get().is30mUnlocked()) {
+                        blitzMode = false; // 30m Battle
+                        state = MenuState::MODE_SELECT;
+                        selectedModeIndex = 0;
+                    } else {
+                        state = MenuState::AD_UNLOCK_PROMPT;
+                        selectedAdPromptIndex = 0;
+                    }
                 } else if (selectedMatchTypeIndex == 1) {
                     blitzMode = true; // 5m Blitz
                     state = MenuState::MODE_SELECT;
@@ -1272,6 +1346,24 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 }
             } else if (isEscape) {
                 state = MenuState::MAIN;
+            }
+        } else if (state == MenuState::AD_UNLOCK_PROMPT) {
+            if (isUp) {
+                selectedAdPromptIndex = (selectedAdPromptIndex + 2) % 3;
+            } else if (isDown) {
+                selectedAdPromptIndex = (selectedAdPromptIndex + 1) % 3;
+            } else if (isSelect) {
+                if (selectedAdPromptIndex == 0) {
+                    AdManager::get().showRewardedAd();
+                } else if (selectedAdPromptIndex == 1) {
+                    blitzMode = true; // 5m Blitz is free
+                    state = MenuState::MODE_SELECT;
+                    selectedModeIndex = 0;
+                } else if (selectedAdPromptIndex == 2) {
+                    state = MenuState::MATCH_TYPE_SELECT;
+                }
+            } else if (isEscape) {
+                state = MenuState::MATCH_TYPE_SELECT;
             }
         } else if (state == MenuState::MODE_SELECT) {
             if (isUp) {
@@ -1474,9 +1566,14 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 float spacing = 76.0f;
 
                 if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
-                    blitzMode = false; // 30m Battle
-                    state = MenuState::MODE_SELECT;
-                    selectedModeIndex = 0;
+                    if (AdManager::get().is30mUnlocked()) {
+                        blitzMode = false; // 30m Battle
+                        state = MenuState::MODE_SELECT;
+                        selectedModeIndex = 0;
+                    } else {
+                        state = MenuState::AD_UNLOCK_PROMPT;
+                        selectedAdPromptIndex = 0;
+                    }
                     s_menuTransitionClock.restart();
                     return;
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
@@ -1487,6 +1584,27 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                     return;
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 16.0f }, { 240.0f, 46.0f } }, clickPos)) {
                     state = MenuState::MAIN;
+                    s_menuTransitionClock.restart();
+                    return;
+                }
+            } else if (state == MenuState::AD_UNLOCK_PROMPT) {
+                float btnWidth = 560.0f;
+                float btnHeight = 54.0f;
+                float btnX = (screenWidth - btnWidth) / 2.0f;
+                float startY = 280.0f;
+                float spacing = 72.0f;
+
+                if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
+                    AdManager::get().showRewardedAd();
+                    return;
+                } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
+                    blitzMode = true; // 5m Blitz is free
+                    state = MenuState::MODE_SELECT;
+                    selectedModeIndex = 0;
+                    s_menuTransitionClock.restart();
+                    return;
+                } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 16.0f }, { 240.0f, 46.0f } }, clickPos)) {
+                    state = MenuState::MATCH_TYPE_SELECT;
                     s_menuTransitionClock.restart();
                     return;
                 }
@@ -1663,6 +1781,8 @@ void UI_mainMenu::render(sf::RenderWindow& window) {
         drawSettingsMenu(window);
     } else if (state == MenuState::SETTINGS_CONTROLS) {
         drawControlsRemapMenu(window);
+    } else if (state == MenuState::AD_UNLOCK_PROMPT) {
+        drawAdUnlockPrompt(window);
     }
 }
 
@@ -1673,5 +1793,6 @@ void UI_mainMenu::showState(MenuState s) {
     selectedModeIndex = 0;
     selectedDifficultyIndex = settingsDifficultyIndex;
     selectedSettingsIndex = 0;
+    selectedAdPromptIndex = 0;
     if (s == MenuState::PLAY_CONTROLS) playControls.resetRequests();
 }
