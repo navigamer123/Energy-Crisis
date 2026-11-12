@@ -4,14 +4,14 @@ plugins {
 
 android {
     namespace = "bg.energycrisis.game"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "bg.energycrisis.game"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 36
+        versionCode = 2
+        versionName = "1.0.1"
 
         ndk {
             abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
@@ -20,7 +20,7 @@ android {
         externalNativeBuild {
             cmake {
                 arguments(
-                    "-DANDROID_STL=c++_shared",
+                    "-DANDROID_STL=c++_static",
                     "-DEC_FETCH_SFML=ON",
                     "-DEC_BUILD_GAME=ON",
                     "-DEC_BUILD_TESTS=OFF",
@@ -70,7 +70,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -91,7 +91,6 @@ android {
 
     packaging {
         jniLibs {
-            pickFirsts.add("**/libc++_shared.so")
             pickFirsts.add("**/libopenal.so")
         }
     }
