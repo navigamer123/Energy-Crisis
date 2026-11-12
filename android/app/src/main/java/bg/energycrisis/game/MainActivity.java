@@ -24,6 +24,15 @@ import java.util.List;
 
 public class MainActivity extends NativeActivity {
     private static final String TAG = "EnergyCrisisAds";
+
+    static {
+        try {
+            System.loadLibrary("energy_crisis");
+            Log.i(TAG, "System.loadLibrary(energy_crisis) succeeded.");
+        } catch (UnsatisfiedLinkError e) {
+            Log.e(TAG, "System.loadLibrary(energy_crisis) failed: " + e.getMessage());
+        }
+    }
     
     // Official AdMob Rewarded Ad Unit ID for Energy Crisis (Premium Level single tier)
     public static final String PROD_AD_UNIT_ID = "ca-app-pub-8879039481537676/4813432180";
@@ -37,6 +46,7 @@ public class MainActivity extends NativeActivity {
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
 
     // Native C++ JNI callbacks implemented in UI_ads.cpp
+    public static native void nativeInitVM();
     public static native void nativeOnRewardEarned();
     public static native void nativeOnAdClosed();
     public static native void nativeOnAdFailed();
@@ -46,6 +56,13 @@ public class MainActivity extends NativeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         sInstance = this;
+
+        try {
+            nativeInitVM();
+            Log.i(TAG, "nativeInitVM invoked successfully from onCreate.");
+        } catch (UnsatisfiedLinkError e) {
+            Log.e(TAG, "nativeInitVM call failed: " + e.getMessage());
+        }
 
         // Register test devices so developer phone always receives test fill safely
         List<String> testDeviceIds = Arrays.asList(
@@ -125,8 +142,10 @@ public class MainActivity extends NativeActivity {
      * Displays the Rewarded Ad on the Android UI thread.
      */
     public void showRewardedAd() {
+        Log.i(TAG, "showRewardedAd invoked, mRewardedAd=" + (mRewardedAd != null ? "READY" : "NULL"));
         mMainHandler.post(() -> {
             if (mRewardedAd != null) {
+                Log.i(TAG, "Calling mRewardedAd.show(MainActivity)...");
                 mRewardedAd.setFullScreenContentCallback(new FullScreenContentCallback() {
                     @Override
                     public void onAdShowedFullScreenContent() {
@@ -168,6 +187,7 @@ public class MainActivity extends NativeActivity {
 
     // Static hooks callable directly from C++ via JNI (UI_ads.cpp)
     public static void showAdFromNative() {
+        Log.i(TAG, "showAdFromNative called from C++! sInstance=" + sInstance);
         if (sInstance != null) {
             sInstance.showRewardedAd();
         } else {

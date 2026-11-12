@@ -13,6 +13,14 @@
 #include <cmath>
 #include <algorithm>
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#define LOG_TAG "EnergyCrisisAds"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#else
+#define LOGI(...)
+#endif
+
 namespace {
 // Header logo layout (px on the 1600x900 canvas)
 constexpr float MAIN_LOGO_TOP = 58.0f;
@@ -1594,16 +1602,22 @@ void UI_mainMenu::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
                 float startY = 280.0f;
                 float spacing = 72.0f;
 
+                LOGI("AD_UNLOCK_PROMPT clicked at (%.1f, %.1f), watchBtn=[%.1f, %.1f, %.1f, %.1f]",
+                     clickPos.x, clickPos.y, btnX, startY, btnWidth, btnHeight);
+
                 if (isPointInside({ { btnX, startY }, { btnWidth, btnHeight } }, clickPos)) {
+                    LOGI("User clicked 'Watch Ad' button!");
                     AdManager::get().showRewardedAd();
                     return;
                 } else if (isPointInside({ { btnX, startY + spacing }, { btnWidth, btnHeight } }, clickPos)) {
+                    LOGI("User clicked '5m Blitz free' button!");
                     blitzMode = true; // 5m Blitz is free
                     state = MenuState::MODE_SELECT;
                     selectedModeIndex = 0;
                     s_menuTransitionClock.restart();
                     return;
                 } else if (isPointInside({ { btnX + (btnWidth - 240.0f) / 2.0f, startY + 2.0f * spacing + 16.0f }, { 240.0f, 46.0f } }, clickPos)) {
+                    LOGI("User clicked 'Back' button!");
                     state = MenuState::MATCH_TYPE_SELECT;
                     s_menuTransitionClock.restart();
                     return;

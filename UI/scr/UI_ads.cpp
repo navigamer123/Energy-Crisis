@@ -16,8 +16,17 @@ extern "C" {
 
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     g_vm = vm;
-    LOGI("JNI_OnLoad initialized successfully");
+    LOGI("JNI_OnLoad initialized successfully, g_vm=%p", g_vm);
     return JNI_VERSION_1_6;
+}
+
+JNIEXPORT void JNICALL Java_bg_energycrisis_game_MainActivity_nativeInitVM(JNIEnv* env, jclass /*clazz*/) {
+    if (env) {
+        env->GetJavaVM(&g_vm);
+        LOGI("nativeInitVM called: g_vm captured as %p", g_vm);
+    } else {
+        LOGE("nativeInitVM called with null JNIEnv!");
+    }
 }
 
 JNIEXPORT void JNICALL Java_bg_energycrisis_game_MainActivity_nativeOnRewardEarned(JNIEnv* /*env*/, jclass /*clazz*/) {
@@ -87,7 +96,10 @@ void AdManager::clearStatusMessage() {
 
 bool AdManager::isAdReady() const {
 #if defined(__ANDROID__)
-    if (!g_vm) return false;
+    if (!g_vm) {
+        LOGE("isAdReady: g_vm is null!");
+        return false;
+    }
     JNIEnv* env = nullptr;
     bool attached = false;
     jint getEnvRes = g_vm->GetEnv((void**)&env, JNI_VERSION_1_6);
@@ -95,9 +107,11 @@ bool AdManager::isAdReady() const {
         if (g_vm->AttachCurrentThread(&env, nullptr) == JNI_OK) {
             attached = true;
         } else {
+            LOGE("isAdReady: failed to attach thread!");
             return false;
         }
     } else if (getEnvRes != JNI_OK) {
+        LOGE("isAdReady: GetEnv failed with %d", getEnvRes);
         return false;
     }
 
@@ -107,8 +121,12 @@ bool AdManager::isAdReady() const {
         jmethodID isReadyMethod = env->GetStaticMethodID(activityClass, "isAdReadyFromNative", "()Z");
         if (isReadyMethod) {
             ready = env->CallStaticBooleanMethod(activityClass, isReadyMethod);
+        } else {
+            LOGE("isAdReady: isAdReadyFromNative method not found!");
         }
         env->DeleteLocalRef(activityClass);
+    } else {
+        LOGE("isAdReady: MainActivity class not found!");
     }
 
     if (attached) {
@@ -121,11 +139,15 @@ bool AdManager::isAdReady() const {
 }
 
 void AdManager::showRewardedAd() {
+#if defined(__ANDROID__)
+    LOGI("AdManager::showRewardedAd entered, g_vm=%p", g_vm);
+#endif
     m_status = AdStatus::SHOWING;
     m_statusMessage = Lang::tr("menu.ad_status_loading");
 
 #if defined(__ANDROID__)
     if (!g_vm) {
+        LOGE("showRewardedAd: g_vm is null! Ad failed.");
         m_status = AdStatus::FAILED;
         m_statusMessage = Lang::tr("menu.ad_status_failed");
         return;
@@ -138,11 +160,13 @@ void AdManager::showRewardedAd() {
         if (g_vm->AttachCurrentThread(&env, nullptr) == JNI_OK) {
             attached = true;
         } else {
+            LOGE("showRewardedAd: AttachCurrentThread failed!");
             m_status = AdStatus::FAILED;
             m_statusMessage = Lang::tr("menu.ad_status_failed");
             return;
         }
     } else if (getEnvRes != JNI_OK) {
+        LOGE("showRewardedAd: GetEnv returned %d", getEnvRes);
         m_status = AdStatus::FAILED;
         m_statusMessage = Lang::tr("menu.ad_status_failed");
         return;
@@ -152,13 +176,16 @@ void AdManager::showRewardedAd() {
     if (activityClass) {
         jmethodID showAdMethod = env->GetStaticMethodID(activityClass, "showAdFromNative", "()V");
         if (showAdMethod) {
+            LOGI("showRewardedAd: Calling MainActivity.showAdFromNative()");
             env->CallStaticVoidMethod(activityClass, showAdMethod);
         } else {
+            LOGE("showRewardedAd: showAdFromNative method not found!");
             m_status = AdStatus::FAILED;
             m_statusMessage = Lang::tr("menu.ad_status_failed");
         }
         env->DeleteLocalRef(activityClass);
     } else {
+        LOGE("showRewardedAd: MainActivity class not found!");
         m_status = AdStatus::FAILED;
         m_statusMessage = Lang::tr("menu.ad_status_failed");
     }
@@ -192,4 +219,5 @@ void AdManager::onAdNotReady() {
     m_status = AdStatus::NOT_READY;
     m_statusMessage = Lang::tr("menu.ad_status_not_ready");
 }
+
 
