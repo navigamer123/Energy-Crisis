@@ -188,7 +188,7 @@ void UI_map::updateWeatherParticles(float dt) {
 }
 
 // Thick line segment (SFML lines are 1 px, too thin for a bolt on the bright ground)
-static void drawThickSegment(sf::RenderWindow& window, sf::Vector2f a, sf::Vector2f b, float width, sf::Color color) {
+static void drawThickSegment(sf::RenderTarget& window, sf::Vector2f a, sf::Vector2f b, float width, sf::Color color) {
     sf::Vector2f d = b - a;
     float len = std::sqrt(d.x * d.x + d.y * d.y);
     if (len <= 0.0f) return;
@@ -202,7 +202,7 @@ static void drawThickSegment(sf::RenderWindow& window, sf::Vector2f a, sf::Vecto
     window.draw(quad);
 }
 
-void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
+void UI_map::drawWeatherParticles(sf::RenderTarget& window) {
     // [b-effects] Drawn in the world layer (UX-09): particles first, lit by the time of day, then
     // lightning on top. The screen flash is softer now that the light map also flashes.
     auto lit = [this](sf::Color c, float x) {
@@ -288,14 +288,8 @@ void UI_map::drawWeatherParticles(sf::RenderWindow& window) {
         }
     }
 
-    // 1. Screen Lightning flash
-    if (lightningFlashTimer > 0.0f) {
-        sf::RectangleShape flash({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
-        flash.setPosition({ 0.0f, 0.0f });
-        std::uint8_t a = static_cast<std::uint8_t>(std::min(150.0f, lightningFlashTimer * 520.0f));
-        flash.setFillColor(sf::Color(220, 240, 255, a));
-        window.draw(flash);
-    }
+    // Screen lightning flash now renders in UI_map::render beneath land plots, city, and station cards
+    // so storm strikes flash the terrain without washing out HUD/card labels.
 
     // 2. Active electrifying lightning bolts
     for (const auto& bolt : activeLightnings) {
@@ -361,7 +355,7 @@ void UI_map::updateMiningParticles(float dt) {
     }
 }
 
-void UI_map::drawMiningParticles(sf::RenderWindow& window) {
+void UI_map::drawMiningParticles(sf::RenderTarget& window) {
     for (const auto& p : miningParticles) {
         float alphaRatio = std::max(0.0f, p.life / p.maxLife);
         sf::CircleShape sp(p.size);

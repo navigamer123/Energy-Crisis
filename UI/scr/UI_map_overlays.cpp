@@ -13,7 +13,39 @@
 // UI_map Screen Overlays (HUD, Help Overlay, Pause Menu, Victory Screen)
 // =============================================================================
 
-void UI_map::drawHUD(sf::RenderWindow& window) {
+sf::FloatRect UI_map::hudMenuBtnRect() const {
+#if defined(__ANDROID__)
+    return sf::FloatRect({ 1600.0f - 10.0f - 145.0f, 900.0f - 44.0f }, { 145.0f, 38.0f });
+#else
+    return sf::FloatRect({ 1600.0f - 10.0f - 150.0f, 900.0f - 44.0f }, { 150.0f, 38.0f });
+#endif
+}
+
+sf::FloatRect UI_map::hudFullscreenBtnRect() const {
+    sf::FloatRect menu = hudMenuBtnRect();
+    return sf::FloatRect({ menu.position.x - 8.0f - 180.0f, 900.0f - 44.0f }, { 180.0f, 38.0f });
+}
+
+sf::FloatRect UI_map::hudHelpBtnRect() const {
+#if defined(__ANDROID__)
+    sf::FloatRect menu = hudMenuBtnRect();
+    return sf::FloatRect({ menu.position.x - 8.0f - 145.0f, 900.0f - 44.0f }, { 145.0f, 38.0f });
+#else
+    sf::FloatRect fs = hudFullscreenBtnRect();
+    return sf::FloatRect({ fs.position.x - 8.0f - 145.0f, 900.0f - 44.0f }, { 145.0f, 38.0f });
+#endif
+}
+
+sf::FloatRect UI_map::helpCardRect() const {
+    return sf::FloatRect({ 200.0f, 65.0f }, { 1200.0f, 770.0f });
+}
+
+sf::FloatRect UI_map::helpCloseBtnRect() const {
+    sf::FloatRect card = helpCardRect();
+    return sf::FloatRect({ card.position.x + card.size.x - 190.0f - 16.0f, card.position.y + 9.0f }, { 190.0f, 38.0f });
+}
+
+void UI_map::drawHUD(sf::RenderTarget& window) {
     bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
     // In Arcade mode, hide bottom mouse buttons and help reminder bar for clean minimal arcade UI
     if (isArcade) {
@@ -23,112 +55,88 @@ void UI_map::drawHUD(sf::RenderWindow& window) {
     sf::Vector2f mousePos = ui::pointerPos(window);
     bool isEn = (UI_settings::get().getLanguage() == "en");
 
+    auto drawHudBtn = [&](const sf::FloatRect& rect, const std::string& label) {
+        bool hover = rect.contains(mousePos);
+        sf::RectangleShape box(rect.size);
+        box.setPosition(rect.position);
+        box.setFillColor(hover ? theme::ButtonHover : theme::Button);
+        box.setOutlineThickness(hover ? 2.0f : 1.2f);
+        box.setOutlineColor(hover ? theme::Focus : theme::LineStrong);
+        window.draw(box);
+
+        if (resourcesLoaded) {
+            unsigned int sz = ui::fitTextSize(font, label, 15, fontsize::Caption, rect.size.x - 14.0f, true);
+            sf::Text& t = ui::pooledText(font, toUtf8(label), sz);
+            t.setStyle(sf::Text::Bold);
+            t.setFillColor(theme::TextPrimary);
+            sf::FloatRect tb = t.getLocalBounds();
+            t.setPosition({ rect.position.x + (rect.size.x - tb.size.x) / 2.0f - tb.position.x,
+                            rect.position.y + (rect.size.y - tb.size.y) / 2.0f - tb.position.y });
+            ui::drawText(window, t, rect);
+        }
+    };
+
     // 1. Menu Button
-    sf::FloatRect menuBtn({ 1600.0f - 130.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
-    bool hoverMenu = menuBtn.contains(mousePos);
-    sf::RectangleShape mBox(menuBtn.size);
-    mBox.setPosition(menuBtn.position);
-    mBox.setFillColor(hoverMenu ? theme::ButtonHover : theme::Button);
-    mBox.setOutlineThickness(hoverMenu ? 1.5f : 1.0f);
-    mBox.setOutlineColor(hoverMenu ? theme::Focus : theme::LineStrong);
-    window.draw(mBox);
+    sf::FloatRect menuBtn = hudMenuBtnRect();
+#if defined(__ANDROID__)
+    drawHudBtn(menuBtn, isEn ? "MENU" : "МЕНЮ");
+#else
+    drawHudBtn(menuBtn, isEn ? "ESC / MENU" : "ESC / МЕНЮ");
+#endif
 
 #if !defined(__ANDROID__)
-    // 2. Fullscreen Button [ ⛶ ЦЯЛ ЕКРАН (F11) ] - not needed on mobile Android
-    sf::FloatRect fsBtn({ 1600.0f - 275.0f, 900.0f - 34.0f }, { 135.0f, 28.0f });
-    bool hoverFs = fsBtn.contains(mousePos);
-    sf::RectangleShape fsBox(fsBtn.size);
-    fsBox.setPosition(fsBtn.position);
-    fsBox.setFillColor(hoverFs ? theme::ButtonHover : theme::Button);
-    fsBox.setOutlineThickness(hoverFs ? 1.5f : 1.0f);
-    fsBox.setOutlineColor(hoverFs ? theme::Focus : theme::LineStrong);
-    window.draw(fsBox);
+    // 2. Fullscreen Button [ FULLSCREEN (F11) ] - not needed on mobile Android
+    sf::FloatRect fsBtn = hudFullscreenBtnRect();
+    drawHudBtn(fsBtn, isEn ? "FULLSCREEN (F11)" : "ЦЯЛ ЕКРАН (F11)");
 #endif
 
     // 3. Help Button
+    sf::FloatRect helpBtn = hudHelpBtnRect();
 #if defined(__ANDROID__)
-    sf::FloatRect helpBtn({ 1600.0f - 265.0f, 900.0f - 34.0f }, { 125.0f, 28.0f });
+    drawHudBtn(helpBtn, isEn ? "? HELP" : "? ПОМОЩ");
 #else
-    sf::FloatRect helpBtn({ 1600.0f - 405.0f, 900.0f - 34.0f }, { 120.0f, 28.0f });
-#endif
-    bool hoverHelp = helpBtn.contains(mousePos);
-    sf::RectangleShape hBox(helpBtn.size);
-    hBox.setPosition(helpBtn.position);
-    hBox.setFillColor(hoverHelp ? theme::ButtonHover : theme::Button);
-    hBox.setOutlineThickness(hoverHelp ? 1.5f : 1.0f);
-    hBox.setOutlineColor(hoverHelp ? theme::Focus : theme::LineStrong);
-    window.draw(hBox);
-
-    if (resourcesLoaded) {
-#if defined(__ANDROID__)
-        sf::Text& mt = ui::pooledText(font, toUtf8(isEn ? "MENU" : "МЕНЮ"), fontsize::Label);
-#else
-        sf::Text& mt = ui::pooledText(font, toUtf8(isEn ? "ESC / MENU" : "ESC / МЕНЮ"), fontsize::Label);
-#endif
-        mt.setStyle(sf::Text::Bold);
-        mt.setFillColor(theme::TextPrimary);
-        sf::FloatRect mb = mt.getLocalBounds();
-        mt.setPosition({ menuBtn.position.x + (menuBtn.size.x - mb.size.x) / 2.0f, menuBtn.position.y + 5.0f });
-        ui::drawText(window, mt, menuBtn);
-
-#if !defined(__ANDROID__)
-        sf::Text& fst = ui::pooledText(font, toUtf8(isEn ? "FULLSCREEN (F11)" : "ЦЯЛ ЕКРАН (F11)"), fontsize::Label);
-        fst.setStyle(sf::Text::Bold);
-        fst.setFillColor(theme::TextPrimary);
-        sf::FloatRect fsb = fst.getLocalBounds();
-        fst.setPosition({ fsBtn.position.x + (fsBtn.size.x - fsb.size.x) / 2.0f, fsBtn.position.y + 6.0f });
-        ui::drawText(window, fst, fsBtn);
+    drawHudBtn(helpBtn, isEn ? "? HELP (H)" : "? ПОМОЩ (H)");
 #endif
 
-#if defined(__ANDROID__)
-        sf::Text& htBtn = ui::pooledText(font, toUtf8(isEn ? "? HELP" : "? ПОМОЩ"), fontsize::Label);
-#else
-        sf::Text& htBtn = ui::pooledText(font, toUtf8(isEn ? "? HELP (H)" : "? ПОМОЩ (H)"), fontsize::Label);
-#endif
-        htBtn.setStyle(sf::Text::Bold);
-        htBtn.setFillColor(theme::TextPrimary);
-        sf::FloatRect htbBtn = htBtn.getLocalBounds();
-        htBtn.setPosition({ helpBtn.position.x + (helpBtn.size.x - htbBtn.size.x) / 2.0f, helpBtn.position.y + 5.0f });
-        ui::drawText(window, htBtn, helpBtn);
+    if (resourcesLoaded && !tutorial.isActive()) {
+        // Persistent Controls Reminder Bar cleanly positioned between P1 quarter circle (x=250) and helpBtn
+        const float barX = 258.0f;
+        const float barW = helpBtn.position.x - barX - 8.0f;
+        const float barH = 34.0f;
+        const float barY = 900.0f - 42.0f;
 
-        // Persistent Controls Reminder Bar
-#if defined(__ANDROID__)
-        sf::RectangleShape helpBar({ 1060.0f, 26.0f });
-        helpBar.setPosition({ 250.0f, 900.0f - 30.0f });
-        helpBar.setFillColor(theme::withAlpha(theme::Panel, 225));
+        sf::RectangleShape helpBar({ barW, barH });
+        helpBar.setPosition({ barX, barY });
+        helpBar.setFillColor(theme::withAlpha(theme::Panel, 228));
         helpBar.setOutlineThickness(1.0f);
         helpBar.setOutlineColor(theme::Line);
         window.draw(helpBar);
 
+#if defined(__ANDROID__)
         std::string helpText = isEn
             ? "Tap station: Gather  |  Tap card: Select  |  Tap plot: Place  |  Two-finger tap: Cancel"
             : "Докоснете станция: Добив  |  Докоснете карта: Избор  |  Докоснете парцел: Постави  |  2 пръста: Отказ";
-        sf::Text& ht = ui::pooledText(font, toUtf8(helpText), fontsize::Caption);
-        ht.setFillColor(theme::TextSecondary);
-        sf::FloatRect htb = ht.getLocalBounds();
-        ht.setPosition({ 250.0f + (1060.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
-        ui::drawText(window, ht, sf::FloatRect(helpBar.getPosition(), helpBar.getSize()));
 #else
-        sf::RectangleShape helpBar({ 930.0f, 26.0f });
-        helpBar.setPosition({ 250.0f, 900.0f - 30.0f });
-        helpBar.setFillColor(theme::withAlpha(theme::Panel, 225));
-        helpBar.setOutlineThickness(1.0f);
-        helpBar.setOutlineColor(theme::Line);
-        window.draw(helpBar);
-
         std::string helpText = isEn
             ? "P1: [E]/[Q] Building | [X] Demolish/Cancel | [SPACE/Click] Action  ///  P2: [PgDn]/[PgUp] Building | [Del] Demolish/Cancel | [ENTER] Action"
             : "P1: [E]/[Q] Сграда | [X] Разруши/Отказ | [SPACE/Клик] Действие  ///  P2: [PgDn]/[PgUp] Сграда | [Del] Разруши/Отказ | [ENTER] Действие";
-        sf::Text& ht = ui::pooledText(font, toUtf8(helpText), fontsize::Caption);
+        if (ui::measureText(font, helpText, fontsize::Caption, false) > barW - 14.0f) {
+            helpText = isEn
+                ? "P1: [E]/[Q] Build | [X] Cancel | [SPACE] Act  ///  P2: [PgDn]/[PgUp] Build | [Del] Cancel | [ENTER] Act"
+                : "P1: [E]/[Q] Сграда | [X] Отказ | [SPACE] Действие  |  P2: [PgDn]/[PgUp] Сграда | [Del] Отказ | [ENTER] Действие";
+        }
+#endif
+        unsigned int helpSize = ui::fitTextSize(font, helpText, fontsize::Label, fontsize::Caption, barW - 16.0f, false);
+        sf::Text& ht = ui::pooledText(font, toUtf8(helpText), helpSize);
         ht.setFillColor(theme::TextSecondary);
         sf::FloatRect htb = ht.getLocalBounds();
-        ht.setPosition({ 250.0f + (930.0f - htb.size.x) / 2.0f, 900.0f - 26.0f });
+        ht.setPosition({ barX + (barW - htb.size.x) / 2.0f - htb.position.x,
+                         barY + (barH - htb.size.y) / 2.0f - htb.position.y });
         ui::drawText(window, ht, sf::FloatRect(helpBar.getPosition(), helpBar.getSize()));
-#endif
     }
 }
 
-void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
+void UI_map::drawHelpOverlay(sf::RenderTarget& window) {
     if (!showHelpOverlay) return;
 
     // Dim backdrop
@@ -139,7 +147,7 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
     ui::lint::occlude(sf::FloatRect({ 0.0f, 0.0f }, { VIRTUAL_WIDTH, VIRTUAL_HEIGHT }));
 
     // Dialog card
-    sf::FloatRect card({ 220.0f, 80.0f }, { 1160.0f, 740.0f });
+    sf::FloatRect card = helpCardRect();
     sf::RectangleShape cardBox(card.size);
     cardBox.setPosition(card.position);
     cardBox.setFillColor(theme::withAlpha(theme::Panel, 250));
@@ -149,7 +157,8 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
     ui::lint::ContainerScope cardScope(card);
 
     // Header strip
-    sf::RectangleShape headerStrip({ card.size.x, 52.0f });
+    const float headerH = 56.0f;
+    sf::RectangleShape headerStrip({ card.size.x, headerH });
     headerStrip.setPosition(card.position);
     headerStrip.setFillColor(theme::PanelHeader);
     window.draw(headerStrip);
@@ -158,36 +167,44 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
         bool isEn = (UI_settings::get().getLanguage() == "en");
         bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
 
-        // Title
-        sf::Text& title = ui::pooledText(font, toUtf8(isEn ? "HANDBOOK: RULES & CONTROLS" : "НАРЪЧНИК: ПРАВИЛА И УПРАВЛЕНИЕ"), fontsize::H1);
-        title.setStyle(sf::Text::Bold);
-        title.setFillColor(theme::TextPrimary);
-        title.setPosition({ card.position.x + 25.0f, card.position.y + 12.0f });
-        ui::drawText(window, title);
-
         // Close button at top right
-        sf::FloatRect closeBtn({ card.position.x + card.size.x - 170.0f, card.position.y + 11.0f }, { 150.0f, 30.0f });
+        sf::FloatRect closeBtn = helpCloseBtnRect();
         sf::Vector2f mPos = ui::pointerPos(window);
         bool hClose = closeBtn.contains(mPos);
 
+        // Title
+        std::string titleStr = isEn ? "HANDBOOK: RULES & CONTROLS" : "НАРЪЧНИК: ПРАВИЛА И УПРАВЛЕНИЕ";
+        float maxTitleW = closeBtn.position.x - card.position.x - 40.0f;
+        unsigned int titleSz = ui::fitTextSize(font, titleStr, fontsize::H1, fontsize::H2, maxTitleW, true);
+        sf::Text& title = ui::pooledText(font, toUtf8(titleStr), titleSz);
+        title.setStyle(sf::Text::Bold);
+        title.setFillColor(theme::TextPrimary);
+        sf::FloatRect tb = title.getLocalBounds();
+        title.setPosition({ card.position.x + 25.0f - tb.position.x,
+                            card.position.y + (headerH - tb.size.y) / 2.0f - tb.position.y });
+        ui::drawText(window, title);
+
         sf::RectangleShape cb(closeBtn.size);
         cb.setPosition(closeBtn.position);
-        cb.setFillColor(theme::BadFill);
-        cb.setOutlineThickness(hClose ? 2.0f : 1.0f);
+        cb.setFillColor(hClose ? sf::Color(172, 54, 68) : theme::BadFill);
+        cb.setOutlineThickness(hClose ? 2.0f : 1.2f);
         cb.setOutlineColor(hClose ? theme::Focus : theme::Bad);
         window.draw(cb);
 
         std::string closeLbl = isEn ? (isArcade ? "CLOSE [BUTTON]" : "CLOSE [H]")
                                     : (isArcade ? "ЗАТВОРИ [БУТОН]" : "ЗАТВОРИ [H]");
-        sf::Text& cbText = ui::pooledText(font, toUtf8(closeLbl), fontsize::Label);
+        unsigned int closeSz = ui::fitTextSize(font, closeLbl, 15, fontsize::Label, closeBtn.size.x - 16.0f, true);
+        sf::Text& cbText = ui::pooledText(font, toUtf8(closeLbl), closeSz);
         cbText.setStyle(sf::Text::Bold);
         cbText.setFillColor(theme::TextPrimary);
         sf::FloatRect cbb = cbText.getLocalBounds();
-        cbText.setPosition({ closeBtn.position.x + (closeBtn.size.x - cbb.size.x) / 2.0f, closeBtn.position.y + 6.0f });
+        cbText.setPosition({ closeBtn.position.x + (closeBtn.size.x - cbb.size.x) / 2.0f - cbb.position.x,
+                             closeBtn.position.y + (closeBtn.size.y - cbb.size.y) / 2.0f - cbb.position.y });
         ui::drawText(window, cbText, closeBtn);
 
         // Content Sections
-        float y = card.position.y + 70.0f;
+        float y = card.position.y + headerH + 18.0f;
+        const float maxBodyW = card.size.x - 75.0f;
         auto drawSection = [&](const std::string& h, const std::string& body, sf::Color accent) {
             sf::Text& st = ui::pooledText(font, toUtf8(h), fontsize::H2);
             st.setStyle(sf::Text::Bold);
@@ -196,12 +213,14 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
             ui::drawText(window, st);
             y += 24.0f;
 
-            sf::Text& bt = ui::pooledText(font, toUtf8(body), fontsize::Label);
+            std::string wrappedBody = ui::wrapText(font, body, fontsize::Label, maxBodyW);
+            sf::Text& bt = ui::pooledText(font, toUtf8(wrappedBody), fontsize::Label);
             bt.setFillColor(theme::TextPrimary);
-            bt.setLineSpacing(1.25f);
+            bt.setLineSpacing(1.22f);
             bt.setPosition({ card.position.x + 45.0f, y });
             ui::drawText(window, bt);
-            y += bt.getLocalBounds().size.y + 24.0f;
+            sf::FloatRect btb = bt.getLocalBounds();
+            y += btb.position.y + btb.size.y + 20.0f;
         };
 
         const std::string victoryPctStr = std::to_string(static_cast<int>(std::lround(Balance::VICTORY_SHARE * 100.0f)));
@@ -304,14 +323,14 @@ void UI_map::drawHelpOverlay(sf::RenderWindow& window) {
     }
 }
 
-void UI_map::drawVictoryScreen(sf::RenderWindow& window) {
+void UI_map::drawVictoryScreen(sf::RenderTarget& window) {
     // team info (F-04): the post-match report (awards, P1/P2 table, charts, energy mix) replaces the
     // old victory box. It also publishes victoryRestartBtn / victoryMenuBtn for the click handling.
     sf::Vector2f mousePos = ui::pointerPos(window);
     postMatch.draw(window, font, resourcesLoaded, engine, stats, mousePos, victoryRestartBtn, victoryMenuBtn, matchFinishedTimer);
 }
 
-void UI_map::drawPauseMenu(sf::RenderWindow& window) {
+void UI_map::drawPauseMenu(sf::RenderTarget& window) {
     bool isArcade = ArcadeMode::isEnabled() || (controlScheme == ControlScheme::DEVHUB_ARCADE);
     // In arcade mode, pause menu is completely removed; only the arcade popup is shown
     if (isArcade) return;
@@ -330,9 +349,9 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     window.draw(backdrop);
     ui::lint::occlude(sf::FloatRect({ 0.0f, 0.0f }, { VIRTUAL_WIDTH, VIRTUAL_HEIGHT }));
 
-    // 2. Pause Card (team info: one row taller for the event log entry)
-    float boxW = 500.0f;
-    float boxH = 433.0f; // 5 entries + an even bottom margin
+    // 2. Pause Card (5 entries + even margins)
+    float boxW = 540.0f;
+    float boxH = 495.0f;
     float boxX = (1600.0f - boxW) / 2.0f;
     float boxY = (900.0f - boxH) / 2.0f;
 
@@ -345,13 +364,14 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
     ui::lint::ContainerScope boxScope(sf::FloatRect({ boxX, boxY }, { boxW, boxH }));
 
     // Header banner
-    sf::RectangleShape header({ boxW, 56.0f });
+    const float headerH = 58.0f;
+    sf::RectangleShape header({ boxW, headerH });
     header.setPosition({ boxX, boxY });
     header.setFillColor(theme::PanelHeader);
     window.draw(header);
 
     sf::RectangleShape glowLine({ boxW, 3.0f });
-    glowLine.setPosition({ boxX, boxY + 56.0f });
+    glowLine.setPosition({ boxX, boxY + headerH });
     glowLine.setFillColor(theme::LineStrong);
     window.draw(glowLine);
 
@@ -361,7 +381,8 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         tHeader.setStyle(sf::Text::Bold);
         tHeader.setFillColor(theme::TextPrimary);
         sf::FloatRect hb = tHeader.getLocalBounds();
-        tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f, boxY + 16.0f });
+        tHeader.setPosition({ boxX + (boxW - hb.size.x) / 2.0f - hb.position.x,
+                              boxY + (headerH - hb.size.y) / 2.0f - hb.position.y });
         ui::drawText(window, tHeader);
 
 #if defined(__ANDROID__)
@@ -371,19 +392,21 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         std::string subTxt = isEn ? "Use [Arrows] / [Enter] or Mouse to select"
                                   : "Използвайте [Стрелки] / [Enter] или мишката за избор";
 #endif
-        sf::Text& tSub = ui::pooledText(font, toUtf8(subTxt), fontsize::Label);
+        unsigned int subSz = ui::fitTextSize(font, subTxt, fontsize::Body, fontsize::Caption, boxW - 36.0f, false);
+        sf::Text& tSub = ui::pooledText(font, toUtf8(subTxt), subSz);
         tSub.setFillColor(theme::TextSecondary);
         sf::FloatRect sb = tSub.getLocalBounds();
-        tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f, boxY + 70.0f });
+        tSub.setPosition({ boxX + (boxW - sb.size.x) / 2.0f - sb.position.x,
+                           boxY + 73.0f - sb.position.y });
         ui::drawText(window, tSub);
     }
 
-    // 4 Menu Options: rects are computed and boxes drawn even without a font, so they stay clickable
-    float btnW = 390.0f;
-    float btnH = 52.0f;
+    // 5 Menu Options: rects are computed and boxes drawn even without a font, so they stay clickable
+    float btnW = 450.0f;
+    float btnH = 62.0f;
     float btnX = boxX + (boxW - btnW) / 2.0f;
-    float startY = boxY + 105.0f;
-    float spacing = 62.0f;
+    float startY = boxY + 106.0f;
+    float spacing = 73.0f;
 
     pauseResumeBtn  = sf::FloatRect({ btnX, startY }, { btnW, btnH });
     pauseRestartBtn = sf::FloatRect({ btnX, startY + spacing }, { btnW, btnH });
@@ -418,11 +441,11 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
 #endif
 
     PauseOption opts[5] = {
-        { pauseResumeBtn,  resumeLbl,  theme::GoodFill, theme::GoodFill, theme::Good },
-        { pauseRestartBtn, restartLbl, theme::InfoFill, theme::InfoFill, theme::Info },
-        { pauseHelpBtn,    helpLbl,    theme::Button, theme::ButtonHover, theme::LineStrong },
-        { pauseLogBtn,     logLbl,     theme::Button, theme::ButtonHover, theme::LineStrong }, // team info
-        { pauseMenuBtn,    menuLbl,    theme::BadFill, theme::BadFill, theme::Bad }
+        { pauseResumeBtn,  resumeLbl,  theme::GoodFill, sf::Color(46, 160, 96),  theme::Good },
+        { pauseRestartBtn, restartLbl, theme::InfoFill, sf::Color(50, 116, 188), theme::Info },
+        { pauseHelpBtn,    helpLbl,    theme::Button,   theme::ButtonHover,      theme::LineStrong },
+        { pauseLogBtn,     logLbl,     theme::Button,   theme::ButtonHover,      theme::LineStrong }, // team info
+        { pauseMenuBtn,    menuLbl,    theme::BadFill,  sf::Color(172, 54, 68),  theme::Bad }
     };
 
     for (int i = 0; i < 5; i++) {
@@ -434,17 +457,18 @@ void UI_map::drawPauseMenu(sf::RenderWindow& window) {
         sf::RectangleShape bShape(opts[i].bounds.size);
         bShape.setPosition(opts[i].bounds.position);
         bShape.setFillColor(isSel ? opts[i].hoverColor : opts[i].normalColor);
-        bShape.setOutlineThickness(isSel ? 2.5f : 1.0f);
+        bShape.setOutlineThickness(isSel ? 2.5f : 1.2f);
         bShape.setOutlineColor(isSel ? theme::Focus : opts[i].outlineColor);
         window.draw(bShape);
 
         if (resourcesLoaded) {
-            sf::Text& tBtn = ui::pooledText(font, toUtf8(opts[i].label), fontsize::Body);
+            unsigned int btnSz = ui::fitTextSize(font, opts[i].label, 18, fontsize::Label, btnW - 28.0f, true);
+            sf::Text& tBtn = ui::pooledText(font, toUtf8(opts[i].label), btnSz);
             tBtn.setStyle(sf::Text::Bold);
             tBtn.setFillColor(theme::TextPrimary);
             sf::FloatRect bb = tBtn.getLocalBounds();
-            tBtn.setPosition({ opts[i].bounds.position.x + (opts[i].bounds.size.x - bb.size.x) / 2.0f,
-                               opts[i].bounds.position.y + (opts[i].bounds.size.y - bb.size.y) / 2.0f - 2.0f });
+            tBtn.setPosition({ opts[i].bounds.position.x + (opts[i].bounds.size.x - bb.size.x) / 2.0f - bb.position.x,
+                               opts[i].bounds.position.y + (opts[i].bounds.size.y - bb.size.y) / 2.0f - bb.position.y });
             ui::drawText(window, tBtn, opts[i].bounds);
         }
     }

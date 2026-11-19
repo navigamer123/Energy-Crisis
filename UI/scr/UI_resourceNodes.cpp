@@ -12,28 +12,96 @@
 #include <string>
 #include <algorithm>
 
+namespace {
+
+ResourceType resourceAtForPlayer(const std::vector<ResourceStation>& stations, int player, sf::Vector2f pt) {
+    // Pass 1: exact card hit (never let an adjacent card steal the click)
+    for (const auto& s : stations) {
+        if (s.playerOwner == player && s.bounds.contains(pt)) {
+            return (pt.y < s.upgradeBtnBounds.position.y) ? s.type : ResourceType::NONE;
+        }
+    }
+    // Pass 2: generous outer padding, picking the nearest station center
+#if defined(__ANDROID__)
+    const float pad = 24.0f;
+#else
+    const float pad = 14.0f;
+#endif
+    float bestDistSq = 1e30f;
+    ResourceType bestType = ResourceType::NONE;
+    for (const auto& s : stations) {
+        if (s.playerOwner != player) continue;
+        sf::FloatRect padded({ s.bounds.position.x - pad, s.bounds.position.y - pad },
+                             { s.bounds.size.x + pad * 2.0f, s.bounds.size.y + pad * 2.0f });
+        if (padded.contains(pt) && pt.y < s.upgradeBtnBounds.position.y) {
+            float cx = s.bounds.position.x + s.bounds.size.x * 0.5f;
+            float cy = s.bounds.position.y + s.bounds.size.y * 0.5f;
+            float d2 = (pt.x - cx) * (pt.x - cx) + (pt.y - cy) * (pt.y - cy);
+            if (d2 < bestDistSq) {
+                bestDistSq = d2;
+                bestType = s.type;
+            }
+        }
+    }
+    return bestType;
+}
+
+ResourceType upgradeAtForPlayer(const std::vector<ResourceStation>& stations, int player, sf::Vector2f pt) {
+    // Pass 1: exact card hit
+    for (const auto& s : stations) {
+        if (s.playerOwner == player && s.bounds.contains(pt)) {
+            return (pt.y >= s.upgradeBtnBounds.position.y) ? s.type : ResourceType::NONE;
+        }
+    }
+    // Pass 2: generous outer padding around upgrade button, picking nearest button center
+#if defined(__ANDROID__)
+    const float padBtn = 18.0f;
+#else
+    const float padBtn = 10.0f;
+#endif
+    float bestDistSq = 1e30f;
+    ResourceType bestType = ResourceType::NONE;
+    for (const auto& s : stations) {
+        if (s.playerOwner != player) continue;
+        sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - padBtn, s.upgradeBtnBounds.position.y - padBtn },
+                                { s.upgradeBtnBounds.size.x + padBtn * 2.0f, s.upgradeBtnBounds.size.y + padBtn * 2.0f });
+        if (paddedBtn.contains(pt)) {
+            float cx = s.upgradeBtnBounds.position.x + s.upgradeBtnBounds.size.x * 0.5f;
+            float cy = s.upgradeBtnBounds.position.y + s.upgradeBtnBounds.size.y * 0.5f;
+            float d2 = (pt.x - cx) * (pt.x - cx) + (pt.y - cy) * (pt.y - cy);
+            if (d2 < bestDistSq) {
+                bestDistSq = d2;
+                bestType = s.type;
+            }
+        }
+    }
+    return bestType;
+}
+
+} // namespace
+
 UI_resourceNodes::UI_resourceNodes() {
     stations.clear();
 
     // -------------------------------------------------------------------------
-    // Player 1 Stations (West: 4 in Row 0, 3 in Row 1 under Land Plots)
+    // Player 1 Stations (West: x=236..664, 4 in Row 0, 3 in Row 1)
     // -------------------------------------------------------------------------
-    float p1StartX = 244.0f;
-    float row0Y = 582.0f;
-    float row1Y = 668.0f;
-    float cardW0 = 86.0f;
-    float cardH = 80.0f;
-    float gapX0 = 6.0f;
+    float p1StartX = 236.0f;
+    float row0Y = 542.0f;
+    float row1Y = 654.0f;
+    float cardW0 = 102.0f;
+    float cardH = 102.0f;
+    float gapX0 = 6.5f;
 
     auto makeUpgradeBtn = [](const sf::FloatRect& b) {
         float upW = b.size.x * 0.94f;
-        float upH = b.size.y * 0.25f;
+        float upH = 26.0f;
         float upX = b.position.x + (b.size.x - upW) / 2.0f;
-        float upY = b.position.y + b.size.y - upH - (b.size.y * 0.025f);
+        float upY = b.position.y + b.size.y - upH - 3.0f;
         return sf::FloatRect({ upX, upY }, { upW, upH });
     };
 
-    // Row 0: Wood, Iron, Copper, Coal (86px cards)
+    // Row 0: Wood, Iron, Copper, Coal (102x102 cards)
     sf::FloatRect bWood1({ p1StartX + 0 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
     stations.push_back({ ResourceType::WOOD, 1, bWood1, "ГОРА", "+12 дърво", theme::Wood, makeUpgradeBtn(bWood1) });
 
@@ -46,9 +114,9 @@ UI_resourceNodes::UI_resourceNodes() {
     sf::FloatRect bCoal1({ p1StartX + 3 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
     stations.push_back({ ResourceType::COAL, 1, bCoal1, "ВЪГЛИЩА", "+6 въглища", theme::Coal, makeUpgradeBtn(bCoal1) });
 
-    // Row 1: Silicon, Silver, Gold (116px cards, perfectly centered)
-    float cardW1 = 116.0f;
-    float gapX1 = 8.0f;
+    // Row 1: Silicon, Silver, Gold (138x102 cards)
+    float cardW1 = 138.0f;
+    float gapX1 = 7.0f;
     sf::FloatRect bSil1({ p1StartX + 0 * (cardW1 + gapX1), row1Y }, { cardW1, cardH });
     stations.push_back({ ResourceType::SILICON, 1, bSil1, "СИЛИЦИЙ", "+6 силиций", theme::Silicon, makeUpgradeBtn(bSil1) });
 
@@ -59,9 +127,9 @@ UI_resourceNodes::UI_resourceNodes() {
     stations.push_back({ ResourceType::GOLD, 1, bGold1, "ЗЛАТО", "+3 злато", theme::Gold, makeUpgradeBtn(bGold1) });
 
     // -------------------------------------------------------------------------
-    // Player 2 Stations (East: 4 in Row 0, 3 in Row 1, mirrored)
+    // Player 2 Stations (East: x=936..1364, 4 in Row 0, 3 in Row 1, mirrored)
     // -------------------------------------------------------------------------
-    float p2StartX = 998.0f;
+    float p2StartX = 936.0f;
 
     // Row 0: Coal, Copper, Iron, Wood
     sf::FloatRect bCoal2({ p2StartX + 0 * (cardW0 + gapX0), row0Y }, { cardW0, cardH });
@@ -88,95 +156,19 @@ UI_resourceNodes::UI_resourceNodes() {
 }
 
 ResourceType UI_resourceNodes::getP1ResourceAt(sf::Vector2f pt) const {
-#if defined(__ANDROID__)
-    const float pad = 24.0f;
-    const float upH = 34.0f;
-#else
-    const float pad = 8.0f;
-    const float upH = 26.0f;
-#endif
-    for (const auto& s : stations) {
-        if (s.playerOwner == 1) {
-            sf::FloatRect padded({ s.bounds.position.x - pad, s.bounds.position.y - pad },
-                                 { s.bounds.size.x + pad * 2.0f, s.bounds.size.y + pad * 2.0f });
-            if (padded.contains(pt)) {
-                // If clicking/cursor in upgrade area (bottom upH px), don't trigger mining
-                if (pt.y >= s.bounds.position.y + s.bounds.size.y - upH) {
-                    return ResourceType::NONE;
-                }
-                return s.type;
-            }
-        }
-    }
-    return ResourceType::NONE;
+    return resourceAtForPlayer(stations, 1, pt);
 }
 
 ResourceType UI_resourceNodes::getP2ResourceAt(sf::Vector2f pt) const {
-#if defined(__ANDROID__)
-    const float pad = 24.0f;
-    const float upH = 34.0f;
-#else
-    const float pad = 8.0f;
-    const float upH = 26.0f;
-#endif
-    for (const auto& s : stations) {
-        if (s.playerOwner == 2) {
-            sf::FloatRect padded({ s.bounds.position.x - pad, s.bounds.position.y - pad },
-                                 { s.bounds.size.x + pad * 2.0f, s.bounds.size.y + pad * 2.0f });
-            if (padded.contains(pt)) {
-                // If clicking/cursor in upgrade area (bottom upH px), don't trigger mining
-                if (pt.y >= s.bounds.position.y + s.bounds.size.y - upH) {
-                    return ResourceType::NONE;
-                }
-                return s.type;
-            }
-        }
-    }
-    return ResourceType::NONE;
+    return resourceAtForPlayer(stations, 2, pt);
 }
 
 ResourceType UI_resourceNodes::getP1UpgradeAt(sf::Vector2f pt) const {
-#if defined(__ANDROID__)
-    const float padBtn = 18.0f;
-    const float upH = 34.0f;
-#else
-    const float padBtn = 6.0f;
-    const float upH = 26.0f;
-#endif
-    for (const auto& s : stations) {
-        if (s.playerOwner == 1) {
-            sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - padBtn, s.upgradeBtnBounds.position.y - padBtn },
-                                     { s.upgradeBtnBounds.size.x + padBtn * 2.0f, s.upgradeBtnBounds.size.y + padBtn * 2.0f });
-            // Generous hit box: either inside button bounds or within bottom upH px of station card
-            if (paddedBtn.contains(pt) ||
-                (s.bounds.contains(pt) && pt.y >= s.bounds.position.y + s.bounds.size.y - upH)) {
-                return s.type;
-            }
-        }
-    }
-    return ResourceType::NONE;
+    return upgradeAtForPlayer(stations, 1, pt);
 }
 
 ResourceType UI_resourceNodes::getP2UpgradeAt(sf::Vector2f pt) const {
-#if defined(__ANDROID__)
-    const float padBtn = 18.0f;
-    const float upH = 34.0f;
-#else
-    const float padBtn = 6.0f;
-    const float upH = 26.0f;
-#endif
-    for (const auto& s : stations) {
-        if (s.playerOwner == 2) {
-            sf::FloatRect paddedBtn({ s.upgradeBtnBounds.position.x - padBtn, s.upgradeBtnBounds.position.y - padBtn },
-                                     { s.upgradeBtnBounds.size.x + padBtn * 2.0f, s.upgradeBtnBounds.size.y + padBtn * 2.0f });
-            // Generous hit box: either inside button bounds or within bottom upH px of station card
-            if (paddedBtn.contains(pt) ||
-                (s.bounds.contains(pt) && pt.y >= s.bounds.position.y + s.bounds.size.y - upH)) {
-                return s.type;
-            }
-        }
-    }
-    return ResourceType::NONE;
+    return upgradeAtForPlayer(stations, 2, pt);
 }
 
 ResourceType UI_resourceNodes::getP1StationAt(sf::Vector2f pt) const {
@@ -224,7 +216,7 @@ bool UI_resourceNodes::isNearP2Forest(sf::Vector2f pt) const {
     return getP2ResourceAt(pt) == ResourceType::WOOD || getP2ForestBounds().contains(pt);
 }
 
-void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_resourceNodes::drawLandPlots(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                                      const std::vector<LandPlot>& plots, sf::Vector2f mousePos,
                                      const std::vector<PlacedBuilding>& buildings) {
     for (const auto& plot : plots) {
@@ -318,7 +310,7 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                 sf::Text& t = ui::pooledText(font, toUtf8(isEn ? "+ BUY LAND" : "+ КУПИ ЗЕМЯ"), fontsize::Caption);
                 t.setFillColor(hover ? theme::TextPrimary : theme::TextSecondary);
                 sf::FloatRect tb = t.getLocalBounds();
-                t.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - tb.size.x) / 2.0f, plot.bounds.position.y + 28.0f });
+                t.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - tb.size.x) / 2.0f - tb.position.x, plot.bounds.position.y + 28.0f });
                 ui::drawText(window, t);
 
                 std::string cStr = std::to_string(plot.costGold) + " $";
@@ -326,14 +318,14 @@ void UI_resourceNodes::drawLandPlots(sf::RenderWindow& window, const sf::Font& f
                 tCost.setStyle(sf::Text::Bold);
                 tCost.setFillColor(theme::Good);
                 sf::FloatRect cb = tCost.getLocalBounds();
-                tCost.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - cb.size.x) / 2.0f, plot.bounds.position.y + 48.0f });
+                tCost.setPosition({ plot.bounds.position.x + (plot.bounds.size.x - cb.size.x) / 2.0f - cb.position.x, plot.bounds.position.y + 48.0f });
                 ui::drawText(window, tCost);
             }
         }
     }
 }
 
-void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_resourceNodes::drawPlacedBuildings(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                                           const std::vector<PlacedBuilding>& buildings) {
     (void)font;
     (void)fontLoaded;
@@ -560,7 +552,7 @@ void UI_resourceNodes::drawPlacedBuildings(sf::RenderWindow& window, const sf::F
     }
 }
 
-void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_resourceNodes::drawBuildingGhost(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                                        BuildingType type, sf::Vector2f pos, bool isValidPlacement,
                                        const BuildingCost& cost, sf::Color overrideColor) {
     if (type == BuildingType::NONE) return;
@@ -625,7 +617,7 @@ void UI_resourceNodes::drawBuildingGhost(sf::RenderWindow& window, const sf::Fon
     }
 }
 
-void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_resourceNodes::drawBuildingGhostInfo(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                                              BuildingType type, sf::Vector2f pos, bool isValidPlacement,
                                              const BuildingCost& cost,
                                              const std::string& missing) {
@@ -732,7 +724,7 @@ int UI_resourceNodes::mineYield(ResourceType type, int level) {
     return static_cast<int>(std::round(base * Balance::getMineYieldMultiplier(level)));
 }
 
-void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_resourceNodes::drawNodes(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                                  const GameEngine* engine,
                                  const float* p1Cooldowns, const float* p2Cooldowns,
                                  float p1Cooldown, float p2Cooldown) {
@@ -771,27 +763,32 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         topBar.setFillColor(s.themeColor);
         window.draw(topBar);
 
-        drawResourceIcon(window, s.type, { x + 12.0f, y + 13.0f }, 14.0f);
+        drawResourceIcon(window, s.type, { x + 13.0f, y + 15.0f }, 15.0f);
 
         // Upgrade button frame (drawn with or without a font so it stays visible)
+        bool canUpgrade = !maxed && engine && (engine->getPlayerEconomy(s.playerOwner).gold >= upCost);
         bool upHover = s.upgradeBtnBounds.contains(mousePos) ||
-                       (s.bounds.contains(mousePos) && mousePos.y >= y + s.bounds.size.y - 26.0f);
+                       (s.bounds.contains(mousePos) && mousePos.y >= s.upgradeBtnBounds.position.y);
         sf::RectangleShape upBtn(s.upgradeBtnBounds.size);
         upBtn.setPosition(s.upgradeBtnBounds.position);
         if (maxed) {
-            upBtn.setFillColor(theme::withAlpha(theme::Well, 220));
+            upBtn.setFillColor(theme::withAlpha(theme::Well, 230));
             upBtn.setOutlineThickness(1.0f);
             upBtn.setOutlineColor(theme::Line);
+        } else if (canUpgrade) {
+            upBtn.setFillColor(upHover ? sf::Color(150, 112, 24, 250) : sf::Color(102, 76, 16, 240));
+            upBtn.setOutlineThickness(upHover ? 2.0f : 1.5f);
+            upBtn.setOutlineColor(upHover ? theme::Focus : theme::Gold);
         } else {
-            upBtn.setFillColor(upHover ? theme::withAlpha(theme::Gold, 70) : theme::withAlpha(theme::Gold, 28));
-            upBtn.setOutlineThickness(upHover ? 2.0f : 1.0f);
-            upBtn.setOutlineColor(upHover ? theme::Focus : theme::withAlpha(theme::Gold, 200));
+            upBtn.setFillColor(upHover ? sf::Color(86, 68, 30, 240) : sf::Color(54, 44, 22, 230));
+            upBtn.setOutlineThickness(upHover ? 2.0f : 1.2f);
+            upBtn.setOutlineColor(upHover ? theme::Focus : sf::Color(175, 138, 48));
         }
         window.draw(upBtn);
 
         if (!fontLoaded) continue;
 
-        // Row 1: station name (primary text; the colour is carried by the icon and the outline)
+        // Row 1: station name (12-13px bold via fitTextSize, clear of the icon)
         bool isEn = (UI_settings::get().getLanguage() == "en");
         std::string stName = s.nameBg;
         if (isEn) {
@@ -806,49 +803,52 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
                 default: break;
             }
         }
-        sf::Text& nameText = ui::pooledText(font, toUtf8(stName), fontsize::Caption);
+        unsigned int stSz = ui::fitTextSize(font, stName, 13, fontsize::Caption, w - 28.0f, true);
+        sf::Text& nameText = ui::pooledText(font, toUtf8(stName), stSz);
+        nameText.setStyle(sf::Text::Bold);
         nameText.setFillColor(theme::TextPrimary);
-        nameText.setPosition({ x + 23.0f, y + 6.0f });
+        nameText.setPosition({ x + 23.0f, y + 7.0f });
         ui::drawText(window, nameText);
 
         // Row 2: what one mining action gives at the current level: +[Amount] [Icon]
         std::string yieldStr = "+" + std::to_string(mineYield(s.type, lvl));
-        sf::Text& yieldText = ui::pooledText(font, toUtf8(yieldStr), fontsize::Label);
+        sf::Text& yieldText = ui::pooledText(font, toUtf8(yieldStr), fontsize::H2);
         yieldText.setStyle(sf::Text::Bold);
         yieldText.setFillColor(theme::TextPrimary);
-        yieldText.setPosition({ x + 6.0f, y + 22.0f });
+        yieldText.setPosition({ x + 8.0f, y + 26.0f });
         ui::drawText(window, yieldText);
 
-        float iconX = x + 6.0f + yieldText.getLocalBounds().position.x + yieldText.getLocalBounds().size.x + 10.0f;
-        drawResourceIcon(window, s.type, { iconX, y + 30.0f }, 14.0f);
+        float iconX = x + 8.0f + yieldText.getLocalBounds().position.x + yieldText.getLocalBounds().size.x + 11.0f;
+        drawResourceIcon(window, s.type, { iconX, y + 34.0f }, 15.0f);
 
         // Row 3: ready / cooldown (left) and the mine level (right)
         std::string lvlStr = (isEn ? "L" : "Н") + std::to_string(lvl);
-        sf::Text& tLvl = ui::pooledText(font, toUtf8(lvlStr), fontsize::Caption);
+        sf::Text& tLvl = ui::pooledText(font, toUtf8(lvlStr), fontsize::Label);
+        tLvl.setStyle(sf::Text::Bold);
         tLvl.setFillColor(lvl > 1 ? theme::Info : theme::TextSecondary);
         sf::FloatRect lb = tLvl.getLocalBounds();
-        tLvl.setPosition({ x + w - lb.size.x - 6.0f - lb.position.x, y + 40.0f });
+        tLvl.setPosition({ x + w - lb.size.x - 8.0f - lb.position.x, y + 47.0f });
         ui::drawText(window, tLvl);
 
         if (onCooldown) {
             char cdbuf[16];
             std::snprintf(cdbuf, sizeof(cdbuf), isEn ? "%.1fs" : "%.1fс", cd);
-            sf::Text& cdText = ui::pooledText(font, toUtf8(cdbuf), fontsize::Caption);
+            sf::Text& cdText = ui::pooledText(font, toUtf8(cdbuf), fontsize::Label);
             cdText.setFillColor(theme::Warn);
-            cdText.setPosition({ x + 6.0f, y + 40.0f });
+            cdText.setPosition({ x + 8.0f, y + 47.0f });
             ui::drawText(window, cdText);
 
             float maxCd = Balance::getResourceMineCooldown(s.type);
             float cdRatio = std::min(1.0f, std::max(0.0f, cd / maxCd));
-            sf::RectangleShape cdBar({ (w - 12.0f) * (1.0f - cdRatio), 2.0f });
-            cdBar.setPosition({ x + 6.0f, y + 55.0f });
+            sf::RectangleShape cdBar({ (w - 16.0f) * (1.0f - cdRatio), 3.0f });
+            cdBar.setPosition({ x + 8.0f, y + 64.0f });
             cdBar.setFillColor(theme::Warn);
             window.draw(cdBar);
         } else {
             // The mining key is shown by the prompt tag over the station; the card only shows the state
-            sf::Text& actText = ui::pooledText(font, toUtf8(isEn ? "ready" : "готово"), fontsize::Caption);
+            sf::Text& actText = ui::pooledText(font, toUtf8(isEn ? "ready" : "готово"), fontsize::Label);
             actText.setFillColor(theme::Good);
-            actText.setPosition({ x + 6.0f, y + 40.0f });
+            actText.setPosition({ x + 8.0f, y + 47.0f });
             ui::drawText(window, actText);
         }
 
@@ -856,11 +856,13 @@ void UI_resourceNodes::drawNodes(sf::RenderWindow& window, const sf::Font& font,
         const sf::FloatRect& ub = s.upgradeBtnBounds;
         std::string upLabel = maxed ? (isEn ? "MAX LEVEL" : "МАКС. НИВО")
                                     : ((isEn ? "L" : "Н") + std::to_string(lvl + 1) + (isEn ? " for " : " за ") + std::to_string(upCost));
-        sf::Text& tUp = ui::pooledText(font, toUtf8(upLabel), fontsize::Caption);
+        const float coin = maxed ? 0.0f : 13.0f;
+        const float maxTxtW = ub.size.x - 10.0f - (maxed ? 0.0f : (coin + 3.0f));
+        unsigned int upSz = ui::fitTextSize(font, upLabel, fontsize::Label, fontsize::Caption, maxTxtW, true);
+        sf::Text& tUp = ui::pooledText(font, toUtf8(upLabel), upSz);
         tUp.setStyle(sf::Text::Bold);
         tUp.setFillColor(maxed ? theme::TextSecondary : theme::TextPrimary);
         sf::FloatRect upb = tUp.getLocalBounds();
-        const float coin = maxed ? 0.0f : 12.0f;
         float contentW = upb.size.x + (maxed ? 0.0f : coin + 3.0f);
         float tx = ub.position.x + (ub.size.x - contentW) / 2.0f;
         tUp.setPosition({ tx - upb.position.x, ub.position.y + (ub.size.y - upb.size.y) / 2.0f - upb.position.y });

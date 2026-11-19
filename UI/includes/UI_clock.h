@@ -43,7 +43,7 @@ public:
     WeatherType getWeather() const { return weather; }
     SeasonType getSeason() const { return season; }
 
-    void draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void draw(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
               sf::Vector2f pos, sf::Vector2f size, sf::Color accentColor);
 };
 

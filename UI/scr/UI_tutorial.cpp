@@ -27,56 +27,65 @@ UI_tutorial::UI_tutorial()
       p2StepDelayTimer(0.0f),
       initialP1BuildingCount(0),
       initialP2BuildingCount(0) {
-    // Single player centered card
-    cardBounds = sf::FloatRect({ 480.0f, 760.0f }, { 640.0f, 128.0f });
+    // Single player centered card (cleanly between resource stations y<=756 and bottom HUD y>=856)
+    cardBounds = sf::FloatRect({ 440.0f, 760.0f }, { 720.0f, 93.0f });
 #if defined(__ANDROID__)
-    // Touchscreen-adapted dimensions: larger touch targets for fingers
-    float skipW = 150.0f;
-    float skipH = 34.0f;
-    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - skipW - 14.0f,
-                                   cardBounds.position.y + 8.0f },
+    float skipW = 172.0f;
+    float skipH = 32.0f;
+    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - skipW - 10.0f,
+                                   cardBounds.position.y + 6.0f },
                                  { skipW, skipH });
-    float nextW = 180.0f;
-    float nextH = 40.0f;
-    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - nextW - 14.0f,
-                                   cardBounds.position.y + cardBounds.size.y - nextH - 8.0f },
+    float nextW = 200.0f;
+    float nextH = 38.0f;
+    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - nextW - 10.0f,
+                                   cardBounds.position.y + cardBounds.size.y - nextH - 6.0f },
                                  { nextW, nextH });
 #else
-    float skipW = cardBounds.size.x * 0.24f;
-    float skipH = cardBounds.size.y * 0.20f;
-    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - skipW - cardBounds.size.x * 0.02f,
-                                   cardBounds.position.y + cardBounds.size.y * 0.07f },
+    float skipW = 160.0f;
+    float skipH = 32.0f;
+    skipBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - skipW - 10.0f,
+                                   cardBounds.position.y + 6.0f },
                                  { skipW, skipH });
-    float nextW = cardBounds.size.x * 0.32f;
-    float nextH = cardBounds.size.y * 0.22f;
-    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - nextW - cardBounds.size.x * 0.02f,
-                                   cardBounds.position.y + cardBounds.size.y - nextH - cardBounds.size.y * 0.07f },
+    float nextW = 196.0f;
+    float nextH = 38.0f;
+    nextBtnBounds = sf::FloatRect({ cardBounds.position.x + cardBounds.size.x - nextW - 10.0f,
+                                   cardBounds.position.y + cardBounds.size.y - nextH - 6.0f },
                                  { nextW, nextH });
 #endif
 
-    // Co-op decoupled dual cards
-    p1CardBounds = sf::FloatRect({ 258.0f, 765.0f }, { 520.0f, 122.0f });
-    float p1SkipW = p1CardBounds.size.x * 0.24f;
-    float p1SkipH = p1CardBounds.size.y * 0.20f;
-    p1SkipBtnBounds = sf::FloatRect({ p1CardBounds.position.x + p1CardBounds.size.x - p1SkipW - p1CardBounds.size.x * 0.02f,
-                                     p1CardBounds.position.y + p1CardBounds.size.y * 0.07f },
+    // Co-op decoupled dual cards (between quarter circles x=250..1350 and y=760..853, clear above HUD buttons y>=856)
+    p1CardBounds = sf::FloatRect({ 254.0f, 760.0f }, { 538.0f, 93.0f });
+#if defined(__ANDROID__)
+    float p1SkipW = 162.0f;
+    float p1NextW = 192.0f;
+#else
+    float p1SkipW = 148.0f;
+    float p1NextW = 180.0f;
+#endif
+    float p1SkipH = 32.0f;
+    p1SkipBtnBounds = sf::FloatRect({ p1CardBounds.position.x + p1CardBounds.size.x - p1SkipW - 10.0f,
+                                     p1CardBounds.position.y + 6.0f },
                                    { p1SkipW, p1SkipH });
-    float p1NextW = p1CardBounds.size.x * 0.34f;
-    float p1NextH = p1CardBounds.size.y * 0.22f;
-    p1NextBtnBounds = sf::FloatRect({ p1CardBounds.position.x + p1CardBounds.size.x - p1NextW - p1CardBounds.size.x * 0.02f,
-                                     p1CardBounds.position.y + p1CardBounds.size.y - p1NextH - p1CardBounds.size.y * 0.07f },
+    float p1NextH = 38.0f;
+    p1NextBtnBounds = sf::FloatRect({ p1CardBounds.position.x + p1CardBounds.size.x - p1NextW - 10.0f,
+                                     p1CardBounds.position.y + p1CardBounds.size.y - p1NextH - 6.0f },
                                    { p1NextW, p1NextH });
 
-    p2CardBounds = sf::FloatRect({ 822.0f, 765.0f }, { 520.0f, 122.0f });
-    float p2SkipW = p2CardBounds.size.x * 0.24f;
-    float p2SkipH = p2CardBounds.size.y * 0.20f;
-    p2SkipBtnBounds = sf::FloatRect({ p2CardBounds.position.x + p2CardBounds.size.x - p2SkipW - p2CardBounds.size.x * 0.02f,
-                                     p2CardBounds.position.y + p2CardBounds.size.y * 0.07f },
+    p2CardBounds = sf::FloatRect({ 808.0f, 760.0f }, { 538.0f, 93.0f });
+#if defined(__ANDROID__)
+    float p2SkipW = 162.0f;
+    float p2NextW = 192.0f;
+#else
+    float p2SkipW = 148.0f;
+    float p2NextW = 180.0f;
+#endif
+    float p2SkipH = 32.0f;
+    p2SkipBtnBounds = sf::FloatRect({ p2CardBounds.position.x + p2CardBounds.size.x - p2SkipW - 10.0f,
+                                     p2CardBounds.position.y + 6.0f },
                                    { p2SkipW, p2SkipH });
-    float p2NextW = p2CardBounds.size.x * 0.34f;
-    float p2NextH = p2CardBounds.size.y * 0.22f;
-    p2NextBtnBounds = sf::FloatRect({ p2CardBounds.position.x + p2CardBounds.size.x - p2NextW - p2CardBounds.size.x * 0.02f,
-                                     p2CardBounds.position.y + p2CardBounds.size.y - p2NextH - p2CardBounds.size.y * 0.07f },
+    float p2NextH = 38.0f;
+    p2NextBtnBounds = sf::FloatRect({ p2CardBounds.position.x + p2CardBounds.size.x - p2NextW - 10.0f,
+                                     p2CardBounds.position.y + p2CardBounds.size.y - p2NextH - 6.0f },
                                    { p2NextW, p2NextH });
 }
 
@@ -445,7 +454,7 @@ void UI_tutorial::update(float dt, GameEngine& engine) {
     }
 }
 
-void UI_tutorial::drawSpotlight(sf::RenderWindow& window, sf::FloatRect targetRect, float animTime) {
+void UI_tutorial::drawSpotlight(sf::RenderTarget& window, sf::FloatRect targetRect, float animTime) {
     float sw = 1600.0f;
     float sh = 900.0f;
     sf::Color dimColor = theme::withAlpha(theme::Dim, 195);
@@ -498,7 +507,7 @@ void UI_tutorial::drawSpotlight(sf::RenderWindow& window, sf::FloatRect targetRe
     sf::RectangleShape brV({ ct, cornerLen }); brV.setPosition({ targetRect.position.x + targetRect.size.x - 1.0f, targetRect.position.y + targetRect.size.y - cornerLen + 2.0f }); brV.setFillColor(cColor); window.draw(brV);
 }
 
-void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, const std::string& label,
+void UI_tutorial::drawArrow(sf::RenderTarget& window, sf::Vector2f targetPos, const std::string& label,
                             const sf::Font& font, float animTime, ArrowDir dir, sf::Color arrowColor) {
     float bounce = std::sin(animTime * 6.0f) * 5.0f;
 
@@ -568,13 +577,13 @@ void UI_tutorial::drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, co
         window.draw(tagBg);
         ui::lint::occlude(tagBg.getGlobalBounds());
 
-        text.setOrigin({ tb.size.x / 2.0f, tb.size.y / 2.0f });
-        text.setPosition({ tagX, tagY - 2.0f });
+        text.setOrigin({ tb.position.x + tb.size.x / 2.0f, tb.position.y + tb.size.y / 2.0f });
+        text.setPosition({ tagX, tagY });
         ui::drawText(window, text, tagBg.getGlobalBounds());
     }
 }
 
-void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font, int player,
+void UI_tutorial::drawPlayerCard(sf::RenderTarget& window, const sf::Font& font, int player,
                                 TutorialStep currentStep, const sf::FloatRect& bounds,
                                 const sf::FloatRect& skipBtn, const sf::FloatRect& nextBtn,
                                 const GameEngine& engine, float animTime) {
@@ -819,41 +828,49 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
 #endif
 
     // Draw Badge
-    sf::Vector2f badgePos(bounds.position.x + 14.0f, bounds.position.y + 10.0f);
-    sf::Text& tBadge = ui::pooledText(font, toUtf8(badgeText), fontsize::Caption);
+    const float maxTopW = skipBtn.position.x - bounds.position.x - 20.0f;
+    sf::Vector2f badgePos(bounds.position.x + 12.0f, bounds.position.y + 6.0f);
+    unsigned int badgeSz = ui::fitTextSize(font, badgeText, fontsize::Caption, fontsize::Caption, maxTopW - 14.0f, true);
+    sf::Text& tBadge = ui::pooledText(font, toUtf8(badgeText), badgeSz);
     tBadge.setStyle(sf::Text::Bold);
     tBadge.setFillColor(playerColor);
     sf::FloatRect bb = tBadge.getLocalBounds();
-    sf::RectangleShape badgeBg({ bb.size.x + 14.0f, 18.0f });
+    float badgeW = std::min(maxTopW, bb.size.x + 14.0f);
+    sf::RectangleShape badgeBg({ badgeW, 17.0f });
     badgeBg.setPosition(badgePos);
     badgeBg.setFillColor(theme::withAlpha(playerColor, 40));
     badgeBg.setOutlineThickness(1.0f);
     badgeBg.setOutlineColor(theme::withAlpha(playerColor, 160));
     window.draw(badgeBg);
-    tBadge.setPosition({ badgePos.x + 7.0f - bb.position.x, badgePos.y + 2.0f - bb.position.y });
+    tBadge.setPosition({ badgePos.x + (badgeW - bb.size.x) / 2.0f - bb.position.x,
+                         badgePos.y + (17.0f - bb.size.y) / 2.0f - bb.position.y });
     ui::drawText(window, tBadge, badgeBg.getGlobalBounds());
 
     // Draw Title
-    sf::Text& tTitle = ui::pooledText(font, toUtf8(titleText), fontsize::Label);
+    unsigned int titleSz = ui::fitTextSize(font, titleText, fontsize::Label, fontsize::Caption, maxTopW, true);
+    sf::Text& tTitle = ui::pooledText(font, toUtf8(titleText), titleSz);
     tTitle.setStyle(sf::Text::Bold);
     tTitle.setFillColor(theme::TextPrimary);
-    tTitle.setPosition({ bounds.position.x + 14.0f, bounds.position.y + 32.0f });
+    sf::FloatRect titleB = tTitle.getLocalBounds();
+    tTitle.setPosition({ bounds.position.x + 12.0f - titleB.position.x, bounds.position.y + 24.0f });
     ui::drawText(window, tTitle, bounds);
 
     // Draw Description (Smart wrapped using ui::wrapText)
-    float descW = bounds.size.x * 0.65f;
+    float descW = showNextBtn ? (nextBtn.position.x - bounds.position.x - 22.0f) : (bounds.size.x - 26.0f);
     std::string wrappedDesc = ui::wrapText(font, descText, fontsize::Caption, descW);
     sf::Text& tDesc = ui::pooledText(font, toUtf8(wrappedDesc), fontsize::Caption);
     tDesc.setFillColor(theme::TextSecondary);
-    tDesc.setPosition({ bounds.position.x + 14.0f, bounds.position.y + 52.0f });
+    sf::FloatRect descB = tDesc.getLocalBounds();
+    tDesc.setPosition({ bounds.position.x + 12.0f - descB.position.x, bounds.position.y + 40.0f });
     ui::drawText(window, tDesc, bounds);
 
     // Draw Progress Bar (if not completed or welcome)
     if (currentStep != TutorialStep::WELCOME && currentStep != TutorialStep::COMPLETED) {
-        float barX = bounds.position.x + 14.0f;
-        float barY = bounds.position.y + bounds.size.y - 20.0f;
-        float barW = bounds.size.x * 0.62f;
-        float barH = 7.0f;
+        float barX = bounds.position.x + 12.0f;
+        float barY = bounds.position.y + bounds.size.y - 12.0f;
+        float maxProgW = showNextBtn ? (nextBtn.position.x - bounds.position.x - 22.0f) : (bounds.size.x - 26.0f);
+        float barW = std::min(bounds.size.x * 0.62f, maxProgW);
+        float barH = 6.0f;
 
         sf::RectangleShape pBg({ barW, barH });
         pBg.setPosition({ barX, barY });
@@ -867,26 +884,34 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
             window.draw(pFill);
         }
 
-        sf::Text& tProg = ui::pooledText(font, toUtf8(progressText), fontsize::Caption);
+        unsigned int progSz = ui::fitTextSize(font, progressText, fontsize::Caption, fontsize::Caption, maxProgW, true);
+        sf::Text& tProg = ui::pooledText(font, toUtf8(progressText), progSz);
         tProg.setStyle(sf::Text::Bold);
         tProg.setFillColor(theme::TextPrimary);
-        tProg.setPosition({ barX, barY - 14.0f });
+        sf::FloatRect progB = tProg.getLocalBounds();
+        tProg.setPosition({ barX - progB.position.x, barY - 14.0f });
         ui::drawText(window, tProg, bounds);
     }
 
+    sf::Vector2f ptrPos = ui::pointerPos(window);
+
     // Draw Skip Button (Top Right)
+    bool skipHover = skipBtn.contains(ptrPos);
     sf::RectangleShape skipBtnRect(skipBtn.size);
     skipBtnRect.setPosition(skipBtn.position);
-    skipBtnRect.setFillColor(theme::withAlpha(theme::Panel, 200));
-    skipBtnRect.setOutlineThickness(1.0f);
-    skipBtnRect.setOutlineColor(theme::Line);
+    skipBtnRect.setFillColor(skipHover ? theme::ButtonHover : theme::Button);
+    skipBtnRect.setOutlineThickness(skipHover ? 1.8f : 1.2f);
+    skipBtnRect.setOutlineColor(skipHover ? theme::Focus : theme::LineStrong);
     window.draw(skipBtnRect);
 #if defined(__ANDROID__)
-    sf::Text& tSkip = ui::pooledText(font, toUtf8(isEn ? "SKIP [TAP]" : "ПРОПУСНИ [ДОКОСНИ]"), fontsize::Caption);
+    std::string skipLbl = isEn ? "SKIP [TAP]" : "ПРОПУСНИ [ДОКОСНИ]";
 #else
-    sf::Text& tSkip = ui::pooledText(font, toUtf8(isArcade ? (isEn ? "SKIP [B]" : "ПРОПУСНИ [B]") : (isEn ? "SKIP [ESC]" : "ПРОПУСНИ [ESC]")), fontsize::Caption);
+    std::string skipLbl = isArcade ? (isEn ? "SKIP [B]" : "ПРОПУСНИ [B]") : (isEn ? "SKIP [ESC]" : "ПРОПУСНИ [ESC]");
 #endif
-    tSkip.setFillColor(theme::TextSecondary);
+    unsigned int skipSz = ui::fitTextSize(font, skipLbl, 13, fontsize::Caption, skipBtn.size.x - 14.0f, true);
+    sf::Text& tSkip = ui::pooledText(font, toUtf8(skipLbl), skipSz);
+    tSkip.setStyle(sf::Text::Bold);
+    tSkip.setFillColor(theme::TextPrimary);
     sf::FloatRect sb = tSkip.getLocalBounds();
     tSkip.setPosition({ skipBtn.position.x + (skipBtn.size.x - sb.size.x) / 2.0f - sb.position.x,
                         skipBtn.position.y + (skipBtn.size.y - sb.size.y) / 2.0f - sb.position.y });
@@ -894,13 +919,15 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
 
     // Draw Next Button (Bottom Right)
     if (showNextBtn) {
+        bool nextHover = nextBtn.contains(ptrPos);
         sf::RectangleShape nextBtnRect(nextBtn.size);
         nextBtnRect.setPosition(nextBtn.position);
-        nextBtnRect.setFillColor(theme::withAlpha(playerColor, 60));
-        nextBtnRect.setOutlineThickness(1.5f);
-        nextBtnRect.setOutlineColor(playerColor);
+        nextBtnRect.setFillColor(theme::withAlpha(playerColor, nextHover ? 105 : 65));
+        nextBtnRect.setOutlineThickness(nextHover ? 2.0f : 1.5f);
+        nextBtnRect.setOutlineColor(nextHover ? theme::Focus : playerColor);
         window.draw(nextBtnRect);
-        sf::Text& tNext = ui::pooledText(font, toUtf8(nextBtnLabel), fontsize::Caption);
+        unsigned int nextSz = ui::fitTextSize(font, nextBtnLabel, 13, fontsize::Caption, nextBtn.size.x - 14.0f, true);
+        sf::Text& tNext = ui::pooledText(font, toUtf8(nextBtnLabel), nextSz);
         tNext.setStyle(sf::Text::Bold);
         tNext.setFillColor(theme::TextPrimary);
         sf::FloatRect nb = tNext.getLocalBounds();
@@ -910,7 +937,7 @@ void UI_tutorial::drawPlayerCard(sf::RenderWindow& window, const sf::Font& font,
     }
 }
 
-void UI_tutorial::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_tutorial::draw(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                        const GameEngine& engine, const UI_resourceNodes& nodes, float animTime,
                        sf::Vector2f mousePos, sf::Vector2f p1Pos, sf::Vector2f p2Pos) {
     (void)mousePos; (void)p1Pos; (void)p2Pos;

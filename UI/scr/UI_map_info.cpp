@@ -1,4 +1,5 @@
 #include "../includes/UI_map.h"
+#include "../includes/UI_shot.h"
 
 // =============================================================================
 // team info: glue between UI_map and the information UI (telemetry, notifications,
@@ -34,8 +35,8 @@ void UI_map::resetInfoUI() {
 // Energy dashboard: shown while [Tab] is held during the running match
 // -----------------------------------------------------------------------------
 
-void UI_map::drawDashboardIfHeld(sf::RenderWindow& window) {
-    const bool held = resourcesLoaded && window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Tab) &&
+void UI_map::drawDashboardIfHeld(sf::RenderTarget& window) {
+    const bool held = resourcesLoaded && ui::targetHasFocus(window) && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Tab) &&
                       !isPaused && !showHelpOverlay && engine.getCityState().winner == 0;
     const float now = animClock.getElapsedTime().asSeconds();
     if (!held) {
@@ -50,7 +51,7 @@ void UI_map::drawDashboardIfHeld(sf::RenderWindow& window) {
 // Developer overlay ([F3])
 // -----------------------------------------------------------------------------
 
-void UI_map::drawDevOverlay(sf::RenderWindow& window) {
+void UI_map::drawDevOverlay(sf::RenderTarget& window) {
     if (!devOverlay.isVisible() || !resourcesLoaded) return;
     UI_devOverlay::Counts c;
     for (const auto& b : engine.getBuildings()) {

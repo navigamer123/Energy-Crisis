@@ -7,7 +7,7 @@ bool g_shotActive = false;
 int g_shotFrames = 0; // frames rendered so far in screenshot mode
 constexpr float SHOT_STEP = 1.0f / 60.0f;
 
-const char* const MENU_SCENES[] = { "menu", "modes", "bots", "controls", "settings", "remap", "arcade_start", "calibrate_blue", "calibrate_red", "popup_exit" };
+const char* const MENU_SCENES[] = { "menu", "match_type", "ad_unlock", "modes", "bots", "controls", "settings", "remap", "arcade_start", "arcade_bots", "calibrate_blue", "calibrate_red", "popup_exit" };
 const char* const GAME_SCENES[] = { "game", "mining", "night", "winter", "storm", "victory", "pause", "help", "modal", "tutorial", "emulation" };
 } // namespace
 
@@ -22,7 +22,7 @@ float clockSeconds(float realSeconds) { return g_shotActive ? g_shotFrames * SHO
 void tickFrame() { if (g_shotActive) ++g_shotFrames; }
 
 const char* sceneNames() {
-    return "menu, modes, bots, controls, settings, remap, arcade_start, calibrate_blue, calibrate_red, popup_exit, game, mining, night, winter, storm, victory, pause, help, modal, tutorial, emulation";
+    return "menu, match_type, ad_unlock, modes, bots, controls, settings, remap, arcade_start, arcade_bots, calibrate_blue, calibrate_red, popup_exit, game, mining, night, winter, storm, victory, pause, help, modal, tutorial, emulation";
 }
 
 bool isMenuScene(const std::string& scene) {
@@ -63,12 +63,20 @@ void clearTouchPixelPos() {
 
 } // namespace shot
 
-sf::Vector2f pointerPos(const sf::RenderWindow& window) {
+sf::Vector2f pointerPos(const sf::RenderTarget& target) {
     if (g_shotActive) return { -10000.0f, -10000.0f };
+    const auto* win = dynamic_cast<const sf::RenderWindow*>(&target);
+    if (!win) return { -10000.0f, -10000.0f };
     if (shot::s_hasTouchPos) {
-        return window.mapPixelToCoords(shot::s_lastTouchPixelPos);
+        return win->mapPixelToCoords(shot::s_lastTouchPixelPos);
     }
-    return window.mapPixelToCoords(sf::Mouse::getPosition(window));
+    return win->mapPixelToCoords(sf::Mouse::getPosition(*win));
+}
+
+bool targetHasFocus(const sf::RenderTarget& target) {
+    if (g_shotActive) return false;
+    const auto* win = dynamic_cast<const sf::RenderWindow*>(&target);
+    return win ? win->hasFocus() : false;
 }
 
 } // namespace ui

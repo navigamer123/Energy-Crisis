@@ -90,14 +90,14 @@ private:
 
     std::vector<FloatingNotice> notices;
 
-    void drawBackground(sf::RenderWindow& window);
-    void drawPlayerCursors(sf::RenderWindow& window);
-    void drawHUD(sf::RenderWindow& window);
-    void drawFloatingNotices(sf::RenderWindow& window);
-    void drawPlayerPopups(sf::RenderWindow& window);
-    void drawPlayerModals(sf::RenderWindow& window);
+    void drawBackground(sf::RenderTarget& window);
+    void drawPlayerCursors(sf::RenderTarget& window);
+    void drawHUD(sf::RenderTarget& window);
+    void drawFloatingNotices(sf::RenderTarget& window);
+    void drawPlayerPopups(sf::RenderTarget& window);
+    void drawPlayerModals(sf::RenderTarget& window);
 
-    void updateControls(const sf::RenderWindow& window, float dt);
+    void updateControls(const sf::RenderTarget& window, float dt);
     void spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color color);
     void triggerPlayerPopup(int player, const std::string& badge, const std::string& title,
                             const std::string& detail, const std::string& action, sf::Color accent);
@@ -194,8 +194,8 @@ private:
 
     void spawnMiningParticles(sf::Vector2f pos, sf::Color color, int count);
     void updateMiningParticles(float dt);
-    void drawMiningParticles(sf::RenderWindow& window);
-    void drawMiningZonesAndBadges(sf::RenderWindow& window);
+    void drawMiningParticles(sf::RenderTarget& window);
+    void drawMiningZonesAndBadges(sf::RenderTarget& window);
 
     void executeP1Action();
     void executeP2Action();
@@ -203,10 +203,15 @@ private:
     void executeP2Upgrade();
 
     void updateWeatherParticles(float dt);
-    void drawWeatherParticles(sf::RenderWindow& window);
-    void drawHelpOverlay(sf::RenderWindow& window);
-    void drawVictoryScreen(sf::RenderWindow& window);
-    void drawPauseMenu(sf::RenderWindow& window);
+    void drawWeatherParticles(sf::RenderTarget& window);
+    void drawHelpOverlay(sf::RenderTarget& window);
+    void drawVictoryScreen(sf::RenderTarget& window);
+    void drawPauseMenu(sf::RenderTarget& window);
+    sf::FloatRect hudMenuBtnRect() const;
+    sf::FloatRect hudFullscreenBtnRect() const;
+    sf::FloatRect hudHelpBtnRect() const;
+    sf::FloatRect helpCardRect() const;
+    sf::FloatRect helpCloseBtnRect() const;
     bool isPosOnPurchasedLand(int player, sf::Vector2f pos) const;
     void syncBuildingSelectionPos(int player);
     bool p1WasInResourceArea = false;
@@ -246,10 +251,10 @@ private:
     void openEventLog();
     UI_dashboard dashboard;             // Energy dashboard while [Tab] is held
     float dashboardOpenedAt = -1.0f;    // animClock time when Tab went down (-1 = closed)
-    void drawDashboardIfHeld(sf::RenderWindow& window);
+    void drawDashboardIfHeld(sf::RenderTarget& window);
     UI_postmatch postMatch;             // Post-match report (replaces the victory box)
     UI_devOverlay devOverlay;           // Developer overlay ([F3])
-    void drawDevOverlay(sf::RenderWindow& window);
+    void drawDevOverlay(sf::RenderTarget& window);
 
 public:
     UI_map();
@@ -280,7 +285,7 @@ public:
     UI_fx& getFx() { return fx; }
 
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
-    void render(sf::RenderWindow& window);
+    void render(sf::RenderTarget& window);
     void restartMatch();
 
     void setBlitzMode(bool blitz) { isBlitzMode = blitz; }

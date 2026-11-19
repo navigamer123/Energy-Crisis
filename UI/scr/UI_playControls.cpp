@@ -5,32 +5,89 @@
 #include "../includes/UI_shot.h"
 #include "../includes/UI_text.h"
 #include "../includes/UI_theme.h"
+#include <algorithm>
 #include <cmath>
 #include <string>
+
+namespace {
+constexpr float CARD_WIDTH = 1040.0f;
+constexpr float CARD_HEIGHT = 606.0f;
+constexpr float CARD_X = (VIRTUAL_WIDTH - CARD_WIDTH) / 2.0f;
+constexpr float CARD_Y = 176.0f;
+constexpr float OPT_WIDTH = CARD_WIDTH - 56.0f;
+constexpr float OPT_HEIGHT = 80.0f;
+constexpr float OPT_X = CARD_X + 28.0f;
+constexpr float OPT_START_Y = CARD_Y + 86.0f;
+constexpr float OPT_SPACING = 88.0f;
+constexpr float BTN_WIDTH = 310.0f;
+constexpr float BTN_HEIGHT = 54.0f;
+constexpr float BTN_Y = CARD_Y + CARD_HEIGHT - BTN_HEIGHT - 18.0f;
+
+std::string toStdUtf8(const sf::String &s) {
+  auto u8 = s.toUtf8();
+  return std::string(u8.begin(), u8.end());
+}
+} // namespace
 
 UI_playControls::UI_playControls()
     : selectedIndex(0), activeScheme(0), requestStart(false),
       requestBack(false), requestQuit(false) {}
 
-void UI_playControls::drawButton(sf::RenderWindow &window, const sf::Font &font,
+sf::FloatRect UI_playControls::cardRect() {
+  return sf::FloatRect({CARD_X, CARD_Y}, {CARD_WIDTH, CARD_HEIGHT});
+}
+
+sf::FloatRect UI_playControls::optionRect(int index) {
+  return sf::FloatRect({OPT_X, OPT_START_Y + index * OPT_SPACING},
+                       {OPT_WIDTH, OPT_HEIGHT});
+}
+
+sf::FloatRect UI_playControls::startButtonRect() {
+  return sf::FloatRect({CARD_X + CARD_WIDTH / 2.0f - BTN_WIDTH - 20.0f, BTN_Y},
+                       {BTN_WIDTH, BTN_HEIGHT});
+}
+
+sf::FloatRect UI_playControls::backButtonRect() {
+  return sf::FloatRect({CARD_X + CARD_WIDTH / 2.0f + 20.0f, BTN_Y},
+                       {BTN_WIDTH, BTN_HEIGHT});
+}
+
+bool UI_playControls::isPointInside(sf::FloatRect bounds, sf::Vector2f pt) {
+#if defined(__ANDROID__)
+  sf::FloatRect padded({bounds.position.x - 12.0f, bounds.position.y - 12.0f},
+                       {bounds.size.x + 24.0f, bounds.size.y + 24.0f});
+  return padded.contains(pt);
+#else
+  return bounds.contains(pt);
+#endif
+}
+
+void UI_playControls::drawButton(sf::RenderTarget &window, const sf::Font &font,
                                  bool fontLoaded, sf::FloatRect bounds,
                                  const sf::String &text, sf::Color baseColor,
                                  sf::Color hoverColor, sf::Color textColor,
                                  bool isSelected) {
+  sf::RectangleShape shadow(bounds.size);
+  shadow.setPosition({bounds.position.x + 2.0f, bounds.position.y + 3.0f});
+  shadow.setFillColor(sf::Color(0, 0, 0, 110));
+  window.draw(shadow);
+
   sf::RectangleShape shape(bounds.size);
   shape.setPosition(bounds.position);
   shape.setFillColor(isSelected ? hoverColor : baseColor);
-  shape.setOutlineThickness(isSelected ? 3.0f : 1.5f);
-  shape.setOutlineColor(isSelected ? theme::Focus : theme::Line);
+  shape.setOutlineThickness(isSelected ? 3.5f : 2.0f);
+  shape.setOutlineColor(isSelected ? theme::Focus : theme::LineStrong);
   window.draw(shape);
 
   if (fontLoaded) {
     sf::String displayText =
         isSelected ? (toUtf8("> ") + text + toUtf8(" <")) : text;
-    sf::Text &label = ui::pooledText(font, displayText, fontsize::H2);
+    float maxTextW = std::max(16.0f, bounds.size.x - 28.0f);
+    unsigned int textSize =
+        ui::fitTextSize(font, toStdUtf8(displayText), 20, 14, maxTextW, true);
+    sf::Text &label = ui::pooledText(font, displayText, textSize);
+    label.setStyle(sf::Text::Bold);
     label.setFillColor(isSelected ? theme::TextPrimary : textColor);
-    if (isSelected)
-      label.setStyle(sf::Text::Bold);
 
     sf::FloatRect textBounds = label.getLocalBounds();
     label.setPosition(
@@ -42,58 +99,57 @@ void UI_playControls::drawButton(sf::RenderWindow &window, const sf::Font &font,
   }
 }
 
-void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
+void UI_playControls::draw(sf::RenderTarget &window, const sf::Font &font,
                            bool fontLoaded) {
-  float screenWidth = VIRTUAL_WIDTH;
-  float cardWidth = 980.0f;
-  float cardHeight = 630.0f;
-  float cardX = (screenWidth - cardWidth) / 2.0f;
-  float cardY = 120.0f;
+  const sf::FloatRect panel = cardRect();
+  const float cardX = panel.position.x;
+  const float cardY = panel.position.y;
+  const float cardWidth = panel.size.x;
+  const float cardHeight = panel.size.y;
 
   // Card background
-  sf::RectangleShape card({cardWidth, cardHeight});
-  card.setPosition({cardX, cardY});
+  sf::RectangleShape card(panel.size);
+  card.setPosition(panel.position);
   card.setFillColor(theme::withAlpha(theme::Panel, 250));
   card.setOutlineThickness(2.0f);
   card.setOutlineColor(theme::LineStrong);
   window.draw(card);
-  const sf::FloatRect cardRect({cardX, cardY}, {cardWidth, cardHeight});
+  ui::lint::occlude(panel);
 
   bool isEn = (UI_settings::get().getLanguage() == "en");
 
   if (fontLoaded) {
-    // Modal title
-    sf::Text &title = ui::pooledText(
-        font, toUtf8(isEn ? "CHOOSE A 2-PLAYER CONTROL SCHEME" : "ИЗБЕРЕТЕ УПРАВЛЕНИЕ ЗА ДВАМА ИГРАЧИ"), fontsize::H1);
+    std::string titleStr = isEn ? "CHOOSE A 2-PLAYER CONTROL SCHEME"
+                                : "ИЗБЕРЕТЕ УПРАВЛЕНИЕ ЗА ДВАМА ИГРАЧИ";
+    unsigned int titleSize =
+        ui::fitTextSize(font, titleStr, fontsize::H1, 18, cardWidth - 60.0f, true);
+    sf::Text &title = ui::pooledText(font, toUtf8(titleStr), titleSize);
     title.setStyle(sf::Text::Bold);
     title.setFillColor(theme::TextPrimary);
     sf::FloatRect tb = title.getLocalBounds();
-    title.setPosition({cardX + (cardWidth - tb.size.x) / 2.0f, cardY + 12.0f});
-    ui::drawText(window, title, cardRect);
+    title.setPosition({cardX + (cardWidth - tb.size.x) / 2.0f - tb.position.x,
+                       cardY + 14.0f});
+    ui::drawText(window, title, panel);
 
     // Subtitle + Hardware status
     std::string statusText = UI_controlsConfig::get().getJoystickStatusBg();
-    sf::Text &sub = ui::pooledText(font, toUtf8(statusText), fontsize::Body);
+    unsigned int subSize =
+        ui::fitTextSize(font, statusText, fontsize::Body, 12, cardWidth - 60.0f, false);
+    sf::Text &sub = ui::pooledText(font, toUtf8(statusText), subSize);
     sub.setFillColor(UI_controlsConfig::get().isAnyJoystickConnected()
                          ? theme::Good
                          : theme::TextSecondary);
     sf::FloatRect sb = sub.getLocalBounds();
-    sub.setPosition({cardX + (cardWidth - sb.size.x) / 2.0f, cardY + 44.0f});
-    ui::drawText(window, sub, cardRect);
+    sub.setPosition({cardX + (cardWidth - sb.size.x) / 2.0f - sb.position.x,
+                     cardY + 48.0f});
+    ui::drawText(window, sub, panel);
 
     // Divider
-    sf::RectangleShape div({cardWidth - 60.0f, 2.0f});
-    div.setPosition({cardX + 30.0f, cardY + 68.0f});
+    sf::RectangleShape div({cardWidth - 56.0f, 2.0f});
+    div.setPosition({cardX + 28.0f, cardY + 74.0f});
     div.setFillColor(theme::Line);
     window.draw(div);
   }
-
-  // 5 Options layout
-  float optWidth = cardWidth - 60.0f;
-  float optHeight = 72.0f;
-  float optX = cardX + 30.0f;
-  float optStartY = cardY + 76.0f;
-  float optSpacing = 78.0f;
 
   sf::Vector2f mousePos = ui::pointerPos(window);
 
@@ -148,7 +204,7 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
        "Player 2 (East): Arcade Stick 2  ·  [Button 1/A] Action  ·  [2/B] Cancel  ·  [3/X] Upgrade",
        "DEVHUB ONE"}};
 
-  const OptionData* options = isEn ? optionsEn : optionsBg;
+  const OptionData *options = isEn ? optionsEn : optionsBg;
 
   bool mouseMoved = (std::abs(mousePos.x - lastMousePos.x) > 2.0f ||
                      std::abs(mousePos.y - lastMousePos.y) > 2.0f);
@@ -157,8 +213,9 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
   }
 
   for (int i = 0; i < 5; i++) {
-    float y = optStartY + i * optSpacing;
-    sf::FloatRect bounds({optX, y}, {optWidth, optHeight});
+    sf::FloatRect bounds = optionRect(i);
+    float x = bounds.position.x;
+    float y = bounds.position.y;
 
     if (mouseMoved && bounds.contains(mousePos)) {
       selectedIndex = i;
@@ -172,31 +229,41 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
 
     if (isActive) {
       optBox.setFillColor(isNavSelected
-                              ? theme::withAlpha(theme::CardSelected, 240)
-                              : theme::withAlpha(theme::CardHover, 230));
+                              ? theme::withAlpha(theme::CardSelected, 245)
+                              : theme::withAlpha(theme::CardHover, 235));
       optBox.setOutlineThickness(2.5f);
       optBox.setOutlineColor(isNavSelected ? theme::Focus : theme::Good);
     } else {
       optBox.setFillColor(isNavSelected
-                              ? theme::withAlpha(theme::CardHover, 220)
-                              : theme::withAlpha(theme::Card, 200));
-      optBox.setOutlineThickness(isNavSelected ? 2.0f : 1.0f);
-      optBox.setOutlineColor(isNavSelected ? theme::Focus : theme::Line);
+                              ? theme::withAlpha(theme::CardHover, 230)
+                              : theme::withAlpha(theme::Card, 225));
+      optBox.setOutlineThickness(isNavSelected ? 2.5f : 1.5f);
+      optBox.setOutlineColor(isNavSelected ? theme::Focus : theme::LineStrong);
     }
     window.draw(optBox);
     ui::lint::ContainerScope optScope(bounds);
 
     // Radio indicator
-    sf::CircleShape radio(8.0f);
-    radio.setPosition({optX + 16.0f, y + 28.0f});
+    sf::CircleShape radio(9.0f);
+    radio.setPosition({x + 18.0f, y + (bounds.size.y - 18.0f) / 2.0f});
     radio.setFillColor(isActive ? theme::Good : theme::Well);
-    radio.setOutlineThickness(1.5f);
+    radio.setOutlineThickness(2.0f);
     radio.setOutlineColor(isActive ? theme::TextPrimary : theme::LineStrong);
     window.draw(radio);
 
     if (fontLoaded) {
-      sf::Text &tTitle =
-          ui::pooledText(font, toUtf8(options[i].title), fontsize::H2);
+      float badgeW = 156.0f;
+      float badgeH = 30.0f;
+      float badgeX = x + bounds.size.x - badgeW - 16.0f;
+      float badgeY = y + (bounds.size.y - badgeH) / 2.0f;
+      sf::FloatRect badgeRect({badgeX, badgeY}, {badgeW, badgeH});
+
+      float textX = x + 48.0f;
+      float maxTextW = badgeX - textX - 16.0f;
+
+      unsigned int titleSz =
+          ui::fitTextSize(font, options[i].title, 17, 14, maxTextW, true);
+      sf::Text &tTitle = ui::pooledText(font, toUtf8(options[i].title), titleSz);
       tTitle.setStyle(sf::Text::Bold);
       if (i == 4) {
         tTitle.setFillColor(isActive ? theme::Gold
@@ -206,59 +273,53 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
         tTitle.setFillColor((isActive || isNavSelected) ? theme::TextPrimary
                                                         : theme::TextSecondary);
       }
-      tTitle.setPosition({optX + 42.0f, y + 6.0f});
+      tTitle.setPosition({textX, y + 8.0f});
       ui::drawText(window, tTitle);
 
-      sf::Text &tP1 =
-          ui::pooledText(font, toUtf8(options[i].p1Text), fontsize::Label);
+      unsigned int p1Sz =
+          ui::fitTextSize(font, options[i].p1Text, 13, 11, maxTextW, false);
+      sf::Text &tP1 = ui::pooledText(font, toUtf8(options[i].p1Text), p1Sz);
       tP1.setFillColor(theme::P1Light);
-      tP1.setPosition({optX + 42.0f, y + 30.0f});
+      tP1.setPosition({textX, y + 32.0f});
       ui::drawText(window, tP1);
 
-      sf::Text &tP2 =
-          ui::pooledText(font, toUtf8(options[i].p2Text), fontsize::Label);
+      unsigned int p2Sz =
+          ui::fitTextSize(font, options[i].p2Text, 13, 11, maxTextW, false);
+      sf::Text &tP2 = ui::pooledText(font, toUtf8(options[i].p2Text), p2Sz);
       tP2.setFillColor(theme::P2Light);
-      tP2.setPosition({optX + 42.0f, y + 49.0f});
+      tP2.setPosition({textX, y + 53.0f});
       ui::drawText(window, tP2);
 
       // Status Badge on Right
-      float badgeW = 140.0f;
-      float badgeH = 26.0f;
-      float badgeX = optX + optWidth - badgeW - 14.0f;
-      float badgeY = y + 23.0f;
-
-      sf::RectangleShape badge({badgeW, badgeH});
-      badge.setPosition({badgeX, badgeY});
+      sf::RectangleShape badge(badgeRect.size);
+      badge.setPosition(badgeRect.position);
       badge.setFillColor(isActive ? theme::GoodFill
-                                  : (i == 4 ? theme::withAlpha(theme::Gold, 40)
+                                  : (i == 4 ? theme::withAlpha(theme::Gold, 45)
                                             : theme::Well));
-      badge.setOutlineThickness(1.0f);
+      badge.setOutlineThickness(1.5f);
       badge.setOutlineColor(isActive ? theme::Good
-                                     : (i == 4 ? theme::Gold : theme::Line));
+                                     : (i == 4 ? theme::Gold : theme::LineStrong));
       window.draw(badge);
 
-      sf::Text &bText = ui::pooledText(
-          font, toUtf8(isActive ? (isEn ? "SELECTED" : "ИЗБРАНО") : options[i].badgeText),
-          fontsize::Label);
+      std::string badgeLabel =
+          isActive ? (isEn ? "SELECTED" : "ИЗБРАНО") : options[i].badgeText;
+      unsigned int badgeSz =
+          ui::fitTextSize(font, badgeLabel, 13, 11, badgeW - 12.0f, true);
+      sf::Text &bText = ui::pooledText(font, toUtf8(badgeLabel), badgeSz);
+      bText.setStyle(sf::Text::Bold);
       bText.setFillColor(isActive
                              ? theme::TextPrimary
                              : (i == 4 ? theme::Gold : theme::TextSecondary));
       sf::FloatRect bb = bText.getLocalBounds();
-      bText.setPosition({badgeX + (badgeW - bb.size.x) / 2.0f, badgeY + 4.0f});
-      ui::drawText(window, bText,
-                   sf::FloatRect({badgeX, badgeY}, {badgeW, badgeH}));
+      bText.setPosition({badgeX + (badgeW - bb.size.x) / 2.0f - bb.position.x,
+                         badgeY + (badgeH - bb.size.y) / 2.0f - bb.position.y});
+      ui::drawText(window, bText, badgeRect);
     }
   }
 
   // Action buttons at the bottom
-  float btnWidth = 260.0f;
-  float btnHeight = 44.0f;
-  float buttonY = cardY + cardHeight - 56.0f;
-
-  sf::FloatRect startBtn({cardX + cardWidth / 2.0f - btnWidth - 20.0f, buttonY},
-                         {btnWidth, btnHeight});
-  sf::FloatRect backBtn({cardX + cardWidth / 2.0f + 20.0f, buttonY},
-                        {btnWidth, btnHeight});
+  sf::FloatRect startBtn = startButtonRect();
+  sf::FloatRect backBtn = backButtonRect();
 
   if (mouseMoved) {
     if (startBtn.contains(mousePos))
@@ -267,25 +328,23 @@ void UI_playControls::draw(sf::RenderWindow &window, const sf::Font &font,
       selectedIndex = 6;
   }
 
-  drawButton(window, font, fontLoaded, startBtn, toUtf8(isEn ? "START GAME" : "СТАРТ НА ИГРАТА"),
-             theme::GoodFill, theme::GoodFill, theme::TextPrimary,
-             selectedIndex == 5);
-  drawButton(window, font, fontLoaded, backBtn, toUtf8(isEn ? "BACK" : "НАЗАД"), theme::Button,
+  drawButton(window, font, fontLoaded, startBtn,
+             toUtf8(isEn ? "START GAME" : "СТАРТ НА ИГРАТА"), theme::GoodFill,
+             sf::Color(40, 148, 86), theme::TextPrimary, selectedIndex == 5);
+  drawButton(window, font, fontLoaded, backBtn,
+             toUtf8(isEn ? "BACK" : "НАЗАД"), theme::Button,
              theme::ButtonHover, theme::TextPrimary, selectedIndex == 6);
 
   // Keyboard hints
   if (fontLoaded) {
-    std::string hintStr = isEn
-        ? "Navigate: [Arrows / Stick / W,S] | Select: [Enter / Button 1 / Start] | Back: [ESC / Button 2]"
-        : "Навигация: [Стрелки / Стик / W,S] | Избор: [Enter / Бутон 1 / Start] | Назад: [ESC / Бутон 2]";
-    sf::Text &hint = ui::pooledText(
-        font,
-        toUtf8(hintStr),
-        fontsize::Label);
+    std::string hintStr =
+        isEn ? "Navigate: [Arrows / Stick / W,S] | Select: [Enter / Button 1 / Start] | Back: [ESC / Button 2]"
+             : "Навигация: [Стрелки / Стик / W,S] | Избор: [Enter / Бутон 1 / Start] | Назад: [ESC / Бутон 2]";
+    sf::Text &hint = ui::pooledText(font, toUtf8(hintStr), fontsize::Label);
     hint.setFillColor(theme::TextMuted);
     sf::FloatRect hb = hint.getLocalBounds();
-    hint.setPosition(
-        {(screenWidth - hb.size.x) / 2.0f, cardY + cardHeight + 8.0f});
+    hint.setPosition({(VIRTUAL_WIDTH - hb.size.x) / 2.0f - hb.position.x,
+                      cardY + cardHeight + 14.0f});
     ui::drawText(window, hint);
   }
 }
@@ -380,39 +439,18 @@ void UI_playControls::handleEvent(const sf::Event &event,
   if (const auto *mb = event.getIf<sf::Event::MouseButtonPressed>()) {
     if (mb->button == sf::Mouse::Button::Left) {
       sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
-      float screenWidth = VIRTUAL_WIDTH;
-      float cardWidth = 980.0f;
-      float cardHeight = 630.0f;
-      float cardX = (screenWidth - cardWidth) / 2.0f;
-      float cardY = 120.0f;
-      float optWidth = cardWidth - 60.0f;
-      float optHeight = 72.0f;
-      float optX = cardX + 30.0f;
-      float optStartY = cardY + 76.0f;
-      float optSpacing = 78.0f;
 
       for (int i = 0; i < 5; i++) {
-        float y = optStartY + i * optSpacing;
-        if (sf::FloatRect({optX, y}, {optWidth, optHeight})
-                .contains(clickPos)) {
+        if (isPointInside(optionRect(i), clickPos)) {
           activeScheme = i;
           selectedIndex = i;
           break;
         }
       }
 
-      float btnWidth = 260.0f;
-      float btnHeight = 44.0f;
-      float buttonY = cardY + cardHeight - 56.0f;
-      sf::FloatRect startBtn(
-          {cardX + cardWidth / 2.0f - btnWidth - 20.0f, buttonY},
-          {btnWidth, btnHeight});
-      sf::FloatRect backBtn({cardX + cardWidth / 2.0f + 20.0f, buttonY},
-                            {btnWidth, btnHeight});
-
-      if (startBtn.contains(clickPos)) {
+      if (isPointInside(startButtonRect(), clickPos)) {
         requestStart = true;
-      } else if (backBtn.contains(clickPos)) {
+      } else if (isPointInside(backButtonRect(), clickPos)) {
         requestBack = true;
       }
     }

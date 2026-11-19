@@ -41,6 +41,7 @@ void setResources(PlayerEconomy& e, int wood, int iron, int copper, int coal, in
 void UI_map::setupDebugScene(const std::string& scene, int frames) {
     auto advanceGameSeconds = [this](float seconds) {
         engine.setTimeScale(1.0f);
+        engine.setTimeFrozen(false);
         // Fast-forward steps are longer than the real-time step cap allows: lift it meanwhile
         const int hostMaxSteps = engine.getMaxStepsPerUpdate();
         engine.setMaxStepsPerUpdate(0);
@@ -115,7 +116,10 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
 
     // The "new match" notice would never fade (screenshot mode reads no input and runs no timers)
     notices.clear();
-    if (scene != "tutorial") tutorial.skip();
+    if (scene != "tutorial") {
+        tutorial.skip(&engine);
+        engine.setTimeFrozen(false);
+    }
 
     if (scene == "storm") {
         // Find the first seed (from the requested one) whose day 1 has a storm in a sector
@@ -129,7 +133,8 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         std::cout << "[Shot] Storm scene uses seed " << seed << "\n";
         restartMatch(); // full UI reset with that seed (same weather)
         notices.clear();
-        tutorial.skip();
+        tutorial.skip(&engine);
+        engine.setTimeFrozen(false);
         populate();
         advanceTo(1, 11.0f);
         // No random strikes during the capture; one bolt is fired a few frames before it instead
@@ -185,12 +190,15 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
                                                    : (isEn ? "[SPACE]: Place on grid | [X]: Cancel" : "[SPACE]: Постави в грида | [X]: Отказ"), theme::P1);
     } else if (scene == "mining") {
         // P1 mines wood: prompt over the station, cooldown on the card, 6x time badges, a notice
-        if (const auto* st = nodes.getStation(1, ResourceType::WOOD)) {
+        const auto* st = nodes.getStation(1, ResourceType::WOOD);
+        sf::Vector2f noticePos = p1Pos + sf::Vector2f(0.0f, -104.0f);
+        if (st) {
             p1Pos = { st->bounds.position.x + st->bounds.size.x / 2.0f, st->bounds.position.y + 30.0f };
+            noticePos = { st->bounds.position.x - 62.0f, st->bounds.position.y + 20.0f };
         }
         p1ResourceCooldown = 0.6f;
         engine.setTimeScale(Balance::MINE_SPEEDUP_MULT);
-        spawnNotice("+12 Дърво", p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Wood);
+        spawnNotice("+12 Дърво", noticePos, theme::Wood);
     } else if (scene == "pause") {
         isPaused = true;
         pauseSelectedIdx = 0;

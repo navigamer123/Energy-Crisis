@@ -68,10 +68,10 @@ sf::Color scaled(sf::Color c, float k) {
 
 // Station centres (mirrors the UI_resourceNodes layout; two rows per player)
 void stationCentres(std::vector<sf::Vector2f>& out) {
-    const float row0 = 582.0f + 40.0f, row1 = 668.0f + 40.0f;
-    for (float startX : { 244.0f, 998.0f }) {
-        for (int i = 0; i < 4; ++i) out.push_back({ startX + 43.0f + static_cast<float>(i) * 92.0f, row0 });
-        for (int i = 0; i < 3; ++i) out.push_back({ startX + 58.0f + static_cast<float>(i) * 124.0f, row1 });
+    const float row0 = 542.0f + 51.0f, row1 = 654.0f + 51.0f;
+    for (float startX : { 236.0f, 936.0f }) {
+        for (int i = 0; i < 4; ++i) out.push_back({ startX + 51.0f + static_cast<float>(i) * 108.5f, row0 });
+        for (int i = 0; i < 3; ++i) out.push_back({ startX + 69.0f + static_cast<float>(i) * 145.0f, row1 });
     }
 }
 
@@ -217,7 +217,7 @@ void UI_fx::renderLightMap() {
         // Mine floodlights keep the stations readable
         std::vector<sf::Vector2f> st;
         stationCentres(st);
-        for (const auto& p : st) light(p, 82.0f, 66.0f, LIGHT_MINE, strength);
+        for (const auto& p : st) light(p, 92.0f, 72.0f, LIGHT_MINE, strength);
 
         // Lamps (the gameplay radius) and generator status lights
         for (const auto& b : buildings) {
@@ -230,12 +230,12 @@ void UI_fx::renderLightMap() {
         }
 
         // Bridge lamps and headlights (DS-10)
-        for (float y : { 467.0f, 665.0f }) {
+        for (float y : { 467.0f, 650.0f }) {
             light({ 781.0f, y - 11.0f }, 46.0f, 40.0f, LIGHT_BRIDGE, strength * 0.9f);
             light({ 819.0f, y + 11.0f }, 46.0f, 40.0f, LIGHT_BRIDGE, strength * 0.9f);
         }
         for (const auto& c : cars) {
-            float y = (c.road == 0 ? 467.0f : 665.0f) + (c.dir > 0 ? -3.5f : 3.5f);
+            float y = (c.road == 0 ? 467.0f : 650.0f) + (c.dir > 0 ? -3.5f : 3.5f);
             light({ c.x + static_cast<float>(c.dir) * 20.0f, y }, 26.0f, 12.0f, LIGHT_HEADLIGHT, strength * 0.85f);
         }
     }

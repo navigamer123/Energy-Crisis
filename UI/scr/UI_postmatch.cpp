@@ -99,6 +99,18 @@ void medal(sf::RenderTarget& t, sf::Vector2f c, sf::Color ribbon) {
     t.draw(star);
 }
 
+void drawCenteredInRect(sf::RenderTarget& t, const sf::Font& f, const sf::FloatRect& r, const std::string& str,
+                        unsigned int maxSize, unsigned int minSize, sf::Color col, bool bold = true, float padX = 16.0f) {
+    sf::Text tx(f, toUtf8(str), maxSize);
+    if (bold) tx.setStyle(sf::Text::Bold);
+    infoText::fitSize(tx, std::max(20.0f, r.size.x - padX), minSize);
+    tx.setFillColor(col);
+    sf::FloatRect b = tx.getLocalBounds();
+    tx.setPosition({ r.position.x + (r.size.x - b.size.x) / 2.0f - b.position.x,
+                     r.position.y + (r.size.y - b.size.y) / 2.0f - b.position.y });
+    t.draw(tx);
+}
+
 } // namespace
 
 // -----------------------------------------------------------------------------
@@ -226,8 +238,10 @@ void UI_postmatch::draw(sf::RenderTarget& target, const sf::Font& font, bool fon
     rect(target, sf::FloatRect({ CARD.position.x, CARD.position.y + 96.0f }, { CARD.size.x, 3.0f }), winCol);
 
     // Buttons (rectangles published even without a font so they stay clickable)
-    restartBtn = sf::FloatRect({ CARD.position.x + PAD, CARD.position.y + CARD.size.y - 62.0f }, { 360.0f, 44.0f });
-    menuBtn = sf::FloatRect({ CARD.position.x + CARD.size.x - PAD - 300.0f, CARD.position.y + CARD.size.y - 62.0f }, { 300.0f, 44.0f });
+    const float btnH = 54.0f;
+    const float btnY = CARD.position.y + CARD.size.y - btnH - 16.0f;
+    restartBtn = sf::FloatRect({ CARD.position.x + PAD, btnY }, { 400.0f, btnH });
+    menuBtn = sf::FloatRect({ CARD.position.x + CARD.size.x - PAD - 340.0f, btnY }, { 340.0f, btnH });
 
     const bool locked = (finishedTimer < 10.0f);
     const int remain = locked ? static_cast<int>(std::ceil(10.0f - finishedTimer)) : 0;
@@ -235,12 +249,12 @@ void UI_postmatch::draw(sf::RenderTarget& target, const sf::Font& font, bool fon
     const bool hoverM = !locked && menuBtn.contains(mousePos);
 
     sf::Color restartCol = locked ? sf::Color(30, 48, 38) : (hoverR ? sf::Color(0, 200, 130) : sf::Color(0, 150, 95));
-    sf::Color restartOutline = locked ? sf::Color(55, 75, 65) : sf::Color(100, 255, 180);
+    sf::Color restartOutline = locked ? sf::Color(55, 75, 65) : (hoverR ? theme::Focus : sf::Color(100, 255, 180));
     sf::Color menuCol = locked ? sf::Color(38, 44, 52) : (hoverM ? sf::Color(70, 90, 120) : sf::Color(45, 60, 85));
-    sf::Color menuOutline = locked ? sf::Color(60, 68, 80) : sf::Color(130, 160, 205);
+    sf::Color menuOutline = locked ? sf::Color(60, 68, 80) : (hoverM ? theme::Focus : sf::Color(130, 160, 205));
 
-    rect(target, restartBtn, restartCol, restartOutline, 1.5f);
-    rect(target, menuBtn, menuCol, menuOutline, 1.5f);
+    rect(target, restartBtn, restartCol, restartOutline, hoverR ? 2.5f : 1.5f);
+    rect(target, menuBtn, menuCol, menuOutline, hoverM ? 2.5f : 1.5f);
     if (!fontLoaded) return;
 
     bool isEn = (UI_settings::get().getLanguage() == "en");
@@ -271,19 +285,18 @@ void UI_postmatch::draw(sf::RenderTarget& target, const sf::Font& font, bool fon
         }
     }
 
-    textCentered(target, font, playAgainLabel, 14,
-                 { restartBtn.position.x + restartBtn.size.x / 2.0f, restartBtn.position.y + 12.0f },
-                 locked ? sf::Color(160, 175, 190) : sf::Color::White, true);
-    textCentered(target, font, exitLabel, 14,
-                 { menuBtn.position.x + menuBtn.size.x / 2.0f, menuBtn.position.y + 12.0f },
-                 locked ? sf::Color(160, 175, 190) : sf::Color::White, true);
+    drawCenteredInRect(target, font, restartBtn, playAgainLabel, 17, 12,
+                       locked ? sf::Color(160, 175, 190) : sf::Color::White, true, 24.0f);
+    drawCenteredInRect(target, font, menuBtn, exitLabel, 17, 12,
+                       locked ? sf::Color(160, 175, 190) : sf::Color::White, true, 24.0f);
 
     if (locked) {
         std::string lockMsg = isEn ? ("RESULTS SCREEN LOCKED: " + std::to_string(remain) + "s")
                                    : ("ОСТАВАТ " + std::to_string(remain) + " СЕК. ДО ИЗХОД / РЕСТАРТ");
-        textCentered(target, font, lockMsg, 13,
-                     { CARD.position.x + CARD.size.x / 2.0f, restartBtn.position.y + 14.0f },
-                     theme::Warn, true);
+        float gapLeft = restartBtn.position.x + restartBtn.size.x + 12.0f;
+        float gapRight = menuBtn.position.x - 12.0f;
+        sf::FloatRect lockGap({ gapLeft, btnY }, { std::max(40.0f, gapRight - gapLeft), btnH });
+        drawCenteredInRect(target, font, lockGap, lockMsg, 14, 11, theme::Warn, true, 8.0f);
     }
 
     // Header: who won and how
@@ -334,23 +347,26 @@ void UI_postmatch::draw(sf::RenderTarget& target, const sf::Font& font, bool fon
               { CARD.position.x + CARD.size.x - PAD, CARD.position.y + 14.0f }, COL_DIM);
 
     // Tabs
-    const float tabsY = CARD.position.y + 112.0f;
+    const float tabsY = CARD.position.y + 110.0f;
+    const float tabH = 42.0f;
     float tx = CARD.position.x + PAD;
     for (int i = 0; i < TAB_COUNT; ++i) {
         const char* tabLabel = tabName(i, isEn);
-        float w = infoText::advance(font, toUtf8(tabLabel), 14, true) + 40.0f;
-        tabRects[i] = sf::FloatRect({ tx, tabsY }, { w, 34.0f });
+        float w = infoText::advance(font, toUtf8(tabLabel), 15, true) + 52.0f;
+        tabRects[i] = sf::FloatRect({ tx, tabsY }, { w, tabH });
         bool active = (i == tab);
         bool hover = tabRects[i].contains(mousePos);
         rect(target, tabRects[i], active ? COL_TAB_ACTIVE : (hover ? sf::Color(34, 50, 76) : COL_TAB),
-             active ? winCol : PANEL_EDGE, active ? 2.0f : 1.0f);
-        textCentered(target, font, tabLabel, 14, { tx + w / 2.0f, tabsY + 8.0f }, active ? sf::Color::White : COL_DIM, true);
-        tx += w + 10.0f;
+             active ? winCol : (hover ? theme::LineStrong : PANEL_EDGE), active ? 2.0f : 1.0f);
+        drawCenteredInRect(target, font, tabRects[i], tabLabel, 15, 12,
+                           active ? sf::Color::White : COL_DIM, true, 16.0f);
+        tx += w + 12.0f;
     }
-    textRight(target, font, isEn ? "[1-3] or [Arrows / Stick]: switch tabs" : "[1-3] или [Стрелки / Стик]: раздели", 12, { CARD.position.x + CARD.size.x - PAD, tabsY + 10.0f }, COL_DIM);
+    textRight(target, font, isEn ? "[1-3] or [Arrows / Stick]: switch tabs" : "[1-3] или [Стрелки / Стик]: раздели", 12, { CARD.position.x + CARD.size.x - PAD, tabsY + 13.0f }, COL_DIM);
 
-    const sf::FloatRect area({ CARD.position.x + PAD, tabsY + 50.0f },
-                             { CARD.size.x - 2.0f * PAD, restartBtn.position.y - 16.0f - (tabsY + 50.0f) });
+    const float areaTop = tabsY + tabH + 12.0f;
+    const sf::FloatRect area({ CARD.position.x + PAD, areaTop },
+                             { CARD.size.x - 2.0f * PAD, restartBtn.position.y - 16.0f - areaTop });
     if (tab == SUMMARY) drawSummary(target, font, engine, stats, area, isEn);
     else if (tab == CHARTS) drawCharts(target, font, engine, stats, area, isEn);
     else drawMix(target, font, stats, area, isEn);

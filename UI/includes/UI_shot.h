@@ -48,7 +48,8 @@ void clearTouchPixelPos();
 
 // Pointer position on the 1600x900 canvas. In screenshot mode the real mouse is ignored and a
 // point far off the canvas is returned, so nothing is hovered and captures do not depend on it.
-sf::Vector2f pointerPos(const sf::RenderWindow& window);
+sf::Vector2f pointerPos(const sf::RenderTarget& target);
+bool targetHasFocus(const sf::RenderTarget& target);
 
 } // namespace ui
 

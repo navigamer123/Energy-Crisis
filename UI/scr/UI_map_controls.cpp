@@ -97,7 +97,7 @@ void UI_map::onFocusLost() {
 }
 
 // Name tag above a player cursor, on a dark pill so it stays readable over the map labels
-static void drawCursorTag(sf::RenderWindow& window, sf::Text& tag, sf::Vector2f cursorPos, sf::Color accent) {
+static void drawCursorTag(sf::RenderTarget& window, sf::Text& tag, sf::Vector2f cursorPos, sf::Color accent) {
     sf::FloatRect tb = tag.getLocalBounds();
     sf::Vector2f pillSize(tb.size.x + 10.0f, tb.size.y + 8.0f);
     sf::Vector2f pillPos(cursorPos.x - pillSize.x / 2.0f, cursorPos.y - 26.0f - pillSize.y);
@@ -115,7 +115,7 @@ static void drawCursorTag(sf::RenderWindow& window, sf::Text& tag, sf::Vector2f 
     ui::drawText(window, tag, pillRect);
 }
 
-void UI_map::drawPlayerCursors(sf::RenderWindow& window) {
+void UI_map::drawPlayerCursors(sf::RenderTarget& window) {
     float animTime = ui::shot::clockSeconds(animClock.getElapsedTime().asSeconds());
 
     // -------------------------------------------------------------------------
@@ -327,7 +327,7 @@ void UI_map::executeP1Action() {
             if (cd > 0.0f) {
                 char buf[32];
                 std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", cd);
-                spawnNotice(buf, p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
+                spawnNotice(buf, p1Pos + sf::Vector2f(0.0f, -104.0f), theme::Warn);
                 return;
             }
             GameEngine::MineResult res;
@@ -345,7 +345,7 @@ void UI_map::executeP1Action() {
                 std::snprintf(tipBuf, sizeof(tipBuf), "[SPACE]: Добив (на %.1f сек)", newCd);
 #endif
                 triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", tipBuf, c);
-                spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -25.0f), c);
+                spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -104.0f), c);
             }
         } else {
             for (const auto& plot : engine.getLandPlots()) {
@@ -490,7 +490,7 @@ void UI_map::executeP2Action() {
             if (cd > 0.0f) {
                 char buf[32];
                 std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", cd);
-                spawnNotice(buf, p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
+                spawnNotice(buf, p2Pos + sf::Vector2f(0.0f, -104.0f), theme::Warn);
                 return;
             }
             GameEngine::MineResult res;
@@ -508,7 +508,7 @@ void UI_map::executeP2Action() {
                 std::snprintf(tipBuf, sizeof(tipBuf), "[ENTER]: Добив (на %.1f сек)", newCd);
 #endif
                 triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", tipBuf, c);
-                spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -25.0f), c);
+                spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -104.0f), c);
             }
         } else {
             for (const auto& plot : engine.getLandPlots()) {
@@ -579,7 +579,7 @@ void UI_map::executeP2Upgrade() {
     }
 }
 
-void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
+void UI_map::updateControls(const sf::RenderTarget& window, float dt) {
     if (isPaused || engine.getCityState().winner != 0) {
         return;
     }
@@ -589,7 +589,7 @@ void UI_map::updateControls(const sf::RenderWindow& window, float dt) {
     if (ui::shot::isActive()) return;
 
     // Keyboard & mouse state is global: never read it while another window has the focus
-    if (!window.hasFocus()) {
+    if (!ui::targetHasFocus(window)) {
         engine.setTimeScale(1.0f);
         primeInputEdges(0);
         return;
@@ -1287,7 +1287,14 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             isPaused = helpOpenedFromPause;
             primeInputEdges(0); // The Enter/Space that closed help must not act in-game
         };
-        if (event.is<sf::Event::MouseButtonPressed>() || event.is<sf::Event::JoystickButtonPressed>()) {
+        if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+            sf::Vector2f clickPos = window.mapPixelToCoords(mb->position);
+            if (helpCloseBtnRect().contains(clickPos) || !helpCardRect().contains(clickPos)) {
+                closeHelp();
+            }
+            return;
+        }
+        if (event.is<sf::Event::JoystickButtonPressed>()) {
             closeHelp();
             return;
         }
@@ -1447,7 +1454,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
             return;
         }
     }
-    if (const auto* mb = event.getIf<sf::Event::MouseButtonPressed>()) {
+    if (event.is<sf::Event::MouseButtonPressed>()) {
         if (p1Modal.active) {
             closePlayerModal(1);
             return;
@@ -1581,7 +1588,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 
         // Left-Click:
         // Click on ESC / MENU
-        if (sf::FloatRect({ 1600.0f - 130.0f, 900.0f - 34.0f }, { 120.0f, 28.0f }).contains(clickPos)) {
+        if (hudMenuBtnRect().contains(clickPos)) {
             isPaused = true;
             pauseSelectedIdx = 0;
             return;
@@ -1589,29 +1596,20 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 
 #if !defined(__ANDROID__)
         // Click on Fullscreen button
-        if (sf::FloatRect({ 1600.0f - 275.0f, 900.0f - 34.0f }, { 135.0f, 28.0f }).contains(clickPos)) {
+        if (hudFullscreenBtnRect().contains(clickPos)) {
             requestFullscreenToggle = true;
             return;
         }
+#endif
 
         // Click on Help button — auto-pause then show help on top; closing help resumes the game
-        if (sf::FloatRect({ 1600.0f - 405.0f, 900.0f - 34.0f }, { 120.0f, 28.0f }).contains(clickPos)) {
+        if (hudHelpBtnRect().contains(clickPos)) {
             isPaused = true;
             pauseSelectedIdx = 0;
             helpOpenedFromPause = false;
             showHelpOverlay = true;
             return;
         }
-#else
-        // Click on Help button on Android (positioned next to MENU)
-        if (sf::FloatRect({ 1600.0f - 265.0f, 900.0f - 34.0f }, { 125.0f, 28.0f }).contains(clickPos)) {
-            isPaused = true;
-            pauseSelectedIdx = 0;
-            helpOpenedFromPause = false;
-            showHelpOverlay = true;
-            return;
-        }
-#endif
 
         // 1. Building Menu Clicks (User Request 2: Click directly on building card to select it!)
         // Active in all control schemes so clicking cards always works smoothly
@@ -1865,7 +1863,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 if (cd1 > 0.0f) {
                     char buf[32];
                     std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", cd1);
-                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
+                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -104.0f), theme::Warn);
                     return;
                 }
                 GameEngine::MineResult res;
@@ -1882,7 +1880,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 #else
                     triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[E]: Избери сграда", c);
 #endif
-                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -104.0f), c);
                 }
                 return;
             }
@@ -1896,7 +1894,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 if (cd2 > 0.0f) {
                     char buf[32];
                     std::snprintf(buf, sizeof(buf), "ИЗЧАКАЙТЕ: %.1fs", cd2);
-                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
+                    spawnNotice(buf, clickPos + sf::Vector2f(0.0f, -104.0f), theme::Warn);
                     return;
                 }
                 GameEngine::MineResult res;
@@ -1913,7 +1911,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 #else
                     triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[PgDn]: Избери сграда", c);
 #endif
-                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -25.0f), c);
+                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -104.0f), c);
                 }
                 return;
             }

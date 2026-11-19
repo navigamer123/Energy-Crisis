@@ -424,7 +424,7 @@ sf::View UI_fx::worldView(const sf::View& base) const {
     return v;
 }
 
-void UI_fx::drawBuildings(sf::RenderWindow& window, UI_resourceNodes& nodes, const sf::Font& font, bool fontLoaded,
+void UI_fx::drawBuildings(sf::RenderTarget& window, UI_resourceNodes& nodes, const sf::Font& font, bool fontLoaded,
                           const std::vector<PlacedBuilding>& list) const {
     if (popIns.empty()) {
         nodes.drawPlacedBuildings(window, font, fontLoaded, list);

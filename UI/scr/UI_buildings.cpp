@@ -150,7 +150,7 @@ BuildingType UI_buildings::handleClick(sf::Vector2f clickPos) {
   return BuildingType::NONE;
 }
 
-void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
+void UI_buildings::draw(sf::RenderTarget &window, const sf::Font &font,
                         bool fontLoaded, sf::Vector2f mousePos,
                         const GameEngine &engine,
                         BuildingType activeSelection,
@@ -191,7 +191,8 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
                                         : "ПОСТРОЙКИ (ИГРАЧ 2) [PgDn]");
     }
 #endif
-    sf::Text& tHeader = ui::pooledText(font, toUtf8(pTag), fontsize::Label);
+    unsigned int headerSz = ui::fitTextSize(font, pTag, fontsize::Label, fontsize::Caption, panelSize.x - 16.0f, true);
+    sf::Text& tHeader = ui::pooledText(font, toUtf8(pTag), headerSz);
     tHeader.setStyle(sf::Text::Bold);
     tHeader.setFillColor(accentColor);
     tHeader.setPosition({panelPos.x + 8.0f, panelPos.y + 6.0f});
@@ -263,11 +264,6 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
       else if (b.type == BuildingType::LAMP) displayName = "Lamp";
       else if (b.type == BuildingType::DEMOLISH) displayName = "Demolish";
     }
-    sf::Text& tName = ui::pooledText(font, toUtf8(displayName), fontsize::Label);
-    tName.setStyle(sf::Text::Bold);
-    tName.setFillColor(isDemolish ? theme::Bad : theme::TextPrimary);
-    tName.setPosition({textX, y + 3.0f});
-    ui::drawText(window, tName);
 
     std::string badge;
     sf::Color badgeColor = theme::Energy;
@@ -283,17 +279,28 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
     } else {
       badge = "+" + std::to_string(cost.basePowerMW) + " MW";
     }
-    sf::Text& tBadge = ui::pooledText(font, toUtf8(badge), fontsize::Label);
+    unsigned int badgeSz = ui::fitTextSize(font, badge, 13, fontsize::Label, 72.0f, true);
+    sf::Text& tBadge = ui::pooledText(font, toUtf8(badge), badgeSz);
     tBadge.setStyle(sf::Text::Bold);
     tBadge.setFillColor(badgeColor);
     sf::FloatRect bb = tBadge.getLocalBounds();
-    tBadge.setPosition({rightX - bb.size.x - bb.position.x, y + 3.0f});
+    float badgeLeft = rightX - bb.size.x - bb.position.x;
+    tBadge.setPosition({badgeLeft, y + 2.0f});
+
+    float maxNameW = (rightX - bb.size.x - 6.0f) - textX;
+    unsigned int nameSz = ui::fitTextSize(font, displayName, 14, fontsize::Label, maxNameW, true);
+    sf::Text& tName = ui::pooledText(font, toUtf8(displayName), nameSz);
+    tName.setStyle(sf::Text::Bold);
+    tName.setFillColor(isDemolish ? theme::Bad : theme::TextPrimary);
+    tName.setPosition({textX, y + 2.0f});
+    ui::drawText(window, tName);
     ui::drawText(window, tBadge);
 
     // Row 2: costs as amount + resource icon, each green (enough) or red (missing)
-    const float costY = y + 20.0f;
+    const float costY = y + 21.0f;
     if (isDemolish) {
       std::string refundTxt = isEn ? "Refunds 50% resources" : "Връща половината ресурси";
+      refundTxt = ui::truncateWithEllipsis(font, refundTxt, fontsize::Caption, rightX - textX, false);
       sf::Text& tInfo = ui::pooledText(font, toUtf8(refundTxt), fontsize::Caption);
       tInfo.setFillColor(theme::TextSecondary);
       tInfo.setPosition({textX, costY + 1.0f});
@@ -339,7 +346,7 @@ void UI_buildings::draw(sf::RenderWindow &window, const sf::Font &font,
 #endif
 
     float hotkeyW = 0.0f;
-    const float statusY = y + 37.0f;
+    const float statusY = y + 38.0f;
     if (!hotkeyStr.empty()) {
       sf::Text& tKey = ui::pooledText(font, toUtf8(hotkeyStr), fontsize::Caption);
       tKey.setFillColor(theme::TextMuted);

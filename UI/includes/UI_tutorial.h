@@ -57,11 +57,11 @@ private:
     sf::FloatRect p2SkipBtnBounds;
     sf::FloatRect p2NextBtnBounds;
 
-    void drawSpotlight(sf::RenderWindow& window, sf::FloatRect targetRect, float animTime);
-    void drawArrow(sf::RenderWindow& window, sf::Vector2f targetPos, const std::string& label,
+    void drawSpotlight(sf::RenderTarget& window, sf::FloatRect targetRect, float animTime);
+    void drawArrow(sf::RenderTarget& window, sf::Vector2f targetPos, const std::string& label,
                    const sf::Font& font, float animTime, ArrowDir dir = ArrowDir::DOWN,
                    sf::Color color = sf::Color(0, 240, 255));
-    void drawPlayerCard(sf::RenderWindow& window, const sf::Font& font, int player,
+    void drawPlayerCard(sf::RenderTarget& window, const sf::Font& font, int player,
                         TutorialStep step, const sf::FloatRect& bounds,
                         const sf::FloatRect& skipBtn, const sf::FloatRect& nextBtn,
                         const GameEngine& engine, float animTime);
@@ -89,7 +89,7 @@ public:
     std::string getStepDescription(int player, TutorialStep step, const GameEngine& engine) const;
 
     void update(float dt, GameEngine& engine);
-    void draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void draw(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
               const GameEngine& engine, const UI_resourceNodes& nodes, float animTime,
               sf::Vector2f mousePos, sf::Vector2f p1Pos, sf::Vector2f p2Pos);
 

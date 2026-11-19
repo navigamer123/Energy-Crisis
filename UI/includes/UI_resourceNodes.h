@@ -23,21 +23,21 @@ private:
 public:
     UI_resourceNodes();
 
-    void drawNodes(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void drawNodes(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                    const GameEngine* engine = nullptr,
                    const float* p1Cooldowns = nullptr, const float* p2Cooldowns = nullptr,
                    float p1Cooldown = 0.0f, float p2Cooldown = 0.0f);
-    void drawLandPlots(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void drawLandPlots(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                        const std::vector<LandPlot>& plots, sf::Vector2f mousePos,
                        const std::vector<PlacedBuilding>& buildings = {});
-    void drawPlacedBuildings(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void drawPlacedBuildings(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                              const std::vector<PlacedBuilding>& buildings);
-    void drawBuildingGhost(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void drawBuildingGhost(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                            BuildingType type, sf::Vector2f pos, bool isValidPlacement,
                            const BuildingCost& cost, sf::Color overrideColor = sf::Color::Transparent);
     // Name, cost and keys of the ghost in a tooltip panel; drawn after the city so nothing covers it
     // (missing = "Недостигат: ..." replaces the cost line when the player cannot pay)
-    void drawBuildingGhostInfo(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void drawBuildingGhostInfo(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                                BuildingType type, sf::Vector2f pos, bool isValidPlacement,
                                const BuildingCost& cost, const std::string& missing = std::string());
 
@@ -57,10 +57,10 @@ public:
     bool isNearP2Mine(sf::Vector2f pt) const;
     bool isNearP2Forest(sf::Vector2f pt) const;
 
-    sf::FloatRect getP1ForestBounds() const { return sf::FloatRect({ 240.0f, 575.0f }, { 100.0f, 90.0f }); }
-    sf::FloatRect getP1MineBounds() const { return sf::FloatRect({ 330.0f, 575.0f }, { 280.0f, 180.0f }); }
-    sf::FloatRect getP2MineBounds() const { return sf::FloatRect({ 995.0f, 575.0f }, { 280.0f, 180.0f }); }
-    sf::FloatRect getP2ForestBounds() const { return sf::FloatRect({ 1270.0f, 575.0f }, { 100.0f, 90.0f }); }
+    sf::FloatRect getP1ForestBounds() const { return sf::FloatRect({ 232.0f, 538.0f }, { 110.0f, 110.0f }); }
+    sf::FloatRect getP1MineBounds() const { return sf::FloatRect({ 232.0f, 538.0f }, { 436.0f, 222.0f }); }
+    sf::FloatRect getP2MineBounds() const { return sf::FloatRect({ 932.0f, 538.0f }, { 436.0f, 222.0f }); }
+    sf::FloatRect getP2ForestBounds() const { return sf::FloatRect({ 1258.0f, 538.0f }, { 110.0f, 110.0f }); }
 };
 
 #endif // UI_RESOURCENODES_H

@@ -110,7 +110,7 @@ sf::Color weatherColor(WeatherType w, bool daylight) {
 }
 
 // Drawn "fast forward" mark (two triangles); the font has no U+23E9 glyph
-void drawFastForward(sf::RenderWindow& window, sf::Vector2f pos, float h, sf::Color color) {
+void drawFastForward(sf::RenderTarget& window, sf::Vector2f pos, float h, sf::Color color) {
     for (int i = 0; i < 2; ++i) {
         sf::ConvexShape tri(3);
         float x = pos.x + i * h * 0.55f;
@@ -124,7 +124,7 @@ void drawFastForward(sf::RenderWindow& window, sf::Vector2f pos, float h, sf::Co
 
 } // namespace
 
-void UI_clock::draw(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_clock::draw(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                     sf::Vector2f pos, sf::Vector2f size, sf::Color accentColor) {
     // Background card with the player's outline
     sf::RectangleShape card(size);

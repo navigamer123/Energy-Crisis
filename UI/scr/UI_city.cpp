@@ -13,7 +13,7 @@
 UI_city::UI_city() {
 }
 
-void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime, bool isDaylight) {
+void UI_city::drawDividingRiver(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded, float animTime, bool isDaylight) {
     float screenHeight = VIRTUAL_HEIGHT;
     float midX = VIRTUAL_WIDTH / 2.0f; // 800.0f
 
@@ -111,7 +111,7 @@ void UI_city::drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, 
     }
 }
 
-void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime,
+void UI_city::drawCity(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded, float animTime,
                       float p1Share, const std::string& cutMessage, bool isDaylight,
                       float currentHour, SeasonType season) {
     (void)currentHour;
@@ -334,11 +334,13 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
         int p2Pct = 100 - p1Pct;
         std::string phaseStr = isDaylight ? Lang::tr("common.day") : Lang::tr("common.night");
         std::string titleStr = Lang::fmt("city.title", phaseStr, std::to_string(p1Pct), std::to_string(p2Pct));
-        sf::Text& cLabel = ui::pooledText(font, toUtf8(titleStr), fontsize::Label);
+        unsigned int titleSz = ui::fitTextSize(font, titleStr, fontsize::Label, fontsize::Caption, cityWidth - 16.0f, true);
+        sf::Text& cLabel = ui::pooledText(font, toUtf8(titleStr), titleSz);
         cLabel.setStyle(sf::Text::Bold);
         cLabel.setFillColor(theme::TextPrimary);
         sf::FloatRect lb = cLabel.getLocalBounds();
-        cLabel.setPosition({ midX - lb.size.x / 2.0f, cityTop + 5.0f });
+        cLabel.setPosition({ midX - lb.size.x / 2.0f - lb.position.x,
+                             cityTop + (26.0f - lb.size.y) / 2.0f - lb.position.y });
         ui::drawText(window, cLabel, sf::FloatRect(banner.getPosition(), banner.getSize()));
 
         // Cut notification banner at bottom of city if conquest occurred
@@ -408,7 +410,7 @@ void UI_city::drawCity(sf::RenderWindow& window, const sf::Font& font, bool font
     }
 }
 
-void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_city::drawInfluenceBar(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                               int demand, int p1Energy, int p2Energy, float p1Share, int currentDay,
                               int graceDays) {
     float screenWidth = VIRTUAL_WIDTH;
@@ -443,11 +445,12 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
             demandColor = theme::TextPrimary;
         }
 
-        sf::Text& tDemand = ui::pooledText(font, toUtf8(dStr), fontsize::Label);
+        unsigned int demandSz = ui::fitTextSize(font, dStr, fontsize::Label, fontsize::Caption, panelW - 16.0f, true);
+        sf::Text& tDemand = ui::pooledText(font, toUtf8(dStr), demandSz);
         tDemand.setStyle(sf::Text::Bold);
         tDemand.setFillColor(demandColor);
         sf::FloatRect db = tDemand.getLocalBounds();
-        tDemand.setPosition({ panelX + (panelW - db.size.x) / 2.0f, panelY + 4.0f });
+        tDemand.setPosition({ panelX + (panelW - db.size.x) / 2.0f - db.position.x, panelY + 4.0f });
         ui::drawText(window, tDemand);
 
         const sf::FloatRect barRect = influenceBarRect(); // [b-effects] shared with the UI_fx tween overlay
@@ -494,13 +497,15 @@ void UI_city::drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, b
         sf::Text& p1Tag = ui::pooledText(font, toUtf8("P1 " + std::to_string(p1Pct) + "%"), fontsize::Caption);
         p1Tag.setStyle(sf::Text::Bold);
         p1Tag.setFillColor(theme::P1Light);
-        p1Tag.setPosition({ barX - 48.0f, barY - 2.0f });
+        sf::FloatRect p1b = p1Tag.getLocalBounds();
+        p1Tag.setPosition({ barX - 8.0f - p1b.size.x - p1b.position.x, barY - 2.0f });
         ui::drawText(window, p1Tag);
 
         sf::Text& p2Tag = ui::pooledText(font, toUtf8("P2 " + std::to_string(p2Pct) + "%"), fontsize::Caption);
         p2Tag.setStyle(sf::Text::Bold);
         p2Tag.setFillColor(theme::P2Light);
-        p2Tag.setPosition({ barX + barW + 8.0f, barY - 2.0f });
+        sf::FloatRect p2b = p2Tag.getLocalBounds();
+        p2Tag.setPosition({ barX + barW + 8.0f - p2b.position.x, barY - 2.0f });
         ui::drawText(window, p2Tag);
     }
 }

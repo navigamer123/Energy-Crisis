@@ -11,7 +11,7 @@ private:
 
 public:
     UI_resourceHUD();
-    void drawQuarterCircle(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void drawQuarterCircle(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                            const PlayerEconomy& econ, bool isWest);
 
     sf::FloatRect getP1BuyLandButton() const { return p1BuyLandBtn; }

@@ -236,7 +236,7 @@ void UI_map::spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color co
     notices.push_back(n);
 }
 
-void UI_map::drawFloatingNotices(sf::RenderWindow& window) {
+void UI_map::drawFloatingNotices(sf::RenderTarget& window) {
     if (!resourcesLoaded) return;
 
     for (const auto& n : notices) {
@@ -359,7 +359,7 @@ void UI_map::triggerPlayerPopup(int player, const std::string& badge, const std:
     notifications.push(player, prio, channel, finalBadge, finalTitle, finalDetail, finalAction, accent, false);
 }
 
-void UI_map::drawPlayerPopups(sf::RenderWindow& window) {
+void UI_map::drawPlayerPopups(sf::RenderTarget& window) {
     if (!resourcesLoaded) return;
     notifications.draw(window, font); // team info
 }
@@ -393,12 +393,15 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     m.badge = modalBadge;
 
     // Wrap every text to the box and grow the box to fit, so long engine messages stay inside
-    const float w = 360.0f;
-    const float textW = w - 24.0f;
-    auto textHeight = [this](const std::string& s, unsigned int size) {
+    const float w = 400.0f;
+    const float padX = 14.0f;
+    const float textW = w - 2.0f * padX;
+    auto textHeight = [this](const std::string& s, unsigned int size, bool bold) {
         if (s.empty() || !resourcesLoaded) return 0.0f;
         sf::Text& t = ui::pooledText(font, toUtf8(s), size);
-        return t.getLocalBounds().position.y + t.getLocalBounds().size.y;
+        t.setStyle(bold ? sf::Text::Bold : sf::Text::Regular);
+        sf::FloatRect tb = t.getLocalBounds();
+        return tb.position.y + tb.size.y;
     };
     m.title = resourcesLoaded ? ui::wrapText(font, modalTitle, fontsize::Body, textW, true) : modalTitle;
     m.detail = resourcesLoaded ? ui::wrapText(font, modalDetail, fontsize::Label, textW) : modalDetail;
@@ -406,17 +409,22 @@ void UI_map::triggerPlayerModal(int player, const std::string& badge, const std:
     std::string tipText = modalTip.empty() ? std::string() : tipPrefix + modalTip;
     m.tip = resourcesLoaded ? ui::wrapText(font, tipText, fontsize::Caption, textW) : tipText;
 
-    m.detailY = 40.0f + textHeight(m.title, fontsize::Body) + 10.0f;
-    m.tipY = m.detailY + textHeight(m.detail, fontsize::Label) + 12.0f;
-    float okY = m.tipY + (m.tip.empty() ? 0.0f : textHeight(m.tip, fontsize::Caption) + 14.0f);
-    float h = std::max(190.0f, okY + 32.0f + 12.0f);
+    const float headerH = 32.0f;
+    const float titleY = headerH + 10.0f;
+    m.detailY = titleY + textHeight(m.title, fontsize::Body, true) + 12.0f;
+    m.tipY = m.detailY + textHeight(m.detail, fontsize::Label, false) + 12.0f;
+    float okY = m.tipY + (m.tip.empty() ? 0.0f : textHeight(m.tip, fontsize::Caption, false) + 16.0f);
+    const float btnW = 250.0f;
+    const float btnH = 44.0f;
+    const float bottomPad = 14.0f;
+    float h = std::max(215.0f, okY + btnH + bottomPad);
 
     // Centred in the player's free map area (between the building panel and the centre line)
     float x = (player == 1) ? (248.0f + 800.0f - w) / 2.0f : (800.0f + 1352.0f - w) / 2.0f;
     float y = std::max(120.0f, 355.0f - h / 2.0f);
 
     m.box = sf::FloatRect({ x, y }, { w, h });
-    m.okBtn = sf::FloatRect({ x + (w - 200.0f) / 2.0f, y + h - 44.0f }, { 200.0f, 32.0f });
+    m.okBtn = sf::FloatRect({ x + (w - btnW) / 2.0f, y + h - btnH - bottomPad }, { btnW, btnH });
 }
 
 void UI_map::reportBuildFailure(int player, BuildingType sel, const std::string& engineMsg) {
@@ -466,7 +474,7 @@ void UI_map::closePlayerModal(int player) {
     primeInputEdges(player); // The dismissing key (Space/X/Enter/Del...) must not also act in-game
 }
 
-void UI_map::drawPlayerModals(sf::RenderWindow& window) {
+void UI_map::drawPlayerModals(sf::RenderTarget& window) {
     if (!resourcesLoaded) return;
     sf::Vector2f mousePos = ui::pointerPos(window);
 
@@ -491,35 +499,40 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         ui::lint::ContainerScope modalScope(m.box);
 
         // Header bar
-        sf::RectangleShape hBar({ m.box.size.x, 30.0f });
+        const float headerH = 32.0f;
+        sf::RectangleShape hBar({ m.box.size.x, headerH });
         hBar.setPosition(m.box.position);
         hBar.setFillColor(theme::PanelHeader);
         window.draw(hBar);
 
         // Badge / Alert Icon
-        sf::Text& tBadge = ui::pooledText(font, toUtf8("! " + m.badge), fontsize::Label);
+        std::string badgeStr = "! " + m.badge;
+        unsigned int badgeSz = ui::fitTextSize(font, badgeStr, fontsize::Label, fontsize::Caption, m.box.size.x - 24.0f, true);
+        sf::Text& tBadge = ui::pooledText(font, toUtf8(badgeStr), badgeSz);
         tBadge.setStyle(sf::Text::Bold);
         tBadge.setFillColor(m.accentColor);
-        tBadge.setPosition({ m.box.position.x + 10.0f, m.box.position.y + 6.0f });
+        sf::FloatRect bdgB = tBadge.getLocalBounds();
+        tBadge.setPosition({ m.box.position.x + 14.0f - bdgB.position.x,
+                             m.box.position.y + (headerH - bdgB.size.y) / 2.0f - bdgB.position.y });
         ui::drawText(window, tBadge);
 
         // Title
         sf::Text& tTitle = ui::pooledText(font, toUtf8(m.title), fontsize::Body);
         tTitle.setStyle(sf::Text::Bold);
         tTitle.setFillColor(theme::TextPrimary);
-        tTitle.setPosition({ m.box.position.x + 12.0f, m.box.position.y + 40.0f });
+        tTitle.setPosition({ m.box.position.x + 14.0f, m.box.position.y + headerH + 10.0f });
         ui::drawText(window, tTitle);
 
         // Detail explanation
         sf::Text& tDetail = ui::pooledText(font, toUtf8(m.detail), fontsize::Label);
         tDetail.setFillColor(theme::TextPrimary);
-        tDetail.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.detailY });
+        tDetail.setPosition({ m.box.position.x + 14.0f, m.box.position.y + m.detailY });
         ui::drawText(window, tDetail);
 
         if (!m.tip.empty()) {
             sf::Text& tTip = ui::pooledText(font, toUtf8(m.tip), fontsize::Caption);
             tTip.setFillColor(theme::Warn);
-            tTip.setPosition({ m.box.position.x + 12.0f, m.box.position.y + m.tipY });
+            tTip.setPosition({ m.box.position.x + 14.0f, m.box.position.y + m.tipY });
             ui::drawText(window, tTip);
         }
 
@@ -527,8 +540,8 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         bool btnHover = (mouseOwnerAt(mousePos) == pIdx) && m.okBtn.contains(mousePos);
         sf::RectangleShape btn(m.okBtn.size);
         btn.setPosition(m.okBtn.position);
-        btn.setFillColor(theme::GoodFill);
-        btn.setOutlineThickness(btnHover ? 2.0f : 1.5f);
+        btn.setFillColor(btnHover ? sf::Color(46, 160, 96) : theme::GoodFill);
+        btn.setOutlineThickness(btnHover ? 2.5f : 1.5f);
         btn.setOutlineColor(btnHover ? theme::Focus : theme::Good);
         window.draw(btn);
 
@@ -540,7 +553,8 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
         std::string okLabel = isEn ? (isArcade ? "GOT IT [A]" : (pIdx == 1 ? "GOT IT [SPACE]" : "GOT IT [ENTER]"))
                                    : (isArcade ? "РАЗБРАХ [A]" : (pIdx == 1 ? "РАЗБРАХ [SPACE]" : "РАЗБРАХ [ENTER]"));
 #endif
-        sf::Text& tOk = ui::pooledText(font, toUtf8(okLabel), fontsize::Label);
+        unsigned int okSz = ui::fitTextSize(font, okLabel, fontsize::H2, fontsize::Label, m.okBtn.size.x - 20.0f, true);
+        sf::Text& tOk = ui::pooledText(font, toUtf8(okLabel), okSz);
         tOk.setStyle(sf::Text::Bold);
         tOk.setFillColor(theme::TextPrimary);
         sf::FloatRect ob = tOk.getLocalBounds();
@@ -553,7 +567,7 @@ void UI_map::drawPlayerModals(sf::RenderWindow& window) {
     drawOneModal(p2Modal, 2);
 }
 
-void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
+void UI_map::drawMiningZonesAndBadges(sf::RenderTarget& window) {
     ResourceType p1Res = nodes.getP1ResourceAt(p1Pos);
     ResourceType p2Res = nodes.getP2ResourceAt(p2Pos);
 
@@ -600,8 +614,12 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderWindow& window) {
         const float iconSize = 16.0f;
         const float w = tb.size.x + iconSize + 22.0f;
         const float h = 24.0f;
-        float x = std::max(4.0f, std::min(pos.x - w / 2.0f, VIRTUAL_WIDTH - w - 4.0f));
         float y = std::max(4.0f, pos.y - 74.0f);
+        // Keep clear of the side building panels ([18..248, 115..510] and [1352..1582, 115..510]).
+        const bool overlapsBuildingBand = (y + h > 113.0f && y < 514.0f);
+        const float minX = overlapsBuildingBand ? 252.0f : 4.0f;
+        const float maxX = overlapsBuildingBand ? (1348.0f - w) : (VIRTUAL_WIDTH - w - 4.0f);
+        float x = std::max(minX, std::min(pos.x - w / 2.0f, maxX));
 
         sf::RectangleShape tagBox({ w, h });
         tagBox.setPosition({ x, y });

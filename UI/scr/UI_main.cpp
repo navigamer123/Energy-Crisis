@@ -14,28 +14,56 @@
 #include "../includes/UI_audio.h" // [b-effects]
 #include <iostream>
 
+namespace {
+template <typename MapT>
+auto renderMapImpl(MapT& m, sf::RenderTarget& target, int) -> decltype(m.render(target), void()) {
+    m.render(target);
+}
+template <typename MapT>
+void renderMapImpl(MapT& m, sf::RenderTarget& target, long) {
+    if (auto* win = dynamic_cast<sf::RenderWindow*>(&target)) {
+        m.render(*win);
+    }
+}
+} // namespace
+
 UI_main::UI_main(const ShotOptions& shotOptions)
+    : window(),
+      offscreen(shotOptions.enabled ? std::make_unique<sf::RenderTexture>(sf::Vector2u{ 1600u, 900u }) : nullptr),
+      currentState(UIState::MAIN_MENU),
 #if defined(__ANDROID__)
-    : window(sf::VideoMode::getDesktopMode(), "Energy Crisis", sf::State::Fullscreen),
-      currentState(UIState::MAIN_MENU),
-      isFullscreen(true),
-      shot(shotOptions) {
+      isFullscreen(!shotOptions.enabled),
 #else
-    : window((!shotOptions.enabled && ArcadeMode::isEnabled()) ? sf::VideoMode::getDesktopMode() : sf::VideoMode({ 1600, 900 }),
-             "Energy Crisis",
-             (!shotOptions.enabled && ArcadeMode::isEnabled()) ? sf::State::Fullscreen : sf::State::Windowed),
-      currentState(UIState::MAIN_MENU),
       isFullscreen(!shotOptions.enabled && ArcadeMode::isEnabled()),
-      shot(shotOptions) {
 #endif
-    window.setFramerateLimit(60);
-    window.setKeyRepeatEnabled(false); // A held key must not re-trigger menu/pause/hotkey events
+      shot(shotOptions) {
+    if (shotOptions.enabled) {
+        gameView.setSize({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
+        gameView.setCenter({ VIRTUAL_WIDTH / 2.0f, VIRTUAL_HEIGHT / 2.0f });
+        gameView.setViewport(sf::FloatRect({ 0.0f, 0.0f }, { 1.0f, 1.0f }));
+        if (offscreen) {
+            offscreen->setView(gameView);
+        }
+    } else {
+#if defined(__ANDROID__)
+        window.create(sf::VideoMode::getDesktopMode(), "Energy Crisis", sf::State::Fullscreen);
+#else
+        if (ArcadeMode::isEnabled()) {
+            window.create(sf::VideoMode::getDesktopMode(), "Energy Crisis", sf::State::Fullscreen);
+        } else {
+            window.create(sf::VideoMode({ 1600, 900 }), "Energy Crisis", sf::Style::Default);
+        }
+#endif
+        window.setFramerateLimit(60);
+        window.setKeyRepeatEnabled(false); // A held key must not re-trigger menu/pause/hotkey events
+        updateViewport();
+        UI_audio::get().init(); // [b-effects] synthesised sound and music (screenshots stay silent)
+    }
 #if defined(__ANDROID__)
     mainMenu.setBlitzMode(true);
 #endif
-    updateViewport();
-    if (!shot.enabled) UI_audio::get().init(); // [b-effects] synthesised sound and music (screenshots stay silent)
-    std::cout << "[UI_main] SFML RenderWindow (1600x900 virtual canvas) initialized.\n";
+    std::cout << "[UI_main] SFML " << (shot.enabled ? "Offscreen RenderTexture" : "RenderWindow")
+              << " (1600x900 virtual canvas) initialized.\n";
 }
 
 // Screenshot mode: open the requested scene directly, without any input
@@ -46,12 +74,15 @@ void UI_main::setupShotScene() {
 
     if (ui::shot::isMenuScene(shot.scene)) {
         MenuState s = MenuState::MAIN;
-        if (shot.scene == "modes") s = MenuState::MODE_SELECT;
+        if (shot.scene == "match_type") s = MenuState::MATCH_TYPE_SELECT;
+        else if (shot.scene == "ad_unlock") s = MenuState::AD_UNLOCK_PROMPT;
+        else if (shot.scene == "modes") s = MenuState::MODE_SELECT;
         else if (shot.scene == "bots") s = MenuState::BOT_DIFFICULTY;
         else if (shot.scene == "controls") s = MenuState::PLAY_CONTROLS;
         else if (shot.scene == "settings") s = MenuState::SETTINGS;
         else if (shot.scene == "remap" || shot.scene == "controls_remap") s = MenuState::SETTINGS_CONTROLS;
         else if (shot.scene == "arcade_start") s = MenuState::PRESS_A_TO_START;
+        else if (shot.scene == "arcade_bots") s = MenuState::ARCADE_BOT_DIFFICULTY;
         else if (shot.scene == "calibrate_blue") s = MenuState::CALIBRATE_BLUE;
         else if (shot.scene == "calibrate_red") s = MenuState::CALIBRATE_RED;
         else if (shot.scene == "popup_exit") {
@@ -84,34 +115,53 @@ void UI_main::setupShotScene() {
 }
 
 bool UI_main::saveRecordFrame(int index) {
+    char name[32];
+    std::snprintf(name, sizeof(name), "frame_%05d.png", index);
+    const std::string outFile = (std::filesystem::path(shot.recordDir) / name).string();
+    if (offscreen) {
+        return offscreen->getTexture().copyToImage().saveToFile(outFile);
+    }
     sf::Texture capture;
     if (!capture.resize(window.getSize())) return false;
     capture.update(window);
-    char name[32];
-    std::snprintf(name, sizeof(name), "frame_%05d.png", index);
-    return capture.copyToImage().saveToFile((std::filesystem::path(shot.recordDir) / name).string());
+    return capture.copyToImage().saveToFile(outFile);
 }
 
 int UI_main::finishShot() {
     int exitCode = 0;
     if (!shot.outPath.empty()) {
-        sf::Texture capture;
-        if (capture.resize(window.getSize())) {
-            capture.update(window);
-            if (capture.copyToImage().saveToFile(shot.outPath)) {
-                std::cout << "[Shot] Saved " << shot.outPath << " (" << window.getSize().x << "x"
-                          << window.getSize().y << ", scene " << shot.scene << ", " << shot.frames << " frames)\n";
+        if (offscreen) {
+            const sf::Vector2u sz = offscreen->getSize();
+            if (offscreen->getTexture().copyToImage().saveToFile(shot.outPath)) {
+                std::cout << "[Shot] Saved " << shot.outPath << " (" << sz.x << "x"
+                          << sz.y << ", scene " << shot.scene << ", " << shot.frames << " frames)\n";
             } else {
                 std::cerr << "[Shot] ERROR: could not write " << shot.outPath << "\n";
                 exitCode = 1;
             }
+            if (sz != sf::Vector2u(1600, 900)) {
+                std::cerr << "[Shot] Warning: the offscreen target is " << sz.x << "x" << sz.y
+                          << ", not 1600x900; the capture is scaled.\n";
+            }
         } else {
-            std::cerr << "[Shot] ERROR: could not create the capture texture\n";
-            exitCode = 1;
-        }
-        if (window.getSize() != sf::Vector2u(1600, 900)) {
-            std::cerr << "[Shot] Warning: the window is " << window.getSize().x << "x" << window.getSize().y
-                      << ", not 1600x900; the capture is scaled.\n";
+            sf::Texture capture;
+            if (capture.resize(window.getSize())) {
+                capture.update(window);
+                if (capture.copyToImage().saveToFile(shot.outPath)) {
+                    std::cout << "[Shot] Saved " << shot.outPath << " (" << window.getSize().x << "x"
+                              << window.getSize().y << ", scene " << shot.scene << ", " << shot.frames << " frames)\n";
+                } else {
+                    std::cerr << "[Shot] ERROR: could not write " << shot.outPath << "\n";
+                    exitCode = 1;
+                }
+            } else {
+                std::cerr << "[Shot] ERROR: could not create the capture texture\n";
+                exitCode = 1;
+            }
+            if (window.getSize() != sf::Vector2u(1600, 900)) {
+                std::cerr << "[Shot] Warning: the window is " << window.getSize().x << "x" << window.getSize().y
+                          << ", not 1600x900; the capture is scaled.\n";
+            }
         }
     }
     if (shot.lint) {
@@ -176,21 +226,62 @@ void UI_main::toggleFullscreen() {
 }
 
 int UI_main::render() {
-    if (shot.enabled) {
-        setupShotScene();
-    } else if (emulationMode) {
-        map.setBotVsBot(true, BotDifficulty::HARD);
-        map.restartMatch();
-        map.setControlScheme(ControlScheme::BOTH_KEYBOARD);
-        map.resetMatchInputState();
-        currentState = UIState::PLAYING;
-    }
     int frame = 0;
     int exitCode = 0;
     int recordErrors = 0;
     if (!shot.recordDir.empty()) {
         std::error_code ec;
         std::filesystem::create_directories(shot.recordDir, ec);
+    }
+
+    if (shot.enabled) {
+        setupShotScene();
+        if (!offscreen) {
+            std::cerr << "[UI_main] ERROR: offscreen render texture not initialized.\n";
+            return 1;
+        }
+        sf::Clock shotUpdateClock;
+        while (frame < shot.frames && currentState != UIState::QUIT) {
+            ui::beginTextFrame();
+            ui::lint::beginFrame();
+            ui::shot::tickFrame();
+
+            float dt = ui::shot::frameDt(shotUpdateClock.restart().asSeconds());
+            ArcadePopup::get().update(dt);
+
+            offscreen->setView(gameView);
+            offscreen->clear(theme::Window);
+
+            if (currentState == UIState::MAIN_MENU) {
+                mainMenu.render(*offscreen);
+            } else if (currentState == UIState::PLAYING) {
+                renderMapImpl(map, *offscreen, 0);
+            }
+
+            // Top-right arcade popup notification (credits, exit confirmation)
+            ArcadePopup::get().draw(*offscreen);
+            offscreen->display();
+
+            ++frame;
+            if (!shot.recordDir.empty() && frame % shot.recordEvery == 0 && !saveRecordFrame(frame / shot.recordEvery)) {
+                std::cerr << "[Shot] ERROR: could not write frame " << frame << " to " << shot.recordDir << "\n";
+                recordErrors++;
+            }
+        }
+        exitCode = std::max(finishShot(), recordErrors > 0 ? 1 : 0);
+        if (!shot.recordDir.empty()) {
+            std::cout << "[Shot] Recorded " << frame / shot.recordEvery << " frames of scene " << shot.scene
+                      << " to " << shot.recordDir << "\n";
+        }
+        return exitCode;
+    }
+
+    if (emulationMode) {
+        map.setBotVsBot(true, BotDifficulty::HARD);
+        map.restartMatch();
+        map.setControlScheme(ControlScheme::BOTH_KEYBOARD);
+        map.resetMatchInputState();
+        currentState = UIState::PLAYING;
     }
     sf::Clock audioClock; // [b-effects] frame time for the audio crossfades
     sf::Clock changeGameClock;
@@ -204,7 +295,7 @@ int UI_main::render() {
         ui::lint::beginFrame();
         ui::shot::tickFrame();
 
-        float dt = arcadeUpdateClock.restart().asSeconds();
+        float dt = ui::shot::frameDt(arcadeUpdateClock.restart().asSeconds());
         ArcadePopup::get().update(dt);
         if (changeGamePressCount > 0 && !ArcadePopup::get().isVisible()) {
             changeGamePressCount = 0;
@@ -433,27 +524,11 @@ int UI_main::render() {
         if (currentState == UIState::MAIN_MENU) {
             mainMenu.render(window);
         } else if (currentState == UIState::PLAYING) {
-            map.render(window);
+            renderMapImpl(map, window, 0);
         }
 
         // Top-right arcade popup notification (credits, exit confirmation)
         ArcadePopup::get().draw(window);
-
-        // Screenshot mode: capture the finished frame before display() (the back buffer is still valid)
-        if (shot.enabled) ++frame;
-        if (!shot.recordDir.empty() && frame % shot.recordEvery == 0 && !saveRecordFrame(frame / shot.recordEvery)) {
-            std::cerr << "[Shot] ERROR: could not write frame " << frame << " to " << shot.recordDir << "\n";
-            recordErrors++;
-        }
-        if (shot.enabled && frame >= shot.frames) {
-            exitCode = std::max(finishShot(), recordErrors > 0 ? 1 : 0);
-            if (!shot.recordDir.empty()) {
-                std::cout << "[Shot] Recorded " << frame / shot.recordEvery << " frames of scene " << shot.scene
-                          << " to " << shot.recordDir << "\n";
-            }
-            window.close();
-            break;
-        }
 
         window.display();
     }

@@ -159,7 +159,7 @@ void UI_fx::drawGround(sf::RenderTarget& target) const {
     for (const auto& d : decals) {
         float w = (d.kind == 0) ? wAutumn : wSpring;
         if (w < 0.01f) continue;
-        bool covered = (d.pos.y > 575.0f && d.pos.y < 755.0f && ((d.pos.x > 238.0f && d.pos.x < 614.0f) || (d.pos.x > 992.0f && d.pos.x < 1366.0f))); // mines
+        bool covered = (d.pos.y > 536.0f && d.pos.y < 762.0f && ((d.pos.x > 230.0f && d.pos.x < 670.0f) || (d.pos.x > 930.0f && d.pos.x < 1370.0f))); // mines
         for (const auto& plot : plots) {
             if (covered) break;
             sf::FloatRect r(plot.bounds.position - sf::Vector2f(4.0f, 4.0f), plot.bounds.size + sf::Vector2f(8.0f, 8.0f));

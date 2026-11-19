@@ -52,7 +52,7 @@ public:
     void drawBorderTag(sf::RenderTarget& target, const sf::Font& font, bool fontLoaded) const; // "ЦЕНТРАЛНА ГРАНИЦА"
     void applyLighting(sf::RenderTarget& target, bool mildPass);  // DS-11 (full pass, then mild pass)
     void drawPowerGrid(sf::RenderTarget& target) const;           // HX-07 hydro pipes, cables, pylons
-    void drawBuildings(sf::RenderWindow& window, UI_resourceNodes& nodes, const sf::Font& font, bool fontLoaded,
+    void drawBuildings(sf::RenderTarget& window, UI_resourceNodes& nodes, const sf::Font& font, bool fontLoaded,
                        const std::vector<PlacedBuilding>& buildings) const; // DS-08 pop-in
     void drawEmissive(sf::RenderTarget& target) const;            // HX-07 pulses, lamp halos
     void drawWorldFx(sf::RenderTarget& target) const;             // dust rings, debris, land/upgrade flashes

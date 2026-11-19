@@ -40,9 +40,9 @@ const float RIVER_X = 800.0f;
 const float RIVER_HALF = 13.0f;
 const float WEST_CANAL_X = 603.5f, EAST_CANAL_X = 996.5f, CANAL_HALF = 3.5f;
 const float CANAL_TOP = 100.0f, CANAL_JOIN_Y = 440.0f;
-const float ROAD_Y[2] = { 467.0f, 665.0f };
-const float ROAD_X0[2] = { 600.0f, 612.0f };
-const float ROAD_X1[2] = { 1000.0f, 994.0f };
+const float ROAD_Y[2] = { 467.0f, 650.0f };
+const float ROAD_X0[2] = { 600.0f, 668.0f };
+const float ROAD_X1[2] = { 1000.0f, 932.0f };
 const float ROAD_HALF = 7.0f;
 
 sf::Color alpha(sf::Color c, float a) {
@@ -88,12 +88,15 @@ float hash01(std::uint32_t n) {
 void UI_fx::initTraffic() {
     cars.clear();
     for (int road = 0; road < 2; ++road) {
+        float span = ROAD_X1[road] - ROAD_X0[road];
         for (int i = 0; i < 4; ++i) {
             Car c;
             c.road = road;
             c.dir = (i % 2 == 0) ? 1 : -1;
-            float span = ROAD_X1[road] - ROAD_X0[road];
-            c.x = ROAD_X0[road] + span * (0.12f + 0.25f * static_cast<float>(i)) ;
+            int laneSlot = i / 2; // 0 or 1 per (road, dir) lane
+            float frac = (c.dir > 0) ? (laneSlot == 0 ? 0.20f : 0.70f)
+                                     : (laneSlot == 0 ? 0.30f : 0.80f);
+            c.x = ROAD_X0[road] + span * frac;
             c.speed = 42.0f + 9.0f * static_cast<float>((i * 3 + road) % 4);
             c.body = CAR_COLORS[(i + road * 2) % 5];
             cars.push_back(c);
@@ -102,11 +105,46 @@ void UI_fx::initTraffic() {
 }
 
 void UI_fx::advanceTraffic(float dt) {
-    for (auto& c : cars) {
-        float slow = (seasonW[3] > 0.5f) ? 0.7f : 1.0f; // careful on winter roads
-        c.x += static_cast<float>(c.dir) * c.speed * slow * dt;
-        if (c.dir > 0 && c.x > ROAD_X1[c.road] + 6.0f) c.x = ROAD_X0[c.road] - 6.0f;
-        if (c.dir < 0 && c.x < ROAD_X0[c.road] - 6.0f) c.x = ROAD_X1[c.road] + 6.0f;
+    constexpr float BRAKE_DIST = 44.0f;
+    constexpr float MIN_CAR_GAP = 26.0f;
+    const float slow = (seasonW[3] > 0.5f) ? 0.7f : 1.0f; // careful on winter roads
+
+    std::vector<Car> prev = cars;
+    for (std::size_t i = 0; i < cars.size(); ++i) {
+        const Car& me = prev[i];
+        const float xMin = ROAD_X0[me.road] - 6.0f;
+        const float xMax = ROAD_X1[me.road] + 6.0f;
+        const float wrapSpan = xMax - xMin;
+        if (wrapSpan <= 1.0f) continue;
+
+        float ahead = wrapSpan;
+        float leaderSpeed = me.speed;
+        for (std::size_t j = 0; j < prev.size(); ++j) {
+            if (i == j || prev[j].road != me.road || prev[j].dir != me.dir) continue;
+            float d = (me.dir > 0) ? (prev[j].x - me.x) : (me.x - prev[j].x);
+            d = std::fmod(d, wrapSpan);
+            if (d <= 0.0f) d += wrapSpan;
+            if (d < ahead) {
+                ahead = d;
+                leaderSpeed = prev[j].speed;
+            }
+        }
+
+        float baseSpd = me.speed * slow;
+        float effSpd = baseSpd;
+        if (ahead < BRAKE_DIST) {
+            float t = std::clamp((ahead - MIN_CAR_GAP) / (BRAKE_DIST - MIN_CAR_GAP), 0.0f, 1.0f);
+            float matchSpd = std::min(baseSpd, leaderSpeed * slow);
+            float targetSpd = matchSpd * (0.25f + 0.75f * t);
+            effSpd = targetSpd + (baseSpd - targetSpd) * t;
+        }
+
+        float maxStep = std::min(wrapSpan * 0.25f, std::max(0.0f, ahead - MIN_CAR_GAP));
+        float step = std::clamp(effSpd * dt, 0.0f, maxStep);
+        float rawX = me.x + static_cast<float>(me.dir) * step;
+        float wrapped = std::fmod(rawX - xMin, wrapSpan);
+        if (wrapped < 0.0f) wrapped += wrapSpan;
+        cars[i].x = xMin + wrapped;
     }
 }
 

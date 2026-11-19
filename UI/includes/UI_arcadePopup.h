@@ -11,7 +11,7 @@ public:
     void init();
     void show(const std::string& message, float durationSeconds = 2.0f);
     void update(float dt);
-    void draw(sf::RenderWindow& window);
+    void draw(sf::RenderTarget& target);
     bool isVisible() const { return timer > 0.0f; }
     const std::string& getMessage() const { return currentMessage; }
     float getTimer() const { return timer; }

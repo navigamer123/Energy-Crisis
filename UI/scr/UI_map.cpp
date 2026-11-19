@@ -107,7 +107,7 @@ void UI_map::setBotVsBot(bool enabled, BotDifficulty diff) {
     std::cout << "[UI_map] Bot vs Bot emulation mode set to: " << (enabled ? "ENABLED" : "DISABLED") << "\n";
 }
 
-void UI_map::drawBackground(sf::RenderWindow& window) {
+void UI_map::drawBackground(sf::RenderTarget& window) {
     float screenWidth = VIRTUAL_WIDTH;
     float screenHeight = VIRTUAL_HEIGHT;
 
@@ -240,7 +240,7 @@ bool UI_map::isPosOnPurchasedLand(int player, sf::Vector2f pos) const {
     return false;
 }
 
-void UI_map::render(sf::RenderWindow& window) {
+void UI_map::render(sf::RenderTarget& window) {
     float realDt = deltaClock.restart().asSeconds();
     devOverlay.recordFrame(realDt); // team info: real frame time, before the clamp
     float dt = ui::shot::frameDt(realDt);
@@ -337,6 +337,15 @@ void UI_map::render(sf::RenderWindow& window) {
 
     // Day/night light map over the terrain (DS-11)
     fx.applyLighting(window, false);
+
+    // Terrain-layer lightning flash (drawn below land plots, city, and station cards so text stays crisp)
+    if (lightningFlashTimer > 0.0f) {
+        sf::RectangleShape flash({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
+        flash.setPosition({ 0.0f, 0.0f });
+        std::uint8_t a = static_cast<std::uint8_t>(std::min(85.0f, lightningFlashTimer * 340.0f));
+        flash.setFillColor(sf::Color(220, 240, 255, a));
+        window.draw(flash);
+    }
 
     // 5. Purchasable Land Plots Grid
     nodes.drawLandPlots(window, font, resourcesLoaded, engine.getLandPlots(), mousePos, engine.getBuildings());
@@ -590,17 +599,20 @@ void UI_map::render(sf::RenderWindow& window) {
         tEmu.setFillColor(theme::Gold);
         sf::FloatRect eb = tEmu.getLocalBounds();
         float bW = eb.size.x + 28.0f;
-        float bH = eb.size.y + 12.0f;
+        float bH = eb.size.y + 14.0f;
         float bX = (VIRTUAL_WIDTH - bW) / 2.0f;
-        float bY = 8.0f;
+        float bY = 812.0f;
         sf::RectangleShape banner({ bW, bH });
         banner.setPosition({ bX, bY });
-        banner.setFillColor(sf::Color(16, 22, 34, 235));
+        banner.setFillColor(sf::Color(16, 22, 34, 240));
         banner.setOutlineThickness(1.5f);
         banner.setOutlineColor(theme::Gold);
         window.draw(banner);
-        tEmu.setPosition({ bX + 14.0f - eb.position.x, bY + 6.0f - eb.position.y });
-        ui::drawText(window, tEmu);
+        const sf::FloatRect bannerRect({ bX, bY }, { bW, bH });
+        ui::lint::occlude(bannerRect);
+        tEmu.setPosition({ bX + (bW - eb.size.x) / 2.0f - eb.position.x,
+                           bY + (bH - eb.size.y) / 2.0f - eb.position.y });
+        ui::drawText(window, tEmu, bannerRect);
     }
 
     // 22. team info: developer overlay ([F3]) above everything

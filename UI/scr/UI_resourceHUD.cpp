@@ -9,11 +9,11 @@
 #include <string>
 
 UI_resourceHUD::UI_resourceHUD()
-    : p1BuyLandBtn({ 14.0f, 834.0f }, { 186.0f, 26.0f }),
-      p2BuyLandBtn({ 1600.0f - 200.0f, 834.0f }, { 186.0f, 26.0f }) {
+    : p1BuyLandBtn({ 12.0f, 814.0f }, { 196.0f, 34.0f }),
+      p2BuyLandBtn({ 1600.0f - 208.0f, 814.0f }, { 196.0f, 34.0f }) {
 }
 
-void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+void UI_resourceHUD::drawQuarterCircle(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                                        const PlayerEconomy& econ, bool isWest) {
     const float screenWidth = VIRTUAL_WIDTH;
     const float screenHeight = VIRTUAL_HEIGHT;
@@ -65,45 +65,52 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
         { ResourceType::GOLD, econ.gold, " G", theme::Gold },
         { ResourceType::MONEY, econ.money, " $", theme::Money },
     };
-    const float col1X = isWest ? 18.0f : screenWidth - 196.0f;
-    const float col2X = isWest ? 96.0f : screenWidth - 106.0f;
-    const float rowY[4] = { screenHeight - 216.0f, screenHeight - 186.0f, screenHeight - 156.0f, screenHeight - 126.0f };
+    const float col1X = isWest ? 12.0f : screenWidth - 138.0f;
+    const float col2X = isWest ? 76.0f : screenWidth - 76.0f;
+    const float maxSlotTextW = isWest ? 38.0f : 44.0f;
+    const float rowY[4] = { screenHeight - 205.0f, screenHeight - 184.0f, screenHeight - 163.0f, screenHeight - 142.0f };
 
-    auto drawSlot = [&](const Slot& s, float x, float y) {
+    auto drawSlot = [&](const Slot& s, float x, float y, float maxW) {
         drawResourceIcon(window, s.type, { x + 8.0f, y + 8.0f }, 16.0f);
         if (!fontLoaded) return;
-        sf::Text& t = ui::pooledText(font, toUtf8(std::to_string(s.value) + s.suffix), fontsize::H2);
+        std::string valStr = std::to_string(s.value) + s.suffix;
+        unsigned int sz = ui::fitTextSize(font, valStr, fontsize::H2, fontsize::Caption, maxW, true);
+        sf::Text& t = ui::pooledText(font, toUtf8(valStr), sz);
         t.setStyle(sf::Text::Bold);
         t.setFillColor(s.color);
         sf::FloatRect tb = t.getLocalBounds();
-        t.setPosition({ x + 22.0f - tb.position.x, y + 8.0f - tb.size.y / 2.0f - tb.position.y });
+        t.setPosition({ x + 21.0f - tb.position.x, y + 8.0f - tb.size.y / 2.0f - tb.position.y });
         ui::drawText(window, t);
     };
     for (int i = 0; i < 4; ++i) {
-        drawSlot(leftCol[i], col1X, rowY[i]);
-        drawSlot(rightCol[i], col2X, rowY[i]);
+        drawSlot(leftCol[i], col1X, rowY[i], isWest ? 39.0f : 38.0f);
+        drawSlot(rightCol[i], col2X, rowY[i], isWest ? 48.0f : maxSlotTextW);
     }
 
     // -------------------------------------------------------------------------
     // Power plaque: MW delivered now and the player's share of the city
     // -------------------------------------------------------------------------
-    const float plaqueX = isWest ? 14.0f : screenWidth - 200.0f;
-    sf::RectangleShape energyPlaque({ 186.0f, 26.0f });
-    energyPlaque.setPosition({ plaqueX, screenHeight - 98.0f });
+    const float plaqueX = isWest ? 12.0f : screenWidth - 208.0f;
+    const float plaqueW = 196.0f;
+    const float plaqueH = 28.0f;
+    const float plaqueY = screenHeight - 120.0f;
+    sf::RectangleShape energyPlaque({ plaqueW, plaqueH });
+    energyPlaque.setPosition({ plaqueX, plaqueY });
     energyPlaque.setFillColor(theme::withAlpha(theme::Panel, 235));
-    energyPlaque.setOutlineThickness(1.0f);
+    energyPlaque.setOutlineThickness(1.2f);
     energyPlaque.setOutlineColor(accent);
     window.draw(energyPlaque);
-    drawResourceIcon(window, ResourceType::ENERGY, { plaqueX + 13.0f, screenHeight - 85.0f }, 16.0f);
+    drawResourceIcon(window, ResourceType::ENERGY, { plaqueX + 13.0f, plaqueY + plaqueH / 2.0f }, 16.0f);
     if (fontLoaded) {
         bool isEn = (UI_settings::get().getLanguage() == "en");
         int sharePct = static_cast<int>(std::lround(econ.cityInfluence * 100.0f));
         std::string pStr = std::to_string(econ.energyMW) + (isEn ? " MW · city " : " MW · град ") + std::to_string(sharePct) + "%";
-        sf::Text& tPwr = ui::pooledText(font, toUtf8(pStr), fontsize::Label);
+        unsigned int pSz = ui::fitTextSize(font, pStr, fontsize::Label, fontsize::Caption, plaqueW - 32.0f, true);
+        sf::Text& tPwr = ui::pooledText(font, toUtf8(pStr), pSz);
         tPwr.setStyle(sf::Text::Bold);
         tPwr.setFillColor(theme::Energy);
         sf::FloatRect pb = tPwr.getLocalBounds();
-        tPwr.setPosition({ plaqueX + 26.0f - pb.position.x, screenHeight - 85.0f - pb.size.y / 2.0f - pb.position.y });
+        tPwr.setPosition({ plaqueX + 26.0f - pb.position.x, plaqueY + plaqueH / 2.0f - pb.size.y / 2.0f - pb.position.y });
         ui::drawText(window, tPwr, sf::FloatRect(energyPlaque.getPosition(), energyPlaque.getSize()));
     }
 
@@ -111,17 +118,19 @@ void UI_resourceHUD::drawQuarterCircle(sf::RenderWindow& window, const sf::Font&
     // Land expansion button (buys the cheapest plot still for sale)
     // -------------------------------------------------------------------------
     sf::FloatRect& landRect = isWest ? p1BuyLandBtn : p2BuyLandBtn;
-    landRect = sf::FloatRect({ plaqueX, screenHeight - 66.0f }, { 186.0f, 26.0f });
+    landRect = sf::FloatRect({ plaqueX, screenHeight - 86.0f }, { plaqueW, 34.0f });
     bool hoverLand = landRect.contains(mousePos);
     sf::RectangleShape landBtn(landRect.size);
     landBtn.setPosition(landRect.position);
     landBtn.setFillColor(hoverLand ? theme::ButtonHover : theme::playerDark(player));
-    landBtn.setOutlineThickness(hoverLand ? 2.0f : 1.0f);
+    landBtn.setOutlineThickness(hoverLand ? 2.0f : 1.5f);
     landBtn.setOutlineColor(hoverLand ? theme::Focus : accent);
     window.draw(landBtn);
     if (fontLoaded) {
         bool isEn = (UI_settings::get().getLanguage() == "en");
-        sf::Text& tLand = ui::pooledText(font, toUtf8(isEn ? "+ BUY LAND" : "+ КУПИ ЗЕМЯ"), fontsize::Label);
+        std::string landLabel = isEn ? "+ BUY LAND" : "+ КУПИ ЗЕМЯ";
+        unsigned int landSz = ui::fitTextSize(font, landLabel, fontsize::Body, fontsize::Label, landRect.size.x - 16.0f, true);
+        sf::Text& tLand = ui::pooledText(font, toUtf8(landLabel), landSz);
         tLand.setStyle(sf::Text::Bold);
         tLand.setFillColor(theme::TextPrimary);
         sf::FloatRect tb = tLand.getLocalBounds();

@@ -8,12 +8,12 @@
 class UI_city {
 public:
     UI_city();
-    void drawCity(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime,
+    void drawCity(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded, float animTime,
                   float p1Share, const std::string& cutMessage, bool isDaylight = true,
                   float currentHour = 12.0f, SeasonType season = SeasonType::SPRING);
-    void drawDividingRiver(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded, float animTime,
+    void drawDividingRiver(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded, float animTime,
                            bool isDaylight = true);
-    void drawInfluenceBar(sf::RenderWindow& window, const sf::Font& font, bool fontLoaded,
+    void drawInfluenceBar(sf::RenderTarget& window, const sf::Font& font, bool fontLoaded,
                           int demand, int p1Energy, int p2Energy, float p1Share, int currentDay = 1,
                           int graceDays = 2);
 

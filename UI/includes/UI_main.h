@@ -5,6 +5,7 @@
 #include "UI_map.h"
 #include "UI_shot.h"
 #include <SFML/Graphics.hpp>
+#include <memory>
 
 enum class UIState { MAIN_MENU, PLAYING, QUIT };
 
@@ -12,6 +13,7 @@ class UI_main {
 private:
   sf::RenderWindow window;
   sf::View gameView;
+  std::unique_ptr<sf::RenderTexture> offscreen;
   UI_map map;
   UIState currentState;
   bool isFullscreen;

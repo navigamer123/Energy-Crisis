@@ -77,19 +77,19 @@ private:
     UI_playControls playControls;
 
     // Logo title: large on the top-level menu, compact above the submenus
-    void drawHeader(sf::RenderWindow& window, bool large = false);
-    void drawPressAToStart(sf::RenderWindow& window);
-    void drawArcadeBotDifficulty(sf::RenderWindow& window);
-    void drawCalibration(sf::RenderWindow& window, bool isBlue);
-    void drawMainMenu(sf::RenderWindow& window);
-    void drawMatchTypeMenu(sf::RenderWindow& window);
-    void drawModeSelectMenu(sf::RenderWindow& window);
-    void drawBotDifficultyMenu(sf::RenderWindow& window);
-    void drawSettingsMenu(sf::RenderWindow& window);
-    void drawControlsRemapMenu(sf::RenderWindow& window);
-    void drawAdUnlockPrompt(sf::RenderWindow& window);
+    void drawHeader(sf::RenderTarget& target, bool large = false);
+    void drawPressAToStart(sf::RenderTarget& target);
+    void drawArcadeBotDifficulty(sf::RenderTarget& target);
+    void drawCalibration(sf::RenderTarget& target, bool isBlue);
+    void drawMainMenu(sf::RenderTarget& target);
+    void drawMatchTypeMenu(sf::RenderTarget& target);
+    void drawModeSelectMenu(sf::RenderTarget& target);
+    void drawBotDifficultyMenu(sf::RenderTarget& target);
+    void drawSettingsMenu(sf::RenderTarget& target);
+    void drawControlsRemapMenu(sf::RenderTarget& target);
+    void drawAdUnlockPrompt(sf::RenderTarget& target);
 
-    void drawButton(sf::RenderWindow& window, sf::FloatRect bounds, const sf::String& text,
+    void drawButton(sf::RenderTarget& target, sf::FloatRect bounds, const sf::String& text,
                     sf::Color baseColor, sf::Color hoverColor, sf::Color textColor,
                     bool isSelected);
     bool isPointInside(sf::FloatRect bounds, sf::Vector2f pt) const;
@@ -99,7 +99,7 @@ public:
     ~UI_mainMenu();
 
     void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
-    void render(sf::RenderWindow& window);
+    void render(sf::RenderTarget& target);
 
     void onPlay();
     void onSettings();
