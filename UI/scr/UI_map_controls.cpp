@@ -321,6 +321,10 @@ void UI_map::executeP1Action() {
             reportBuildFailure(1, sel, msg);
         }
     } else {
+        if (nodes.getP1UpgradeAt(p1Pos) != ResourceType::NONE) {
+            executeP1Upgrade();
+            return;
+        }
         ResourceType resType = nodes.getP1ResourceAt(p1Pos);
         if (resType != ResourceType::NONE) {
             float cd = getP1ResourceCooldown(resType);
@@ -484,6 +488,10 @@ void UI_map::executeP2Action() {
             reportBuildFailure(2, sel, msg);
         }
     } else {
+        if (nodes.getP2UpgradeAt(p2Pos) != ResourceType::NONE) {
+            executeP2Upgrade();
+            return;
+        }
         ResourceType resType = nodes.getP2ResourceAt(p2Pos);
         if (resType != ResourceType::NONE) {
             float cd = getP2ResourceCooldown(resType);
@@ -542,6 +550,8 @@ void UI_map::executeP2Action() {
 void UI_map::executeP1Upgrade() {
     p1Pulse = 1.0f;
     ResourceType resType = nodes.getP1StationAt(p1Pos);
+    if (resType == ResourceType::NONE) resType = nodes.getP1UpgradeAt(p1Pos);
+    if (resType == ResourceType::NONE) resType = nodes.getP1ResourceAt(p1Pos);
     if (resType == ResourceType::NONE || resType == ResourceType::MONEY) {
         spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p1Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
         return;
@@ -562,6 +572,8 @@ void UI_map::executeP1Upgrade() {
 void UI_map::executeP2Upgrade() {
     p2Pulse = 1.0f;
     ResourceType resType = nodes.getP2StationAt(p2Pos);
+    if (resType == ResourceType::NONE) resType = nodes.getP2UpgradeAt(p2Pos);
+    if (resType == ResourceType::NONE) resType = nodes.getP2ResourceAt(p2Pos);
     if (resType == ResourceType::NONE || resType == ResourceType::MONEY) {
         spawnNotice("ЗАСТАНЕТЕ ВЪРХУ МИНА ЗА ДА Я НАДГРАДИТЕ!", p2Pos + sf::Vector2f(0.0f, -25.0f), theme::Warn);
         return;
@@ -1808,7 +1820,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
 
         // 4. Click on Upgrade Button of Resource Stations
-        if (owner == 1) {
+        if (owner == 1 || owner == 0) {
             ResourceType p1Up = nodes.getP1UpgradeAt(clickPos);
             if (p1Up != ResourceType::NONE) {
                 std::string msg;
@@ -1829,7 +1841,8 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 }
                 return;
             }
-        } else {
+        }
+        if (owner == 2 || owner == 0) {
             ResourceType p2Up = nodes.getP2UpgradeAt(clickPos);
             if (p2Up != ResourceType::NONE) {
                 std::string msg;
@@ -1853,7 +1866,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
         }
 
         // 5. Click on Resource Stations
-        if (owner == 1) {
+        if (owner == 1 || owner == 0) {
             ResourceType p1Res = nodes.getP1ResourceAt(clickPos);
             if (p1Res != ResourceType::NONE) {
                 if (engine.getSelectedBuilding(1) != BuildingType::NONE) {
@@ -1884,7 +1897,8 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
                 }
                 return;
             }
-        } else {
+        }
+        if (owner == 2 || owner == 0) {
             ResourceType p2Res = nodes.getP2ResourceAt(clickPos);
             if (p2Res != ResourceType::NONE) {
                 if (engine.getSelectedBuilding(2) != BuildingType::NONE) {
