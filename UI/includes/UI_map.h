@@ -98,7 +98,7 @@ private:
     void drawPlayerModals(sf::RenderTarget& window);
 
     void updateControls(const sf::RenderTarget& window, float dt);
-    void spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color color);
+    void spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color color, ResourceType icon = ResourceType::NONE);
     void triggerPlayerPopup(int player, const std::string& badge, const std::string& title,
                             const std::string& detail, const std::string& action, sf::Color accent);
     void triggerPlayerModal(int player, const std::string& badge, const std::string& title,

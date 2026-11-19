@@ -349,7 +349,7 @@ void UI_map::executeP1Action() {
                 std::snprintf(tipBuf, sizeof(tipBuf), "[SPACE]: Добив (на %.1f сек)", newCd);
 #endif
                 triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", tipBuf, c);
-                spawnNotice(msg, p1Pos + sf::Vector2f(0.0f, -104.0f), c);
+                spawnNotice("+" + std::to_string(res.amount), p1Pos + sf::Vector2f(0.0f, -104.0f), c, resType);
             }
         } else {
             for (const auto& plot : engine.getLandPlots()) {
@@ -516,7 +516,7 @@ void UI_map::executeP2Action() {
                 std::snprintf(tipBuf, sizeof(tipBuf), "[ENTER]: Добив (на %.1f сек)", newCd);
 #endif
                 triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", tipBuf, c);
-                spawnNotice(msg, p2Pos + sf::Vector2f(0.0f, -104.0f), c);
+                spawnNotice("+" + std::to_string(res.amount), p2Pos + sf::Vector2f(0.0f, -104.0f), c, resType);
             }
         } else {
             for (const auto& plot : engine.getLandPlots()) {
@@ -1893,7 +1893,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 #else
                     triggerPlayerPopup(1, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[E]: Избери сграда", c);
 #endif
-                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -104.0f), c);
+                    spawnNotice("+" + std::to_string(res.amount), clickPos + sf::Vector2f(0.0f, -104.0f), c, p1Res);
                 }
                 return;
             }
@@ -1925,7 +1925,7 @@ void UI_map::handleEvent(const sf::Event& event, const sf::RenderWindow& window)
 #else
                     triggerPlayerPopup(2, "ДОБИВ", msg, "Ресурсът е добавен в склада.", "[PgDn]: Избери сграда", c);
 #endif
-                    spawnNotice(msg, clickPos + sf::Vector2f(0.0f, -104.0f), c);
+                    spawnNotice("+" + std::to_string(res.amount), clickPos + sf::Vector2f(0.0f, -104.0f), c, p2Res);
                 }
                 return;
             }

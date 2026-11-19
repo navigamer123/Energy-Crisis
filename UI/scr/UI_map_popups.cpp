@@ -225,7 +225,7 @@ std::string translateModalTip(const std::string& text) {
 // UI_map Popups, Notices, Interactive Modals & Mining Prompts
 // =============================================================================
 
-void UI_map::spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color color) {
+void UI_map::spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color color, ResourceType icon) {
     std::string finalText = (UI_settings::get().getLanguage() == "en") ? translateNoticeText(text) : text;
     FloatingNotice n;
     n.text = finalText;
@@ -233,6 +233,7 @@ void UI_map::spawnNotice(const std::string& text, sf::Vector2f pos, sf::Color co
     n.timer = 1.8f;
     n.maxTimer = 1.8f;
     n.color = color;
+    n.icon = icon;
     notices.push_back(n);
 }
 
@@ -246,15 +247,22 @@ void UI_map::drawFloatingNotices(sf::RenderTarget& window) {
         t.setStyle(sf::Text::Bold);
         t.setFillColor(theme::withAlpha(n.color, alpha));
         sf::FloatRect b = t.getLocalBounds();
+        const bool hasIcon = (n.icon != ResourceType::NONE);
+        const float iconSize = 16.0f;
+        const float iconBlock = hasIcon ? (iconSize + 6.0f) : 0.0f;
         // Dark pill behind the rising text so it stays readable over the map and the panels
-        sf::Vector2f pillSize(b.size.x + 12.0f, b.size.y + 8.0f);
+        sf::Vector2f pillSize(b.size.x + 12.0f + iconBlock, std::max(b.size.y, hasIcon ? iconSize : 0.0f) + 8.0f);
         sf::Vector2f pillPos(std::max(2.0f, std::min(n.pos.x - pillSize.x / 2.0f, VIRTUAL_WIDTH - pillSize.x - 2.0f)), n.pos.y);
         sf::RectangleShape pill(pillSize);
         pill.setPosition(pillPos);
         pill.setFillColor(theme::withAlpha(theme::Window, static_cast<std::uint8_t>(alphaFrac * 200)));
         window.draw(pill);
         if (alpha >= 40) ui::lint::occlude(sf::FloatRect(pillPos, pillSize));
-        t.setPosition({ pillPos.x + 6.0f - b.position.x, pillPos.y + 4.0f - b.position.y });
+        if (hasIcon) {
+            drawResourceIcon(window, n.icon, { pillPos.x + 6.0f + iconSize * 0.5f, pillPos.y + pillSize.y * 0.5f }, iconSize);
+        }
+        t.setPosition({ pillPos.x + 6.0f + iconBlock - b.position.x,
+                        pillPos.y + (pillSize.y - b.size.y) * 0.5f - b.position.y });
         ui::drawText(window, t);
     }
 }
@@ -575,37 +583,16 @@ void UI_map::drawMiningZonesAndBadges(sf::RenderTarget& window) {
     // or the remaining cooldown with a progress bar
     auto drawPrompt = [&](int player, sf::Vector2f pos, ResourceType res, const std::string& keyStr, float cd) {
         if (!resourcesLoaded) return;
-        const auto* st = nodes.getStation(player, res);
         const int yield = UI_resourceNodes::mineYield(res, engine.getMineLevel(player, res));
         const bool cooling = cd > 0.05f;
         bool isEn = (UI_settings::get().getLanguage() == "en");
-        std::string name;
-        if (isEn) {
-            if (st) {
-                switch (st->type) {
-                    case ResourceType::WOOD: name = "FOREST"; break;
-                    case ResourceType::IRON: name = "IRON"; break;
-                    case ResourceType::COPPER: name = "COPPER"; break;
-                    case ResourceType::COAL: name = "COAL"; break;
-                    case ResourceType::SILICON: name = "SILICON"; break;
-                    case ResourceType::SILVER: name = "SILVER"; break;
-                    case ResourceType::GOLD: name = "GOLD"; break;
-                    default: name = "GATHER"; break;
-                }
-            } else {
-                name = "GATHER";
-            }
-        } else {
-            name = st ? st->nameBg : std::string("ДОБИВ");
-        }
         std::string promptText;
         if (cooling) {
-            char buf[48];
-            std::snprintf(buf, sizeof(buf), isEn ? " · wait %.1fs" : " · изчакайте %.1fс", static_cast<double>(cd));
-            promptText = name + buf;
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), isEn ? "%.1fs" : "%.1fс", static_cast<double>(cd));
+            promptText = buf;
         } else {
-            std::string resName = isEn ? resourceNameEn(res) : resourceNameBg(res);
-            promptText = name + " +" + std::to_string(yield) + " " + resName + " · " + keyStr;
+            promptText = "+" + std::to_string(yield) + " · " + keyStr;
         }
 
         sf::Text& t = ui::pooledText(font, toUtf8(promptText), fontsize::Label);

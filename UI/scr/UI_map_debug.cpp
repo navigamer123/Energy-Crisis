@@ -198,7 +198,7 @@ void UI_map::setupDebugScene(const std::string& scene, int frames) {
         }
         p1ResourceCooldown = 0.6f;
         engine.setTimeScale(Balance::MINE_SPEEDUP_MULT);
-        spawnNotice("+12 Дърво", noticePos, theme::Wood);
+        spawnNotice("+12", noticePos, theme::Wood, ResourceType::WOOD);
     } else if (scene == "pause") {
         isPaused = true;
         pauseSelectedIdx = 0;

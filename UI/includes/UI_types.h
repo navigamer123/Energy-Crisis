@@ -4,6 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 #include "UI_textpool.h"
+#include "../../Game/includes/game_main.h"
 
 // Virtual Canvas Resolution (16:9)
 constexpr float VIRTUAL_WIDTH = 1600.0f;
@@ -51,6 +52,7 @@ struct FloatingNotice {
     float timer;
     float maxTimer;
     sf::Color color;
+    ResourceType icon = ResourceType::NONE;
 };
 
 #endif // UI_TYPES_H
